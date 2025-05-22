@@ -1,6 +1,6 @@
-# 🤖 Chatbot Municipal para WhatsApp
+# 🤖 ConversaShop - Conversa más, vende mejor
 
-Un sistema avanzado para municipalidades que permite a los ciudadanos realizar consultas, trámites y gestiones a través de WhatsApp utilizando inteligencia artificial.
+Sistema inteligente de comercio conversacional que revoluciona la experiencia de compra a través de WhatsApp. Nuestra plataforma integra inteligencia artificial avanzada para actuar como un asesor personal que guía a los clientes en tiempo real, ayudándolos a descubrir productos, resolver dudas y armar su carrito de compra de manera intuitiva y personalizada. Transforma cada conversación en una oportunidad de venta mientras brindas un servicio al cliente excepcional las 24 horas del día.
 
 ## 🌟 Características
 
