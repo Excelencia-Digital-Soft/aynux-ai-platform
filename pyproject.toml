@@ -1,0 +1,52 @@
+[tool.poetry]
+name = "bot-municipalidad"
+version = "0.1.0"
+description = "Bot para municipalidades con WhatsApp"
+authors = ["Leonardo Illanez <leonardoilla777@icloud.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.12"
+pydantic = "^2.11.4"
+pytest = "^8.3.5"
+redis = "^6.0.0"
+qrcode = "^8.2"
+pillow = "^11.2.1"
+httpx = "^0.28.1"
+pydantic-settings = "^2.9.1"
+uvicorn = "^0.34.2"
+google-generativeai = "^0.8.5"
+python-multipart = "^0.0.20"
+python-jose = "^3.4.0"
+passlib = "^1.7.4"
+email-validator = "^2.2.0"
+bcrypt = "^4.3.0"
+langchain-core = "^0.3.59"
+langchain-ollama = "^0.3.2"
+bson = "^0.5.10"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.2.0"
+isort = "^5.13.2"
+pytest = "^8.0.0"
+pytest-asyncio = "^0.23.5"
+pytest-cov = "^4.1.0"
+ruff = "^0.2.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.ruff]
+select = ["E", "F", "B", "I"]
+line-length = 88
+target-version = "py311"
