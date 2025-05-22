@@ -60,7 +60,6 @@ class ChatbotResponse(BaseModel):
         "verificar",
         "verificado",
         "tramites",
-        "consulta_deuda",
         "reclamos",
         "turnos",
         "certificados",
