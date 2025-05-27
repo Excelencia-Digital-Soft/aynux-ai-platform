@@ -48,7 +48,7 @@ def require_scopes(required_scopes: List[str]):
 async def verify_signature(
     request: Request,
     x_hub_signature_256: Optional[str] = Header(None),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_settings),  # noqa: B008
 ):
     """
     Verifica la firma de las solicitudes entrantes de WhatsApp
@@ -61,18 +61,14 @@ async def verify_signature(
         raise HTTPException(status_code=403, detail="Missing signature header")
 
     # Extraer la firma del encabezado (remover 'sha256=')
-    signature = (
-        x_hub_signature_256[7:]
-        if x_hub_signature_256.startswith("sha256=")
-        else x_hub_signature_256
-    )
+    signature = x_hub_signature_256[7:] if x_hub_signature_256.startswith("sha256=") else x_hub_signature_256
 
     # Leer el cuerpo de la solicitud
     body = await request.body()
 
     # Calcular la firma esperada
     expected_signature = hmac.new(
-        bytes(settings.APP_SECRET, "latin-1"), msg=body, digestmod=hashlib.sha256
+        bytes(settings.JWT_SECRET_KEY, "latin-1"), msg=body, digestmod=hashlib.sha256
     ).hexdigest()
 
     # Verificar si las firmas coinciden (usando comparación segura)

@@ -14,8 +14,8 @@ class WhatsAppService:
         self.settings = get_settings()
         self.base_url = self.settings.WHATSAPP_API_BASE
         self.version = self.settings.WHATSAPP_API_VERSION
-        self.phone_number_id = self.settings.PHONE_NUMBER_ID
-        self.access_token = self.settings.ACCESS_TOKEN
+        self.phone_number_id = self.settings.WHATSAPP_PHONE_NUMBER_ID
+        self.access_token = self.settings.WHATSAPP_VERIFY_TOKEN
 
     async def enviar_mensaje_texto(self, numero: str, mensaje: str) -> Dict[str, Any]:
         """
@@ -45,17 +45,13 @@ class WhatsAppService:
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    url, json=payload, headers=headers, timeout=10.0
-                )
+                response = await client.post(url, json=payload, headers=headers, timeout=10.0)
                 response.raise_for_status()
                 return response.json()
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def enviar_documento(
-        self, numero: str, archivo: bytes, nombre: str, caption: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def enviar_documento(self, numero: str, nombre: str, caption: Optional[str] = None) -> Dict[str, Any]:
         """
         Envía un documento a través de WhatsApp
 
@@ -92,9 +88,7 @@ class WhatsAppService:
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    url, json=payload, headers=headers, timeout=10.0
-                )
+                response = await client.post(url, json=payload, headers=headers, timeout=10.0)
                 response.raise_for_status()
                 return response.json()
         except Exception as e:
@@ -136,9 +130,7 @@ class WhatsAppService:
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    url, json=payload, headers=headers, timeout=10.0
-                )
+                response = await client.post(url, json=payload, headers=headers, timeout=10.0)
                 response.raise_for_status()
                 return response.json()
         except Exception as e:
@@ -195,9 +187,7 @@ class WhatsAppService:
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    url, json=payload, headers=headers, timeout=10.0
-                )
+                response = await client.post(url, json=payload, headers=headers, timeout=10.0)
                 response.raise_for_status()
                 return response.json()
         except Exception as e:
@@ -253,9 +243,7 @@ class WhatsAppService:
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    url, json=payload, headers=headers, timeout=10.0
-                )
+                response = await client.post(url, json=payload, headers=headers, timeout=10.0)
                 response.raise_for_status()
                 return response.json()
         except Exception as e:

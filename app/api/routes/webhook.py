@@ -1,23 +1,24 @@
-import hashlib
-import hmac
 import logging
-from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
-from app.api.dependencies import verify_signature
 from app.config.settings import Settings, get_settings
 from app.models.message import WhatsAppWebhookRequest
 from app.services.chatbot_service import ChatbotService
+from app.services.whatsapp_service import WhatsAppService
 
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 logger = logging.getLogger(__name__)
 chatbot_service = ChatbotService()
+whatsapp_service = WhatsAppService()
 
 
 @router.get("/")
-async def verify_webhook(request: Request, settings: Settings = Depends(get_settings)):
+async def verify_webhook(
+    request: Request,
+    settings: Settings = Depends(get_settings),  # noqa: B008
+):
     """
     Verifica el webhook para WhatsApp
 
@@ -32,21 +33,21 @@ async def verify_webhook(request: Request, settings: Settings = Depends(get_sett
 
     # Verificar que los parámetros sean correctos
     if mode and token:
-        if mode == "subscribe" and token == settings.VERIFY_TOKEN:
+        if mode == "subscribe" and token == settings.WHATSAPP_VERIFY_TOKEN:
             logger.info("WEBHOOK_VERIFIED")
             return PlainTextResponse(content=challenge)
         else:
             logger.warning("VERIFICATION_FAILED")
-            raise HTTPException(
-                status_code=403, detail="Verification failed: token mismatch"
-            )
+            raise HTTPException(status_code=403, detail="Verification failed: token mismatch")
     else:
         logger.warning("MISSING_PARAMETER")
         raise HTTPException(status_code=400, detail="Missing required parameters")
 
 
 @router.post("/")
-async def process_webhook(request: WhatsAppWebhookRequest = Body(...)):
+async def process_webhook(
+    request: WhatsAppWebhookRequest = Body(...),  # noqa: B008
+):
     """
     Procesa las notificaciones del webhook de WhatsApp
 
@@ -72,6 +73,7 @@ async def process_webhook(request: WhatsAppWebhookRequest = Body(...)):
     try:
         print("Procesando Mensaje...")
         result = await chatbot_service.procesar_mensaje(message, contact)
+
         print("Mensaje Procesado con Resultado: ", result)
         return {"status": "ok", "result": result}
     except Exception as e:

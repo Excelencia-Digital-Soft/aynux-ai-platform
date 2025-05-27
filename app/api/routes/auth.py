@@ -11,7 +11,9 @@ user_service = UserService()
 
 
 @router.post("/token", response_model=TokenResponse)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),  # noqa: B008
+):
     """
     Endpoint para obtener un token de acceso
     """
@@ -27,12 +29,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     scopes = await user_service.get_user_scopes(user.username)
 
     # Crear tokens
-    access_token = token_service.create_access_token(
-        data={"sub": user.username, "scopes": scopes}
-    )
-    refresh_token = token_service.create_refresh_token(
-        data={"sub": user.username, "scopes": scopes}
-    )
+    access_token = token_service.create_access_token(data={"sub": user.username, "scopes": scopes})
+    refresh_token = token_service.create_refresh_token(data={"sub": user.username, "scopes": scopes})
 
     return {
         "access_token": access_token,
@@ -69,12 +67,8 @@ async def refresh_access_token(refresh_request: RefreshTokenRequest):
     scopes = payload.get("scopes", [])
 
     # Crear nuevos tokens
-    access_token = token_service.create_access_token(
-        data={"sub": username, "scopes": scopes}
-    )
-    refresh_token = token_service.create_refresh_token(
-        data={"sub": username, "scopes": scopes}
-    )
+    access_token = token_service.create_access_token(data={"sub": username, "scopes": scopes})
+    refresh_token = token_service.create_refresh_token(data={"sub": username, "scopes": scopes})
 
     # Revocar el token de actualización anterior
     token_service.revoke_token(refresh_request.refresh_token)
@@ -95,12 +89,12 @@ async def register_user(user_data: UserCreate):
         user = await user_service.create_user(user_data)
         return user
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al crear usuario: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/logout")

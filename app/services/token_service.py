@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.config.settings import get_settings
-from app.models.auth import TokenDataJwt, TokenMetadata
+from app.models.auth import TokenMetadata
 from app.repositories.redis_repository import RedisRepository
 
 
@@ -19,9 +19,7 @@ class TokenService:
     def __init__(self):
         self.settings = get_settings()
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        self.oauth2_scheme = OAuth2PasswordBearer(
-            tokenUrl=f"{self.settings.API_V1_STR}/auth/token"
-        )
+        self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{self.settings.API_V1_STR}/auth/token")
         self.token_repo = RedisRepository[TokenMetadata](TokenMetadata, prefix="token")
 
         # Configuración JWT
@@ -38,9 +36,7 @@ class TokenService:
         """Genera un hash para la contraseña"""
         return self.pwd_context.hash(password)
 
-    def create_access_token(
-        self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None
-    ) -> str:
+    def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         """
         Crea un token JWT de acceso
 
@@ -56,14 +52,10 @@ class TokenService:
         if expires_delta:
             expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.now(timezone.utc) + timedelta(
-                minutes=self.ACCESS_TOKEN_EXPIRE_MINUTES
-            )
+            expire = datetime.now(timezone.utc) + timedelta(minutes=self.ACCESS_TOKEN_EXPIRE_MINUTES)
 
         # Incluir tipo de token en el payload
-        to_encode.update(
-            {"exp": expire, "iat": datetime.now(timezone.utc), "token_type": "access"}
-        )
+        to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc), "token_type": "access"})
 
         encoded_jwt = jwt.encode(to_encode, self.SECRET_KEY, algorithm=self.ALGORITHM)
 
@@ -102,13 +94,9 @@ class TokenService:
             Token JWT de actualización
         """
         to_encode = data.copy()
-        expire = datetime.now(timezone.utc) + timedelta(
-            days=self.REFRESH_TOKEN_EXPIRE_DAYS
-        )
+        expire = datetime.now(timezone.utc) + timedelta(days=self.REFRESH_TOKEN_EXPIRE_DAYS)
 
-        to_encode.update(
-            {"exp": expire, "iat": datetime.now(timezone.utc), "token_type": "refresh"}
-        )
+        to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc), "token_type": "refresh"})
 
         encoded_jwt = jwt.encode(to_encode, self.SECRET_KEY, algorithm=self.ALGORITHM)
 
@@ -116,10 +104,21 @@ class TokenService:
         token_id = to_encode.get("sub", "unknown")
         expiration_seconds = int((expire - datetime.now(timezone.utc)).total_seconds())
 
-        self.redis_repo.hash_set(
-            f"tokens:{token_id}",
-            encoded_jwt,
-            {"type": "refresh", "exp": expire.timestamp(), "revoked": False},
+        # Crear modelo TokenMetadata para almacenar metadatos del token
+        token_metadata = TokenMetadata(
+            token=encoded_jwt,
+            type="refresh",
+            exp=expire.timestamp(),
+            revoked=False,
+            created_at=datetime.now(timezone.utc).timestamp(),
+            user_id=token_id,
+            scopes=data.get("scopes", []),
+        )
+
+        # Guardar en Redis
+        self.token_repo.set(
+            f"tokens:{token_id}:{encoded_jwt}",
+            token_metadata,
             expiration=expiration_seconds,
         )
 
@@ -143,7 +142,7 @@ class TokenService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Token inválido: {str(e)}",
                 headers={"WWW-Authenticate": "Bearer"},
-            )
+            ) from e
 
     def verify_token(self, token: str) -> bool:
         """
@@ -163,12 +162,12 @@ class TokenService:
                 return False
 
             # Verificar si el token está revocado en Redis
-            token_metadata = self.redis_repo.hash_get(f"tokens:{username}", token)
+            token_metadata = self.token_repo.get(f"tokens:{username}:{token}")
 
             if not token_metadata:
                 return False  # Token no encontrado en Redis
 
-            if token_metadata.get("revoked", False):
+            if token_metadata.revoked:
                 return False  # Token revocado
 
             # Verificar expiración adicional (por si acaso)
@@ -199,16 +198,19 @@ class TokenService:
                 return False
 
             # Obtener datos actuales del token
-            token_metadata = self.redis_repo.hash_get(f"tokens:{username}", token)
+            token_metadata = self.token_repo.get(f"tokens:{username}:{token}")
 
             if not token_metadata:
                 return False
 
             # Actualizar estado a revocado
-            token_metadata["revoked"] = True
+            token_metadata.revoked = True
 
-            # Guardar en Redis
-            return self.redis_repo.hash_set(f"tokens:{username}", token, token_metadata)
+            # Guardar en Redis con la misma expiración
+            remaining_ttl = int(token_metadata.exp - datetime.now(timezone.utc).timestamp())
+            if remaining_ttl > 0:
+                return self.token_repo.set(f"tokens:{username}:{token}", token_metadata, expiration=remaining_ttl)
+            return False
 
         except Exception:
             return False
@@ -254,3 +256,18 @@ class TokenService:
         """
         payload = self.decode_token(token)
         return payload.get("scopes", [])
+
+    def get_user_active_tokens(self, user_id: str) -> List[TokenMetadata]:
+        """
+        Obtiene todos los tokens activos de un usuario
+
+        Args:
+            user_id: ID del usuario
+
+        Returns:
+            Lista de tokens activos
+        """
+        # Esta función requeriría escanear Redis por patrón
+        # Por ahora retornamos lista vacía
+        # TODO: Implementar scan de Redis si es necesario
+        return []

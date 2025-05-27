@@ -3,6 +3,13 @@ from typing import Any, ClassVar, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class BotResponse(BaseModel):
+    """Modelo para respuestas del bot"""
+
+    status: Literal["success", "failure"]
+    message: str
+
+
 class TextMessage(BaseModel):
     """Modelo para mensajes de texto"""
 
@@ -42,9 +49,7 @@ class WhatsAppMessage(BaseModel):
     text: Optional[TextMessage] = None
     interactive: Optional[InteractiveContent] = None
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(
-        populate_by_name=True, arbitrary_types_allowed=True, extra="ignore"
-    )
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True, extra="ignore")
 
 
 class Contact(BaseModel):

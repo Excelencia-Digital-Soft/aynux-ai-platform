@@ -1,4 +1,3 @@
-from functools import lru_cache
 from typing import Any, Optional
 
 from pydantic import Field
@@ -18,39 +17,12 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
 
     # WhatsApp API settings
-    ACCESS_TOKEN: str = Field(
-        ..., description="Token de acceso para la API de WhatsApp"
-    )
-    PHONE_NUMBER_ID: str = Field(
-        ..., description="ID del número de teléfono de WhatsApp"
-    )
-    APP_ID: str = Field(..., description="ID de la aplicación de Facebook")
-    APP_SECRET: str = Field(..., description="Secreto de la aplicación de Facebook")
-    VERIFY_TOKEN: str = Field(
-        ..., description="Token de verificación para el webhook de WhatsApp"
-    )
-    WHATSAPP_API_VERSION: str = Field(
-        "v18.0", description="Versión de la API de WhatsApp"
-    )
-
-    # API Base URLs
-    MUNICIPIO_API_BASE: str = Field(
-        "https://excelencia.myiphost.com:86/apimunicipios/api/v1",
-        description="URL base para la API de Municipalidades",
-    )
-    MUNICIPIO_API_KEY: str = Field(
-        ..., description="API Key para la API de Municipalidades"
-    )
-    # Credenciales para autenticación en la API de Municipalidades
-    MUNICIPIO_API_USERNAME: str = Field(
-        "excelencia", description="Usuario para la API de Municipalidades"
-    )
-    MUNICIPIO_API_PASSWORD: str = Field(
-        "Password123!", description="Contraseña para la API de Municipalidades"
-    )
-    WHATSAPP_API_BASE: str = Field(
-        "https://graph.facebook.com", description="URL base para la API de WhatsApp"
-    )
+    WHATSAPP_API_BASE: str = Field("https://graph.facebook.com", description="URL base para la API de WhatsApp")
+    WHATSAPP_API_VERSION: str = Field("v22.0", description="Versión de la API de WhatsApp")
+    WHATSAPP_PHONE_NUMBER_ID: str = Field(..., description="ID del número de teléfono de WhatsApp")
+    WHATSAPP_VERIFY_TOKEN: str = Field(..., description="Token de verificación para el webhook de WhatsApp")
+    META_APP_ID: str = Field(..., description="ID de la aplicación de Facebook")
+    META_APP_SECRET: str = Field(..., description="Secreto de la aplicación de Facebook")
 
     # Redis Settings
     REDIS_HOST: str = Field("localhost", description="Host de Redis")
@@ -63,12 +35,8 @@ class Settings(BaseSettings):
 
     # JWT Settings
     JWT_SECRET_KEY: str = Field(..., description="Clave secreta para JWT")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        30, description="Tiempo de expiración del token de acceso en minutos"
-    )
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
-        7, description="Tiempo de expiración del token de actualización en días"
-    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, description="Tiempo de expiración del token de acceso en minutos")
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(7, description="Tiempo de expiración del token de actualización en días")
 
     # Application Settings
     DEBUG: bool = Field(False, description="Modo de depuración")

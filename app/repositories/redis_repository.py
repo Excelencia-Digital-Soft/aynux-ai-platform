@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 import redis
 from pydantic import BaseModel
@@ -47,16 +47,13 @@ class RedisRepository(Generic[T]):
                 # Verificamos que la conexión funciona
                 self.redis_client.ping()
                 logger.info(
-                    "Conexión a Redis establecida correctamente:"
-                    f"{self.settings.REDIS_HOST}:{self.settings.REDIS_PORT}"
+                    f"Conexión a Redis establecida correctamente:{self.settings.REDIS_HOST}:{self.settings.REDIS_PORT}"
                 )
                 return
             except (ConnectionError, TimeoutError) as e:
                 retries += 1
                 last_error = e
-                logger.warning(
-                    f"Intento {retries}/{max_retries} de conexión a Redis fallido: {e}"
-                )
+                logger.warning(f"Intento {retries}/{max_retries} de conexión a Redis fallido: {e}")
                 if retries < max_retries:
                     time.sleep(retry_delay)
             except Exception as e:
@@ -64,10 +61,7 @@ class RedisRepository(Generic[T]):
                 last_error = e
                 break
 
-        logger.error(
-            "No se pudo establecer conexión con Redis"
-            f"después de {max_retries} intentos: {last_error}"
-        )
+        logger.error(f"No se pudo establecer conexión con Redisdespués de {max_retries} intentos: {last_error}")
         # Configurar un cliente dummy que maneje las operaciones sin fallar
         self.redis_client = DummyRedisClient()
 
@@ -100,11 +94,7 @@ class RedisRepository(Generic[T]):
                 return None
 
             # Para depuración, imprimir parte de los datos (evitar datos muy largos)
-            truncated_data = (
-                data[:100] + "..."
-                if isinstance(data, str) and len(data) > 100
-                else data
-            )
+            truncated_data = data[:100] + "..." if isinstance(data, str) and len(data) > 100 else data
             logger.debug(f"Deserializando datos: {truncated_data}")
 
             # Si el modelo esperado es un diccionario
@@ -124,16 +114,10 @@ class RedisRepository(Generic[T]):
                 else:
                     # Si ya es un diccionario
                     result = self.model_class.model_validate(data)
-                    logger.debug(
-                        "Datos deserializados directamente a"
-                        f"{self.model_class.__name__}"
-                    )
+                    logger.debug(f"Datos deserializados directamente a{self.model_class.__name__}")
                     return result
             except Exception as pydantic_error:
-                logger.error(
-                    "Error al validar datos para "
-                    f"{self.model_class.__name__}: {str(pydantic_error)}"
-                )
+                logger.error(f"Error al validar datos para {self.model_class.__name__}: {str(pydantic_error)}")
                 # Podríamos intentar una recuperación aquí si lo deseas
                 return None
         except Exception as e:
@@ -147,9 +131,6 @@ class RedisRepository(Generic[T]):
             if hasattr(value, "model_dump") and callable(value.model_dump):
                 # Pydantic v2
                 serialized = json.dumps(value.model_dump())
-            elif hasattr(value, "dict") and callable(value.dict):
-                # Pydantic v1 (compatibilidad)
-                serialized = json.dumps(value.dict())
             elif isinstance(value, dict):
                 # Simple diccionario
                 serialized = json.dumps(value)
@@ -165,9 +146,7 @@ class RedisRepository(Generic[T]):
             logger.error(f"Error al guardar en Redis: {e}")
             return False
 
-    def set_if_not_exists(
-        self, key: str, value: Any, expiration: Optional[int] = None
-    ) -> bool:
+    def set_if_not_exists(self, key: str, value: Any, expiration: Optional[int] = None) -> bool:
         """
         Almacena un valor solo si la clave no existe (NX)
 
@@ -186,9 +165,7 @@ class RedisRepository(Generic[T]):
             value = json.dumps(value)
 
         # Usar NX para establecer solo si no existe
-        result = self.redis_client.set(
-            self._get_key(key), value, ex=expiration, nx=True
-        )
+        result = self.redis_client.set(self._get_key(key), value, ex=expiration, nx=True)
 
         return bool(result)
 
@@ -200,9 +177,7 @@ class RedisRepository(Generic[T]):
         """Verifica si existe una clave"""
         return bool(self.redis_client.exists(self._get_key(key)))
 
-    def hash_set(
-        self, key: str, field: str, value: Any, expiration: Optional[int] = None
-    ) -> bool:
+    def hash_set(self, key: str, field: str, value: Any, expiration: Optional[int] = None) -> bool:
         """Almacena un campo en un hash"""
         if isinstance(value, BaseModel):
             value = value.model_dump_json()
@@ -245,30 +220,3 @@ class RedisRepository(Generic[T]):
         """Elimina un campo de un hash"""
         return bool(self.redis_client.hdel(self._get_key(key), field))
 
-    def save_conversation_history(
-        self,
-        user_id: str,
-        role: str,
-        content: str,
-        max_messages: int = 10,
-        expiration: int = 3600,
-    ) -> None:
-        """
-        Guarda un mensaje en el historial de conversación.
-        Mantiene solo los últimos max_messages mensajes.
-        """
-        key = f"conversation:{user_id}"
-        # Añadir el mensaje al final de la lista
-        self.redis_client.rpush(key, json.dumps({"role": role, "content": content}))  # type: ignore
-
-        # Mantener solo los últimos max_messages
-        self.redis_client.ltrim(key, -max_messages, -1)  # type: ignore
-
-        # Establecer expiración
-        self.redis_client.expire(key, expiration)  # type: ignore
-
-    def get_conversation_history(self, user_id: str) -> List[Dict[str, str]]:
-        """Obtiene el historial de conversación de un usuario"""
-        key = f"conversation:{user_id}"
-        messages = self.redis_client.lrange(key, 0, -1)  # type: ignore
-        return [json.loads(msg) for msg in messages]  # type: ignore
