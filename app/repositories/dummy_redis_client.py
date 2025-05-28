@@ -15,7 +15,7 @@ class DummyRedisClient:
         return self.local_storage.get(key)
 
     def set(self, key, value, ex=None, nx=False):
-        logger.debug(f"DummyRedis: set {key}")
+        logger.debug(f"DummyRedis: set {key}, {ex}")
         if nx and key in self.local_storage:
             return False
         self.local_storage[key] = value

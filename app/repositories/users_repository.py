@@ -2,8 +2,8 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from app.models.ciudadano import User, UserState
 from app.models.session import UserSession
+from app.models.user import User, UserState
 from app.repositories.redis_repository import RedisRepository
 
 # Definición del tiempo de expiración de sesión (1 hora)
@@ -33,9 +33,7 @@ class CiudadanoRepository:
             self.logger.error(f"Error al obtener usuario {phone_number}: {str(e)}")
             return None
 
-    def create_user(
-        self, phone_number: str, id_ciudadano: Optional[str] = None
-    ) -> User:
+    def create_user(self, phone_number: str, id_ciudadano: Optional[str] = None) -> User:
         """
         Crea un nuevo usuario
         """
@@ -49,13 +47,9 @@ class CiudadanoRepository:
                     last_interaction=datetime.now(),
                 ),
             )
-            success = self.redis_repo.set(
-                phone_number, user, expiration=SESSION_EXPIRATION
-            )
+            success = self.redis_repo.set(phone_number, user, expiration=SESSION_EXPIRATION)
             if not success:
-                self.logger.warning(
-                    f"No se pudo guardar el usuario {phone_number} en Redis"
-                )
+                self.logger.warning(f"No se pudo guardar el usuario {phone_number} en Redis")
             return user
         except Exception as e:
             self.logger.error(f"Error al crear usuario {phone_number}: {str(e)}")
@@ -71,14 +65,10 @@ class CiudadanoRepository:
             if user:
                 user.state.state = state  # type: ignore
                 user.state.last_interaction = datetime.now()
-                return self.redis_repo.set(
-                    phone_number, user, expiration=SESSION_EXPIRATION
-                )
+                return self.redis_repo.set(phone_number, user, expiration=SESSION_EXPIRATION)
             return False
         except Exception as e:
-            self.logger.error(
-                f"Error al actualizar estado del usuario {phone_number}: {str(e)}"
-            )
+            self.logger.error(f"Error al actualizar estado del usuario {phone_number}: {str(e)}")
             return False
 
     def update_user(
@@ -99,9 +89,7 @@ class CiudadanoRepository:
                 if id_ciudadano:
                     user.state.id_ciudadano = id_ciudadano
                 user.state.last_interaction = datetime.now()
-                return self.redis_repo.set(
-                    phone_number, user, expiration=SESSION_EXPIRATION
-                )
+                return self.redis_repo.set(phone_number, user, expiration=SESSION_EXPIRATION)
             return False
         except Exception as e:
             self.logger.error(f"Error al actualizar usuario {phone_number}: {str(e)}")
@@ -138,13 +126,9 @@ class CiudadanoRepository:
             # Convertir value a un dict si no lo es
             data = value if isinstance(value, dict) else {"value": value}
             session.set_item(key, data)
-            return self.session_repo.set(
-                phone_number, session, expiration=SESSION_EXPIRATION
-            )
+            return self.session_repo.set(phone_number, session, expiration=SESSION_EXPIRATION)
         except Exception as e:
-            self.logger.error(
-                f"Error al establecer sesión para {phone_number}: {str(e)}"
-            )
+            self.logger.error(f"Error al establecer sesión para {phone_number}: {str(e)}")
             return False
 
     def get_user_session(self, phone_number: str) -> Dict[str, Any]:
@@ -177,14 +161,10 @@ class CiudadanoRepository:
 
             return session.get_item(key)
         except Exception as e:
-            self.logger.error(
-                f"Error al obtener elemento de sesión para {phone_number}: {str(e)}"
-            )
+            self.logger.error(f"Error al obtener elemento de sesión para {phone_number}: {str(e)}")
             return None
 
-    def update_user_session(
-        self, phone_number: str, session_key: str, new_data: Dict[str, Any]
-    ) -> bool:
+    def update_user_session(self, phone_number: str, session_key: str, new_data: Dict[str, Any]) -> bool:
         """
         Actualiza datos específicos en la sesión del usuario
         """
@@ -205,13 +185,9 @@ class CiudadanoRepository:
             session.set_item(session_key, updated_data)
 
             # Guardar la sesión
-            return self.session_repo.set(
-                phone_number, session, expiration=SESSION_EXPIRATION
-            )
+            return self.session_repo.set(phone_number, session, expiration=SESSION_EXPIRATION)
         except Exception as e:
-            self.logger.error(
-                f"Error al actualizar sesión para {phone_number}: {str(e)}"
-            )
+            self.logger.error(f"Error al actualizar sesión para {phone_number}: {str(e)}")
             return False
 
     def delete_session_item(self, phone_number: str, key: str) -> bool:
@@ -226,15 +202,11 @@ class CiudadanoRepository:
             result = session.delete_item(key)
             if result:
                 # Solo guardamos si se eliminó algo
-                self.session_repo.set(
-                    phone_number, session, expiration=SESSION_EXPIRATION
-                )
+                self.session_repo.set(phone_number, session, expiration=SESSION_EXPIRATION)
 
             return result
         except Exception as e:
-            self.logger.error(
-                f"Error al eliminar elemento de sesión para {phone_number}: {str(e)}"
-            )
+            self.logger.error(f"Error al eliminar elemento de sesión para {phone_number}: {str(e)}")
             return False
 
     def delete_user_session(self, phone_number: str) -> bool:

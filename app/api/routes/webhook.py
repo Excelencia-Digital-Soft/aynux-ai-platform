@@ -4,11 +4,11 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from app.config.settings import Settings, get_settings
-from app.models.message import WhatsAppWebhookRequest
+from app.models.message import BotResponse, WhatsAppWebhookRequest
 from app.services.chatbot_service import ChatbotService
 from app.services.whatsapp_service import WhatsAppService
 
-router = APIRouter(prefix="/webhook", tags=["webhook"])
+router = APIRouter(tags=["webhook"])
 logger = logging.getLogger(__name__)
 chatbot_service = ChatbotService()
 whatsapp_service = WhatsAppService()
@@ -72,8 +72,8 @@ async def process_webhook(
     # Procesar el mensaje con el servicio chatbot
     try:
         print("Procesando Mensaje...")
-        result = await chatbot_service.procesar_mensaje(message, contact)
-
+        result: BotResponse = await chatbot_service.procesar_mensaje(message, contact)
+        await whatsapp_service.enviar_mensaje_texto(contact.wa_id, result.message)
         print("Mensaje Procesado con Resultado: ", result)
         return {"status": "ok", "result": result}
     except Exception as e:

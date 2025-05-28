@@ -270,4 +270,5 @@ class TokenService:
         # Esta función requeriría escanear Redis por patrón
         # Por ahora retornamos lista vacía
         # TODO: Implementar scan de Redis si es necesario
+        print(f"User {user_id} active tokens: []")
         return []

@@ -130,13 +130,13 @@ class RedisRepository(Generic[T]):
             # Si es un modelo de Pydantic o un diccionario
             if hasattr(value, "model_dump") and callable(value.model_dump):
                 # Pydantic v2
-                serialized = json.dumps(value.model_dump())
+                serialized = json.dumps(value.model_dump(mode="json"), default=lambda dt: dt.isoformat())
             elif isinstance(value, dict):
                 # Simple diccionario
-                serialized = json.dumps(value)
+                serialized = json.dumps(value, default=lambda dt: dt.isoformat())
             else:
                 # Otro tipo de valor
-                serialized = json.dumps(value)
+                serialized = json.dumps(value, default=lambda dt: dt.isoformat())
 
             result = self.redis_client.set(self._get_key(key), serialized)
             if expiration:
@@ -219,4 +219,3 @@ class RedisRepository(Generic[T]):
     def hash_delete(self, key: str, field: str) -> bool:
         """Elimina un campo de un hash"""
         return bool(self.redis_client.hdel(self._get_key(key), field))
-

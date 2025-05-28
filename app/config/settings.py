@@ -24,14 +24,34 @@ class Settings(BaseSettings):
     META_APP_ID: str = Field(..., description="ID de la aplicación de Facebook")
     META_APP_SECRET: str = Field(..., description="Secreto de la aplicación de Facebook")
 
+    # PostgreSQL Database Settings
+    DB_HOST: str = Field("localhost", description="Host de PostgreSQL")
+    DB_PORT: int = Field(5432, description="Puerto de PostgreSQL")
+    DB_NAME: str = Field("it_sales_bot", description="Nombre de la base de datos")
+    DB_USER: str = Field("postgres", description="Usuario de PostgreSQL")
+    DB_PASSWORD: str = Field(..., description="Contraseña de PostgreSQL")
+    DB_ECHO: bool = Field(False, description="Log SQL queries (solo para debug)")
+
+    # Database connection pool settings
+    DB_POOL_SIZE: int = Field(20, description="Tamaño del pool de conexiones")
+    DB_MAX_OVERFLOW: int = Field(30, description="Máximo overflow del pool")
+    DB_POOL_RECYCLE: int = Field(3600, description="Reciclar conexiones cada X segundos")
+
     # Redis Settings
     REDIS_HOST: str = Field("localhost", description="Host de Redis")
     REDIS_PORT: int = Field(6379, description="Puerto de Redis")
     REDIS_DB: int = Field(0, description="Base de datos de Redis")
     REDIS_PASSWORD: Optional[str] = Field(None, description="Contraseña de Redis")
 
+    # File Upload Settings
+    MAX_FILE_SIZE: int = Field(10 * 1024 * 1024, description="Tamaño máximo de archivo en bytes (10MB)")
+    ALLOWED_EXTENSIONS: list = Field(
+        default=["jpg", "jpeg", "png", "pdf", "doc", "docx"], description="Extensiones de archivo permitidas"
+    )
+
     # AI Service Settings
     OLLAMA_API_MODEL: str = Field("llama3.1", description="Modelo de ollama a usar")
+    OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
 
     # JWT Settings
     JWT_SECRET_KEY: str = Field(..., description="Clave secreta para JWT")
@@ -52,11 +72,29 @@ class Settings(BaseSettings):
     def __init__(self, **data: Any):
         super().__init__(**data)
 
+    @property
+    def database_url(self) -> str:
+        """Construye la URL de conexión a PostgreSQL"""
+        return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
-# @lru_cache()
+    @property
+    def redis_url(self) -> str:
+        """Construye la URL de conexión a Redis"""
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+
+# Singleton para configuración
+_settings_instance = None
+
+
 def get_settings() -> Settings:
     """
     Retorna una instancia cacheada de la configuración.
     Esto evita cargar las variables de entorno múltiples veces.
     """
-    return Settings()
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = Settings()
+    return _settings_instance
