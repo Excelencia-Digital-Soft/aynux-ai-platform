@@ -1,12 +1,13 @@
 import logging
 from contextlib import contextmanager
 from typing import Generator, Optional
+from urllib.parse import quote_plus
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, QueuePool
 
 from app.config.settings import get_settings
 from app.models.database import Brand, Category, Conversation, Customer, Product
@@ -20,54 +21,88 @@ settings = get_settings()
 # URL de conexión con mejor manejo de errores
 def get_database_url() -> str:
     """Construye la URL de la base de datos con validación (password opcional)"""
-    print(f"--> Settings DB_HOST: {settings.DB_HOST}")
-    print(f"--> Settings DB_USER: {settings.DB_USER}")
-    print(f"--> Settings DB_PASSWORD: {'***' if settings.DB_PASSWORD else 'None'}")
-    print(f"--> Settings DB_NAME: {settings.DB_NAME}")
+    # Valores requeridos
+    host = settings.DB_HOST or "localhost"
+    port = settings.DB_PORT or 5432
+    user = settings.DB_USER or "postgres"
+    database = settings.DB_NAME
+    password = settings.DB_PASSWORD
 
-    # Validar solo los campos obligatorios (password es opcional)
-    required_vars = [settings.DB_HOST, settings.DB_USER, settings.DB_NAME]
-    if not all(var for var in required_vars):
-        raise ValueError("Missing required database configuration (host, user, database)")
+    print("--> DB Connection Config:")
+    print(f"    Host: {host}")
+    print(f"    Port: {port}")
+    print(f"    User: {user}")
+    print(f"    Database: {database}")
+    print(f"    Password: {'Set' if password else 'None'}")
 
-    # Construir URL con o sin password
-    if settings.DB_PASSWORD:
-        # Con password
-        url = (
-            f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}"
-            f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-        )
+    # Validar database name (obligatorio)
+    if not database:
+        raise ValueError("Database name is required (DB_NAME)")
+
+    # Escapar caracteres especiales en credenciales
+    encoded_user = quote_plus(user)
+
+    # Construir URL según si hay password o no
+    if password:
+        encoded_password = quote_plus(password)
+        url = f"postgresql://{encoded_user}:{encoded_password}@{host}:{port}/{database}"
     else:
-        # Sin password
-        url = f"postgresql://{settings.DB_USER}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-
-    print(f"--> Database URL: {url.replace(settings.DB_PASSWORD or '', '***')}")
+        url = f"postgresql://{encoded_user}@{host}:{port}/{database}"
     return url
 
 
-# Engine con configuración optimizada para PostgreSQL
-try:
-    DATABASE_URL = get_database_url()
-    engine = create_engine(
-        DATABASE_URL,
-        pool_size=settings.DB_POOL_SIZE,
-        max_overflow=settings.DB_MAX_OVERFLOW,
-        pool_pre_ping=True,
-        pool_recycle=settings.DB_POOL_RECYCLE,
-        echo=settings.DB_ECHO,
-        future=True,
-        # Para desarrollo, usar NullPool para evitar problemas de conexión
-        poolclass=NullPool if settings.DEBUG else None,
-    )
+def create_database_engine():
+    """Crea el engine de base de datos con configuración optimizada"""
+    try:
+        database_url = get_database_url()
 
-    # Test de conexión
-    @event.listens_for(Engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
+        # Configuración base común
+        base_config = {
+            "echo": settings.DB_ECHO,
+            "future": True,
+            "pool_pre_ping": True,
+        }
+
+        # Configuración específica según el entorno
         if settings.DEBUG:
-            logger.info("Database connection established")
+            # Para desarrollo: usar NullPool (sin pooling)
+            logger.info("Creating database engine for DEVELOPMENT (NullPool)")
+            engine_config = {
+                **base_config,
+                "poolclass": NullPool,
+                # NullPool no acepta parámetros de pool
+            }
+        else:
+            # Para producción: usar pool completo
+            logger.info("Creating database engine for PRODUCTION (QueuePool)")
+            engine_config = {
+                **base_config,
+                "poolclass": QueuePool,
+                "pool_size": settings.DB_POOL_SIZE,
+                "max_overflow": settings.DB_MAX_OVERFLOW,
+                "pool_recycle": settings.DB_POOL_RECYCLE,
+                "pool_timeout": 30,  # Timeout para obtener conexión del pool
+            }
 
+        engine = create_engine(database_url, **engine_config)
+
+        # Test de conexión inicial
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            logger.info("Database engine created and tested successfully")
+
+        return engine
+
+    except Exception as e:
+        logger.error(f"Failed to create database engine: {e}")
+        raise
+
+
+# Crear el engine
+try:
+    engine = create_database_engine()
 except Exception as e:
-    logger.error(f"Failed to create database engine: {e}")
+    logger.error(f"Database initialization failed: {e}")
     raise
 
 # Session maker
@@ -116,7 +151,7 @@ async def init_db():
     try:
         # Test de conexión primero
         with get_db_context() as db:
-            db.execute("SELECT 1")
+            db.execute(text("SELECT 1"))
             logger.info("Database connection test successful")
 
         # Crear tablas
@@ -134,8 +169,8 @@ async def check_db_connection() -> bool:
     """Verifica la conexión a la base de datos"""
     try:
         with get_db_context() as db:
-            result = db.execute("SELECT 1").scalar()
-            logger.info("Database connection check: OK = ", result)
+            result = db.execute(text("SELECT 1")).scalar()
+            logger.info(f"Database connection check: OK = {result}")
             return True
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
@@ -154,10 +189,12 @@ class DatabaseManager:
     async def create_tables(self):
         """Crea todas las tablas"""
         Base.metadata.create_all(bind=self.engine)
+        logger.info("All database tables created")
 
     async def drop_tables(self):
         """Elimina todas las tablas (¡CUIDADO!)"""
         Base.metadata.drop_all(bind=self.engine)
+        logger.warning("All database tables dropped")
 
     async def backup_data(self, table_name: Optional[str] = None):
         """Crea backup de datos (implementar según necesidades)"""
@@ -169,13 +206,13 @@ class DatabaseManager:
         """Obtiene estadísticas de las tablas"""
         with get_db_context() as db:
             stats = {}
-
             models = [Product, Customer, Conversation, Brand, Category]
 
             for model in models:
                 try:
                     count = db.query(model).count()
                     stats[model.__tablename__] = count
+                    logger.debug(f"Table {model.__tablename__}: {count} records")
                 except Exception as e:
                     logger.error(f"Error getting stats for {model.__tablename__}: {e}")
                     stats[model.__tablename__] = 0
@@ -183,8 +220,35 @@ class DatabaseManager:
             return stats
 
 
+# Event listeners para logging y debugging
+@event.listens_for(Engine, "connect")
+def set_postgres_pragma(dbapi_connection, connection_record):
+    """Configuraciones específicas de PostgreSQL al conectar"""
+    if settings.DEBUG:
+        logger.debug(f"New PostgreSQL connection established - {connection_record.info} - db={dbapi_connection}")
+
+
+@event.listens_for(Engine, "checkout")
+def receive_checkout(dbapi_connection, connection_record, connection_proxy):
+    """Log cuando se obtiene una conexión del pool"""
+    if settings.DEBUG:
+        logger.debug(
+            f"Connection checked out from pool {dbapi_connection} - {connection_record.info} - {connection_proxy}"
+        )
+
+
+@event.listens_for(Engine, "checkin")
+def receive_checkin(dbapi_connection, connection_record):
+    """Log cuando se devuelve una conexión al pool"""
+    if settings.DEBUG:
+        logger.debug(f"Connection checked in to pool - {dbapi_connection} - {connection_record}")
+
+
 # Configuración de logging para SQLAlchemy
 if settings.DEBUG:
     logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-    logging.getLogger("sqlalchemy.dialects").setLevel(logging.DEBUG)
     logging.getLogger("sqlalchemy.pool").setLevel(logging.DEBUG)
+else:
+    # En producción, solo errores
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)

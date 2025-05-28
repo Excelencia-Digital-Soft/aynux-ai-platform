@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,15 +27,16 @@ class Settings(BaseSettings):
     # PostgreSQL Database Settings
     DB_HOST: str = Field("localhost", description="Host de PostgreSQL")
     DB_PORT: int = Field(5432, description="Puerto de PostgreSQL")
-    DB_NAME: str = Field("it_sales_bot", description="Nombre de la base de datos")
-    DB_USER: str = Field("postgres", description="Usuario de PostgreSQL")
-    DB_PASSWORD: str = Field(..., description="Contraseña de PostgreSQL")
+    DB_NAME: str = Field("conversashop", description="Nombre de la base de datos")
+    DB_USER: str = Field("enzo", description="Usuario de PostgreSQL")
+    DB_PASSWORD: Optional[str] = Field(None, description="Contraseña de PostgreSQL")
     DB_ECHO: bool = Field(False, description="Log SQL queries (solo para debug)")
 
     # Database connection pool settings
     DB_POOL_SIZE: int = Field(20, description="Tamaño del pool de conexiones")
     DB_MAX_OVERFLOW: int = Field(30, description="Máximo overflow del pool")
     DB_POOL_RECYCLE: int = Field(3600, description="Reciclar conexiones cada X segundos")
+    DB_POOL_TIMEOUT: int = Field(30, description="Timeout para obtener conexión del pool")
 
     # Redis Settings
     REDIS_HOST: str = Field("localhost", description="Host de Redis")
@@ -79,6 +80,25 @@ class Settings(BaseSettings):
             return [ext.strip() for ext in value.split(",")]
         return value
 
+    @field_validator("DB_POOL_SIZE")
+    @classmethod
+    def validate_pool_size(cls, v):
+        if v < 1:
+            raise ValueError("DB_POOL_SIZE must be at least 1")
+        if v > 100:
+            raise ValueError("DB_POOL_SIZE should not exceed 100")
+        return v
+
+    @field_validator("DB_MAX_OVERFLOW")
+    @classmethod
+    def validate_max_overflow(cls, v):
+        if v < 0:
+            raise ValueError("DB_MAX_OVERFLOW must be 0 or greater")
+        if v > 200:
+            raise ValueError("DB_MAX_OVERFLOW should not exceed 200")
+        return v
+
+    @computed_field
     @property
     def database_url(self) -> str:
         """Construye la URL de conexión a PostgreSQL"""
@@ -86,12 +106,46 @@ class Settings(BaseSettings):
             return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         return f"postgresql://{self.DB_USER}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
+    @computed_field
     @property
     def redis_url(self) -> str:
         """Construye la URL de conexión a Redis"""
         if self.REDIS_PASSWORD:
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+    @computed_field
+    @property
+    def is_development(self) -> bool:
+        """Determina si está en modo desarrollo"""
+        return self.DEBUG or self.ENVIRONMENT.lower() in ["development", "dev", "local"]
+
+    @computed_field
+    @property
+    def database_config(self) -> dict:
+        """Configuración optimizada para la base de datos según el entorno"""
+        base_config = {
+            "echo": self.DB_ECHO,
+            "future": True,
+            "pool_pre_ping": True,
+        }
+
+        if self.is_development:
+            # Configuración para desarrollo
+            return {
+                **base_config,
+                "poolclass": "NullPool",
+            }
+        else:
+            # Configuración para producción
+            return {
+                **base_config,
+                "poolclass": "QueuePool",
+                "pool_size": self.DB_POOL_SIZE,
+                "max_overflow": self.DB_MAX_OVERFLOW,
+                "pool_recycle": self.DB_POOL_RECYCLE,
+                "pool_timeout": self.DB_POOL_TIMEOUT,
+            }
 
 
 # Singleton para configuración
