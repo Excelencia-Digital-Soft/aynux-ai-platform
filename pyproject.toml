@@ -25,6 +25,8 @@ bcrypt = "^4.3.0"
 langchain-core = "^0.3.59"
 langchain-ollama = "^0.3.2"
 bson = "^0.5.10"
+sqlalchemy = "^2.0.41"
+psycopg2-binary = "^2.9.10"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"
@@ -50,3 +52,12 @@ line_length = 120
 select = ["E", "F", "B", "I"]
 line-length = 120
 target-version = "py311"
+
+[tool.pyright]
+reportUnnecessaryTypeIgnoreComment = false
+reportOptionalMemberAccess = false
+reportCallIssue = false
+reportArgumentType = false
+# Ignorar solo en archivos específicos
+include = ["app/**"]
+exclude = ["**/__pycache__"]

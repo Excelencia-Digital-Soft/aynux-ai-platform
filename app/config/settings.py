@@ -1,7 +1,7 @@
 from typing import Any, Optional
 
-from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # File Upload Settings
     MAX_FILE_SIZE: int = Field(10 * 1024 * 1024, description="Tamaño máximo de archivo en bytes (10MB)")
-    ALLOWED_EXTENSIONS: list = Field(
+    ALLOWED_EXTENSIONS: list[str] = Field(
         default=["jpg", "jpeg", "png", "pdf", "doc", "docx"], description="Extensiones de archivo permitidas"
     )
 
@@ -62,20 +62,29 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(False, description="Modo de depuración")
     ENVIRONMENT: str = Field("production", description="Entorno de ejecución")
 
-    model_config = {
-        "case_sensitive": True,
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "extra": "ignore",  # Ignorar campos extras en lugar de generar un error
-    }
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # Ignorar campos extras en lugar de generar un error
+    )
 
     def __init__(self, **data: Any):
         super().__init__(**data)
 
+    @field_validator("ALLOWED_EXTENSIONS", mode="before")
+    @classmethod
+    def parse_allowed_extensions(cls, value):
+        if isinstance(value, str):
+            return [ext.strip() for ext in value.split(",")]
+        return value
+
     @property
     def database_url(self) -> str:
         """Construye la URL de conexión a PostgreSQL"""
-        return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        if self.DB_PASSWORD:
+            return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        return f"postgresql://{self.DB_USER}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     @property
     def redis_url(self) -> str:

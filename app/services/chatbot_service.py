@@ -1,11 +1,11 @@
 import logging
 import re
 import traceback
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from app.config.settings import get_settings
 from app.models.conversation import ConversationHistory
-from app.models.database import Customer
+from app.models.database import Customer, Product
 from app.models.message import BotResponse, Contact, WhatsAppMessage
 from app.repositories.redis_repository import RedisRepository
 from app.services.ai_service import AIService
@@ -254,7 +254,7 @@ class ChatbotService:
                 subcategory = "budget"
 
             # Obtener laptops de la base de datos
-            laptops = await self.product_service.get_products_by_category(
+            laptops: List[Product] = await self.product_service.get_products_by_category(
                 category_name="laptops", subcategory_name=subcategory, limit=5
             )
 
@@ -266,7 +266,7 @@ class ChatbotService:
             response = f"💻 **Laptops {category_name}:**\n\n"
 
             for laptop in laptops:
-                stock_emoji = "✅" if laptop.stock > 5 else "⚠️" if laptop.stock > 0 else "❌"
+                stock_emoji = "✅" if laptop["stock"] > 5 else "⚠️" if laptop["stock"] > 0 else "❌"
                 response += f"{stock_emoji} **{laptop.name}**\n"
                 response += f"   📋 {laptop.specs}\n"
                 response += f"   💰 ${laptop.price:,.0f}\n"

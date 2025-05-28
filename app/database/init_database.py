@@ -540,7 +540,7 @@ async def create_sample_promotions():
                 db.add(promotion)
 
                 # Asociar productos gaming con la primera promoción
-                if promotion.name.name == "Combo Gaming Completo" and len(gaming_products) > 0:
+                if promo_data["name"] == "Combo Gaming Completo" and len(gaming_products) > 0:
                     promotion.products.extend(gaming_products[:2])
 
                 promotions.append(promotion)

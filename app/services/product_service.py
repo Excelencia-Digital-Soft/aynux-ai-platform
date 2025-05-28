@@ -292,8 +292,8 @@ class ProductService:
 
                 previous_stock = product.stock
                 # Use setattr for SQLAlchemy models
-                setattr(product, 'stock', new_stock)
-                setattr(product, 'updated_at', datetime.now(timezone.utc))
+                product["stock"] = new_stock
+                product["updated_at"] = datetime.now(timezone.utc)
 
                 # Registrar movimiento de stock
                 movement = StockMovement(
@@ -334,8 +334,8 @@ class ProductService:
                 db.add(price_history)
 
                 # Actualizar precio
-                setattr(product, 'price', new_price)
-                setattr(product, 'updated_at', datetime.now(timezone.utc))
+                product["price"] = new_price
+                product["updated_at"] = datetime.now(timezone.utc)
 
                 db.commit()
                 logger.info(f"Price updated for product {product.name}: ${product.price} -> ${new_price}")
@@ -477,10 +477,10 @@ class CustomerService:
                     logger.info(f"New customer created: {phone_number}")
                 else:
                     # Actualizar último contacto
-                    setattr(customer, 'last_contact', datetime.now(timezone.utc))
-                    setattr(customer, 'total_interactions', customer.total_interactions + 1)
+                    customer["last_contact"] = datetime.now(timezone.utc)
+                    customer["total_interactions"] = customer.total_interactions + 1
                     if profile_name and customer.profile_name is None:
-                        setattr(customer, 'profile_name', profile_name)
+                        customer["profile_name"] = profile_name
                     db.commit()
 
                 return customer
@@ -496,8 +496,8 @@ class CustomerService:
                 customer = db.query(Customer).filter(Customer.id == customer_id).first()
 
                 if customer:
-                    setattr(customer, 'interests', interests)
-                    setattr(customer, 'updated_at', datetime.now(timezone.utc))
+                    customer["interests"] = interests
+                    customer["updated_at"] = datetime.now(timezone.utc)
                     db.commit()
                     return True
 
@@ -532,7 +532,7 @@ class CustomerService:
                 # Actualizar contador de consultas del cliente
                 customer = db.query(Customer).filter(Customer.id == customer_id).first()
                 if customer:
-                    setattr(customer, 'total_inquiries', customer.total_inquiries + 1)
+                    customer["total_inquiries"] = customer.total_inquiries + 1
 
                 db.commit()
                 return True

@@ -74,4 +74,4 @@ async def authenticate_request(request: Request) -> Optional[Dict[str, Any]]:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Error de autenticación: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
