@@ -3,7 +3,11 @@ import re
 import traceback
 from typing import List, Optional, Tuple
 
+from psycopg2.errors import UndefinedTable
+from sqlalchemy.exc import OperationalError, ProgrammingError
+
 from app.config.settings import get_settings
+from app.database import check_db_connection
 from app.models.conversation import ConversationHistory
 from app.models.database import Customer, Product
 from app.models.message import BotResponse, Contact, WhatsAppMessage
@@ -52,6 +56,17 @@ class ChatbotService:
         self.customer_service = CustomerService()
         self.certificate_generator = CertificateGenerator()
 
+        # Estado de la base de datos
+        self._db_available = None
+
+    async def _check_database_health(self) -> bool:
+        """Verifica si la base de datos está disponible y saludable"""
+        if self._db_available is None:
+            self._db_available = await check_db_connection()
+            if not self._db_available:
+                self.logger.warning("Base de datos no disponible, usando modo de respuesta básica")
+        return self._db_available
+
     async def procesar_mensaje(self, message: WhatsAppMessage, contact: Contact) -> BotResponse:
         """
         Procesa un mensaje entrante de WhatsApp
@@ -66,6 +81,7 @@ class ChatbotService:
 
         user_number = None
         customer = None
+        message_text = None
 
         try:
             # 1. Extraer message_text y validar datos
@@ -78,16 +94,24 @@ class ChatbotService:
 
             self.logger.info(f"Procesando mensaje de {user_number}: '{message_text[:50]}...'")
 
-            # 2. Obtener o crear cliente
-            customer = await self.customer_service.get_or_create_customer(
-                phone_number=user_number, profile_name=contact.profile.get("name")
-            )
+            # 2. Verificar estado de la base de datos
+            db_available = await self._check_database_health()
+
+            if not db_available:
+                # Modo fallback sin base de datos
+                return await self._handle_fallback_mode(message_text, user_number)
+
+            # 3. Obtener o crear cliente (con manejo de errores mejorado)
+            customer = await self._safe_get_or_create_customer(user_number, contact.profile.get("name"))
 
             if not customer:
-                self.logger.error(f"No se pudo crear/obtener cliente para {user_number}")
-                return BotResponse(status="failure", message="Error interno del sistema")
+                # Si falla la creación del cliente, usar modo básico
+                self.logger.warning(f"No se pudo crear/obtener cliente para {user_number}, usando modo básico")
+                return await self._handle_fallback_mode(message_text, user_number)
 
-            # 3. Buscar historial de conversación
+            print("::::: >>>> Customer", customer)
+
+            # 4. Buscar historial de conversación
             conversation = await self._get_or_create_conversation(user_number)
 
             # Añadir mensaje del usuario al historial
@@ -97,23 +121,35 @@ class ChatbotService:
             historial_str = conversation.to_formatted_history()
             self.logger.debug(f"Historial de conversación para {user_number}: {len(conversation.messages)} mensajes")
 
-            # 4. Detectar intención y generar respuesta usando la base de datos
+            # 5. Detectar intención y generar respuesta usando la base de datos
             intent, confidence = self._detect_intent(message_text)
             bot_response = await self._generate_response_from_db(
                 customer, message_text, intent, confidence, historial_str
             )
 
-            # 5. Añadir respuesta del bot al historial
+            # 6. Añadir respuesta del bot al historial
             conversation.add_message("bot", bot_response)
 
-            # 6. Guardar conversación actualizada en Redis
+            # 7. Guardar conversación actualizada en Redis
             await self._save_conversation(user_number, conversation)
 
-            # 7. Enviar respuesta por WhatsApp
+            # 8. Enviar respuesta por WhatsApp
             await self._send_whatsapp_response(user_number, bot_response)
 
             self.logger.info(f"Mensaje procesado exitosamente para {user_number}")
             return BotResponse(status="success", message=bot_response)
+
+        except (OperationalError, ProgrammingError, UndefinedTable) as db_error:
+            # Errores específicos de base de datos
+            self.logger.error(f"Error de base de datos para {user_number}: {db_error}")
+            self._db_available = False  # Marcar BD como no disponible
+
+            # Intentar respuesta de fallback
+            if user_number:
+                fallback_response = await self._handle_fallback_mode(message_text or "hola", user_number)
+                return fallback_response
+
+            return BotResponse(status="failure", message="Servicio temporalmente no disponible")
 
         except Exception as e:
             tb = traceback.format_exc()
@@ -130,6 +166,86 @@ class ChatbotService:
                     self.logger.error(f"No se pudo enviar mensaje de error a {user_number}: {send_error}")
 
             return BotResponse(status="failure", message="Error en el procesamiento del mensaje")
+
+    async def _handle_fallback_mode(self, message_text: str, user_number: str) -> BotResponse:
+        """
+        Modo de respuesta básica cuando la base de datos no está disponible
+        """
+        try:
+            self.logger.info(f"Usando modo fallback para {user_number}")
+
+            # Detectar intención básica
+            intent, _ = self._detect_intent(message_text)
+
+            # Respuestas predefinidas sin BD
+            fallback_responses = {
+                "saludos": (
+                    f"¡Hola! 👋 Soy tu asesor virtual de **{BUSINESS_NAME}**.\n\n"
+                    "Temporalmente estamos experimentando problemas técnicos, pero estaré encantado de ayudarte.\n\n"
+                    "🖥️ **Ofrecemos:**\n"
+                    "• Laptops Gaming y Empresariales\n"
+                    "• PCs de Escritorio\n"
+                    "• Componentes de PC\n"
+                    "• Periféricos\n\n"
+                    "¿En qué puedo ayudarte específicamente?"
+                ),
+                "gaming": (
+                    "🎮 **¡Equipos Gaming!**\n\n"
+                    "Tenemos una excelente selección de:\n"
+                    "• Laptops Gaming con RTX 4060/4070\n"
+                    "• PCs Gaming personalizadas\n"
+                    "• Componentes para upgrades\n\n"
+                    "Todos con garantía oficial. ¿Qué presupuesto manejas?"
+                ),
+                "precios": (
+                    "💰 **Precios competitivos garantizados!**\n\n"
+                    "📱 Contáctanos directamente para cotizaciones personalizadas\n"
+                    "🚚 Envíos a todo el país\n"
+                    "💳 Financiación disponible\n\n"
+                    "¿Qué tipo de equipo te interesa?"
+                ),
+                "despedidas": (
+                    f"¡Gracias por contactar **{BUSINESS_NAME}**! 😊\n\n"
+                    "📞 Estamos aquí cuando nos necesites\n"
+                    "🛡️ Garantía oficial en todos los productos\n\n"
+                    "¡Que tengas un excelente día! 🚀"
+                ),
+            }
+
+            # Seleccionar respuesta apropiada
+            response_text = fallback_responses.get(intent, fallback_responses["saludos"])
+
+            # Enviar respuesta
+            await self._send_whatsapp_response(user_number, response_text)
+
+            return BotResponse(status="success", message=response_text)
+
+        except Exception as e:
+            self.logger.error(f"Error en modo fallback para {user_number}: {e}")
+            simple_message = f"¡Hola! Soy el asesor de {BUSINESS_NAME}. "
+            simple_message += "Estamos disponibles para ayudarte con cualquier consulta sobre productos tecnológicos. 🖥️"
+
+            try:
+                await self._send_whatsapp_response(user_number, simple_message)
+            except Exception as error:
+                print("Error al enviar respuesta simple", error)
+                pass  # Si falla el envío, no hacer nada más
+
+            return BotResponse(status="success", message=simple_message)
+
+    async def _safe_get_or_create_customer(
+        self, phone_number: str, profile_name: Optional[str] = None
+    ) -> Optional[Customer]:
+        """Versión segura de obtención/creación de cliente con manejo de errores"""
+        try:
+            return await self.customer_service.get_or_create_customer(phone_number, profile_name)
+        except (OperationalError, ProgrammingError, UndefinedTable) as db_error:
+            self.logger.error(f"Error de BD al obtener cliente {phone_number}: {db_error}")
+            self._db_available = False
+            return None
+        except Exception as e:
+            self.logger.error(f"Error general al obtener cliente {phone_number}: {e}")
+            return None
 
     def _detect_intent(self, message_text: str) -> Tuple[str, float]:
         """
@@ -161,52 +277,59 @@ class ChatbotService:
         """Genera respuestas usando datos de PostgreSQL"""
         ### TODO: Hacerlo con AI. Usar confidence e historial
         print(f"Usar con AI - Confidencia: {confidence} - Historial: {historial}")
-        message_lower = message_text.lower()
+        try:
+            message_lower = message_text.lower()
 
-        # Registrar la consulta del cliente
-        await self.customer_service.log_product_inquiry(
-            customer_id=str(customer.id), inquiry_type=intent, inquiry_text=message_text
-        )
+            # Registrar la consulta del cliente
+            await self.customer_service.log_product_inquiry(
+                customer_id=str(customer.id), inquiry_type=intent, inquiry_text=message_text
+            )
 
-        # Detectar saludos
-        if intent == "saludos":
-            return await self._handle_greeting_db()
+            # Detectar saludos
+            if intent == "saludos":
+                return await self._handle_greeting_db()
 
-        # Detectar consultas sobre laptops
-        elif intent == "computadoras" or any(palabra in message_lower for palabra in ["laptop", "notebook"]):
-            return await self._handle_laptop_inquiry_db(message_lower, customer)
+            # Detectar consultas sobre laptops
+            elif intent == "computadoras" or any(palabra in message_lower for palabra in ["laptop", "notebook"]):
+                return await self._handle_laptop_inquiry_db(message_lower, customer)
 
-        # Detectar consultas sobre gaming
-        elif intent == "gaming":
-            return await self._handle_gaming_inquiry_db(message_lower, customer)
+            # Detectar consultas sobre gaming
+            elif intent == "gaming":
+                return await self._handle_gaming_inquiry_db(message_lower, customer)
 
-        # Detectar consultas sobre precios
-        elif intent == "precios":
-            return await self._handle_price_inquiry_db(message_lower, customer)
+            # Detectar consultas sobre precios
+            elif intent == "precios":
+                return await self._handle_price_inquiry_db(message_lower, customer)
 
-        # Detectar consultas sobre componentes
-        elif intent == "componentes":
-            return await self._handle_components_inquiry_db(message_lower, customer)
+            # Detectar consultas sobre componentes
+            elif intent == "componentes":
+                return await self._handle_components_inquiry_db(message_lower, customer)
 
-        # Detectar consultas sobre marcas
-        elif intent == "marcas" or any(marca in message_lower for marca in KEYWORDS["marcas"]):
-            return await self._handle_brand_inquiry_db(message_lower, customer)
+            # Detectar consultas sobre marcas
+            elif intent == "marcas" or any(marca in message_lower for marca in KEYWORDS["marcas"]):
+                return await self._handle_brand_inquiry_db(message_lower, customer)
 
-        # Detectar consultas sobre stock
-        elif intent == "stock":
-            return await self._handle_stock_inquiry_db(message_lower, customer)
+            # Detectar consultas sobre stock
+            elif intent == "stock":
+                return await self._handle_stock_inquiry_db(message_lower, customer)
 
-        # Detectar consultas sobre trabajo
-        elif intent == "trabajo":
-            return await self._handle_work_inquiry_db(message_lower, customer)
+            # Detectar consultas sobre trabajo
+            elif intent == "trabajo":
+                return await self._handle_work_inquiry_db(message_lower, customer)
 
-        # Detectar despedidas
-        elif intent == "despedidas":
-            return await self._handle_farewell_db(customer)
+            # Detectar despedidas
+            elif intent == "despedidas":
+                return await self._handle_farewell_db(customer)
 
-        # Respuesta general con datos de la DB
-        else:
-            return await self._handle_general_response_db(customer)
+            # Respuesta general con datos de la DB
+            else:
+                return await self._handle_general_response_db(customer)
+        except (OperationalError, ProgrammingError, UndefinedTable):
+            # Si falla la BD, usar respuesta básica
+            return (
+                f"¡Hola! Gracias por contactar {BUSINESS_NAME}."
+                "Estamos aquí para ayudarte con cualquier consulta sobre productos tecnológicos. 🖥️"
+            )
 
     async def _handle_greeting_db(self) -> str:
         """Mensaje de bienvenida con datos reales de la DB"""

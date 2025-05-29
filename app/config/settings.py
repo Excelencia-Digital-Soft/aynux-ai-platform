@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     WHATSAPP_API_VERSION: str = Field("v22.0", description="Versión de la API de WhatsApp")
     WHATSAPP_PHONE_NUMBER_ID: str = Field(..., description="ID del número de teléfono de WhatsApp")
     WHATSAPP_VERIFY_TOKEN: str = Field(..., description="Token de verificación para el webhook de WhatsApp")
+    WHATSAPP_ACCESS_TOKEN: str = Field(..., description="Token de acceso permanente para la API de WhatsApp")
     META_APP_ID: str = Field(..., description="ID de la aplicación de Facebook")
     META_APP_SECRET: str = Field(..., description="Secreto de la aplicación de Facebook")
 

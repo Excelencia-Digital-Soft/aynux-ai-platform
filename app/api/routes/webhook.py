@@ -14,7 +14,8 @@ chatbot_service = ChatbotService()
 whatsapp_service = WhatsAppService()
 
 
-@router.get("/")
+@router.get("/webhook/")
+@router.get("/webhook")
 async def verify_webhook(
     request: Request,
     settings: Settings = Depends(get_settings),  # noqa: B008
@@ -44,7 +45,8 @@ async def verify_webhook(
         raise HTTPException(status_code=400, detail="Missing required parameters")
 
 
-@router.post("/")
+@router.post("/webhook/")
+@router.post("/webhook")
 async def process_webhook(
     request: WhatsAppWebhookRequest = Body(...),  # noqa: B008
 ):
