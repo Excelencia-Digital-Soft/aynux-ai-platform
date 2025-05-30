@@ -152,7 +152,7 @@ async def init_db():
         # Test de conexión primero
         with get_db_context() as db:
             db.execute(text("SELECT 1"))
-            logger.info("Database connection test successful")
+            logger.debug("Database connection test successful")
 
         # Crear tablas
         from app.models.database import Base
@@ -225,28 +225,26 @@ class DatabaseManager:
 def set_postgres_pragma(dbapi_connection, connection_record):
     """Configuraciones específicas de PostgreSQL al conectar"""
     if settings.DEBUG:
-        logger.debug(f"New PostgreSQL connection established - {connection_record.info} - db={dbapi_connection}")
+        logger.debug("New PostgreSQL connection established")
 
 
 @event.listens_for(Engine, "checkout")
 def receive_checkout(dbapi_connection, connection_record, connection_proxy):
     """Log cuando se obtiene una conexión del pool"""
     if settings.DEBUG:
-        logger.debug(
-            f"Connection checked out from pool {dbapi_connection} - {connection_record.info} - {connection_proxy}"
-        )
+        logger.debug("Connection checked out from pool")
 
 
 @event.listens_for(Engine, "checkin")
 def receive_checkin(dbapi_connection, connection_record):
     """Log cuando se devuelve una conexión al pool"""
     if settings.DEBUG:
-        logger.debug(f"Connection checked in to pool - {dbapi_connection} - {connection_record}")
+        logger.debug("Connection checked in to pool")
 
 
 # Configuración de logging para SQLAlchemy
 if settings.DEBUG:
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.pool").setLevel(logging.DEBUG)
 else:
     # En producción, solo errores

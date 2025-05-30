@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from app.config.settings import get_settings
-from app.utils.phone_normalizer import normalize_whatsapp_number, phone_normalizer
+from app.services.phone_normalizer_pydantic import get_normalized_number_only
 
 logger = logging.getLogger(__name__)
 
@@ -113,19 +113,18 @@ class WhatsAppService:
         # Determinar si estamos en modo de prueba
         test_mode = self.settings.is_development
 
-        # Normalizar el número usando nuestro normalizador
-        numero_normalizado = normalize_whatsapp_number(numero, test_mode=test_mode)
+        # Normalizar el número usando el normalizador Pydantic
+        numero_normalizado = get_normalized_number_only(numero, test_mode=test_mode)
 
-        # Log de la transformación
-        if original_number != numero_normalizado:
-            logger.info(f"Número normalizado: {original_number} -> {numero_normalizado}")
-
-        # Verificar compatibilidad con modo de prueba si estamos en desarrollo
-        if test_mode and not phone_normalizer.is_test_number_compatible(original_number):
-            logger.warning(
-                f"Número {original_number} no autorizado en modo sandbox."
-                "Usando número normalizado: {numero_normalizado}"
-            )
+        if numero_normalizado:
+            # Log de la transformación
+            if original_number != numero_normalizado:
+                logger.info(f"Número normalizado: {original_number} -> {numero_normalizado}")
+            
+            # Usar el número normalizado
+            numero = numero_normalizado
+        else:
+            logger.warning(f"No se pudo normalizar el número {original_number}")
 
         payload = {
             "messaging_product": "whatsapp",

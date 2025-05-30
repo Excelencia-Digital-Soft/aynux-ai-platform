@@ -1,40 +1,38 @@
 import logging
 import re
 import traceback
-from typing import List, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 from psycopg2.errors import UndefinedTable
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
+from app.agents import (
+    DoubtsAgent,
+    GreetingAgent,
+    ProductInquiryAgent,
+    PromotionsAgent,
+    RecommendationAgent,
+    SalesAgent,
+    StockAgent,
+    UnknownAgent,
+)
 from app.config.settings import get_settings
-from app.database import check_db_connection
+from app.database import check_db_connection, get_db_context
+from app.models.chatbot import UserIntent
 from app.models.conversation import ConversationHistory
-from app.models.database import Customer, Product
+from app.models.database import Conversation, Customer, Message, Product
 from app.models.message import BotResponse, Contact, WhatsAppMessage
 from app.repositories.redis_repository import RedisRepository
 from app.services.ai_service import AIService
-from app.services.product_service import CustomerService, ProductService
+from app.services.customer_service import CustomerService
+from app.services.product_service import ProductService
+from app.services.prompt_service import PromptService
 from app.services.whatsapp_service import WhatsAppService
 from app.utils.certificate_utils import CertificateGenerator
 
 # Configurar expiración de conversación (24 horas)
 CONVERSATION_EXPIRATION = 86400  # 24 horas en segundos
-
-# Constantes para palabras clave organizadas por categoría
-KEYWORDS = {
-    "saludos": ["hola", "hello", "buenas", "hey", "hi", "buenos días", "buenas tardes", "buenas noches"],
-    "computadoras": ["computadora", "laptop", "notebook", "pc", "ordenador", "equipo", "desktop"],
-    "gaming": ["gaming", "juegos", "gamer", "videojuegos", "fps", "rtx", "gpu", "gaming pc"],
-    "precios": ["precio", "costo", "cuanto", "cuánto", "vale", "barato", "caro", "oferta", "descuento"],
-    "software": ["software", "programa", "office", "windows", "antivirus", "adobe", "licencia"],
-    "componentes": ["procesador", "cpu", "ram", "memoria", "disco", "ssd", "hdd", "motherboard", "fuente"],
-    "trabajo": ["trabajo", "oficina", "empresa", "negocio", "profesional", "productividad"],
-    "specs": ["especificaciones", "specs", "rendimiento", "benchmarks", "comparar", "diferencia"],
-    "despedidas": ["gracias", "bye", "adiós", "hasta luego", "nos vemos", "chau"],
-    "soporte": ["garantía", "soporte", "problema", "ayuda técnica", "reparación", "servicio"],
-    "stock": ["stock", "disponible", "hay", "tienen", "cuando llega", "disponibilidad"],
-    "marcas": ["asus", "msi", "lenovo", "hp", "dell", "corsair", "logitech", "amd", "intel", "nvidia"],
-}
 
 BUSINESS_NAME = "Conversa Shop"
 
@@ -53,11 +51,15 @@ class ChatbotService:
         self.whatsapp_service = WhatsAppService()
         self.ai_service = AIService()
         self.product_service = ProductService()
+        self.prompt_service = PromptService()
         self.customer_service = CustomerService()
         self.certificate_generator = CertificateGenerator()
 
         # Estado de la base de datos
         self._db_available = None
+
+        # Inicializar agentes
+        self._init_agents()
 
     async def _check_database_health(self) -> bool:
         """Verifica si la base de datos está disponible y saludable"""
@@ -109,8 +111,6 @@ class ChatbotService:
                 self.logger.warning(f"No se pudo crear/obtener cliente para {user_number}, usando modo básico")
                 return await self._handle_fallback_mode(message_text, user_number)
 
-            print("::::: >>>> Customer", customer)
-
             # 4. Buscar historial de conversación
             conversation = await self._get_or_create_conversation(user_number)
 
@@ -119,10 +119,10 @@ class ChatbotService:
 
             # Obtener historial formateado para el contexto
             historial_str = conversation.to_formatted_history()
-            self.logger.debug(f"Historial de conversación para {user_number}: {len(conversation.messages)} mensajes")
+            self.logger.debug(f"↩️ Historial de conversación para {user_number}: {len(conversation.messages)} mensajes")
 
             # 5. Detectar intención y generar respuesta usando la base de datos
-            intent, confidence = self._detect_intent(message_text)
+            intent, confidence = await self._detect_intent(message_text, historial_str)
             bot_response = await self._generate_response_from_db(
                 customer, message_text, intent, confidence, historial_str
             )
@@ -133,7 +133,27 @@ class ChatbotService:
             # 7. Guardar conversación actualizada en Redis
             await self._save_conversation(user_number, conversation)
 
-            # 8. Enviar respuesta por WhatsApp
+            # 8. Guardar en base de datos
+            db_conversation = await self._get_or_create_db_conversation(customer["id"])
+            if db_conversation:
+                # Guardar mensaje del usuario
+                await self._save_message_to_db(
+                    conversation_id=str(db_conversation.id),
+                    message_type="user",
+                    content=message_text,
+                    intent=intent.value if intent else None,
+                    confidence=confidence,
+                    whatsapp_message_id=message.id if hasattr(message, 'id') else None
+                )
+                
+                # Guardar respuesta del bot
+                await self._save_message_to_db(
+                    conversation_id=str(db_conversation.id),
+                    message_type="bot",
+                    content=bot_response
+                )
+
+            # 9. Enviar respuesta por WhatsApp
             await self._send_whatsapp_response(user_number, bot_response)
 
             self.logger.info(f"Mensaje procesado exitosamente para {user_number}")
@@ -174,37 +194,17 @@ class ChatbotService:
         try:
             self.logger.info(f"Usando modo fallback para {user_number}")
 
-            # Detectar intención básica
-            intent, _ = self._detect_intent(message_text)
+            # Detectar intención básica (sin historial en modo fallback)
+            intent, _ = await self._detect_intent(message_text, "")
 
             # Respuestas predefinidas sin BD
             fallback_responses = {
-                "saludos": (
+                UserIntent.SALUDO_Y_NECESIDADES_INICIALES: (
                     f"¡Hola! 👋 Soy tu asesor virtual de **{BUSINESS_NAME}**.\n\n"
                     "Temporalmente estamos experimentando problemas técnicos, pero estaré encantado de ayudarte.\n\n"
-                    "🖥️ **Ofrecemos:**\n"
-                    "• Laptops Gaming y Empresariales\n"
-                    "• PCs de Escritorio\n"
-                    "• Componentes de PC\n"
-                    "• Periféricos\n\n"
                     "¿En qué puedo ayudarte específicamente?"
                 ),
-                "gaming": (
-                    "🎮 **¡Equipos Gaming!**\n\n"
-                    "Tenemos una excelente selección de:\n"
-                    "• Laptops Gaming con RTX 4060/4070\n"
-                    "• PCs Gaming personalizadas\n"
-                    "• Componentes para upgrades\n\n"
-                    "Todos con garantía oficial. ¿Qué presupuesto manejas?"
-                ),
-                "precios": (
-                    "💰 **Precios competitivos garantizados!**\n\n"
-                    "📱 Contáctanos directamente para cotizaciones personalizadas\n"
-                    "🚚 Envíos a todo el país\n"
-                    "💳 Financiación disponible\n\n"
-                    "¿Qué tipo de equipo te interesa?"
-                ),
-                "despedidas": (
+                UserIntent.CIERRE_VENTA_PROCESO: (
                     f"¡Gracias por contactar **{BUSINESS_NAME}**! 😊\n\n"
                     "📞 Estamos aquí cuando nos necesites\n"
                     "🛡️ Garantía oficial en todos los productos\n\n"
@@ -213,7 +213,9 @@ class ChatbotService:
             }
 
             # Seleccionar respuesta apropiada
-            response_text = fallback_responses.get(intent, fallback_responses["saludos"])
+            response_text = fallback_responses.get(
+                intent, fallback_responses[UserIntent.SALUDO_Y_NECESIDADES_INICIALES]
+            )
 
             # Enviar respuesta
             await self._send_whatsapp_response(user_number, response_text)
@@ -235,7 +237,7 @@ class ChatbotService:
 
     async def _safe_get_or_create_customer(
         self, phone_number: str, profile_name: Optional[str] = None
-    ) -> Optional[Customer]:
+    ) -> Optional[Dict[str, Any]]:
         """Versión segura de obtención/creación de cliente con manejo de errores"""
         try:
             return await self.customer_service.get_or_create_customer(phone_number, profile_name)
@@ -247,88 +249,100 @@ class ChatbotService:
             self.logger.error(f"Error general al obtener cliente {phone_number}: {e}")
             return None
 
-    def _detect_intent(self, message_text: str) -> Tuple[str, float]:
+    async def _detect_intent(self, message_text: str, historial: str) -> Tuple[UserIntent, float]:
         """
-        Detecta la intención del mensaje basándose en palabras clave
+        Detecta la intención del mensaje usando AI
 
         Returns:
-            Tuple con (categoría, confianza)
+            Tuple con (UserIntent, confianza)
         """
-        ### TODO: hacerlo con AI.
-        message_lower = message_text.lower()
-        detected_intents = []
+        try:
+            # Generar prompt para detección de intención
+            full_prompt = self.prompt_service._orquestator_prompt(message_text, historial)
 
-        for category, keywords in KEYWORDS.items():
-            matches = sum(1 for keyword in keywords if keyword in message_lower)
-            if matches > 0:
-                confidence = matches / len(keywords)
-                detected_intents.append((category, confidence))
+            # Llamar a AI para detectar intención
+            intent_response = await self.ai_service._generate_content(prompt=full_prompt, temperature=0.1)
 
-        if detected_intents:
-            # Ordenar por confianza y retornar el más alto
-            detected_intents.sort(key=lambda x: x[1], reverse=True)
-            return detected_intents[0]
+            # Parsear respuesta JSON
+            import json
 
-        return ("general", 0.0)
+            intent_data = json.loads(intent_response.strip())
+
+            # Obtener intención y confianza
+            intent_str = intent_data.get("intent", "NO_RELACIONADO_O_CONFUSO")
+            confidence = float(intent_data.get("confidence", 0.5))
+
+            intent = UserIntent(intent_str)
+
+            self.logger.info(f"Intención detectada: {intent.value} con confianza {confidence:.2f}")
+            return (intent, confidence)
+
+        except Exception as e:
+            self.logger.error(f"Error detectando intención: {e}")
+            return (UserIntent.NO_RELACIONADO_O_CONFUSO, 0.0)
+
+    def _init_agents(self):
+        """Inicializa todos los agentes"""
+        self.agents = {
+            UserIntent.SALUDO_Y_NECESIDADES_INICIALES: GreetingAgent(
+                self.ai_service, self.product_service, self.customer_service
+            ),
+            UserIntent.CONSULTA_PRODUCTO_SERVICIO: ProductInquiryAgent(
+                self.ai_service, self.product_service, self.customer_service
+            ),
+            UserIntent.VERIFICACION_STOCK: StockAgent(self.ai_service, self.product_service, self.customer_service),
+            UserIntent.PROMOCIONES_DESCUENTOS: PromotionsAgent(
+                self.ai_service, self.product_service, self.customer_service
+            ),
+            UserIntent.SUGERENCIAS_RECOMENDACIONES: RecommendationAgent(
+                self.ai_service, self.product_service, self.customer_service
+            ),
+            UserIntent.MANEJO_DUDAS_OBJECIONES: DoubtsAgent(
+                self.ai_service, self.product_service, self.customer_service
+            ),
+            UserIntent.CIERRE_VENTA_PROCESO: SalesAgent(self.ai_service, self.product_service, self.customer_service),
+            UserIntent.NO_RELACIONADO_O_CONFUSO: UnknownAgent(
+                self.ai_service, self.product_service, self.customer_service
+            ),
+        }
 
     async def _generate_response_from_db(
-        self, customer: Customer, message_text: str, intent: str, confidence: float, historial: str
+        self, customer: Dict[str, Any], message_text: str, intent: UserIntent, confidence: float, historial: str
     ) -> str:
-        """Genera respuestas usando datos de PostgreSQL"""
-        ### TODO: Hacerlo con AI. Usar confidence e historial
-        print(f"Usar con AI - Confidencia: {confidence} - Historial: {historial}")
+        """Genera respuestas usando AI y agentes especializados"""
         try:
-            message_lower = message_text.lower()
+            self.logger.info(f"Procesando con agente: {intent.value} (confianza: {confidence:.2f})")
 
             # Registrar la consulta del cliente
             await self.customer_service.log_product_inquiry(
-                customer_id=str(customer.id), inquiry_type=intent, inquiry_text=message_text
+                customer_id=customer["id"], inquiry_type=intent.value, inquiry_text=message_text
             )
 
-            # Detectar saludos
-            if intent == "saludos":
-                return await self._handle_greeting_db()
+            # Obtener el agente correspondiente a la intención
+            agent = self.agents.get(intent)
 
-            # Detectar consultas sobre laptops
-            elif intent == "computadoras" or any(palabra in message_lower for palabra in ["laptop", "notebook"]):
-                return await self._handle_laptop_inquiry_db(message_lower, customer)
+            if not agent:
+                # Si no hay agente, usar el agente desconocido
+                agent = self.agents[UserIntent.NO_RELACIONADO_O_CONFUSO]
 
-            # Detectar consultas sobre gaming
-            elif intent == "gaming":
-                return await self._handle_gaming_inquiry_db(message_lower, customer)
+            # Procesar con el agente
+            response = await agent.process(customer, message_text, historial)
 
-            # Detectar consultas sobre precios
-            elif intent == "precios":
-                return await self._handle_price_inquiry_db(message_lower, customer)
+            return response
 
-            # Detectar consultas sobre componentes
-            elif intent == "componentes":
-                return await self._handle_components_inquiry_db(message_lower, customer)
-
-            # Detectar consultas sobre marcas
-            elif intent == "marcas" or any(marca in message_lower for marca in KEYWORDS["marcas"]):
-                return await self._handle_brand_inquiry_db(message_lower, customer)
-
-            # Detectar consultas sobre stock
-            elif intent == "stock":
-                return await self._handle_stock_inquiry_db(message_lower, customer)
-
-            # Detectar consultas sobre trabajo
-            elif intent == "trabajo":
-                return await self._handle_work_inquiry_db(message_lower, customer)
-
-            # Detectar despedidas
-            elif intent == "despedidas":
-                return await self._handle_farewell_db(customer)
-
-            # Respuesta general con datos de la DB
-            else:
-                return await self._handle_general_response_db(customer)
-        except (OperationalError, ProgrammingError, UndefinedTable):
+        except (OperationalError, ProgrammingError, UndefinedTable) as db_error:
             # Si falla la BD, usar respuesta básica
+            self.logger.error(f"Error de BD en generación de respuesta: {db_error}")
             return (
-                f"¡Hola! Gracias por contactar {BUSINESS_NAME}."
-                "Estamos aquí para ayudarte con cualquier consulta sobre productos tecnológicos. 🖥️"
+                f"¡Hola! Gracias por contactar {BUSINESS_NAME}. "
+                "Estamos experimentando problemas técnicos temporales, "
+                "pero estaré encantado de ayudarte. ¿En qué puedo asistirte?"
+            )
+        except Exception as e:
+            self.logger.error(f"Error generando respuesta: {e}")
+            return (
+                "Disculpa, tuve un problema al procesar tu mensaje. "
+                "¿Podrías reformularlo o decirme en qué necesitas ayuda específicamente?"
             )
 
     async def _handle_greeting_db(self) -> str:
@@ -553,7 +567,7 @@ class ChatbotService:
 
                 # Registrar presupuesto mencionado
                 await self.customer_service.log_product_inquiry(
-                    customer_id=str(customer.id),
+                    customer_id=str(customer["id"]),
                     inquiry_type="price_budget",
                     inquiry_text=message_lower,
                     budget_mentioned=budget,
@@ -686,7 +700,7 @@ class ChatbotService:
 
     async def _handle_farewell_db(self, customer: Customer) -> str:
         """Mensaje de despedida personalizado"""
-        name = customer.profile_name or "amigo/a"
+        name = customer["profile_name"] or "amigo/a"
 
         return (
             f"¡Ha sido un placer ayudarte, {name}! 😊\n\n"
@@ -740,6 +754,80 @@ class ChatbotService:
             self.logger.debug(f"Recuperando conversación existente para {user_number}")
 
         return conversation
+
+    async def _get_or_create_db_conversation(self, customer_id: str, session_id: str = None) -> Conversation:
+        """Obtiene o crea una conversación en la base de datos"""
+        try:
+            with get_db_context() as db:
+                # Buscar conversación activa (sin ended_at)
+                conversation = db.query(Conversation).filter(
+                    Conversation.customer_id == customer_id,
+                    Conversation.ended_at.is_(None)
+                ).order_by(Conversation.started_at.desc()).first()
+                
+                if not conversation:
+                    # Crear nueva conversación
+                    conversation = Conversation(
+                        customer_id=customer_id,
+                        session_id=session_id or f"session_{customer_id}_{datetime.now().timestamp()}"
+                    )
+                    db.add(conversation)
+                    db.commit()
+                    db.refresh(conversation)
+                    self.logger.info(f"Nueva conversación creada en DB para cliente {customer_id}")
+                else:
+                    self.logger.debug(f"Conversación existente encontrada en DB para cliente {customer_id}")
+                
+                return conversation
+                
+        except Exception as e:
+            self.logger.error(f"Error al obtener/crear conversación en DB: {e}")
+            return None
+
+    async def _save_message_to_db(
+        self, 
+        conversation_id: str, 
+        message_type: str, 
+        content: str, 
+        intent: str = None,
+        confidence: float = None,
+        whatsapp_message_id: str = None
+    ) -> bool:
+        """Guarda un mensaje en la base de datos"""
+        try:
+            with get_db_context() as db:
+                message = Message(
+                    conversation_id=conversation_id,
+                    message_type=message_type,
+                    content=content,
+                    intent=intent,
+                    confidence=confidence,
+                    whatsapp_message_id=whatsapp_message_id,
+                    message_format="text"
+                )
+                db.add(message)
+                
+                # Actualizar contadores en la conversación
+                conversation = db.query(Conversation).filter_by(id=conversation_id).first()
+                if conversation:
+                    conversation.total_messages += 1
+                    if message_type == "user":
+                        conversation.user_messages += 1
+                    elif message_type == "bot":
+                        conversation.bot_messages += 1
+                    
+                    # Actualizar intent y updated_at
+                    if intent:
+                        conversation.intent_detected = intent
+                    conversation.updated_at = datetime.now(timezone.utc)
+                
+                db.commit()
+                self.logger.debug(f"Mensaje guardado en DB: {message_type} - {content[:50]}...")
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Error al guardar mensaje en DB: {e}")
+            return False
 
     async def _save_conversation(self, user_number: str, conversation: ConversationHistory) -> bool:
         """Guarda la conversación en Redis"""
@@ -811,49 +899,4 @@ class ChatbotService:
 
         except Exception as e:
             self.logger.error(f"Error obteniendo estadísticas para {user_number}: {e}")
-            return None
-
-    async def get_sales_insights(self, user_number: str) -> Optional[dict]:
-        """
-        Analiza la conversación para obtener insights de ventas
-        """
-        try:
-            conversation_key = f"conversation:{user_number}"
-            conversation = self.redis_repo.get(conversation_key)
-
-            if not conversation:
-                return None
-
-            # Analizar mensajes del usuario para detectar intención de compra
-            user_messages = [msg.content.lower() for msg in conversation.messages if msg.role == "persona"]
-
-            insights = {
-                "interest_level": "low",
-                "product_interests": [],
-                "price_sensitive": False,
-                "ready_to_buy": False,
-                "technical_level": "beginner",
-            }
-
-            # Detectar nivel de interés
-            buy_signals = ["comprar", "compra", "precio", "cuando", "disponible", "quiero"]
-            if any(signal in " ".join(user_messages) for signal in buy_signals):
-                insights["interest_level"] = (
-                    "high" if len([m for m in user_messages if any(s in m for s in buy_signals)]) > 2 else "medium"
-                )
-
-            # Detectar sensibilidad al precio
-            price_keywords = ["barato", "descuento", "oferta", "precio", "costo"]
-            insights["price_sensitive"] = any(keyword in " ".join(user_messages) for keyword in price_keywords)
-
-            # Detectar productos de interés
-            for category, keywords in KEYWORDS.items():
-                if category in ["computadoras", "gaming", "componentes", "software"]:
-                    if any(keyword in " ".join(user_messages) for keyword in keywords):
-                        insights["product_interests"].append(category)
-
-            return insights
-
-        except Exception as e:
-            self.logger.error(f"Error obteniendo insights para {user_number}: {e}")
             return None

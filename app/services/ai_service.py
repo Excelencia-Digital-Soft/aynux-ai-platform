@@ -21,7 +21,7 @@ class AIService:
 
     def __init__(self):
         self.settings = get_settings()
-        self.model = self.settings.OLLAMA_API_MODEL
+        self.model = self.settings.OLLAMA_API_MODEL or "llama3.1"
 
     async def _generate_content(self, prompt: str, model: Optional[str] = None, temperature: float = 0.2) -> str:
         """

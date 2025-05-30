@@ -53,7 +53,8 @@ class PhoneNumberRequest(BaseModel):
     @classmethod
     def validate_phone_number(cls, v: str) -> str:
         """Valida el formato básico del número de teléfono"""
-        if not v:
+
+        if not v or not v.strip():
             raise PydanticCustomError("phone_empty", "El número de teléfono no puede estar vacío", {})
 
         # Limpiar el número
@@ -154,7 +155,7 @@ class PydanticPhoneNumberNormalizer(BaseModel):
                 },
                 "patterns": {
                     "mobile_with_9": re.compile(r"^549(\d{2,4})(\d{6,8})$"),
-                    "mobile_without_9": re.compile(r"^54(\d{2,4})(\d{8,10})$"),
+                    "mobile_without_9": re.compile(r"^54(\d{2,4})(\d{6,10})$"),
                     "international": re.compile(r"^\+?54(\d{2,4})(\d{6,10})$"),
                 },
             },
@@ -206,7 +207,6 @@ class PydanticPhoneNumberNormalizer(BaseModel):
                 raw_number=request.phone_number,
                 clean_number=clean_number,
                 country=detected_country,
-                force_test_mode=request.force_test_mode,
             )
 
             # Realizar normalización
@@ -279,22 +279,31 @@ class PydanticPhoneNumberNormalizer(BaseModel):
         # Patrón 1: 5492XXXXXXXXX (formato con 9)
         match = patterns["mobile_with_9"].match(clean_number)
         if match:
-            area_code = match.group(1)
-            local_number = match.group(2)
-
-            if area_code in area_codes:
+            area_and_local = match.group(1) + match.group(2)
+            
+            # Buscar código de área válido
+            area_code_found = None
+            local_number = None
+            
+            for area_code in sorted(area_codes.keys(), key=len, reverse=True):
+                if area_and_local.startswith(area_code):
+                    area_code_found = area_code
+                    local_number = area_and_local[len(area_code):]
+                    break
+            
+            if area_code_found and local_number and len(local_number) >= 6:
                 # Transformar: 549 + AREA + NUMBER -> 54 + AREA + 15 + NUMBER
-                normalized = f"54{area_code}15{local_number}"
+                normalized = f"54{area_code_found}15{local_number}"
                 phone_info.normalized_number = normalized
-                phone_info.area_code = area_code
+                phone_info.area_code = area_code_found
                 phone_info.local_number = f"15{local_number}"
                 phone_info.is_mobile = True
                 phone_info.is_valid = True
-                phone_info.formatted_display = f"+54 ({area_code}) 15 {local_number[:4]}-{local_number[4:]}"
+                phone_info.formatted_display = f"+54 ({area_code_found}) 15 {local_number[:4]}-{local_number[4:]}"
 
                 logger.info(f"Número argentino normalizado (con 9): {clean_number} -> {normalized}")
             else:
-                phone_info.validation_errors.append(f"Código de área {area_code} no válido para Argentina")
+                phone_info.validation_errors.append(f"No se pudo identificar código de área válido en {area_and_local}")
 
         # Patrón 2: 54XXXXXXXXXX (sin 9, verificar si ya tiene 15)
         else:

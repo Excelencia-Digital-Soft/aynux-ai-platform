@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "bot-municipalidad"
+name = "bot-conversashop"
 version = "0.1.0"
-description = "Bot para municipalidades con WhatsApp"
+description = "Bot para ventas con WhatsApp"
 authors = ["Leonardo Illanez <leonardoilla777@icloud.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.14"
 fastapi = "^0.115.12"
 pydantic = "^2.11.4"
 pytest = "^8.3.5"
@@ -22,11 +22,15 @@ python-jose = "^3.4.0"
 passlib = "^1.7.4"
 email-validator = "^2.2.0"
 bcrypt = "^4.3.0"
-langchain-core = "^0.3.59"
-langchain-ollama = "^0.3.2"
 bson = "^0.5.10"
 sqlalchemy = "^2.0.41"
 psycopg2-binary = "^2.9.10"
+langchain-core = "^0.3.62"
+langchain-ollama = "^0.3.3"
+langchain-community = "^0.3.24"
+langchain-text-splitters = "^0.3.8"
+langchain-experimental = "^0.3.4"
+langchain-chroma = ">=0.1.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"

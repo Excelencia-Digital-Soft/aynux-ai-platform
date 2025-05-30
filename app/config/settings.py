@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     # AI Service Settings
     OLLAMA_API_MODEL: str = Field("llama3.1", description="Modelo de ollama a usar")
     OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
+    OLLAMA_API_CHROMADB: str = Field("./data/vector_db/", description="Ruta de la base de datos de ollama")
+    OLLAMA_API_MODEL_EMBEDDING: str = Field("mxbai-embed-large", description="Embedding del modelo de ollama")
 
     # JWT Settings
     JWT_SECRET_KEY: str = Field(..., description="Clave secreta para JWT")

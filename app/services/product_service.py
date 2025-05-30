@@ -291,9 +291,9 @@ class ProductService:
                     return False
 
                 previous_stock = product.stock
-                # Use setattr for SQLAlchemy models
-                product["stock"] = new_stock
-                product["updated_at"] = datetime.now(timezone.utc)
+                # Use attribute assignment for SQLAlchemy models
+                product.stock = new_stock  # type: ignore
+                product.updated_at = datetime.now(timezone.utc)  # type: ignore
 
                 # Registrar movimiento de stock
                 movement = StockMovement(
@@ -334,8 +334,8 @@ class ProductService:
                 db.add(price_history)
 
                 # Actualizar precio
-                product["price"] = new_price
-                product["updated_at"] = datetime.now(timezone.utc)
+                product.price = new_price  # type: ignore
+                product.updated_at = datetime.now(timezone.utc)  # type: ignore
 
                 db.commit()
                 logger.info(f"Price updated for product {product.name}: ${product.price} -> ${new_price}")
@@ -453,90 +453,3 @@ class ProductService:
         except Exception as e:
             logger.error(f"Error getting sales analytics: {e}")
             return {}
-
-
-class CustomerService:
-    """Servicio para gestionar clientes"""
-
-    async def get_or_create_customer(self, phone_number: str, profile_name: Optional[str] = None) -> Optional[Customer]:
-        """Obtiene o crea un cliente"""
-        try:
-            with get_db_context() as db:
-                customer = db.query(Customer).filter(Customer.phone_number == phone_number).first()
-
-                if not customer:
-                    customer = Customer(
-                        phone_number=phone_number,
-                        profile_name=profile_name,
-                        first_contact=datetime.now(timezone.utc),
-                        last_contact=datetime.now(timezone.utc),
-                    )
-                    db.add(customer)
-                    db.commit()
-                    db.refresh(customer)
-                    logger.info(f"New customer created: {phone_number}")
-                else:
-                    # Actualizar último contacto
-                    customer["last_contact"] = datetime.now(timezone.utc)
-                    customer["total_interactions"] = customer.total_interactions + 1
-                    if profile_name and customer.profile_name is None:
-                        customer["profile_name"] = profile_name
-                    db.commit()
-
-                return customer
-
-        except Exception as e:
-            logger.error(f"Error getting/creating customer: {e}")
-            return None
-
-    async def update_customer_interests(self, customer_id: str, interests: List[str]) -> bool:
-        """Actualiza los intereses del cliente"""
-        try:
-            with get_db_context() as db:
-                customer = db.query(Customer).filter(Customer.id == customer_id).first()
-
-                if customer:
-                    customer["interests"] = interests
-                    customer["updated_at"] = datetime.now(timezone.utc)
-                    db.commit()
-                    return True
-
-                return False
-
-        except Exception as e:
-            logger.error(f"Error updating customer interests: {e}")
-            return False
-
-    async def log_product_inquiry(
-        self,
-        customer_id: str,
-        inquiry_type: str,
-        inquiry_text: str,
-        product_id: Optional[str] = None,
-        category_id: Optional[str] = None,
-        budget_mentioned: Optional[float] = None,
-    ) -> bool:
-        """Registra una consulta de producto"""
-        try:
-            with get_db_context() as db:
-                inquiry = ProductInquiry(
-                    customer_id=customer_id,
-                    product_id=product_id,
-                    category_id=category_id,
-                    inquiry_type=inquiry_type,
-                    inquiry_text=inquiry_text,
-                    budget_mentioned=budget_mentioned,
-                )
-                db.add(inquiry)
-
-                # Actualizar contador de consultas del cliente
-                customer = db.query(Customer).filter(Customer.id == customer_id).first()
-                if customer:
-                    customer["total_inquiries"] = customer.total_inquiries + 1
-
-                db.commit()
-                return True
-
-        except Exception as e:
-            logger.error(f"Error logging product inquiry: {e}")
-            return False

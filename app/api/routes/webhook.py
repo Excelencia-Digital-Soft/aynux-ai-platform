@@ -75,7 +75,7 @@ async def process_webhook(
     try:
         print("Procesando Mensaje...")
         result: BotResponse = await chatbot_service.procesar_mensaje(message, contact)
-        await whatsapp_service.enviar_mensaje_texto(contact.wa_id, result.message)
+        # No enviar aquí porque ya se envía dentro de procesar_mensaje
         print("Mensaje Procesado con Resultado: ", result)
         return {"status": "ok", "result": result}
     except Exception as e:
