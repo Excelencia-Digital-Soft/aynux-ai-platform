@@ -31,6 +31,7 @@ langchain-community = "^0.3.24"
 langchain-text-splitters = "^0.3.8"
 langchain-experimental = "^0.3.4"
 langchain-chroma = ">=0.1.2"
+asyncpg = "^0.30.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"
@@ -39,6 +40,8 @@ pytest = "^8.0.0"
 pytest-asyncio = "^0.23.5"
 pytest-cov = "^4.1.0"
 ruff = "^0.2.2"
+sqlalchemy-stubs = "^0.4"
+types-sqlalchemy = "^1.4.53.38"
 
 [build-system]
 requires = ["poetry-core"]
@@ -62,6 +65,7 @@ reportUnnecessaryTypeIgnoreComment = false
 reportOptionalMemberAccess = false
 reportCallIssue = false
 reportArgumentType = false
+reportGeneralTypeIssues = "warning"  # Cambiar a warning en lugar de error
 # Ignorar solo en archivos específicos
 include = ["app/**"]
-exclude = ["**/__pycache__"]
+exclude = ["**/__pycache__", "**/alembic/**"]

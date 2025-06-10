@@ -224,22 +224,16 @@ class DatabaseManager:
 @event.listens_for(Engine, "connect")
 def set_postgres_pragma(dbapi_connection, connection_record):
     """Configuraciones específicas de PostgreSQL al conectar"""
-    if settings.DEBUG:
-        logger.debug("New PostgreSQL connection established")
 
 
 @event.listens_for(Engine, "checkout")
 def receive_checkout(dbapi_connection, connection_record, connection_proxy):
     """Log cuando se obtiene una conexión del pool"""
-    if settings.DEBUG:
-        logger.debug("Connection checked out from pool")
 
 
 @event.listens_for(Engine, "checkin")
 def receive_checkin(dbapi_connection, connection_record):
     """Log cuando se devuelve una conexión al pool"""
-    if settings.DEBUG:
-        logger.debug("Connection checked in to pool")
 
 
 # Configuración de logging para SQLAlchemy

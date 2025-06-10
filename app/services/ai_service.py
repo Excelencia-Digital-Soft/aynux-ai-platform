@@ -1,9 +1,9 @@
+import asyncio
 import json
 import logging
 import re
 from typing import Optional
 
-import httpx
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
@@ -35,68 +35,158 @@ class AIService:
         Returns:
             Respuesta completa del modelo
         """
-        try:
-            # Usar modelo predeterminado si no se especifica
-            if not model:
-                model = self.model
-
-            # Configurar el modelo Ollama
-            chat_model = ChatOllama(
-                model=model,
-                temperature=temperature,
-                top_k=0,
-                top_p=0,
-                num_gpu=50,
-                verbose=False,  # Cambiado a False para reducir logs
-            )
-
-            # Intentar ejecutar el modelo
+        # Intentar hasta 3 veces con espera exponencial
+        response = ""
+        for attempt in range(3):
             try:
-                # Crear el prompt template simple
-                prompt_template = ChatPromptTemplate.from_template(prompt)
+                # Usar modelo predeterminado si no se especifica
+                if not model:
+                    model = self.model
 
-                # Configurar la cadena simple sin historial ni streaming
+                # Configurar el modelo Ollama
+                chat_model = ChatOllama(
+                    model=model,
+                    temperature=temperature,
+                    top_k=0,
+                    top_p=0,
+                    num_gpu=50,
+                    verbose=False,  # Cambiado a False para reducir logs
+                    base_url=self.settings.OLLAMA_API_URL,
+                    request_timeout=30.0,  # Añadir timeout explícito
+                )
+
+                # Configurar el prompt
+                prompt_template = ChatPromptTemplate.from_messages([("human", "{input}")])
+
+                # Crear cadena con parser
                 chain = prompt_template | chat_model | StrOutputParser()
 
-                # Ejecutar la cadena y retornar el resultado completo
-                result = await chain.ainvoke({})
-                return result
-            except httpx.ConnectError:
-                return "ERROR_OLLAMA_CONNECTION_FAILED: No se pudo establecer conexión con el servicio Ollama."
-            except httpx.ReadTimeout:
-                return "ERROR_OLLAMA_TIMEOUT: Tiempo de espera agotado al comunicarse con Ollama."
+                # Ejecutar
+                response = await chain.ainvoke({"input": prompt})
 
-        except Exception as e:
-            error_msg = f"Error procesando consulta con Ollama: {str(e)}"
-            logger.error(error_msg)
-            return f"ERROR_OLLAMA_GENERAL: {error_msg}"
+                # Log solo en DEBUG
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Prompt usado: {prompt[:100]}...")
+                    logger.debug(f"Respuesta: {response[:100]}...")
 
-    @staticmethod
-    def _procesar_respuesta(mensaje: str) -> ChatbotResponse:
+                return response
+
+            except Exception as e:
+                if attempt < 2:  # Si no es el último intento
+                    wait_time = (attempt + 1) * 2  # 2, 4 segundos
+                    logger.warning(
+                        f"Error en _generate_content (intento {attempt + 1}/3): {e}. Reintentando en {wait_time}s..."
+                    )
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.error(f"Error en _generate_content después de 3 intentos: {e}")
+                    # En lugar de devolver un error, devolver un string vacío o un fallback
+
+                return ""
+
+        return response
+
+    async def generate_response(self, prompt: str, temperature: float = 0.2) -> str:
         """
-        Procesa la respuesta del modelo de IA
+        Alias público para _generate_content para mantener compatibilidad
+        """
+        return await self._generate_content(prompt, temperature=temperature)
+
+    async def detect_intent(self, user_message: str) -> ChatbotResponse:
+        """
+        Detecta la intención del usuario en el mensaje
+        """
+        logger.info(f"Detectando intención para mensaje: {user_message[:50]}...")
+
+        # Validación
+        if not user_message.strip():
+            return ChatbotResponse(
+                intent="desconocido", confidence=0.0, mensaje="Mensaje vacío", estado="sin_clasificar"
+            )
+
+        # Llamar a Ollama para detectar intent
+        prompt = f"""
+        Clasifica el siguiente mensaje del usuario en una de estas categorías:
+        - 'saludo': saludos o bienvenidas
+        - 'consulta_productos': preguntas sobre productos, características, precios
+        - 'stock': disponibilidad o existencias
+        - 'promociones': ofertas, descuentos, promociones
+        - 'recomendaciones': solicitud de sugerencias o recomendaciones
+        - 'desconocido': otras consultas
+
+        Mensaje: "{user_message}"
+
+        Responde ÚNICAMENTE con el nombre de la categoría.
+        """
+
+        respuesta = await self._generate_content(prompt, temperature=0.0)
+
+        # Parsear respuesta
+        respuesta_limpia = respuesta.strip().lower()
+
+        # Mapear respuesta a intención
+        intents_validos = ["saludo", "consulta_productos", "stock", "promociones", "recomendaciones", "desconocido"]
+
+        intent = "desconocido"
+        for i in intents_validos:
+            if i in respuesta_limpia:
+                intent = i
+                break
+
+        # Calcular confianza basada en la claridad de la respuesta
+        confidence = 0.8 if intent != "desconocido" else 0.4
+
+        # Log del resultado
+        logger.info(f"Intent detectado: {intent} (confianza: {confidence})")
+
+        # Retornar respuesta estructurada
+        return ChatbotResponse(
+            intent=intent,
+            confidence=confidence,
+            mensaje=user_message,
+            estado="clasificado",
+        )
+
+    async def analyze_json_response(self, respuesta: str) -> Optional[dict]:
+        """
+        Intenta parsear respuestas JSON del modelo
         """
         try:
-            if not mensaje.strip():
-                raise ValueError("La respuesta del chatbot está vacía.")
-
-            # Buscar si el mensaje contiene JSON en formato de bloque de código
-            json_match = re.search(r"```json\s*(\{.*?})\s*```", mensaje, re.DOTALL)
+            # Buscar JSON en la respuesta
+            json_match = re.search(r"\{.*\}", respuesta, re.DOTALL)
             if json_match:
-                mensaje = json_match.group(1)
+                json_str = json_match.group(0)
+                # Limpiar y parsear
+                json_str = re.sub(r"[\n\r\t]", " ", json_str)
+                return json.loads(json_str)
+        except Exception as e:
+            logger.error(f"Error parseando JSON de respuesta: {e}")
 
-            # Decodificar el JSON
-            response_data = json.loads(mensaje)
+        return None
 
-            # Validar y crear el objeto ChatbotResponse
+    async def generate_chat_response(
+        self, prompt: str, context: Optional[str] = None, model: Optional[str] = None
+    ) -> ChatbotResponse:
+        """
+        Genera una respuesta conversacional más compleja
+        """
+        try:
+            # Construir prompt completo con contexto
+            full_prompt = prompt
+            if context:
+                full_prompt = f"Contexto:\n{context}\n\nUsuario: {prompt}"
+
+            # Generar respuesta
+            mensaje = await self._generate_content(full_prompt, model=model)
+
+            # Retornar respuesta estructurada
+            return ChatbotResponse(intent="respuesta_generada", confidence=0.9, mensaje=mensaje, estado="completado")
+
+        except Exception as e:
+            logger.error(f"Error generando respuesta: {e}")
             return ChatbotResponse(
-                mensaje=response_data.get("mensaje", "Lo siento, hubo un error en mi respuesta."),
-                estado=response_data.get("estado", "verificado"),
-            )
-        except (json.JSONDecodeError, KeyError) as e:
-            # En caso de error, devolver una respuesta por defecto
-            print(f"Error al procesar la respuesta del chatbot: {e}")
-            return ChatbotResponse(
-                mensaje=mensaje if mensaje else "Lo siento, hubo un error en mi respuesta.",
+                intent="error",
+                confidence=0.0,
+                mensaje="Lo siento, hubo un error en mi respuesta.",
                 estado="verificado",
             )

@@ -3,6 +3,17 @@ from typing import Any, ClassVar, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class Message(BaseModel):
+    """Modelo para historial de conversación"""
+
+    id: str
+    timestamp: str
+    sender_id: str
+    sender_name: str
+    role: Literal["user", "assistant", "system"]
+    content: str
+
+
 class BotResponse(BaseModel):
     """Modelo para respuestas del bot"""
 

@@ -122,7 +122,13 @@ class ChatbotService:
             self.logger.debug(f"↩️ Historial de conversación para {user_number}: {len(conversation.messages)} mensajes")
 
             # 5. Detectar intención y generar respuesta usando la base de datos
-            intent, confidence = await self._detect_intent(message_text, historial_str)
+            try:
+                intent, confidence = await self._detect_intent(message_text, historial_str)
+            except Exception as e:
+                self.logger.warning(f"Error detectando intención: {e}. Usando fallback.")
+                intent = UserIntent.NO_RELACIONADO_O_CONFUSO
+                confidence = 0.0
+                
             bot_response = await self._generate_response_from_db(
                 customer, message_text, intent, confidence, historial_str
             )
@@ -134,24 +140,14 @@ class ChatbotService:
             await self._save_conversation(user_number, conversation)
 
             # 8. Guardar en base de datos
-            db_conversation = await self._get_or_create_db_conversation(customer["id"])
-            if db_conversation:
-                # Guardar mensaje del usuario
-                await self._save_message_to_db(
-                    conversation_id=str(db_conversation.id),
-                    message_type="user",
-                    content=message_text,
-                    intent=intent.value if intent else None,
-                    confidence=confidence,
-                    whatsapp_message_id=message.id if hasattr(message, 'id') else None
-                )
-                
-                # Guardar respuesta del bot
-                await self._save_message_to_db(
-                    conversation_id=str(db_conversation.id),
-                    message_type="bot",
-                    content=bot_response
-                )
+            await self._save_conversation_to_db(
+                customer_id=customer["id"],
+                user_message=message_text,
+                bot_response=bot_response,
+                intent=intent.value if intent else None,
+                confidence=confidence,
+                whatsapp_message_id=message.id if hasattr(message, "id") else None,
+            )
 
             # 9. Enviar respuesta por WhatsApp
             await self._send_whatsapp_response(user_number, bot_response)
@@ -755,21 +751,23 @@ class ChatbotService:
 
         return conversation
 
-    async def _get_or_create_db_conversation(self, customer_id: str, session_id: str = None) -> Conversation:
+    async def _get_or_create_db_conversation(self, customer_id: str, session_id: str = None) -> Optional[Conversation]:
         """Obtiene o crea una conversación en la base de datos"""
         try:
             with get_db_context() as db:
                 # Buscar conversación activa (sin ended_at)
-                conversation = db.query(Conversation).filter(
-                    Conversation.customer_id == customer_id,
-                    Conversation.ended_at.is_(None)
-                ).order_by(Conversation.started_at.desc()).first()
-                
+                conversation = (
+                    db.query(Conversation)
+                    .filter(Conversation.customer_id == customer_id, Conversation.ended_at.is_(None))
+                    .order_by(Conversation.started_at.desc())
+                    .first()
+                )
+
                 if not conversation:
                     # Crear nueva conversación
                     conversation = Conversation(
                         customer_id=customer_id,
-                        session_id=session_id or f"session_{customer_id}_{datetime.now().timestamp()}"
+                        session_id=session_id or f"session_{customer_id}_{datetime.now().timestamp()}",
                     )
                     db.add(conversation)
                     db.commit()
@@ -777,56 +775,81 @@ class ChatbotService:
                     self.logger.info(f"Nueva conversación creada en DB para cliente {customer_id}")
                 else:
                     self.logger.debug(f"Conversación existente encontrada en DB para cliente {customer_id}")
-                
+
                 return conversation
-                
+
         except Exception as e:
             self.logger.error(f"Error al obtener/crear conversación en DB: {e}")
             return None
 
-    async def _save_message_to_db(
-        self, 
-        conversation_id: str, 
-        message_type: str, 
-        content: str, 
+    async def _save_conversation_to_db(
+        self,
+        customer_id: str,
+        user_message: str,
+        bot_response: str,
         intent: str = None,
         confidence: float = None,
-        whatsapp_message_id: str = None
+        whatsapp_message_id: str = None,
     ) -> bool:
-        """Guarda un mensaje en la base de datos"""
+        """Guarda la conversación completa en la base de datos dentro de una transacción"""
         try:
             with get_db_context() as db:
-                message = Message(
-                    conversation_id=conversation_id,
-                    message_type=message_type,
-                    content=content,
+                # Buscar o crear conversación dentro del contexto
+                conversation = (
+                    db.query(Conversation)
+                    .filter(Conversation.customer_id == customer_id, Conversation.ended_at.is_(None))
+                    .order_by(Conversation.started_at.desc())
+                    .first()
+                )
+
+                if not conversation:
+                    # Crear nueva conversación
+                    conversation = Conversation(
+                        customer_id=customer_id,
+                        session_id=f"session_{customer_id}_{datetime.now().timestamp()}",
+                    )
+                    db.add(conversation)
+                    db.flush()  # Flush para obtener el ID sin cerrar la transacción
+                    self.logger.info(f"Nueva conversación creada en DB para cliente {customer_id}")
+
+                # Guardar mensaje del usuario
+                user_msg = Message(
+                    conversation_id=conversation.id,
+                    message_type="user",
+                    content=user_message,
                     intent=intent,
                     confidence=confidence,
                     whatsapp_message_id=whatsapp_message_id,
-                    message_format="text"
+                    message_format="text",
                 )
-                db.add(message)
-                
+                db.add(user_msg)
+
+                # Guardar respuesta del bot
+                bot_msg = Message(
+                    conversation_id=conversation.id,
+                    message_type="bot",
+                    content=bot_response,
+                    message_format="text",
+                )
+                db.add(bot_msg)
+
                 # Actualizar contadores en la conversación
-                conversation = db.query(Conversation).filter_by(id=conversation_id).first()
-                if conversation:
-                    conversation.total_messages += 1
-                    if message_type == "user":
-                        conversation.user_messages += 1
-                    elif message_type == "bot":
-                        conversation.bot_messages += 1
-                    
-                    # Actualizar intent y updated_at
-                    if intent:
-                        conversation.intent_detected = intent
-                    conversation.updated_at = datetime.now(timezone.utc)
-                
+                conversation.total_messages = (conversation.total_messages or 0) + 2
+                conversation.user_messages = (conversation.user_messages or 0) + 1
+                conversation.bot_messages = (conversation.bot_messages or 0) + 1
+
+                # Actualizar intent y updated_at
+                if intent:
+                    conversation.intent_detected = intent
+                conversation.updated_at = datetime.now(timezone.utc)
+
+                # Commit toda la transacción
                 db.commit()
-                self.logger.debug(f"Mensaje guardado en DB: {message_type} - {content[:50]}...")
+                self.logger.debug(f"Conversación guardada en DB: usuario - {user_message[:50]}... | bot - {bot_response[:50]}...")
                 return True
-                
+
         except Exception as e:
-            self.logger.error(f"Error al guardar mensaje en DB: {e}")
+            self.logger.error(f"Error al guardar conversación en DB: {e}")
             return False
 
     async def _save_conversation(self, user_number: str, conversation: ConversationHistory) -> bool:
