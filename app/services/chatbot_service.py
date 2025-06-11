@@ -128,7 +128,7 @@ class ChatbotService:
                 self.logger.warning(f"Error detectando intención: {e}. Usando fallback.")
                 intent = UserIntent.NO_RELACIONADO_O_CONFUSO
                 confidence = 0.0
-                
+
             bot_response = await self._generate_response_from_db(
                 customer, message_text, intent, confidence, historial_str
             )
@@ -834,18 +834,20 @@ class ChatbotService:
                 db.add(bot_msg)
 
                 # Actualizar contadores en la conversación
-                conversation.total_messages = (conversation.total_messages or 0) + 2
-                conversation.user_messages = (conversation.user_messages or 0) + 1
-                conversation.bot_messages = (conversation.bot_messages or 0) + 1
+                conversation.total_messages = (conversation.total_messages or 0) + 2  # type: ignore
+                conversation.user_messages = (conversation.user_messages or 0) + 1  # type: ignore
+                conversation.bot_messages = (conversation.bot_messages or 0) + 1  # type: ignore
 
                 # Actualizar intent y updated_at
                 if intent:
-                    conversation.intent_detected = intent
-                conversation.updated_at = datetime.now(timezone.utc)
+                    conversation.intent_detected = intent  # type: ignore
+                conversation.updated_at = datetime.now(timezone.utc)  # type: ignore
 
                 # Commit toda la transacción
                 db.commit()
-                self.logger.debug(f"Conversación guardada en DB: usuario - {user_message[:50]}... | bot - {bot_response[:50]}...")
+                self.logger.debug(
+                    f"Conversación guardada en DB: usuario - {user_message[:50]}... | bot - {bot_response[:50]}..."
+                )
                 return True
 
         except Exception as e:

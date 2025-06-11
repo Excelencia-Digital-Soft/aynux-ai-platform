@@ -18,13 +18,14 @@ class UserIntent(str, Enum):
 class ChatbotResponse(BaseModel):
     """Modelo para respuestas del chatbot"""
 
+    intent: str = "desconocido"
+    confidence: float = 0.0
     mensaje: str
     estado: Literal[
         "inicio",
-        "verificar",
-        "verificado",
-        "tramites",
-        "reclamos",
-        "turnos",
-        "certificados",
+        "clasificado", 
+        "procesando",
+        "completado",
+        "sin_clasificar",
+        "error"
     ] = "inicio"

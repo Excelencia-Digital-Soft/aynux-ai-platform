@@ -1,0 +1,31 @@
+{
+  "test_info": {
+    "service_type": "langgraph",
+    "user_number": "5491234567890",
+    "user_name": "Usuario de Prueba",
+    "test_timestamp": "2025-06-11T11:43:13.816499"
+  },
+  "conversation_history": [
+    {
+      "timestamp": "2025-06-11T11:39:24.154614",
+      "user_message": "que productos vendes",
+      "bot_response": "¡Hola! Soy el asesor de **Conversa Shop**. Estamos disponibles para ayudarte con cualquier consulta sobre productos tecnológicos. 🖥️\n\nPor favor, cuéntame específicamente qué necesitas y te asistiré lo mejor posible.",
+      "status": "success",
+      "response_time": 0.788871
+    },
+    {
+      "timestamp": "2025-06-11T11:42:52.413941",
+      "user_message": "que productos vendes?",
+      "bot_response": "¡Hola! Soy el asesor de **Conversa Shop**. Estamos disponibles para ayudarte con cualquier consulta sobre productos tecnológicos. 🖥️\n\nPor favor, cuéntame específicamente qué necesitas y te asistiré lo mejor posible.",
+      "status": "success",
+      "response_time": 0.904201
+    }
+  ],
+  "summary": {
+    "total_messages": 2,
+    "successful_responses": 2,
+    "success_rate": 100.0,
+    "average_response_time": 0.846536,
+    "conversation_duration": 208.259327
+  }
+}
