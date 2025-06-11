@@ -1,19 +1,20 @@
 """
 Servicio integrado de chatbot usando LangGraph multi-agente
 """
+
 import logging
 import traceback
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from app.agents.langgraph_system.graph import EcommerceAssistantGraph
+from app.agents.langgraph_system.models import ConversationContext, CustomerContext
 from app.agents.langgraph_system.monitoring import MonitoringSystem, SecurityManager
 from app.config.langgraph_config import get_langgraph_config
 from app.config.settings import get_settings
 from app.database import check_db_connection, get_db_context
-from app.models.chatbot import UserIntent
 from app.models.conversation import ConversationHistory
-from app.models.database import Conversation, Message
+from app.models.database import Message
 from app.models.message import BotResponse, Contact, WhatsAppMessage
 from app.repositories.redis_repository import RedisRepository
 from app.services.customer_service import CustomerService
@@ -21,574 +22,375 @@ from app.services.whatsapp_service import WhatsAppService
 
 # Configurar expiración de conversación (24 horas)
 CONVERSATION_EXPIRATION = 86400  # 24 horas en segundos
-
 BUSINESS_NAME = "Conversa Shop"
 
 
 class LangGraphChatbotService:
     """
     Servicio de chatbot integrado con sistema multi-agente LangGraph
+
+    Versión que usa:
+    - Modelos Pydantic para validación de datos
+    - TypedDict para estado de LangGraph (máximo rendimiento)
+    - StateManager como puente entre ambos
     """
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.settings = get_settings()
-        
+
         # Cargar configuración LangGraph
         self.langgraph_config = get_langgraph_config()
-        
+
         # Servicios básicos
         self.redis_repo = RedisRepository[ConversationHistory](ConversationHistory, prefix="chat")
-        self.whatsapp_service = WhatsAppService()
         self.customer_service = CustomerService()
-        
-        # Sistema multi-agente LangGraph
-        self.graph_system = None
-        self.monitoring = None
-        self.security = None
-        
-        # Estado de la base de datos
-        self._db_available = None
-        
-        # Configuración del sistema (usar la nueva configuración)
-        self.config = self._prepare_system_config()
-        
-        self.logger.info("LangGraphChatbotService initialized")
-    
-    def _prepare_system_config(self) -> Dict[str, Any]:
-        """Prepara la configuración del sistema usando LangGraphConfig"""
-        config = self.langgraph_config.get_config()
-        
-        # Adaptar la configuración para el formato esperado por EcommerceAssistantGraph
-        return {
-            # Base de datos principal
-            "db_connection": config["database"]["primary_db_url"],
-            
-            # Configuración de caché
-            "cache_service": {
-                "redis_url": config["database"]["redis_url"],
-                "ttl": config["performance"]["caching"]["ttl"]
-            },
-            
-            # APIs externas
-            "shipping_apis": config["external_services"]["shipping_apis"],
-            
-            # Base de conocimiento
-            "knowledge_base": {
-                "enabled": config["agents"]["support_agent"]["enabled"],
-                "sources": config["agents"]["support_agent"]["knowledge_sources"]
-            },
-            
-            # API de facturación
-            "invoice_api": config["external_services"]["invoice_api"],
-            
-            # Configuración adicional para monitoreo y seguridad
-            "monitoring_config": config["monitoring"],
-            "security_config": config["security"],
-            "performance_config": config["performance"],
-            "agents_config": config["agents"]
-        }
-    
+        self.whatsapp_service = WhatsAppService()
+
+        # Sistema de monitoreo y seguridad
+        self.monitoring = MonitoringSystem()
+        self.security = SecurityManager()
+
+        # Graph principal (se inicializa en initialize())
+        self.graph_system: Optional[EcommerceAssistantGraph] = None
+        self._initialized = False
+
     async def initialize(self):
-        """Inicializa el sistema completo"""
+        """
+        Inicializa el sistema de forma asíncrona.
+        Debe llamarse antes de procesar mensajes.
+        """
         try:
-            self.logger.info("Initializing LangGraph system...")
-            
-            # Validar configuración antes de inicializar
-            validation_results = self.langgraph_config.validate_config()
-            failed_validations = [k for k, v in validation_results.items() if not v]
-            
-            if failed_validations:
-                self.logger.warning(f"Configuration validation failed for: {failed_validations}")
-                # Continuar pero con advertencias
-            
-            # Inicializar sistema de monitoreo
-            monitoring_config = self.config.get("monitoring_config", {})
-            self.monitoring = MonitoringSystem(monitoring_config)
-            
-            # Inicializar sistema de seguridad
-            security_config = self.config.get("security_config", {})
-            self.security = SecurityManager(security_config)
-            
-            # Inicializar sistema multi-agente
-            self.graph_system = EcommerceAssistantGraph(self.config)
+            if self._initialized:
+                return
+
+            self.logger.info("Initializing LangGraph chatbot service...")
+
+            # Inicializar el graph de forma asíncrona
             await self.graph_system.initialize()
-            
+
             # Verificar estado del sistema
             health_status = await self.graph_system.health_check()
             if health_status["overall_status"] != "healthy":
                 self.logger.warning(f"System not fully healthy: {health_status}")
             else:
                 self.logger.info("All system components are healthy")
-            
-            self.logger.info("LangGraph system initialized successfully")
-            
+
+            self._initialized = True
+            self.logger.info("LangGraph chatbot service initialized successfully")
+
         except Exception as e:
-            self.logger.error(f"Error initializing LangGraph system: {e}")
+            self.logger.error(f"Error initializing LangGraph service: {str(e)}")
+            self.logger.error(traceback.format_exc())
             raise
-    
-    async def _check_database_health(self) -> bool:
-        """Verifica si la base de datos está disponible y saludable"""
-        if self._db_available is None:
-            self._db_available = await check_db_connection()
-            if not self._db_available:
-                self.logger.warning("Base de datos no disponible, usando modo de respuesta básica")
-        return self._db_available
-    
-    async def procesar_mensaje(self, message: WhatsAppMessage, contact: Contact) -> BotResponse:
+
+    async def process_webhook_message(self, message: WhatsAppMessage, contact: Contact) -> BotResponse:
         """
-        Procesa un mensaje entrante de WhatsApp usando el sistema multi-agente
-        
+        Procesa un mensaje de WhatsApp usando el sistema multi-agente refactorizado.
+
         Args:
-            message: Mensaje entrante
-            contact: Información del contacto
-        
+            message: Mensaje de WhatsApp recibido
+            contact: Información de contacto del usuario
+
         Returns:
-            Respuesta del procesamiento
+            Respuesta estructurada del bot
         """
-        
-        user_number = None
-        customer = None
-        message_text = None
-        session_id = None
-        
+
+        if not self._initialized:
+            await self.initialize()
+
+        # Extraer información básica
+        user_number = contact.wa_id
+        message_text = self._extract_message_text(message)
+        session_id = f"whatsapp_{user_number}"
+
+        self.logger.info(f"Processing message from {user_number}: {message_text[:100]}...")
+
         try:
-            # 1. Extraer datos básicos
-            user_number = contact.wa_id
-            message_text = self._extract_message_text(message)
-            
-            if not message_text.strip():
-                self.logger.warning(f"Mensaje vacío recibido de {user_number}")
-                return BotResponse(status="failure", message="No se pudo procesar el mensaje vacío")
-            
-            self.logger.info(f"Procesando mensaje de {user_number}: '{message_text[:50]}...'")
-            
+            # 1. Verificar seguridad del mensaje
+            security_check = await self._check_message_security(user_number, message_text)
+            if not security_check["allowed"]:
+                return BotResponse(status="blocked", message=security_check["message"])
+
             # 2. Verificar estado de la base de datos
             db_available = await self._check_database_health()
-            
-            if not db_available:
-                # Modo fallback sin LangGraph
-                return await self._handle_fallback_mode(message_text, user_number)
-            
-            # 3. Verificar si el sistema LangGraph está inicializado
-            if not self.graph_system:
-                self.logger.warning("LangGraph system not initialized, using fallback")
-                return await self._handle_fallback_mode(message_text, user_number)
-            
-            # 4. Obtener o crear cliente
-            customer = await self._safe_get_or_create_customer(user_number, contact.profile.get("name"))
-            
-            if not customer:
-                self.logger.warning(f"No se pudo crear/obtener cliente para {user_number}, usando modo básico")
-                return await self._handle_fallback_mode(message_text, user_number)
-            
-            # 5. Iniciar sesión de monitoreo
-            if self.monitoring:
-                session_id = self.monitoring.start_session(
-                    conversation_id=f"conv_{user_number}",
-                    customer_data={
-                        "customer_id": customer["id"],
-                        "phone_number": user_number,
-                        "tier": customer.get("tier", "basic")
-                    }
-                )
-            
-            # 6. Procesar con el sistema multi-agente
+
+            # 3. Obtener o crear contexto del cliente
+            customer_context = await self._get_or_create_customer_context(
+                user_number, contact.profile.get("name", "Usuario")
+            )
+
+            # 4. Crear contexto de conversación
+            conversation_context = ConversationContext(
+                conversation_id=session_id,
+                session_id=session_id,
+                channel="whatsapp",
+                language=self._detect_language(message_text),
+            )
+
+            # 4. Obtener o crear contexto del cliente
+            await self._get_or_create_customer_context(user_number, contact.profile.get("name", "Usuario"))
+
+            # 5. Procesar con el sistema LangGraph
             response_data = await self._process_with_langgraph(
                 message_text=message_text,
-                user_number=user_number,
-                customer=customer,
-                session_id=session_id
+                customer_context=customer_context,
+                conversation_context=conversation_context,
+                session_id=session_id,
             )
-            
-            if not response_data["success"]:
-                # Si falla LangGraph, usar fallback
-                return await self._handle_fallback_mode(message_text, user_number)
-            
-            bot_response = response_data["response"]
-            
-            # 7. Guardar en base de datos tradicional (para compatibilidad)
-            await self._save_conversation_to_db(
-                customer_id=customer["id"],
-                user_message=message_text,
-                bot_response=bot_response,
-                intent=response_data.get("intent"),
-                confidence=response_data.get("confidence"),
-                whatsapp_message_id=message.id if hasattr(message, "id") else None,
+
+            # 6. Registrar la conversación si DB está disponible
+            if db_available:
+                await self._log_conversation(
+                    user_number=user_number,
+                    user_message=message_text,
+                    bot_response=response_data["response"],
+                    agent_used=response_data.get("agent_used"),
+                    session_id=session_id,
+                )
+
+            # 7. Cachear conversación en Redis
+            await self._cache_conversation(session_id, message_text, response_data["response"])
+
+            # 8. Enviar respuesta por WhatsApp
+            await self._send_whatsapp_response(user_number, response_data["response"])
+
+            # 9. Registrar métricas
+            await self._record_metrics(response_data)
+
+            return BotResponse(
+                status="success",
+                message=response_data["response"],
+                metadata={
+                    "agent_used": response_data.get("agent_used"),
+                    "requires_human": response_data.get("requires_human", False),
+                    "conversation_id": session_id,
+                },
             )
-            
-            # 8. Mantener conversación en Redis (para compatibilidad)
-            await self._update_redis_conversation(user_number, message_text, bot_response)
-            
-            # 9. Enviar respuesta por WhatsApp
-            await self._send_whatsapp_response(user_number, bot_response)
-            
-            # 10. Finalizar monitoreo
-            if self.monitoring and session_id:
-                self.monitoring.end_session(session_id)
-            
-            self.logger.info(f"Mensaje procesado exitosamente con LangGraph para {user_number}")
-            return BotResponse(status="success", message=bot_response)
-            
+
         except Exception as e:
-            tb = traceback.format_exc()
-            error_msg = f"Error procesando mensaje para {user_number or 'unknown'}"
-            self.logger.error(f"{error_msg}: {e}\n{tb}")
-            
-            # Registrar error en monitoreo
-            if self.monitoring and session_id:
-                self.monitoring.end_session(session_id)
-            
-            # Intentar enviar mensaje de error al usuario
-            if user_number:
-                try:
-                    await self._send_whatsapp_response(
-                        user_number,
-                        "Lo siento, ocurrió un error técnico. Por favor, intenta nuevamente en un momento. 🔧",
-                    )
-                except Exception as send_error:
-                    self.logger.error(f"No se pudo enviar mensaje de error a {user_number}: {send_error}")
-            
-            return BotResponse(status="failure", message="Error en el procesamiento del mensaje")
-    
+            self.logger.error(f"Error processing webhook message: {str(e)}")
+            self.logger.error(traceback.format_exc())
+
+            # Respuesta de fallback
+            fallback_response = (
+                "Disculpa, estoy experimentando dificultades técnicas.Por favor, intenta nuevamente en unos momentos."
+            )
+
+            try:
+                await self._send_whatsapp_response(user_number, fallback_response)
+            except Exception as send_error:
+                self.logger.error(f"Error sending fallback response: {send_error}")
+
+            return BotResponse(status="error", message=fallback_response, error=str(e))
+
     async def _process_with_langgraph(
         self,
         message_text: str,
-        user_number: str,
-        customer: Dict[str, Any],
-        session_id: Optional[str] = None
+        customer_context: CustomerContext,
+        conversation_context: ConversationContext,
+        session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Procesa el mensaje usando el sistema LangGraph
-        
+
         Args:
-            message_text: Texto del mensaje
-            user_number: Número del usuario
-            customer: Datos del cliente
-            session_id: ID de sesión de monitoreo
-            
+            message_text: Texto del mensaje del usuario
+            customer_context: Contexto del cliente (Pydantic model)
+            conversation_context: Contexto de conversación (Pydantic model)
+            session_id: ID de sesión para checkpointing
+
         Returns:
-            Resultado del procesamiento
+            Diccionario con la respuesta y metadatos
         """
         try:
-            conversation_id = f"conv_{user_number}"
-            
-            # Preparar datos del cliente para LangGraph
-            customer_data = {
-                "customer_id": str(customer["id"]),
-                "phone": user_number,
-                "name": customer.get("profile_name", "Cliente"),
-                "tier": customer.get("tier", "basic"),
-                "preferences": customer.get("preferences", {}),
-                "purchase_history": customer.get("purchase_history", [])
-            }
-            
-            # Configuración de sesión
-            session_config = {
-                "session_id": session_id,
-                "monitoring_enabled": bool(self.monitoring),
-                "security_enabled": bool(self.security)
-            }
-            
-            # Procesar con LangGraph
+            # Convertir customer_context a diccionario para compatibilidad
+            customer_data = customer_context.to_dict()
+
+            # Procesar con el graph usando la nueva arquitectura
             result = await self.graph_system.process_message(
                 message=message_text,
-                conversation_id=conversation_id,
                 customer_data=customer_data,
-                session_config=session_config
+                conversation_id=session_id,
+                session_config={
+                    "language": conversation_context.language,
+                    "channel": conversation_context.channel,
+                    "timezone": conversation_context.timezone,
+                },
             )
-            
+
             return result
-            
+
         except Exception as e:
-            self.logger.error(f"Error processing with LangGraph: {e}")
-            return {
-                "success": False,
-                "response": "Error interno del sistema",
-                "error": str(e)
-            }
-    
-    async def _handle_fallback_mode(self, message_text: str, user_number: str) -> BotResponse:
+            self.logger.error(f"Error in LangGraph processing: {str(e)}")
+            raise
+
+    async def _get_or_create_customer_context(self, user_number: str, user_name: str) -> CustomerContext:
         """
-        Modo de respuesta básica cuando LangGraph no está disponible
+        Obtiene o crea el contexto del cliente usando modelos Pydantic.
+
+        Args:
+            user_number: Número de WhatsApp del usuario
+            user_name: Nombre del usuario
+
+        Returns:
+            Contexto del cliente validado
         """
         try:
-            self.logger.info(f"Usando modo fallback para {user_number}")
-            
-            # Respuestas predefinidas básicas
-            message_lower = message_text.lower()
-            
-            if any(word in message_lower for word in ["hola", "buenos", "buen", "inicio", "empezar"]):
-                response_text = (
-                    f"¡Hola! 👋 Soy tu asesor virtual de **{BUSINESS_NAME}**.\n\n"
-                    "Estamos experimentando algunos problemas técnicos temporales, "
-                    "pero estaré encantado de ayudarte con información básica.\n\n"
-                    "¿En qué puedo ayudarte específicamente?"
-                )
-            elif any(word in message_lower for word in ["gracias", "chau", "adiós", "bye"]):
-                response_text = (
-                    f"¡Gracias por contactar **{BUSINESS_NAME}**! 😊\n\n"
-                    "📞 Estamos aquí cuando nos necesites\n"
-                    "🛡️ Garantía oficial en todos los productos\n\n"
-                    "¡Que tengas un excelente día! 🚀"
-                )
-            else:
-                response_text = (
-                    f"¡Hola! Soy el asesor de **{BUSINESS_NAME}**. "
-                    "Estamos disponibles para ayudarte con cualquier consulta sobre productos tecnológicos. 🖥️\n\n"
-                    "Por favor, cuéntame específicamente qué necesitas y te asistiré lo mejor posible."
-                )
-            
-            # Enviar respuesta
-            await self._send_whatsapp_response(user_number, response_text)
-            
-            return BotResponse(status="success", message=response_text)
-            
+            # Intentar obtener cliente existente
+            customer = await self.customer_service.get_or_create_customer(
+                phone=user_number, name=user_name, channel="whatsapp"
+            )
+
+            # Crear contexto usando modelo Pydantic para validación
+            customer_context = CustomerContext(
+                customer_id=str(customer.id),
+                name=customer.name,
+                email=customer.email,
+                phone=customer.phone,
+                tier=getattr(customer, "tier", "basic"),
+                purchase_history=[],  # Se puede cargar desde DB si es necesario
+                preferences=getattr(customer, "preferences", {}),
+            )
+
+            return customer_context
+
         except Exception as e:
-            self.logger.error(f"Error en modo fallback para {user_number}: {e}")
-            simple_message = f"¡Hola! Soy el asesor de {BUSINESS_NAME}. Estamos disponibles para ayudarte. 🖥️"
-            
-            try:
-                await self._send_whatsapp_response(user_number, simple_message)
-            except Exception:
-                pass  # Si falla el envío, no hacer nada más
-            
-            return BotResponse(status="success", message=simple_message)
-    
-    async def _safe_get_or_create_customer(
-        self, phone_number: str, profile_name: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
-        """Versión segura de obtención/creación de cliente con manejo de errores"""
+            self.logger.warning(f"Error getting customer context: {e}")
+
+            # Crear contexto básico como fallback
+            return CustomerContext(customer_id=f"temp_{user_number}", name=user_name, phone=user_number, tier="basic")
+
+    async def _check_message_security(self, user_number: str, message_text: str) -> Dict[str, Any]:
+        """
+        Verifica la seguridad del mensaje usando el sistema de seguridad.
+
+        Args:
+            user_number: Número del usuario
+            message_text: Texto del mensaje
+
+        Returns:
+            Resultado de la verificación de seguridad
+        """
         try:
-            return await self.customer_service.get_or_create_customer(phone_number, profile_name)
+            # Verificar rate limiting
+            if not await self.security.check_rate_limit(user_number):
+                return {"allowed": False, "message": "Has enviado demasiados mensajes. Por favor espera un momento."}
+
+            # Verificar contenido del mensaje
+            content_check = await self.security.check_message_content(message_text)
+            if not content_check["safe"]:
+                return {"allowed": False, "message": "Tu mensaje contiene contenido no permitido."}
+
+            return {"allowed": True}
+
         except Exception as e:
-            self.logger.error(f"Error al obtener cliente {phone_number}: {e}")
-            return None
-    
-    async def _update_redis_conversation(self, user_number: str, user_message: str, bot_response: str):
-        """Actualiza la conversación en Redis para compatibilidad con el sistema existente"""
+            self.logger.error(f"Error in security check: {e}")
+            # En caso de error, permitir el mensaje pero registrar
+            return {"allowed": True}
+
+    async def _check_database_health(self) -> bool:
+        """Verifica la salud de la base de datos"""
         try:
-            conversation_key = f"conversation:{user_number}"
-            conversation = self.redis_repo.get(conversation_key)
-            
-            if conversation is None:
-                conversation = ConversationHistory(user_id=user_number)
-            
-            # Añadir mensajes
-            conversation.add_message("persona", user_message)
-            conversation.add_message("bot", bot_response)
-            
-            # Guardar en Redis
-            self.redis_repo.set(conversation_key, conversation, expiration=CONVERSATION_EXPIRATION)
-            
+            return await check_db_connection()
         except Exception as e:
-            self.logger.error(f"Error actualizando conversación Redis para {user_number}: {e}")
-    
-    async def _save_conversation_to_db(
-        self,
-        customer_id: str,
-        user_message: str,
-        bot_response: str,
-        intent: str = None,
-        confidence: float = None,
-        whatsapp_message_id: str = None,
-    ) -> bool:
-        """Guarda la conversación en la base de datos para compatibilidad"""
+            self.logger.warning(f"Database health check failed: {e}")
+            return False
+
+    def _extract_message_text(self, message: WhatsAppMessage) -> str:
+        """Extrae el texto del mensaje de WhatsApp"""
+        if hasattr(message, "text") and message.text:
+            return message.text.body.strip()
+        return ""
+
+    def _detect_language(self, text: str) -> str:
+        """Detecta el idioma del mensaje (implementación básica)"""
+        # Implementación básica - se puede mejorar con librerías de detección
+        spanish_words = ["hola", "que", "como", "donde", "cuando", "por", "para"]
+        text_lower = text.lower()
+
+        if any(word in text_lower for word in spanish_words):
+            return "es"
+        return "es"  # Default a español
+
+    async def _log_conversation(
+        self, user_number: str, user_message: str, bot_response: str, agent_used: Optional[str], session_id: str
+    ):
+        """Registra la conversación en la base de datos"""
         try:
-            with get_db_context() as db:
-                # Buscar o crear conversación
-                conversation = (
-                    db.query(Conversation)
-                    .filter(Conversation.customer_id == customer_id, Conversation.ended_at.is_(None))
-                    .order_by(Conversation.started_at.desc())
-                    .first()
-                )
-                
-                if not conversation:
-                    conversation = Conversation(
-                        customer_id=customer_id,
-                        session_id=f"langgraph_{customer_id}_{datetime.now().timestamp()}",
-                    )
-                    db.add(conversation)
-                    db.flush()
-                
-                # Guardar mensaje del usuario
+            async with get_db_context() as db:
+                # Obtener o crear conversación
+                conversation = await self._get_or_create_conversation(db, user_number, session_id)
+
+                # Crear mensajes
                 user_msg = Message(
                     conversation_id=conversation.id,
-                    message_type="user",
                     content=user_message,
-                    intent=intent,
-                    confidence=confidence,
-                    whatsapp_message_id=whatsapp_message_id,
-                    message_format="text",
+                    is_from_user=True,
+                    metadata={"channel": "whatsapp"},
                 )
-                db.add(user_msg)
-                
-                # Guardar respuesta del bot
+
                 bot_msg = Message(
                     conversation_id=conversation.id,
-                    message_type="bot",
                     content=bot_response,
-                    message_format="text",
+                    is_from_user=False,
+                    metadata={"agent_used": agent_used, "channel": "whatsapp"},
                 )
-                db.add(bot_msg)
-                
-                # Actualizar contadores
-                conversation.total_messages = (conversation.total_messages or 0) + 2
-                conversation.user_messages = (conversation.user_messages or 0) + 1
-                conversation.bot_messages = (conversation.bot_messages or 0) + 1
-                
-                if intent:
-                    conversation.intent_detected = intent
-                conversation.updated_at = datetime.now(timezone.utc)
-                
-                db.commit()
-                return True
-                
+
+                db.add_all([user_msg, bot_msg])
+                await db.commit()
+
         except Exception as e:
-            self.logger.error(f"Error al guardar conversación en DB: {e}")
-            return False
-    
-    async def _send_whatsapp_response(self, user_number: str, message: str) -> bool:
-        """Envía la respuesta por WhatsApp"""
+            self.logger.error(f"Error logging conversation: {e}")
+
+    async def _cache_conversation(self, session_id: str, user_message: str, bot_response: str):
+        """Cachea la conversación en Redis"""
         try:
-            response = await self.whatsapp_service.enviar_mensaje_texto(user_number, message)
-            
-            if response.get("success", True):
-                self.logger.info(f"Mensaje enviado exitosamente a {user_number}")
-                return True
-            else:
-                self.logger.error(f"Error enviando mensaje a {user_number}: {response.get('error')}")
-                return False
-                
+            # Obtener historial existente
+            history = await self.redis_repo.get(session_id)
+            if not history:
+                history = ConversationHistory(session_id=session_id, messages=[], created_at=datetime.now(timezone.utc))
+
+            # Añadir nuevos mensajes
+            history.messages.extend(
+                [
+                    {"role": "user", "content": user_message, "timestamp": datetime.now().isoformat()},
+                    {"role": "assistant", "content": bot_response, "timestamp": datetime.now().isoformat()},
+                ]
+            )
+
+            # Mantener solo los últimos 20 mensajes para optimizar memoria
+            if len(history.messages) > 20:
+                history.messages = history.messages[-20:]
+
+            # Guardar en Redis con expiración
+            await self.redis_repo.set(session_id, history, expiration=CONVERSATION_EXPIRATION)
+
         except Exception as e:
-            self.logger.error(f"Excepción al enviar mensaje a {user_number}: {e}")
-            return False
-    
-    def _extract_message_text(self, message: WhatsAppMessage) -> str:
-        """Extrae el texto del mensaje según su tipo"""
+            self.logger.error(f"Error caching conversation: {e}")
+
+    async def _send_whatsapp_response(self, user_number: str, response: str):
+        """Envía respuesta por WhatsApp"""
         try:
-            if message.type == "text" and message.text:
-                return message.text.body
-            elif message.type == "interactive" and message.interactive:
-                if message.interactive.type == "button_reply" and message.interactive.button_reply:
-                    return message.interactive.button_reply.title
-                elif message.interactive.type == "list_reply" and message.interactive.list_reply:
-                    return message.interactive.list_reply.title
-            
-            self.logger.warning(f"No se pudo extraer texto del mensaje tipo: {message.type}")
-            return ""
-            
+            await self.whatsapp_service.send_message(user_number, response)
         except Exception as e:
-            self.logger.error(f"Error extrayendo texto del mensaje: {e}")
-            return ""
-    
-    async def get_system_health(self) -> Dict[str, Any]:
-        """Obtiene el estado de salud del sistema completo"""
+            self.logger.error(f"Error sending WhatsApp message: {e}")
+            raise
+
+    async def _record_metrics(self, response_data: Dict[str, Any]):
+        """Registra métricas del procesamiento"""
         try:
-            health_status = {
-                "overall_status": "healthy",
-                "components": {},
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            # Estado de LangGraph
-            if self.graph_system:
-                langgraph_health = await self.graph_system.health_check()
-                health_status["components"]["langgraph"] = langgraph_health
-            else:
-                health_status["components"]["langgraph"] = {
-                    "status": "not_initialized"
-                }
-            
-            # Estado de monitoreo
-            if self.monitoring:
-                monitoring_metrics = self.monitoring.get_performance_metrics()
-                health_status["components"]["monitoring"] = {
-                    "status": "healthy",
-                    "metrics": monitoring_metrics
-                }
-            
-            # Estado de seguridad
-            if self.security:
-                security_metrics = self.security.get_security_metrics()
-                health_status["components"]["security"] = {
-                    "status": "healthy",
-                    "metrics": security_metrics
-                }
-            
-            # Estado de base de datos
-            db_healthy = await self._check_database_health()
-            health_status["components"]["database"] = {
-                "status": "healthy" if db_healthy else "unhealthy"
-            }
-            
-            # Determinar estado general
-            component_statuses = []
-            for component in health_status["components"].values():
-                if isinstance(component, dict):
-                    component_statuses.append(component.get("status", "unknown"))
-            
-            if "unhealthy" in component_statuses or "not_initialized" in component_statuses:
-                health_status["overall_status"] = "degraded"
-            
-            return health_status
-            
+            await self.monitoring.record_message_processed(
+                agent_used=response_data.get("agent_used"),
+                success=True,
+                response_time_ms=response_data.get("processing_time_ms", 0),
+            )
         except Exception as e:
-            self.logger.error(f"Error getting system health: {e}")
-            return {
-                "overall_status": "unhealthy",
-                "error": str(e),
-                "timestamp": datetime.now().isoformat()
-            }
-    
-    async def get_conversation_history_langgraph(
-        self,
-        user_number: str,
-        limit: int = 50
-    ) -> Dict[str, Any]:
-        """Obtiene el historial de conversación desde LangGraph"""
-        try:
-            if not self.graph_system:
-                return {"error": "LangGraph system not available"}
-            
-            conversation_id = f"conv_{user_number}"
-            history = await self.graph_system.get_conversation_history(conversation_id, limit)
-            
-            return {
-                "success": True,
-                "conversation_id": conversation_id,
-                "messages": history,
-                "total_messages": len(history)
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error getting LangGraph conversation history: {e}")
-            return {"error": str(e)}
-    
-    async def cleanup(self):
-        """Limpia recursos del sistema"""
-        try:
-            if self.graph_system:
-                await self.graph_system.cleanup()
-            
-            if self.monitoring:
-                # Limpiar tokens expirados
-                self.monitoring.cleanup_old_checkpoints()
-            
-            if self.security:
-                self.security.cleanup_expired_tokens()
-            
-            self.logger.info("LangGraphChatbotService cleanup completed")
-            
-        except Exception as e:
-            self.logger.error(f"Error during cleanup: {e}")
-    
-    async def __aenter__(self):
-        """Context manager entry"""
-        await self.initialize()
-        return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit"""
-        await self.cleanup()
+            self.logger.error(f"Error recording metrics: {e}")
+
+    # Métodos auxiliares adicionales...
+    async def _get_or_create_conversation(self, db, user_number: str, session_id: str):
+        """Obtiene o crea una conversación en la base de datos"""
+        # Implementación específica según tu modelo de datos
+        pass
+

@@ -845,6 +845,7 @@ class ChatbotService:
 
                 # Commit toda la transacción
                 db.commit()
+                db.refresh(conversation)
                 self.logger.debug(
                     f"Conversación guardada en DB: usuario - {user_message[:50]}... | bot - {bot_response[:50]}..."
                 )

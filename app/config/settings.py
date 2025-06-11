@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     Carga automáticamente las variables de entorno.
     """
 
-    # API
+    # API Configuration
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "WhatsApp Chatbot API"
     PROJECT_DESCRIPTION: str = "API para integración con WhatsApp Business API"
