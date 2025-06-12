@@ -97,6 +97,20 @@ class IntentInfo(BaseModel):
         }
 
 
+class IntentPattern(BaseModel):
+    """Patrón para detección de intenciones"""
+
+    intent: str
+    keywords: List[str] = Field(default_factory=list)
+    patterns: List[str] = Field(default_factory=list)
+    confidence_boost: float = 0.0
+
+    def matches(self, text: str) -> bool:
+        """Verifica si el patrón coincide con el texto"""
+        text_lower = text.lower()
+        return any(keyword in text_lower for keyword in self.keywords)
+
+
 class AgentResponse(BaseModel):
     """Respuesta generada por un agente"""
 

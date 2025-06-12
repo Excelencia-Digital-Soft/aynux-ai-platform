@@ -69,7 +69,7 @@ class ChatbotService:
                 self.logger.warning("Base de datos no disponible, usando modo de respuesta básica")
         return self._db_available
 
-    async def procesar_mensaje(self, message: WhatsAppMessage, contact: Contact) -> BotResponse:
+    async def process_webhook_message(self, message: WhatsAppMessage, contact: Contact) -> BotResponse:
         """
         Procesa un mensaje entrante de WhatsApp
 
@@ -926,3 +926,6 @@ class ChatbotService:
         except Exception as e:
             self.logger.error(f"Error obteniendo estadísticas para {user_number}: {e}")
             return None
+
+    def cleanup(self):
+        pass

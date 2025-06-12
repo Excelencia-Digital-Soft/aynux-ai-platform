@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(False, description="Modo de depuración")
     ENVIRONMENT: str = Field("production", description="Entorno de ejecución")
 
+    # External Service
+    DUX_API_BASE_URL: str = Field("https://erp.duxsoftware.com.ar/WSERP/rest/services", description="URL base de Dux")
+    DUX_API_KEY: Optional[str] = Field(None, description="Clave de la aplicación de Dux")
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",

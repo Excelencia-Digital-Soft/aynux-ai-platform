@@ -405,4 +405,3 @@ class ChromaDBIntegration:
         """Limpia el cache de colecciones"""
         self._collections_cache.clear()
         logger.debug("ChromaDB cache cleared")
-

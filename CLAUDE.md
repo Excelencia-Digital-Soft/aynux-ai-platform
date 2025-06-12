@@ -129,7 +129,7 @@ See `app/config/langgraph_config.py` for detailed agent configuration options.
 - Fallback mechanism if LangGraph initialization fails
 
 ### State Management
-- LangGraph uses `SharedState` with PostgreSQL checkpointing
+- LangGraph uses `TypedDict + StateManager` with PostgreSQL checkpointing
 - Traditional system uses Redis for session management
 - Both systems maintain compatibility with the same database schema
 
@@ -192,3 +192,22 @@ The system provides comprehensive health checks for all components:
 - Intent recognition accuracy
 - Session management efficiency
 - Error rates and recovery patterns
+
+### Prompt
+# ROL
+Actúa como un ingeniero de software senior especializado en Python y FastAPI, con experiencia en arquitecturas limpias, microservicios y diseño escalable de APIs.
+
+# CONTEXTO
+Estoy construyendo una API en Python 3.13 usando FastAPI. Esta API se conecta con WhatsApp para recibir mensajes de usuarios. El objetivo es que, cuando el usuario envíe un mensaje, este sea interpretado y redirigido automáticamente a un agente inteligente (IA) que pueda responder de forma precisa según la intención del mensaje.
+
+# TECNOLOGÍA
+- Python 3.13  
+- FastAPI  
+- Redis (como cola o cache)  
+- PostgreSQL (para persistencia)  
+- LangGraph y Langchain (para flujo y orquestación de agentes)  
+- Ollama (para ejecutar modelos locales de lenguaje)  
+
+# DEBER
+Quiero que generes código de ejemplo siguiendo buenas prácticas de arquitectura. Todo debe estar desacoplado, usando principios SOLID, y nunca debe haber lógica hardcodeada en la gestión de intenciones del usuario. El flujo conversacional debe estar manejado por agentes inteligentes y adaptables mediante IA (por ejemplo, usando LangGraph + Langchain).
+

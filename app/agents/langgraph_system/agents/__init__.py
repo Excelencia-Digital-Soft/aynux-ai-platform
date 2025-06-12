@@ -9,11 +9,4 @@ from .promotions_agent import PromotionsAgent
 from .support_agent import SupportAgent
 from .tracking_agent import TrackingAgent
 
-__all__ = [
-    "CategoryAgent",
-    "ProductAgent", 
-    "PromotionsAgent",
-    "TrackingAgent",
-    "SupportAgent",
-    "InvoiceAgent"
-]
+__all__ = ["CategoryAgent", "ProductAgent", "PromotionsAgent", "TrackingAgent", "SupportAgent", "InvoiceAgent"]

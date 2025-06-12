@@ -121,7 +121,7 @@ async def process_webhook(
     # Procesar el mensaje con el servicio chatbot
     try:
         print("Procesando Mensaje...")
-        result: BotResponse = await service.procesar_mensaje(message, contact)
+        result: BotResponse = await service.process_webhook_message(message, contact)
         print("Mensaje Procesado con Resultado: ", result)
         return {"status": "ok", "result": result}
     except Exception as e:
@@ -139,7 +139,7 @@ async def health_check():
         service = await _get_chatbot_service()
 
         if USE_LANGGRAPH and isinstance(service, LangGraphChatbotService):
-            health_status = await service.get_system_health()
+            health_status = await service._check_database_health()
             return {"service_type": "langgraph", "status": health_status["overall_status"], "details": health_status}
         else:
             # Health check básico para servicio tradicional

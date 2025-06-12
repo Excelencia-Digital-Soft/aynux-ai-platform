@@ -70,3 +70,6 @@ class LangGraphState(TypedDict, total=False):
     conversation_checkpoint_id: Optional[str]
     cache_keys: Annotated[List[str], add_cache_keys]
     total_processing_time_ms: float
+
+
+GraphState = LangGraphState

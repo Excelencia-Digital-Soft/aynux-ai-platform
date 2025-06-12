@@ -308,6 +308,7 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_phone = Column(String, nullable=False, index=True)
     conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
     message_type = Column(String(20), nullable=False)  # user, bot, system
     content = Column(Text, nullable=False)

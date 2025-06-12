@@ -4,295 +4,231 @@ Router inteligente que usa IA para detectar intenciones y enrutar conversaciones
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
-
-from pydantic import BaseModel
-
-from app.agents.langgraph_system.integrations.chroma_integration import ChromaDBIntegration
-from app.agents.langgraph_system.integrations.ollama_integration import OllamaIntegration
-from app.agents.langgraph_system.models import IntentInfo, SharedState
+import re
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 
-class IntentPattern(BaseModel):
-    """Patrón de intención para detección rápida"""
-
-    intent: str
-    keywords: List[str]
-    patterns: List[str]
-    confidence_boost: float = 0.1
-
-
 class IntentRouter:
-    """Router inteligente que combina patrones y IA para detectar intenciones"""
+    """
+    Router que determina la intención del usuario y dirige al agente apropiado.
+    """
 
-    def __init__(self, ollama: OllamaIntegration, vector_store: ChromaDBIntegration):
+    def __init__(self, ollama=None, config: Optional[Dict[str, Any]] = None):
         self.ollama = ollama
-        self.vector_store = vector_store
+        self.config = config or {}
+        self.logger = logging.getLogger(__name__)
 
-        # Patrones rápidos para detección inicial
-        self.quick_patterns = [
-            IntentPattern(
-                intent="consulta_producto",
-                keywords=["producto", "precio", "stock", "disponible", "comprar"],
-                patterns=["quiero comprar", "cuánto cuesta", "tienen disponible"],
-            ),
-            IntentPattern(
-                intent="soporte_tecnico",
-                keywords=["error", "problema", "no funciona", "ayuda", "soporte"],
-                patterns=["tengo un problema", "no puedo", "error al"],
-            ),
-            IntentPattern(
-                intent="seguimiento_pedido",
-                keywords=["pedido", "orden", "envío", "tracking", "entrega"],
-                patterns=["dónde está mi", "cuándo llega", "estado del pedido"],
-            ),
-            IntentPattern(
-                intent="facturacion",
-                keywords=["factura", "pago", "cobro", "tarjeta", "billing"],
-                patterns=["mi factura", "cobro incorrecto", "problema de pago"],
-            ),
-            IntentPattern(
-                intent="promociones",
-                keywords=["oferta", "descuento", "promoción", "rebaja", "sale"],
-                patterns=["hay ofertas", "descuentos disponibles", "promociones"],
-            ),
-        ]
+        # Configuración
+        self.confidence_threshold = self.config.get("confidence_threshold", 0.75)
+        self.fallback_agent = self.config.get("fallback_agent", "support_agent")
 
-    async def analyze_intent(self, state: SharedState) -> IntentInfo:
-        """Analiza la intención del usuario usando múltiples estrategias"""
-        user_message = state.get_last_user_message()
-        if not user_message:
-            return self._create_unknown_intent()
+    def determine_intent(
+        self,
+        message: str,
+        customer_data: Optional[Dict[str, Any]] = None,
+        conversation_data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Determina la intención del usuario y el agente objetivo.
 
-        # Estrategia 1: Detección rápida por patrones
-        quick_result = await self._quick_pattern_detection(user_message)
-        if quick_result and quick_result.confidence > 0.8:
-            logger.info(f"Quick pattern match: {quick_result.primary_intent}")
-            return quick_result
+        Args:
+            message: Mensaje del usuario
+            customer_data: Datos del cliente (opcional)
+            conversation_data: Datos de conversación (opcional)
 
-        # Estrategia 2: Búsqueda vectorial para contexto
-        context_result = await self._vector_search_context(user_message, state)
-
-        # Estrategia 3: Análisis con LLM para casos complejos
-        llm_result = await self._llm_intent_analysis(user_message, state, context_result)
-
-        # Combinar resultados y seleccionar el mejor
-        final_intent = await self._combine_intent_results(quick_result, context_result, llm_result)
-
-        logger.info(f"Final intent: {final_intent.primary_intent} (confidence: {final_intent.confidence})")
-        return final_intent
-
-    async def _quick_pattern_detection(self, message: str) -> Optional[IntentInfo]:
-        """Detección rápida usando patrones predefinidos"""
-        message_lower = message.lower()
-        best_match = None
-        best_score = 0.0
-
-        for pattern in self.quick_patterns:
-            score = 0.0
-
-            # Puntaje por keywords
-            keyword_matches = sum(1 for keyword in pattern.keywords if keyword in message_lower)
-            if keyword_matches > 0:
-                score += (keyword_matches / len(pattern.keywords)) * 0.6
-
-            # Puntaje por patrones exactos
-            pattern_matches = sum(1 for p in pattern.patterns if p in message_lower)
-            if pattern_matches > 0:
-                score += (pattern_matches / len(pattern.patterns)) * 0.4
-
-            # Boost adicional
-            score += pattern.confidence_boost
-
-            if score > best_score:
-                best_score = score
-                best_match = pattern
-
-        if best_match and best_score > 0.3:
-            return IntentInfo(
-                primary_intent=best_match.intent,
-                confidence=min(best_score, 0.95),  # Cap confidence para pattern matching
-                entities=self._extract_basic_entities(message, best_match),
-                target_agent=self._map_intent_to_agent(best_match.intent),
-            )
-
-        return None
-
-    async def _vector_search_context(self, message: str, state: SharedState) -> Dict[str, Any]:
-        """Busca contexto relevante usando búsqueda vectorial"""
+        Returns:
+            Diccionario con información de intención
+        """
         try:
-            # Buscar conversaciones similares
-            similar_conversations = await self.vector_store.similarity_search(
-                query=message, collection_name="conversation_examples", n_results=3
-            )
+            # Normalizar mensaje
+            message_lower = message.lower().strip()
 
-            # Buscar documentos de knowledge base
-            knowledge_docs = await self.vector_store.similarity_search(
-                query=message, collection_name="knowledge_base", n_results=5
-            )
+            # Detectar intención usando patrones
+            detected_intent = self._detect_intent_with_patterns(message_lower)
+
+            # Mapear intención a agente
+            target_agent = self._map_intent_to_agent(detected_intent["intent"])
+
+            # Extraer entidades
+            entities = self._extract_entities(message, detected_intent["intent"])
 
             return {
-                "similar_conversations": similar_conversations,
-                "knowledge_docs": knowledge_docs,
-                "context_available": len(similar_conversations) > 0 or len(knowledge_docs) > 0,
+                "primary_intent": detected_intent["intent"],
+                "confidence": detected_intent["confidence"],
+                "entities": entities,
+                "requires_handoff": False,
+                "target_agent": target_agent,
             }
 
         except Exception as e:
-            logger.error(f"Error in vector search: {e}")
-            return {"context_available": False}
+            self.logger.error(f"Error determining intent: {str(e)}")
 
-    async def _llm_intent_analysis(self, message: str, state: SharedState, context: Dict) -> IntentInfo:
-        """Usa LLM para análisis profundo de intención"""
+            # Fallback a agente de soporte
+            return {
+                "primary_intent": "support",
+                "confidence": 0.5,
+                "entities": {},
+                "requires_handoff": False,
+                "target_agent": self.fallback_agent,
+            }
 
-        # Construir prompt inteligente
-        system_prompt = self._build_intent_analysis_prompt(state, context)
+    def _detect_intent_with_patterns(self, message: str) -> Dict[str, Any]:
+        """Detección usando patrones predefinidos con matching más flexible"""
+        message_lower = message.lower()
+
+        # Patrones mejorados para detectar intenciones
+        patterns = {
+            "producto": {
+                "keywords": ["laptop", "computadora", "pc", "teléfono", "celular", "tablet", "precio", "cuánto", "cuesta", "disponible", "stock", "características", "especificaciones", "gaming", "diseño"],
+                "confidence": 0.9,
+            },
+            "seguimiento": {
+                "keywords": ["pedido", "orden", "envío", "tracking", "rastreo", "dónde", "donde", "está", "llega", "entrega", "#", "número"],
+                "confidence": 0.9,
+            },
+            "soporte": {
+                "keywords": ["problema", "error", "no funciona", "no enciende", "soporte", "asistencia", "ayuda", "devolución", "garantía", "roto", "dañado"],
+                "confidence": 0.85,
+            },
+            "facturacion": {
+                "keywords": ["factura", "pago", "cobro", "invoice", "billing", "tarjeta", "transferencia", "crédito", "débito"],
+                "confidence": 0.9
+            },
+            "promociones": {
+                "keywords": ["oferta", "descuento", "promoción", "sale", "barato", "cupón", "código", "estudiante", "rebaja"],
+                "confidence": 0.85
+            },
+            "categoria": {
+                "keywords": ["categoría", "tipos", "qué tienen", "qué ofreces", "opciones", "catálogo", "productos", "hola"],
+                "confidence": 0.8
+            },
+        }
+
+        best_intent = "categoria"  # Por defecto categoria en lugar de general
+        best_confidence = 0.3  # Umbral más bajo
+
+        intent_scores = {}
+        
+        for intent, pattern_data in patterns.items():
+            score = 0
+            matches = 0
+            
+            for keyword in pattern_data["keywords"]:
+                if keyword in message_lower:
+                    matches += 1
+                    # Dar más peso a matches exactos de palabras
+                    if f" {keyword} " in f" {message_lower} " or message_lower.startswith(keyword) or message_lower.endswith(keyword):
+                        score += 2
+                    else:
+                        score += 1
+            
+            if matches > 0:
+                # Calcular confianza basada en cantidad y calidad de matches
+                base_confidence = min((score / len(pattern_data["keywords"])) * pattern_data["confidence"], 0.95)
+                # Bonus por múltiples matches
+                if matches > 1:
+                    base_confidence = min(base_confidence * 1.2, 0.95)
+                
+                intent_scores[intent] = base_confidence
+
+        # Encontrar la mejor intención
+        if intent_scores:
+            best_intent = max(intent_scores, key=intent_scores.get)
+            best_confidence = intent_scores[best_intent]
+
+        # Logging para debugging
+        logger.info(f"Intent detection for '{message}': {best_intent} (confidence: {best_confidence:.2f})")
+        if intent_scores:
+            logger.debug(f"All intent scores: {intent_scores}")
+
+        return {"intent": best_intent, "confidence": best_confidence}
+
+    def _extract_entities(self, message: str, intent: str) -> Dict[str, Any]:
+        """Extrae entidades del mensaje basándose en la intención"""
+        entities = {}
+
+        # Extraer números (posibles precios, cantidades, IDs)
+        numbers = re.findall(r"\d+(?:\.\d+)?", message)
+        if numbers:
+            entities["numbers"] = numbers
+
+        # Extraer menciones de productos
+        product_terms = ["laptop", "teléfono", "celular", "computadora", "tablet", "iphone", "samsung"]
+        found_products = [term for term in product_terms if term in message.lower()]
+        if found_products:
+            entities["product_mentions"] = found_products
+
+        # Extraer números de orden para seguimiento
+        if intent == "seguimiento":
+            order_pattern = re.findall(r"#?\d{6,}", message)
+            if order_pattern:
+                entities["order_numbers"] = order_pattern
+
+        return entities
+
+    async def analyze_intent_with_llm(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Usa LLM para análisis profundo de intención cuando sea necesario"""
+        if not self.ollama:
+            return self.determine_intent(message)
+
+        system_prompt = """
+        Eres un experto en análisis de intenciones para un chatbot de e-commerce.
+        
+        INTENCIONES DISPONIBLES:
+        - producto: Búsqueda, información o comparación de productos
+        - soporte: Problemas técnicos, errores, asistencia
+        - seguimiento: Estado de órdenes, envíos, tracking
+        - facturacion: Consultas sobre pagos, facturas, cobros
+        - promociones: Ofertas, descuentos, promociones especiales
+        - categoria: Información sobre categorías de productos
+        - general: Consultas generales
+        
+        Analiza el mensaje y responde con un JSON válido.
+        """
 
         user_prompt = f"""
-        Analiza este mensaje del usuario y determina su intención:
+        Analiza este mensaje: "{message}"
         
-        Mensaje: "{message}"
-        
-        Responde SOLO con un JSON válido en este formato:
+        Responde SOLO con JSON:
         {{
-            "primary_intent": "nombre_de_la_intencion",
+            "intent": "nombre_intencion",
             "confidence": 0.85,
-            "entities": {{"entity_type": ["values"]}},
-            "requires_handoff": false,
-            "reasoning": "breve explicación"
+            "entities": {{}},
+            "reasoning": "explicación breve"
         }}
         """
 
         try:
             response = await self.ollama.generate_response(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                model="llama3.1:8b",
-                temperature=0.1,  # Baja temperatura para respuestas consistentes
+                system_prompt=system_prompt, user_prompt=user_prompt, model="llama3.1:8b", temperature=0.1
             )
 
-            # Parse JSON response
-            result_data = json.loads(response)
-
-            return IntentInfo(
-                primary_intent=result_data["primary_intent"],
-                confidence=result_data["confidence"],
-                entities=result_data.get("entities", {}),
-                requires_handoff=result_data.get("requires_handoff", False),
-                target_agent=self._map_intent_to_agent(result_data["primary_intent"]),
-            )
-
+            result = json.loads(response)
+            return {
+                "primary_intent": result["intent"],
+                "confidence": result["confidence"],
+                "entities": result.get("entities", {}),
+                "requires_handoff": False,
+                "target_agent": self._map_intent_to_agent(result["intent"]),
+            }
         except Exception as e:
-            logger.error(f"Error in LLM intent analysis: {e}")
-            return self._create_unknown_intent()
-
-    def _build_intent_analysis_prompt(self, state: SharedState, context: Dict) -> str:
-        """Construye prompt contextual para análisis de intención"""
-
-        base_prompt = """
-        Eres un experto en análisis de intenciones para un chatbot de e-commerce.
-        
-        INTENCIONES DISPONIBLES:
-        - consulta_producto: Búsqueda, información o comparación de productos
-        - soporte_tecnico: Problemas técnicos, errores, asistencia
-        - seguimiento_pedido: Estado de órdenes, envíos, tracking
-        - facturacion: Consultas sobre pagos, facturas, cobros
-        - promociones: Ofertas, descuentos, promociones especiales
-        - informacion_general: Información sobre la empresa, políticas, etc.
-        - escalation: Casos complejos que requieren intervención humana
-        
-        REGLAS:
-        1. Analiza el contexto completo, no solo palabras clave
-        2. Considera el historial de conversación si está disponible
-        3. Asigna confianza alta (>0.8) solo si estás muy seguro
-        4. Para casos ambiguos, usa confidence media (0.5-0.7)
-        5. Extrae entidades relevantes cuando sea posible
-        6. Marca requires_handoff=true para casos muy complejos o emocionales
-        """
-
-        # Añadir contexto de conversación
-        if state.conversation and state.messages:
-            recent_messages = state.messages[-3:]  # Últimos 3 mensajes
-            conversation_context = "\n".join([f"- {msg.content}" for msg in recent_messages])
-            base_prompt += f"\n\nCONTEXTO DE CONVERSACIÓN RECIENTE:\n{conversation_context}"
-
-        # Añadir contexto del cliente
-        if state.customer:
-            customer_context = f"""
-            INFORMACIÓN DEL CLIENTE:
-            - Tier: {state.customer.tier}
-            - Historial de compras: {len(state.customer.purchase_history)} compras anteriores
-            """
-            base_prompt += customer_context
-
-        # Añadir contexto vectorial si está disponible
-        if context.get("context_available"):
-            base_prompt += "\n\nSe encontró contexto relevante en la base de conocimientos."
-
-        return base_prompt
-
-    async def _combine_intent_results(
-        self, quick: Optional[IntentInfo], vector_context: Dict, llm: IntentInfo
-    ) -> IntentInfo:
-        """Combina resultados de diferentes estrategias para obtener el mejor"""
-
-        # Si quick pattern tiene alta confianza, usarlo
-        if quick and quick.confidence > 0.85:
-            return quick
-
-        # Si LLM tiene alta confianza, usarlo
-        if llm.confidence > 0.8:
-            return llm
-
-        # Si quick pattern y LLM coinciden, boost confidence
-        if quick and quick.primary_intent == llm.primary_intent:
-            combined_confidence = min((quick.confidence + llm.confidence) / 2 + 0.1, 0.95)
-            return IntentInfo(
-                primary_intent=llm.primary_intent,
-                confidence=combined_confidence,
-                entities={**quick.entities, **llm.entities},
-                requires_handoff=llm.requires_handoff,
-                target_agent=llm.target_agent,
-            )
-
-        # Default: usar resultado de LLM
-        return llm
-
-    def _extract_basic_entities(self, message: str, pattern: IntentPattern) -> Dict[str, Any]:
-        """Extrae entidades básicas del mensaje"""
-        entities = {}
-
-        # Extraer números (posibles precios, cantidades, IDs)
-        import re
-
-        numbers = re.findall(r"\d+(?:\.\d+)?", message)
-        if numbers:
-            entities["numbers"] = numbers
-
-        # Extraer menciones de productos comunes
-        product_terms = ["laptop", "teléfono", "celular", "computadora", "tablet"]
-        found_products = [term for term in product_terms if term in message.lower()]
-        if found_products:
-            entities["product_mentions"] = found_products
-
-        return entities
+            logger.error(f"Error in LLM analysis: {e}")
+            return self.determine_intent(message)
 
     def _map_intent_to_agent(self, intent: str) -> str:
         """Mapea intenciones a agentes específicos"""
         mapping = {
-            "consulta_producto": "product_agent",
-            "soporte_tecnico": "support_agent",
-            "seguimiento_pedido": "tracking_agent",
+            "producto": "product_agent",
+            "soporte": "support_agent", 
+            "seguimiento": "tracking_agent",
             "facturacion": "invoice_agent",
             "promociones": "promotions_agent",
-            "informacion_general": "category_agent",
-            "escalation": "support_agent",
+            "categoria": "category_agent",
+            "general": "category_agent",
         }
-        return mapping.get(intent, "category_agent")
-
-    def _create_unknown_intent(self) -> IntentInfo:
-        """Crea intención desconocida como fallback"""
-        return IntentInfo(
-            primary_intent="unknown", confidence=0.0, entities={}, requires_handoff=False, target_agent="category_agent"
-        )
+        
+        agent = mapping.get(intent, "category_agent")
+        logger.info(f"Mapping intent '{intent}' to agent '{agent}'")
+        return agent

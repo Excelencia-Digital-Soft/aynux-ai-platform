@@ -3,18 +3,13 @@ Graph principal del sistema multi-agente LangGraph
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, StateGraph
 
 from app.agents.langgraph_system.integrations.postgres_checkpointer import (
     get_checkpointer_manager,
     initialize_checkpointer,
-)
-from app.agents.langgraph_system.models import (
-    ConversationContext,
-    CustomerContext,
 )
 
 from .agents import (
@@ -25,12 +20,15 @@ from .agents import (
     SupportAgent,
     TrackingAgent,
 )
+from .agents.base_agent import BaseAgent
 from .integrations import (
     ChromaDBIntegration,
     OllamaIntegration,
     PostgreSQLIntegration,
 )
-from .router import IntentRouter, SupervisorAgent
+from .intelligence.intent_router import IntentRouter
+from .models import ConversationContext, CustomerContext, IntentInfo
+from .router import SupervisorAgent
 from .state_manager import StateManager
 from .state_schema import LangGraphState
 
@@ -160,6 +158,9 @@ class EcommerceAssistantGraph:
 
             logger.info(f"Processing message for conversation {conversation_id}")
 
+            # Procesar con el graph
+            final_state = await self.app.ainvoke(initial_state)
+
             # Configurar checkpointing si está disponible
             config = {}
             if self.checkpointer_manager and conversation_id:
@@ -172,7 +173,7 @@ class EcommerceAssistantGraph:
                     if current_state.values:
                         # Actualizar estado existente con nuevo mensaje
                         state_dict = current_state.values
-                        state_dict.update(self.state_manager.add_human_message(state_dict, message))
+                        # state_dict.update(self.state_manager.add_human_message(state_dict, message))
 
                         # Resetear completado si era final
                         if state_dict.get("is_complete"):
@@ -288,25 +289,24 @@ class EcommerceAssistantGraph:
             user_message = self.state_manager.get_last_user_message(state)
 
             # Procesar con el agente especializado
-            response = self.product_agent.process(user_message, state.get("customer"), state.get("retrieved_data", {}))
+            result = self.product_agent._process_internal(user_message, dict(state))
 
-            # Crear respuesta estructurada
-            agent_response = AgentResponse(
-                agent_name="product_agent",
-                response_text=response["text"],
-                data_retrieved=response.get("data", {}),
-                tools_used=response.get("tools", []),
-                success=response.get("success", True),
-            )
+            # Extraer contenido de la respuesta
+            if "messages" in result and result["messages"]:
+                message_content = result["messages"][0]
+                if isinstance(message_content, dict):
+                    content = message_content.get("content", "Sin respuesta")
+                else:
+                    content = str(message_content)
 
-            # Actualizar estado
-            updates = self.state_manager.add_agent_response(state, agent_response)
-            updates.update(self.state_manager.add_ai_message(state, response["text"]))
+                # Marcar como completo usando el resultado del agente
+                updates = self.state_manager.add_ai_message(state, content)
+                updates["is_complete"] = result.get("is_complete", True)
+                return updates
 
-            # Marcar como completo si el agente así lo indica
-            if response.get("complete", False):
-                updates.update(self.state_manager.mark_complete(state))
-
+            # Si no hay respuesta, marcar como completo con mensaje de error
+            updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de productos.")
+            updates["is_complete"] = True
             return updates
 
         except Exception as e:
@@ -317,7 +317,168 @@ class EcommerceAssistantGraph:
                     state, "Disculpa, tuve un problema consultando información de productos."
                 )
             )
+            error_updates["is_complete"] = True
             return error_updates
+
+    def _category_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+        """Nodo del agente de categorías"""
+        try:
+            user_message = self.state_manager.get_last_user_message(state)
+            if not user_message:
+                updates = self.state_manager.add_ai_message(state, "No pude obtener tu mensaje.")
+                updates["is_complete"] = True
+                return updates
+
+            result = self.category_agent._process_internal(user_message, dict(state))
+
+            if "messages" in result and result["messages"]:
+                message_content = result["messages"][0]
+                if isinstance(message_content, dict):
+                    content = message_content.get("content", "Sin respuesta")
+                else:
+                    content = str(message_content)
+
+                updates = self.state_manager.add_ai_message(state, content)
+                updates["is_complete"] = result.get("is_complete", True)
+                return updates
+
+            updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de categorías.")
+            updates["is_complete"] = True
+            return updates
+
+        except Exception as e:
+            logger.error(f"Error in category agent node: {str(e)}")
+            updates = self.state_manager.add_ai_message(state, "Disculpa, tuve un problema con las categorías.")
+            updates["is_complete"] = True
+            return updates
+
+    def _promotions_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+        """Nodo del agente de promociones"""
+        try:
+            user_message = self.state_manager.get_last_user_message(state)
+            if not user_message:
+                updates = self.state_manager.add_ai_message(state, "No pude obtener tu mensaje.")
+                updates["is_complete"] = True
+                return updates
+
+            result = self.promotions_agent._process_internal(user_message, dict(state))
+
+            if "messages" in result and result["messages"]:
+                message_content = result["messages"][0]
+                if isinstance(message_content, dict):
+                    content = message_content.get("content", "Sin respuesta")
+                else:
+                    content = str(message_content)
+
+                updates = self.state_manager.add_ai_message(state, content)
+                updates["is_complete"] = result.get("is_complete", True)
+                return updates
+
+            updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de promociones.")
+            updates["is_complete"] = True
+            return updates
+
+        except Exception as e:
+            logger.error(f"Error in promotions agent node: {str(e)}")
+            updates = self.state_manager.add_ai_message(state, "Disculpa, tuve un problema con las promociones.")
+            updates["is_complete"] = True
+            return updates
+
+    def _tracking_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+        """Nodo del agente de seguimiento"""
+        try:
+            user_message = self.state_manager.get_last_user_message(state)
+            if not user_message:
+                updates = self.state_manager.add_ai_message(state, "No pude obtener tu mensaje.")
+                updates["is_complete"] = True
+                return updates
+
+            result = self.tracking_agent._process_internal(user_message, dict(state))
+
+            if "messages" in result and result["messages"]:
+                message_content = result["messages"][0]
+                if isinstance(message_content, dict):
+                    content = message_content.get("content", "Sin respuesta")
+                else:
+                    content = str(message_content)
+
+                updates = self.state_manager.add_ai_message(state, content)
+                updates["is_complete"] = result.get("is_complete", True)
+                return updates
+
+            updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de seguimiento.")
+            updates["is_complete"] = True
+            return updates
+
+        except Exception as e:
+            logger.error(f"Error in tracking agent node: {str(e)}")
+            updates = self.state_manager.add_ai_message(state, "Disculpa, tuve un problema con el seguimiento.")
+            updates["is_complete"] = True
+            return updates
+
+    def _support_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+        """Nodo del agente de soporte"""
+        try:
+            user_message = self.state_manager.get_last_user_message(state)
+            if not user_message:
+                updates = self.state_manager.add_ai_message(state, "No pude obtener tu mensaje.")
+                updates["is_complete"] = True
+                return updates
+
+            result = self.support_agent._process_internal(user_message, dict(state))
+
+            if "messages" in result and result["messages"]:
+                message_content = result["messages"][0]
+                if isinstance(message_content, dict):
+                    content = message_content.get("content", "Sin respuesta")
+                else:
+                    content = str(message_content)
+
+                updates = self.state_manager.add_ai_message(state, content)
+                updates["is_complete"] = result.get("is_complete", True)
+                return updates
+
+            updates = self.state_manager.add_ai_message(state, "¿En qué puedo ayudarte?")
+            updates["is_complete"] = True
+            return updates
+
+        except Exception as e:
+            logger.error(f"Error in support agent node: {str(e)}")
+            updates = self.state_manager.add_ai_message(state, "Estoy aquí para ayudarte. ¿Cuál es tu consulta?")
+            updates["is_complete"] = True
+            return updates
+
+    def _invoice_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+        """Nodo del agente de facturación"""
+        try:
+            user_message = self.state_manager.get_last_user_message(state)
+            if not user_message:
+                updates = self.state_manager.add_ai_message(state, "No pude obtener tu mensaje.")
+                updates["is_complete"] = True
+                return updates
+
+            result = self.invoice_agent._process_internal(user_message, dict(state))
+
+            if "messages" in result and result["messages"]:
+                message_content = result["messages"][0]
+                if isinstance(message_content, dict):
+                    content = message_content.get("content", "Sin respuesta")
+                else:
+                    content = str(message_content)
+
+                updates = self.state_manager.add_ai_message(state, content)
+                updates["is_complete"] = result.get("is_complete", True)
+                return updates
+
+            updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de facturación.")
+            updates["is_complete"] = True
+            return updates
+
+        except Exception as e:
+            logger.error(f"Error in invoice agent node: {str(e)}")
+            updates = self.state_manager.add_ai_message(state, "Disculpa, tuve un problema con la facturación.")
+            updates["is_complete"] = True
+            return updates
 
     # Métodos de inicialización (mantenidos del código original)
     def _init_integrations(self):
@@ -329,35 +490,53 @@ class EcommerceAssistantGraph:
     def _init_core_components(self):
         """Inicializa componentes principales"""
         self.intent_router = IntentRouter(ollama=self.ollama, config=self.config.get("router", {}))
-        self.supervisor = SupervisorAgent(router=self.intent_router, config=self.config.get("supervisor", {}))
+        self.supervisor = SupervisorAgent(router=self.intent_router)
 
     def _init_agents(self):
         """Inicializa agentes especializados"""
-        agent_config = self.config.get("agents", {})
+        try:
+            agent_config = self.config.get("agents", {})
 
-        self.category_agent = CategoryAgent(
-            ollama=self.ollama, chroma=self.chroma, config=agent_config.get("category", {})
-        )
+            # Inicializar agentes de forma segura
+            self.product_agent = ProductAgent(
+                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("product", {})
+            )
 
-        self.product_agent = ProductAgent(
-            ollama=self.ollama, postgres=self.postgres, config=agent_config.get("product", {})
-        )
+            # Inicializar agentes reales
+            self.category_agent = CategoryAgent(
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("category", {})
+            )
+            self.promotions_agent = PromotionsAgent(
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("promotions", {})
+            )
+            self.tracking_agent = TrackingAgent(
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("tracking", {})
+            )
+            self.support_agent = SupportAgent(
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("support", {})
+            )
+            self.invoice_agent = InvoiceAgent(
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("invoice", {})
+            )
 
-        self.promotions_agent = PromotionsAgent(
-            ollama=self.ollama, postgres=self.postgres, config=agent_config.get("promotions", {})
-        )
+            logger.info("Agents initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing agents: {e}")
+            raise
 
-        self.tracking_agent = TrackingAgent(
-            ollama=self.ollama, postgres=self.postgres, config=agent_config.get("tracking", {})
-        )
+    def _create_placeholder_agent(self, agent_name: str) -> BaseAgent:
+        """Crea un agente placeholder para evitar errores"""
 
-        self.support_agent = SupportAgent(
-            ollama=self.ollama, chroma=self.chroma, config=agent_config.get("support", {})
-        )
+        class PlaceholderAgent(BaseAgent):
+            def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+                response_text = f"Agente {self.name} está en mantenimiento. Por favor, contacta soporte."
+                return {
+                    "messages": [{"role": "assistant", "content": response_text}],
+                    "current_agent": self.name,
+                    "is_complete": True,
+                }
 
-        self.invoice_agent = InvoiceAgent(
-            ollama=self.ollama, postgres=self.postgres, config=agent_config.get("invoice", {})
-        )
+        return PlaceholderAgent(agent_name, {})
 
     async def initialize(self):
         """Inicializa el sistema de forma asíncrona"""

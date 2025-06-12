@@ -17,13 +17,6 @@ class StateManager:
     """
     Gestor de estado que proporciona una interfaz limpia entre
     los modelos Pydantic y el estado TypedDict de LangGraph.
-
-    Principios SOLID aplicados:
-    - SRP: Solo responsable de gestión de estado
-    - OCP: Extensible para nuevos tipos de estado
-    - LSP: Interfaces consistentes
-    - ISP: Métodos específicos por responsabilidad
-    - DIP: Depende de abstracciones, no implementaciones
     """
 
     @staticmethod
@@ -75,7 +68,7 @@ class StateManager:
         Returns:
             Diccionario con las actualizaciones para el estado
         """
-        return {"customer": customer.to_dict(), "state": state}
+        return {"customer": customer.to_dict()}
 
     @staticmethod
     def update_conversation_context(state: LangGraphState, conversation: ConversationContext) -> Dict[str, Any]:
@@ -85,7 +78,7 @@ class StateManager:
         Returns:
             Diccionario con las actualizaciones para el estado
         """
-        return {"conversation": conversation.to_dict(), "state": state}
+        return {"conversation": conversation.to_dict()}
 
     @staticmethod
     def add_intent_info(state: LangGraphState, intent: IntentInfo) -> Dict[str, Any]:
@@ -96,7 +89,7 @@ class StateManager:
             Diccionario con las actualizaciones para el estado
         """
         intent_dict = intent.to_dict()
-        return {"current_intent": intent_dict, "intent_history": [intent_dict], "state": state}
+        return {"current_intent": intent_dict, "intent_history": [intent_dict]}
 
     @staticmethod
     def add_agent_response(state: LangGraphState, response: AgentResponse) -> Dict[str, Any]:
@@ -107,7 +100,7 @@ class StateManager:
             Diccionario con las actualizaciones para el estado
         """
         response_dict = response.to_dict()
-        return {"agent_responses": [response_dict], "current_agent": response.agent_name, "state": state}
+        return {"agent_responses": [response_dict], "current_agent": response.agent_name}
 
     @staticmethod
     def set_current_agent(state: LangGraphState, agent_name: str) -> Dict[str, Any]:
@@ -117,7 +110,7 @@ class StateManager:
         Returns:
             Diccionario con las actualizaciones para el estado
         """
-        return {"current_agent": agent_name, "agent_history": [agent_name], "state": state}
+        return {"current_agent": agent_name, "agent_history": [agent_name]}
 
     @staticmethod
     def add_ai_message(state: LangGraphState, content: str) -> Dict[str, Any]:
@@ -127,7 +120,7 @@ class StateManager:
         Returns:
             Diccionario con las actualizaciones para el estado
         """
-        return {"messages": [AIMessage(content=content)], "state": state}
+        return {"messages": [AIMessage(content=content)]}
 
     @staticmethod
     def mark_complete(state: LangGraphState, requires_human: bool = False) -> Dict[str, Any]:
@@ -137,7 +130,7 @@ class StateManager:
         Returns:
             Diccionario con las actualizaciones para el estado
         """
-        return {"is_complete": True, "requires_human": requires_human, "state": state}
+        return {"is_complete": True, "requires_human": requires_human}
 
     @staticmethod
     def increment_error_count(state: LangGraphState) -> Dict[str, Any]:
@@ -158,7 +151,7 @@ class StateManager:
         Returns:
             Diccionario con las actualizaciones para el estado
         """
-        return {"retrieved_data": {key: data}, "state": state}
+        return {"retrieved_data": {key: data}}
 
     @staticmethod
     def add_cache_key(state: LangGraphState, cache_key: str) -> Dict[str, Any]:
@@ -168,7 +161,7 @@ class StateManager:
         Returns:
             Diccionario con las actualizaciones para el estado
         """
-        return {"cache_keys": [cache_key], "state": state}
+        return {"cache_keys": [cache_key]}
 
     @staticmethod
     def get_last_user_message(state: LangGraphState) -> Optional[str | list[str | dict]]:
@@ -233,8 +226,8 @@ class StateManager:
                 logger.error(f"Missing required field in state: {field}")
                 return False
 
-        state = state["messages"]  # type: ignore
-        if not isinstance(state, list):
+        messages = state.get("messages", [])
+        if not isinstance(messages, list):
             logger.error("Messages field must be a list")
             return False
 

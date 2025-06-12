@@ -76,7 +76,7 @@ class ChatbotTester:
         # Procesar mensaje
         try:
             start_time = datetime.now()
-            result = await self.service.procesar_mensaje(message, contact)
+            result = await self.service.process_webhook_message(message, contact)
             end_time = datetime.now()
 
             response_time = (end_time - start_time).total_seconds()
@@ -477,4 +477,3 @@ async def compare_services():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

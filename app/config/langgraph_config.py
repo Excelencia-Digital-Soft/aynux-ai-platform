@@ -23,7 +23,7 @@ from .agents import (
 )
 
 
-class LangGraphConfig:
+class LangGraphConfig(BaseModel):
     """Configuración principal del sistema LangGraph"""
 
     # Configuraciones de agentes
