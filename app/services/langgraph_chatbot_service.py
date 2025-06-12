@@ -70,6 +70,7 @@ class LangGraphChatbotService:
 
         class SecurityPlaceholder:
             async def check_rate_limit(self, user_id: str) -> bool:
+                _ = user_id  # Parámetro requerido por la interfaz pero no usado en placeholder
                 return True  # Permitir por defecto
 
             async def check_message_content(self, message: str) -> Tuple[bool, Dict[str, Any]]:
@@ -89,7 +90,7 @@ class LangGraphChatbotService:
             self.logger.info("Initializing LangGraph chatbot service...")
 
             # Crear y configurar el sistema de graph
-            self.graph_system = EcommerceAssistantGraph(self.langgraph_config)
+            self.graph_system = EcommerceAssistantGraph(self.langgraph_config.model_dump())
 
             # Inicializar el graph de forma asíncrona
             await self.graph_system.initialize()
@@ -422,6 +423,164 @@ class LangGraphChatbotService:
 
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    async def get_conversation_history_langgraph(self, user_number: str, limit: int = 50) -> Dict[str, Any]:
+        """
+        Obtiene el historial de conversación para un usuario usando LangGraph
+        
+        Args:
+            user_number: Número de teléfono del usuario
+            limit: Límite de mensajes a obtener
+            
+        Returns:
+            Dict con el historial de conversación
+        """
+        try:
+            if not self.graph_system or not self.graph_system.app:
+                return {
+                    "error": "LangGraph system not initialized",
+                    "user_number": user_number,
+                    "messages": []
+                }
+            
+            # Intentar obtener el estado de la conversación
+            config = {"configurable": {"thread_id": user_number}}
+            
+            try:
+                current_state = await self.graph_system.app.aget_state(config)
+                
+                if current_state and current_state.values:
+                    messages = current_state.values.get("messages", [])
+                    
+                    # Limitar los mensajes
+                    limited_messages = messages[-limit:] if len(messages) > limit else messages
+                    
+                    # Convertir mensajes a formato serializable
+                    serialized_messages = []
+                    for msg in limited_messages:
+                        try:
+                            if hasattr(msg, 'content'):
+                                serialized_messages.append({
+                                    "type": getattr(msg, 'type', 'unknown'),
+                                    "content": msg.content,
+                                    "timestamp": getattr(msg, 'timestamp', None)
+                                })
+                            else:
+                                serialized_messages.append({
+                                    "type": "unknown",
+                                    "content": str(msg),
+                                    "timestamp": None
+                                })
+                        except Exception as e:
+                            self.logger.warning(f"Error serializing message: {e}")
+                            continue
+                    
+                    return {
+                        "user_number": user_number,
+                        "messages": serialized_messages,
+                        "total_messages": len(messages),
+                        "limited_to": limit,
+                        "conversation_state": {
+                            "current_agent": current_state.values.get("current_agent"),
+                            "is_complete": current_state.values.get("is_complete", False),
+                            "requires_human": current_state.values.get("requires_human", False)
+                        }
+                    }
+                else:
+                    return {
+                        "user_number": user_number,
+                        "messages": [],
+                        "total_messages": 0,
+                        "note": "No conversation history found"
+                    }
+                    
+            except Exception as e:
+                self.logger.warning(f"Could not retrieve conversation state: {e}")
+                return {
+                    "user_number": user_number,
+                    "messages": [],
+                    "total_messages": 0,
+                    "error": f"Could not retrieve conversation: {str(e)}"
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error getting conversation history: {e}")
+            return {
+                "error": f"Error retrieving conversation history: {str(e)}",
+                "user_number": user_number,
+                "messages": []
+            }
+
+    async def get_conversation_stats(self, user_number: str) -> Dict[str, Any]:
+        """
+        Obtiene estadísticas de conversación para un usuario
+        
+        Args:
+            user_number: Número de teléfono del usuario
+            
+        Returns:
+            Dict con estadísticas de la conversación
+        """
+        try:
+            if not self.graph_system or not self.graph_system.app:
+                return {
+                    "error": "LangGraph system not initialized",
+                    "user_number": user_number
+                }
+            
+            config = {"configurable": {"thread_id": user_number}}
+            
+            try:
+                current_state = await self.graph_system.app.aget_state(config)
+                
+                if current_state and current_state.values:
+                    state_values = current_state.values
+                    messages = state_values.get("messages", [])
+                    
+                    # Contar tipos de mensajes
+                    human_messages = len([m for m in messages if hasattr(m, 'type') and m.type == 'human'])
+                    ai_messages = len([m for m in messages if hasattr(m, 'type') and m.type == 'ai'])
+                    
+                    # Obtener agentes utilizados
+                    agent_history = state_values.get("agent_history", [])
+                    
+                    return {
+                        "user_number": user_number,
+                        "total_messages": len(messages),
+                        "human_messages": human_messages,
+                        "ai_messages": ai_messages,
+                        "current_agent": state_values.get("current_agent"),
+                        "agents_used": list(set(agent_history)) if agent_history else [],
+                        "agents_used_count": len(set(agent_history)) if agent_history else 0,
+                        "is_complete": state_values.get("is_complete", False),
+                        "requires_human": state_values.get("requires_human", False),
+                        "error_count": state_values.get("error_count", 0),
+                        "conversation_active": len(messages) > 0,
+                        "last_intent": (state_values.get("current_intent", {}).get("primary_intent") 
+                                       if state_values.get("current_intent") else None)
+                    }
+                else:
+                    return {
+                        "user_number": user_number,
+                        "total_messages": 0,
+                        "conversation_active": False,
+                        "note": "No conversation found"
+                    }
+                    
+            except Exception as e:
+                self.logger.warning(f"Could not retrieve conversation state for stats: {e}")
+                return {
+                    "user_number": user_number,
+                    "error": f"Could not retrieve stats: {str(e)}",
+                    "conversation_active": False
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error getting conversation stats: {e}")
+            return {
+                "error": f"Error retrieving conversation stats: {str(e)}",
+                "user_number": user_number
+            }
 
     async def cleanup(self):
         """Limpieza de recursos"""

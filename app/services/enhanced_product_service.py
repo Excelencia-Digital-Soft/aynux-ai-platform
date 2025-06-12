@@ -2,8 +2,8 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from app.database import get_db_context
-from app.models.message import Message
 from app.models.database import Product
+from app.models.message import Message
 from app.services.category_vector_service import CategoryVectorService
 from app.services.embedding_update_service import EmbeddingUpdateService
 from app.services.product_service import ProductService

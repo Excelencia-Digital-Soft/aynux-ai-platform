@@ -3,6 +3,7 @@ Graph principal del sistema multi-agente LangGraph
 """
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from langgraph.graph import END, StateGraph
@@ -568,3 +569,128 @@ class EcommerceAssistantGraph:
         except Exception as e:
             logger.error(f"Error initializing graph: {e}")
             raise
+
+    async def health_check(self) -> Dict[str, Any]:
+        """
+        Verificación de salud del sistema LangGraph
+        
+        Returns:
+            Dict con el estado de salud de todos los componentes
+        """
+        health_status = {
+            "overall_status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "components": {},
+            "errors": []
+        }
+        
+        try:
+            # Verificar que el grafo esté compilado
+            if not self.app:
+                health_status["components"]["graph"] = {"status": "not_compiled", "error": "Graph not compiled"}
+                health_status["overall_status"] = "unhealthy"
+                health_status["errors"].append("Graph not compiled")
+            else:
+                health_status["components"]["graph"] = {"status": "healthy", "compiled": True}
+            
+            # Verificar agentes
+            agents_status = {}
+            agent_names = ["category_agent", "product_agent", "promotions_agent", 
+                          "tracking_agent", "support_agent", "invoice_agent"]
+            for agent_name in agent_names:
+                try:
+                    agent = getattr(self, agent_name, None)
+                    if agent:
+                        agents_status[agent_name] = {"status": "healthy", "initialized": True}
+                    else:
+                        agents_status[agent_name] = {"status": "not_initialized", "initialized": False}
+                        health_status["errors"].append(f"Agent {agent_name} not initialized")
+                        if health_status["overall_status"] == "healthy":
+                            health_status["overall_status"] = "degraded"
+                except Exception as e:
+                    agents_status[agent_name] = {"status": "error", "error": str(e)}
+                    health_status["errors"].append(f"Agent {agent_name} error: {str(e)}")
+                    health_status["overall_status"] = "unhealthy"
+            
+            health_status["components"]["agents"] = agents_status
+            
+            # Verificar componentes principales
+            try:
+                if hasattr(self, 'intent_router') and self.intent_router:
+                    health_status["components"]["intent_router"] = {"status": "healthy"}
+                else:
+                    health_status["components"]["intent_router"] = {"status": "not_initialized"}
+                    health_status["errors"].append("Intent router not initialized")
+                    if health_status["overall_status"] == "healthy":
+                        health_status["overall_status"] = "degraded"
+                
+                if hasattr(self, 'state_manager') and self.state_manager:
+                    health_status["components"]["state_manager"] = {"status": "healthy"}
+                else:
+                    health_status["components"]["state_manager"] = {"status": "not_initialized"}
+                    health_status["errors"].append("State manager not initialized")
+                    if health_status["overall_status"] == "healthy":
+                        health_status["overall_status"] = "degraded"
+                        
+            except Exception as e:
+                health_status["components"]["core_components"] = {"status": "error", "error": str(e)}
+                health_status["errors"].append(f"Core components error: {str(e)}")
+                health_status["overall_status"] = "unhealthy"
+            
+            # Verificar integraciones
+            integrations_status = {}
+            
+            # Ollama
+            try:
+                if hasattr(self, 'ollama') and self.ollama:
+                    url = getattr(self.ollama, 'url', 'unknown')
+                    integrations_status["ollama"] = {"status": "healthy", "url": url}
+                else:
+                    integrations_status["ollama"] = {"status": "not_initialized"}
+            except Exception as e:
+                integrations_status["ollama"] = {"status": "error", "error": str(e)}
+            
+            # ChromaDB
+            try:
+                if hasattr(self, 'chroma') and self.chroma:
+                    integrations_status["chromadb"] = {"status": "healthy"}
+                else:
+                    integrations_status["chromadb"] = {"status": "not_initialized"}
+            except Exception as e:
+                integrations_status["chromadb"] = {"status": "error", "error": str(e)}
+            
+            # PostgreSQL
+            try:
+                if hasattr(self, 'postgres') and self.postgres:
+                    integrations_status["postgresql"] = {"status": "healthy"}
+                else:
+                    integrations_status["postgresql"] = {"status": "not_initialized"}
+            except Exception as e:
+                integrations_status["postgresql"] = {"status": "error", "error": str(e)}
+            
+            health_status["components"]["integrations"] = integrations_status
+            
+            # Verificar checkpointer
+            try:
+                if hasattr(self, 'checkpointer_manager') and self.checkpointer_manager:
+                    health_status["components"]["checkpointer"] = {"status": "healthy", "type": "postgresql"}
+                else:
+                    health_status["components"]["checkpointer"] = {"status": "in_memory", "type": "memory"}
+            except Exception as e:
+                health_status["components"]["checkpointer"] = {"status": "error", "error": str(e)}
+            
+            # Agregar métricas básicas
+            health_status["metrics"] = {
+                "agents_count": len([a for a in agents_status.values() if a.get("status") == "healthy"]),
+                "total_agents": len(agents_status),
+                "graph_compiled": bool(self.app),
+                "use_postgres_checkpointer": getattr(self, 'use_postgres_checkpointer', False)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in health check: {e}")
+            health_status["overall_status"] = "unhealthy"
+            health_status["errors"].append(f"Health check error: {str(e)}")
+            health_status["components"]["health_check"] = {"status": "error", "error": str(e)}
+        
+        return health_status

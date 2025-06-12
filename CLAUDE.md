@@ -96,8 +96,7 @@ This is a WhatsApp-based conversational commerce bot with two parallel architect
 - `vector_service.py`: ChromaDB vector search
 
 **LangGraph System** (`app/agents/langgraph_system/`)
-- `supervisor.py`: Main orchestration logic
-- `router.py`: Intent routing system
+- `router.py`: Main orchestration and intent routing logic
 - `agents/`: Specialized agents (category, product, promotions, tracking, support, invoice)
 - `integrations/`: External service integrations (Ollama, ChromaDB, PostgreSQL)
 - `monitoring/`: Security and monitoring components

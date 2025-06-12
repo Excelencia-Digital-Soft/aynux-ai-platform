@@ -81,27 +81,34 @@ class IntentRouter:
         # Patrones mejorados para detectar intenciones
         patterns = {
             "producto": {
-                "keywords": ["laptop", "computadora", "pc", "teléfono", "celular", "tablet", "precio", "cuánto", "cuesta", "disponible", "stock", "características", "especificaciones", "gaming", "diseño"],
+                "keywords": ["laptop", "computadora", "pc", "teléfono", "celular", "tablet", 
+                            "precio", "cuánto", "cuesta", "disponible", "stock", 
+                            "características", "especificaciones", "gaming", "diseño"],
                 "confidence": 0.9,
             },
             "seguimiento": {
-                "keywords": ["pedido", "orden", "envío", "tracking", "rastreo", "dónde", "donde", "está", "llega", "entrega", "#", "número"],
+                "keywords": ["pedido", "orden", "envío", "tracking", "rastreo", "dónde", 
+                            "donde", "está", "llega", "entrega", "#", "número"],
                 "confidence": 0.9,
             },
             "soporte": {
-                "keywords": ["problema", "error", "no funciona", "no enciende", "soporte", "asistencia", "ayuda", "devolución", "garantía", "roto", "dañado"],
+                "keywords": ["problema", "error", "no funciona", "no enciende", "soporte", 
+                            "asistencia", "ayuda", "devolución", "garantía", "roto", "dañado"],
                 "confidence": 0.85,
             },
             "facturacion": {
-                "keywords": ["factura", "pago", "cobro", "invoice", "billing", "tarjeta", "transferencia", "crédito", "débito"],
+                "keywords": ["factura", "pago", "cobro", "invoice", "billing", 
+                            "tarjeta", "transferencia", "crédito", "débito"],
                 "confidence": 0.9
             },
             "promociones": {
-                "keywords": ["oferta", "descuento", "promoción", "sale", "barato", "cupón", "código", "estudiante", "rebaja"],
+                "keywords": ["oferta", "descuento", "promoción", "sale", "barato", 
+                            "cupón", "código", "estudiante", "rebaja"],
                 "confidence": 0.85
             },
             "categoria": {
-                "keywords": ["categoría", "tipos", "qué tienen", "qué ofreces", "opciones", "catálogo", "productos", "hola"],
+                "keywords": ["categoría", "tipos", "qué tienen", "qué ofreces", 
+                            "opciones", "catálogo", "productos", "hola"],
                 "confidence": 0.8
             },
         }
@@ -119,7 +126,10 @@ class IntentRouter:
                 if keyword in message_lower:
                     matches += 1
                     # Dar más peso a matches exactos de palabras
-                    if f" {keyword} " in f" {message_lower} " or message_lower.startswith(keyword) or message_lower.endswith(keyword):
+                    exact_match = (f" {keyword} " in f" {message_lower} " or 
+                                  message_lower.startswith(keyword) or 
+                                  message_lower.endswith(keyword))
+                    if exact_match:
                         score += 2
                     else:
                         score += 1

@@ -11,8 +11,8 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from app.services.embedding_update_service import EmbeddingUpdateService
 from app.database import init_db
+from app.services.embedding_update_service import EmbeddingUpdateService
 
 # Configure logging
 logging.basicConfig(

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, phone_normalization, products, webhook, embeddings
+from app.api.routes import auth, embeddings, phone_normalization, products, webhook
 
 api_router = APIRouter()
 

@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
+from langchain_ollama import OllamaEmbeddings
 from sqlalchemy import and_, select
 
 from app.database.async_db import get_async_db

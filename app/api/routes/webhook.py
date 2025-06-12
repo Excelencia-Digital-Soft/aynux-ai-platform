@@ -139,8 +139,11 @@ async def health_check():
         service = await _get_chatbot_service()
 
         if USE_LANGGRAPH and isinstance(service, LangGraphChatbotService):
-            health_status = await service._check_database_health()
-            return {"service_type": "langgraph", "status": health_status["overall_status"], "details": health_status}
+            health_status = await service.get_system_health()
+            overall_status = (health_status.get("overall_status", "unknown") 
+                             if isinstance(health_status, dict) 
+                             else ("healthy" if health_status else "unhealthy"))
+            return {"service_type": "langgraph", "status": overall_status, "details": health_status}
         else:
             # Health check básico para servicio tradicional
             return {

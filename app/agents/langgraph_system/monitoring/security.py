@@ -166,7 +166,7 @@ class SecurityManager:
 
         except Exception as e:
             logger.error(f"Error generating token: {e}")
-            raise SecurityException("Failed to generate token")
+            raise SecurityException("Failed to generate token") from e
 
     def verify_token(self, token: str) -> Dict[str, Any]:
         """
@@ -196,12 +196,12 @@ class SecurityManager:
             return payload
 
         except jwt.ExpiredSignatureError:
-            raise SecurityException("Token expired")
+            raise SecurityException("Token expired") from None
         except jwt.InvalidTokenError:
-            raise SecurityException("Invalid token")
+            raise SecurityException("Invalid token") from None
         except Exception as e:
             logger.error(f"Error verifying token: {e}")
-            raise SecurityException("Token verification failed")
+            raise SecurityException("Token verification failed") from e
 
     def revoke_token(self, token_id: str) -> bool:
         """
@@ -283,7 +283,7 @@ class SecurityManager:
 
         except Exception as e:
             logger.error(f"Error encrypting data: {e}")
-            raise SecurityException("Encryption failed")
+            raise SecurityException("Encryption failed") from e
 
     def decrypt_data(self, encrypted_data: str) -> str:
         """
@@ -301,7 +301,7 @@ class SecurityManager:
 
         except Exception as e:
             logger.error(f"Error decrypting data: {e}")
-            raise SecurityException("Decryption failed")
+            raise SecurityException("Decryption failed") from e
 
     def hash_password(self, password: str) -> Tuple[str, str]:
         """
@@ -331,7 +331,7 @@ class SecurityManager:
 
         except Exception as e:
             logger.error(f"Error hashing password: {e}")
-            raise SecurityException("Password hashing failed")
+            raise SecurityException("Password hashing failed") from e
 
     def verify_password(self, password: str, stored_hash: str, salt: str) -> bool:
         """
@@ -438,7 +438,7 @@ class SecurityManager:
 
         except Exception as e:
             logger.error(f"Error creating secure session: {e}")
-            raise SecurityException("Session creation failed")
+            raise SecurityException("Session creation failed") from e
 
     def audit_log(self, user_id: str, action: str, resource: str, details: Dict[str, Any] = None, success: bool = True):
         """
@@ -523,7 +523,7 @@ class SecurityManager:
             API key generada
         """
         try:
-            key_data = {
+            _ = {
                 "user_id": user_id,
                 "permissions": permissions,
                 "created_at": datetime.utcnow().isoformat(),
@@ -541,7 +541,7 @@ class SecurityManager:
 
         except Exception as e:
             logger.error(f"Error generating API key: {e}")
-            raise SecurityException("API key generation failed")
+            raise SecurityException("API key generation failed") from e
 
     def cleanup_expired_tokens(self) -> int:
         """

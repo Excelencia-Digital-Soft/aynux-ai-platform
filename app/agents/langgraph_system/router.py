@@ -277,7 +277,7 @@ Responde ÚNICAMENTE con un JSON válido en este formato exacto:
                 normalized = price.replace(",", "").replace(".", "")
                 try:
                     prices.append(float(normalized) / 100 if len(normalized) > 2 else float(normalized))
-                except:
+                except (ValueError, TypeError):
                     pass
             if prices:
                 entities["price_mentions"] = prices

@@ -69,7 +69,7 @@ class ChromaDBIntegration:
                 collection = self.client.create_collection(name=collection_name, metadata=collection_metadata)
                 logger.info(f"Created new collection: {collection_name}")
             else:
-                raise ValueError(f"Collection {collection_name} does not exist")
+                raise ValueError(f"Collection {collection_name} does not exist") from None
 
         self._collections_cache[collection_name] = collection
         return collection
@@ -238,7 +238,7 @@ class ChromaDBIntegration:
             test_collection = "health_check_test"
 
             # Crear colección de prueba
-            collection = self.get_collection(test_collection, create_if_not_exists=True)
+            _ = self.get_collection(test_collection, create_if_not_exists=True)
 
             # Añadir un documento de prueba
             test_doc = Document(page_content="This is a test document", metadata={"test": True})
@@ -277,7 +277,7 @@ class ChromaDBIntegration:
             try:
                 # Crear colección
                 metadata = config.get("metadata", {})
-                collection = self.get_collection(collection_name, create_if_not_exists=True, metadata=metadata)
+                _ = self.get_collection(collection_name, create_if_not_exists=True, metadata=metadata)
 
                 # Añadir documentos iniciales si existen
                 initial_docs = config.get("initial_documents", [])
@@ -393,12 +393,12 @@ class ChromaDBIntegration:
         """Calcula el tamaño del directorio de persistencia"""
         try:
             total_size = 0
-            for dirpath, dirnames, filenames in os.walk(self.persist_directory):
+            for dirpath, _dirnames, filenames in os.walk(self.persist_directory):
                 for filename in filenames:
                     filepath = os.path.join(dirpath, filename)
                     total_size += os.path.getsize(filepath)
             return total_size
-        except:
+        except Exception:
             return 0
 
     def clear_cache(self):
