@@ -222,9 +222,12 @@ class EcommerceAssistantGraph:
             if not user_message:
                 return self.state_manager.mark_complete(state, requires_human=True)
 
-            # Determinar intención usando el router
-            intent_result = self.intent_router.determine_intent(
-                user_message, state.get("customer"), state.get("conversation")
+            # Determinar intención usando el router (llamada asíncrona)
+            intent_result = await self.intent_router.analyze_intent_with_llm(
+                user_message, {
+                    "customer_data": state.get("customer"),
+                    "conversation_data": state.get("conversation")
+                }
             )
 
             # Crear objeto IntentInfo y añadirlo al estado
@@ -303,11 +306,13 @@ class EcommerceAssistantGraph:
                 # Marcar como completo usando el resultado del agente
                 updates = self.state_manager.add_ai_message(state, content)
                 updates["is_complete"] = result.get("is_complete", True)
+                updates["current_agent"] = "product_agent"
                 return updates
 
             # Si no hay respuesta, marcar como completo con mensaje de error
             updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de productos.")
             updates["is_complete"] = True
+            updates["current_agent"] = "product_agent"
             return updates
 
         except Exception as e:
@@ -341,10 +346,12 @@ class EcommerceAssistantGraph:
 
                 updates = self.state_manager.add_ai_message(state, content)
                 updates["is_complete"] = result.get("is_complete", True)
+                updates["current_agent"] = "category_agent"
                 return updates
 
             updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de categorías.")
             updates["is_complete"] = True
+            updates["current_agent"] = "category_agent"
             return updates
 
         except Exception as e:
@@ -373,10 +380,12 @@ class EcommerceAssistantGraph:
 
                 updates = self.state_manager.add_ai_message(state, content)
                 updates["is_complete"] = result.get("is_complete", True)
+                updates["current_agent"] = "promotions_agent"
                 return updates
 
             updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de promociones.")
             updates["is_complete"] = True
+            updates["current_agent"] = "promotions_agent"
             return updates
 
         except Exception as e:
@@ -405,10 +414,12 @@ class EcommerceAssistantGraph:
 
                 updates = self.state_manager.add_ai_message(state, content)
                 updates["is_complete"] = result.get("is_complete", True)
+                updates["current_agent"] = "tracking_agent"
                 return updates
 
             updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de seguimiento.")
             updates["is_complete"] = True
+            updates["current_agent"] = "tracking_agent"
             return updates
 
         except Exception as e:
@@ -437,10 +448,12 @@ class EcommerceAssistantGraph:
 
                 updates = self.state_manager.add_ai_message(state, content)
                 updates["is_complete"] = result.get("is_complete", True)
+                updates["current_agent"] = "support_agent"
                 return updates
 
             updates = self.state_manager.add_ai_message(state, "¿En qué puedo ayudarte?")
             updates["is_complete"] = True
+            updates["current_agent"] = "support_agent"
             return updates
 
         except Exception as e:
@@ -469,10 +482,12 @@ class EcommerceAssistantGraph:
 
                 updates = self.state_manager.add_ai_message(state, content)
                 updates["is_complete"] = result.get("is_complete", True)
+                updates["current_agent"] = "invoice_agent"
                 return updates
 
             updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de facturación.")
             updates["is_complete"] = True
+            updates["current_agent"] = "invoice_agent"
             return updates
 
         except Exception as e:
