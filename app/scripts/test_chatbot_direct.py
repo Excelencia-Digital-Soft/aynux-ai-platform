@@ -145,7 +145,12 @@ class ChatbotTester:
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             service_type = "langgraph" if self.use_langgraph else "traditional"
-            filename = f"/logs/conversation_test_{service_type}_{timestamp}.json"
+            
+            # Create logs directory in the project root
+            logs_dir = Path(__file__).parent.parent.parent / "logs"
+            logs_dir.mkdir(exist_ok=True)
+            
+            filename = logs_dir / f"conversation_test_{service_type}_{timestamp}.json"
 
         log_data = {
             "test_info": {
@@ -162,7 +167,7 @@ class ChatbotTester:
             json.dump(log_data, f, indent=2, ensure_ascii=False)
 
         print(f"💾 Log guardado en: {filename}")
-        return filename
+        return str(filename)
 
     async def cleanup(self):
         """Limpia recursos"""
@@ -367,7 +372,12 @@ async def performance_test():
     # Guardar resultados
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     service_type = "langgraph" if use_langgraph else "traditional"
-    filename = f"performance_test_{service_type}_{timestamp}.json"
+    
+    # Create logs directory in the project root
+    logs_dir = Path(__file__).parent.parent.parent / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    
+    filename = logs_dir / f"performance_test_{service_type}_{timestamp}.json"
 
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(
@@ -459,7 +469,12 @@ async def compare_services():
 
         # Guardar comparación
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"service_comparison_{timestamp}.json"
+        
+        # Create logs directory in the project root
+        logs_dir = Path(__file__).parent.parent.parent / "logs"
+        logs_dir.mkdir(exist_ok=True)
+        
+        filename = logs_dir / f"service_comparison_{timestamp}.json"
 
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(

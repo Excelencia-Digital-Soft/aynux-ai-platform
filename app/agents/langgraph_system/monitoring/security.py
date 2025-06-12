@@ -484,6 +484,47 @@ class SecurityManager:
         # Por ahora solo retornamos True
         return True, {"allowed": True, "remaining": 100, "reset_time": datetime.utcnow() + timedelta(minutes=1)}
 
+    async def check_message_content(self, message: str) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Verifica el contenido del mensaje para detectar contenido no permitido
+
+        Args:
+            message: Mensaje a verificar
+
+        Returns:
+            Tupla (es_seguro, información_adicional)
+        """
+        # Implementación básica - en producción usar modelos de moderación
+        # Lista de palabras prohibidas (ejemplo básico)
+        prohibited_patterns = [
+            # Palabras ofensivas o spam podrían ir aquí
+            # Por ahora solo una implementación básica
+        ]
+        
+        message_lower = message.lower()
+        
+        for pattern in prohibited_patterns:
+            if pattern in message_lower:
+                return False, {
+                    "safe": False,
+                    "reason": "prohibited_content",
+                    "pattern_matched": pattern
+                }
+        
+        # Verificar longitud excesiva
+        if len(message) > 5000:
+            return False, {
+                "safe": False,
+                "reason": "message_too_long",
+                "max_length": 5000
+            }
+        
+        # Por defecto, el mensaje es seguro
+        return True, {
+            "safe": True,
+            "content_length": len(message)
+        }
+
     def sanitize_input(self, input_data: Any) -> Any:
         """
         Sanitiza datos de entrada

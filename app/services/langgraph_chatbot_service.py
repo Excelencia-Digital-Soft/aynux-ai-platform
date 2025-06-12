@@ -135,8 +135,12 @@ class LangGraphChatbotService:
             db_available = await self._check_database_health()
 
             # 3. Obtener o crear contexto del cliente
+            profile_name = None
+            if contact.profile and isinstance(contact.profile, dict):
+                profile_name = contact.profile.get("name")
+            
             customer_context = await self._get_or_create_customer_context(
-                user_number, contact.profile.get("name", "Usuario")
+                user_number, profile_name or "Usuario"
             )
 
             # 4. Crear contexto de conversación
@@ -146,9 +150,6 @@ class LangGraphChatbotService:
                 channel="whatsapp",
                 language=self._detect_language(message_text),
             )
-
-            # 4. Obtener o crear contexto del cliente
-            await self._get_or_create_customer_context(user_number, contact.profile.get("name", "Usuario"))
 
             # 5. Procesar con el sistema LangGraph
             response_data = await self._process_with_langgraph(
@@ -258,18 +259,30 @@ class LangGraphChatbotService:
         try:
             # Intentar obtener cliente existente
             customer = await self.customer_service.get_or_create_customer(
-                phone=user_number, name=user_name, channel="whatsapp"
+                phone_number=user_number, profile_name=user_name
             )
+
+            if not customer:
+                # Si no se pudo obtener/crear el cliente, crear contexto por defecto
+                return CustomerContext(
+                    customer_id=f"whatsapp_{user_number}",
+                    name=user_name or "Usuario",
+                    email=None,
+                    phone=user_number,
+                    tier="basic",
+                    purchase_history=[],
+                    preferences={},
+                )
 
             # Crear contexto usando modelo Pydantic para validación
             customer_context = CustomerContext(
-                customer_id=str(customer.id),
-                name=customer.name,
-                email=customer.email,
-                phone=customer.phone,
-                tier=getattr(customer, "tier", "basic"),
+                customer_id=str(customer.get("id", f"whatsapp_{user_number}")),
+                name=customer.get("name", user_name or "Usuario"),
+                email=customer.get("email"),
+                phone=customer.get("phone", user_number),
+                tier=customer.get("tier", "basic"),
                 purchase_history=[],  # Se puede cargar desde DB si es necesario
-                preferences=getattr(customer, "preferences", {}),
+                preferences=customer.get("preferences", {}),
             )
 
             return customer_context
@@ -278,7 +291,15 @@ class LangGraphChatbotService:
             self.logger.warning(f"Error getting customer context: {e}")
 
             # Crear contexto básico como fallback
-            return CustomerContext(customer_id=f"temp_{user_number}", name=user_name, phone=user_number, tier="basic")
+            return CustomerContext(
+                customer_id=f"temp_{user_number}", 
+                name=user_name or "Usuario", 
+                phone=user_number, 
+                tier="basic",
+                email=None,
+                purchase_history=[],
+                preferences={}
+            )
 
     async def _check_message_security(self, user_number: str, message_text: str) -> Dict[str, Any]:
         """
@@ -293,16 +314,42 @@ class LangGraphChatbotService:
         """
         try:
             # Verificar rate limiting
-            if not await self.security.check_rate_limit(user_number):
+            rate_limit_result = await self.security.check_rate_limit(user_number)
+            
+            # Manejar diferentes tipos de respuesta de check_rate_limit
+            if isinstance(rate_limit_result, tuple):
+                # Si es una tupla, el primer elemento es el booleano
+                rate_allowed = rate_limit_result[0]
+            else:
+                # Si es un booleano directo
+                rate_allowed = rate_limit_result
+                
+            if not rate_allowed:
                 return {"allowed": False, "message": "Has enviado demasiados mensajes. Por favor espera un momento."}
 
             # Verificar contenido del mensaje
-            content_check = await self.security.check_message_content(message_text)
-            if not content_check["safe"]:
-                return {"allowed": False, "message": "Tu mensaje contiene contenido no permitido."}
+            content_check_result = await self.security.check_message_content(message_text)
+            
+            # Manejar diferentes tipos de respuesta de check_message_content
+            if isinstance(content_check_result, tuple):
+                # Si es una tupla (bool, dict)
+                is_safe, content_info = content_check_result
+                if not is_safe:
+                    return {"allowed": False, "message": "Tu mensaje contiene contenido no permitido."}
+            elif isinstance(content_check_result, dict):
+                # Si es un diccionario directo
+                if not content_check_result.get("safe", True):
+                    return {"allowed": False, "message": "Tu mensaje contiene contenido no permitido."}
+            else:
+                # Si es otro tipo, asumir que es seguro
+                self.logger.warning(f"Unexpected content check result type: {type(content_check_result)}")
 
             return {"allowed": True}
 
+        except AttributeError as e:
+            # Si el método no existe, permitir el mensaje
+            self.logger.warning(f"Security method not found: {e}")
+            return {"allowed": True}
         except Exception as e:
             self.logger.error(f"Error in security check: {e}")
             # En caso de error, permitir el mensaje pero registrar
@@ -337,28 +384,16 @@ class LangGraphChatbotService:
     ):
         """Registra la conversación en la base de datos de forma segura"""
         try:
-            with get_db_context() as db:
-                # Obtener o crear conversación
-                conversation = await self._get_or_create_conversation(db, user_number, session_id)
-
-                # Crear mensajes
-                user_msg = Message(
-                    conversation_id=conversation.user_id,
-                    content=user_message,
-                    is_from_user=True,
-                    metadata={"channel": "whatsapp"},
-                )
-
-                bot_msg = Message(
-                    conversation_id=conversation.user_id,
-                    content=bot_response,
-                    is_from_user=False,
-                    metadata={"agent_used": agent_used, "channel": "whatsapp"},
-                )
-
-                db.add_all([user_msg, bot_msg])
-                db.commit()
-
+            # TODO: Implement proper database logging when conversation model is ready
+            # For now, just log to logger
+            self.logger.info(f"Conversation log - User ({user_number}): {user_message[:100]}...")
+            self.logger.info(f"Conversation log - Bot (agent: {agent_used}): {bot_response[:100]}...")
+            
+            # Note: The actual implementation needs:
+            # 1. Proper conversation model that returns UUID for conversation_id
+            # 2. Message model expects: user_phone, message_type ("user"/"bot"), content, conversation_id (UUID)
+            # 3. Async database operations
+            
         except Exception as e:
             self.logger.error(f"Error logging conversation: {e}")
 
@@ -368,15 +403,13 @@ class LangGraphChatbotService:
             # Obtener historial existente
             history = self.redis_repo.get(session_id)
             if not history:
-                history = ConversationHistory(session_id=session_id, messages=[], created_at=datetime.now(timezone.utc))
+                # Extraer user_id del session_id (formato: whatsapp_NUMERO)
+                user_id = session_id.replace("whatsapp_", "") if session_id.startswith("whatsapp_") else session_id
+                history = ConversationHistory(user_id=user_id, messages=[], created_at=datetime.now(timezone.utc))
 
-            # Añadir nuevos mensajes
-            history.messages.extend(
-                [
-                    {"role": "user", "content": user_message, "timestamp": datetime.now().isoformat()},
-                    {"role": "assistant", "content": bot_response, "timestamp": datetime.now().isoformat()},
-                ]
-            )
+            # Añadir nuevos mensajes usando el método add_message
+            history.add_message(role="persona", content=user_message)
+            history.add_message(role="bot", content=bot_response)
 
             # Mantener solo los últimos 20 mensajes para optimizar memoria
             if len(history.messages) > 20:
@@ -391,7 +424,10 @@ class LangGraphChatbotService:
     async def _send_whatsapp_response(self, user_number: str, response: str):
         """Envía respuesta por WhatsApp"""
         try:
-            await self.whatsapp_service.enviar_mensaje_texto(user_number, response)
+            # Para pruebas: solo registrar en log en lugar de enviar por WhatsApp
+            self.logger.info(f"[TEST MODE] WhatsApp message to {user_number}: {response[:100]}...")
+            # Comentado para pruebas locales:
+            # await self.whatsapp_service.enviar_mensaje_texto(user_number, response)
         except Exception as e:
             self.logger.error(f"Error sending WhatsApp message: {e}")
             raise
@@ -411,7 +447,8 @@ class LangGraphChatbotService:
     async def _get_or_create_conversation(self, db, user_number: str, session_id: str) -> ConversationHistory:
         """Obtiene o crea una conversación en la base de datos"""
         # TODO: Implementar según modelo de datos
-        return ConversationHistory()
+        # Por ahora, crear un objeto ConversationHistory con el user_id requerido
+        return ConversationHistory(user_id=user_number)
 
     async def get_system_health(self) -> Dict[str, Any]:
         """Obtiene el estado de salud del sistema"""

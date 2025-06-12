@@ -166,7 +166,7 @@ class OllamaIntegration:
             llm = self.get_llm(temperature=0.1)
             response = await llm.ainvoke(test_prompt)
 
-            return bool(response and response.content.strip())
+            return bool(response and response.content.strip())  # type: ignore
 
         except Exception as e:
             logger.error(f"LLM test failed: {e}")
@@ -298,12 +298,42 @@ class OllamaIntegration:
                         else:
                             logger.error(f"LLM call failed after {self.max_retries} attempts: {e}")
 
-                raise last_exception
+                raise last_exception  # type: ignore
 
             def __getattr__(self, name):
                 return getattr(self.llm, name)
 
         return RetryLLM(base_llm, max_retries, backoff_factor)
+
+    async def generate_response(
+        self, system_prompt: str, user_prompt: str, model: Optional[str] = None, temperature: float = 0.7
+    ) -> str:
+        """
+        Genera una respuesta usando el LLM de Ollama
+
+        Args:
+            system_prompt: Prompt del sistema
+            user_prompt: Prompt del usuario
+            model: Modelo específico a usar
+            temperature: Temperatura para la generación
+
+        Returns:
+            Respuesta del LLM
+        """
+        try:
+            llm = self.get_llm(temperature=temperature, model=model)
+
+            # Crear el prompt combinado
+            full_prompt = f"{system_prompt}\n\nUsuario: {user_prompt}\n\nAsistente:"
+
+            # Generar respuesta
+            response = await llm.ainvoke(full_prompt)
+
+            return response.content if hasattr(response, "content") else str(response)  # type: ignore
+
+        except Exception as e:
+            logger.error(f"Error generating response: {e}")
+            return "Lo siento, no pude procesar tu solicitud en este momento."
 
     async def get_model_info(self, model_name: str) -> dict:
         """
