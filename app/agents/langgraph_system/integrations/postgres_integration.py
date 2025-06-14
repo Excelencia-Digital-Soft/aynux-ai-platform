@@ -7,7 +7,7 @@ from typing import Optional
 
 import asyncpg
 from langgraph.checkpoint.postgres import PostgresSaver
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # type: ignore[attr-defined]
 
 from app.config.settings import get_settings
 
@@ -72,7 +72,7 @@ class PostgreSQLIntegration:
             self._checkpointer = PostgresSaver(self._checkpoint_pool)
 
             # Inicializar tablas de checkpointing
-            await self._checkpointer.setup()
+            self._checkpointer.setup()
 
             logger.info("PostgreSQL checkpoint connection initialized")
 
@@ -163,6 +163,9 @@ class PostgreSQLIntegration:
         Returns:
             Lista de resultados
         """
+        if self.async_session is None:
+            raise RuntimeError("Database not initialized. Call initialize() first.")
+        
         try:
             async with self.async_session() as session:
                 if params:
@@ -363,9 +366,12 @@ class PostgreSQLIntegration:
         Returns:
             True si se guardó correctamente
         """
+        if self.async_session is None:
+            raise RuntimeError("Database not initialized. Call initialize() first.")
+        
         try:
             async with self.async_session() as session:
-                # Esta sería una tabla custom para metadatos
+                # Usar raw SQL para hacer upsert correctamente
                 query = """
                 INSERT INTO conversation_metadata (thread_id, metadata, updated_at)
                 VALUES (:thread_id, :metadata, NOW())
@@ -392,6 +398,9 @@ class PostgreSQLIntegration:
         Returns:
             Metadatos si existen
         """
+        if self.async_session is None:
+            raise RuntimeError("Database not initialized. Call initialize() first.")
+        
         try:
             async with self.async_session() as session:
                 query = """

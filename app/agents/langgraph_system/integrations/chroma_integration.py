@@ -4,7 +4,7 @@ Integración con ChromaDB para búsqueda vectorial
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import chromadb
 from chromadb.config import Settings
@@ -120,7 +120,7 @@ class ChromaDBIntegration:
         k: int = 5,
         filter_dict: Optional[Dict[str, Any]] = None,
         include_scores: bool = False,
-    ) -> List[Document]:
+    ) -> Union[List[Document], List[Tuple[Document, float]]]:
         """
         Busca documentos similares en una colección
 

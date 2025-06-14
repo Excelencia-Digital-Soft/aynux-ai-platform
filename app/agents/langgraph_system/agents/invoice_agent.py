@@ -18,7 +18,7 @@ class InvoiceAgent(BaseAgent):
     def __init__(self, ollama=None, chroma=None, config: Optional[Dict[str, Any]] = None):
         super().__init__("invoice_agent", config or {}, ollama=ollama, chroma=chroma)
 
-    def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa consultas sobre facturación y pagos."""
         try:
             # Detectar tipo de consulta

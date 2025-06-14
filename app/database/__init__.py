@@ -237,10 +237,7 @@ def receive_checkin(dbapi_connection, connection_record):
 
 
 # Configuración de logging para SQLAlchemy
-if settings.DEBUG:
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-    logging.getLogger("sqlalchemy.pool").setLevel(logging.DEBUG)
-else:
+if not settings.DEBUG:
     # En producción, solo errores
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)

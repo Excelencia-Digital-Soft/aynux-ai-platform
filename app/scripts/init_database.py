@@ -541,7 +541,10 @@ async def create_sample_promotions():
 
                 # Asociar productos gaming con la primera promoción
                 if promo_data["name"] == "Combo Gaming Completo" and len(gaming_products) > 0:
-                    promotion.products.extend(gaming_products[:2])
+                    if promotion.products is not None:
+                        promotion.products.extend(gaming_products[:2])
+                    else:
+                        promotion.products = gaming_products[:2]
 
                 promotions.append(promotion)
 

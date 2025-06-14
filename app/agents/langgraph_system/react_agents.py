@@ -9,22 +9,39 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import BaseTool
 
 from app.agents.langgraph_system.integrations.ollama_integration import OllamaIntegration
-from app.agents.langgraph_system.tools import (
-    search_products_tool,
-    get_product_details_tool,
-    check_stock_tool,
-    compare_products_tool,
-    get_categories_tool,
-    get_promotions_tool,
-    calculate_shipping_tool,
-    get_payment_methods_tool,
-    search_faq_tool,
-    create_ticket_tool,
-    get_warranty_info_tool,
-    track_order_tool,
-    get_delivery_info_tool,
-    update_shipping_address_tool
-)
+# TODO: Import actual tools when they are implemented
+# from app.agents.langgraph_system.tools import (
+#     search_products_tool,
+#     get_product_details_tool,
+#     check_stock_tool,
+#     compare_products_tool,
+#     get_categories_tool,
+#     get_promotions_tool,
+#     calculate_shipping_tool,
+#     get_payment_methods_tool,
+#     search_faq_tool,
+#     create_ticket_tool,
+#     get_warranty_info_tool,
+#     track_order_tool,
+#     get_delivery_info_tool,
+#     update_shipping_address_tool
+# )
+
+# Placeholder tools for now
+search_products_tool = None
+get_product_details_tool = None
+check_stock_tool = None
+compare_products_tool = None
+get_categories_tool = None
+get_promotions_tool = None
+calculate_shipping_tool = None
+get_payment_methods_tool = None
+search_faq_tool = None
+create_ticket_tool = None
+get_warranty_info_tool = None
+track_order_tool = None
+get_delivery_info_tool = None
+update_shipping_address_tool = None
 
 logger = logging.getLogger(__name__)
 

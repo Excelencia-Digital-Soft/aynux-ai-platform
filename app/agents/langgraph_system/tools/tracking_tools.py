@@ -4,8 +4,9 @@ Tools especializadas para el Tracking Agent
 
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
+
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 

@@ -4,8 +4,9 @@ Tools especializadas para el Support Agent
 
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
+
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
@@ -279,7 +280,7 @@ async def create_ticket_tool(
         "contact_options": [
             "WhatsApp: Responderemos por este mismo chat",
             "Email: soporte@conversashop.com",
-            f"Teléfono: 1-800-SUPPORT (solo prioridad alta)"
+            "Teléfono: 1-800-SUPPORT (solo prioridad alta)"
         ]
     }
 

@@ -21,7 +21,7 @@ class TrackingAgent(BaseAgent):
         self.delivery_tool = DeliveryEstimationTool()
         self.notification_tool = TrackingNotificationTool()
 
-    def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa consultas de rastreo de pedidos"""
         user_message = message
         entities = state_dict.get("current_intent", {}).get("entities", {}) if state_dict.get("current_intent") else {}

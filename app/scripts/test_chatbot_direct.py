@@ -150,7 +150,7 @@ class ChatbotTester:
             logs_dir = Path(__file__).parent.parent.parent / "logs"
             logs_dir.mkdir(exist_ok=True)
             
-            filename = logs_dir / f"conversation_test_{service_type}_{timestamp}.json"
+            filename = str(logs_dir / f"conversation_test_{service_type}_{timestamp}.json")
 
         log_data = {
             "test_info": {
@@ -172,7 +172,11 @@ class ChatbotTester:
     async def cleanup(self):
         """Limpia recursos"""
         if self.service and hasattr(self.service, "cleanup"):
-            await self.service.cleanup()
+            cleanup_method = getattr(self.service, "cleanup")
+            if asyncio.iscoroutinefunction(cleanup_method):
+                await cleanup_method()
+            else:
+                cleanup_method()
         print("🧹 Recursos limpiados")
 
 

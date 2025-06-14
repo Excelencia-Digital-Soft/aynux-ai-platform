@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from app.database import get_db_context
-from app.models.database import Product
+from app.models.database import Product, Brand
 from app.models.message import Message
 from app.services.category_vector_service import CategoryVectorService
 from app.services.embedding_update_service import EmbeddingUpdateService
@@ -63,7 +63,7 @@ class EnhancedProductService(ProductService):
 
                     # Apply brand filter
                     if brand_filter:
-                        query_builder = query_builder.join(Product.brand).filter(Product.brand.has(name=brand_filter))
+                        query_builder = query_builder.join(Brand).filter(Brand.name == brand_filter)
 
                     # Only active products
                     query_builder = query_builder.filter(Product.active.is_(True))

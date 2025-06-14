@@ -15,6 +15,9 @@ from app.agents.langgraph_system.integrations.postgres_checkpointer import (
 
 from .agents import (
     CategoryAgent,
+    DataInsightsAgent,
+    FallbackAgent,
+    FarewellAgent,
     InvoiceAgent,
     ProductAgent,
     PromotionsAgent,
@@ -58,7 +61,8 @@ class EcommerceAssistantGraph:
         # Compilar el graph (checkpointer se configura en initialize si está disponible)
         self.app = None
         self.checkpointer_manager = None
-        self.use_postgres_checkpointer = False  # Set to False for now due to setup issues
+        self.persistent_checkpointer = None
+        self.use_postgres_checkpointer = True  # Enable PostgreSQL checkpointing
 
         logger.info("EcommerceAssistantGraph initialized successfully")
 
@@ -70,11 +74,14 @@ class EcommerceAssistantGraph:
         # Añadir nodos
         workflow.add_node("supervisor", self._supervisor_node)
         workflow.add_node("category_agent", self._category_agent_node)
+        workflow.add_node("data_insights_agent", self._data_insights_agent_node)
         workflow.add_node("product_agent", self._product_agent_node)
         workflow.add_node("promotions_agent", self._promotions_agent_node)
         workflow.add_node("tracking_agent", self._tracking_agent_node)
         workflow.add_node("support_agent", self._support_agent_node)
         workflow.add_node("invoice_agent", self._invoice_agent_node)
+        workflow.add_node("fallback_agent", self._fallback_agent_node)
+        workflow.add_node("farewell_agent", self._farewell_agent_node)
 
         # Definir punto de entrada
         workflow.set_entry_point("supervisor")
@@ -85,11 +92,14 @@ class EcommerceAssistantGraph:
             self._route_to_agent,
             {
                 "category_agent": "category_agent",
+                "data_insights_agent": "data_insights_agent",
                 "product_agent": "product_agent",
                 "promotions_agent": "promotions_agent",
                 "tracking_agent": "tracking_agent",
                 "support_agent": "support_agent",
                 "invoice_agent": "invoice_agent",
+                "fallback_agent": "fallback_agent",
+                "farewell_agent": "farewell_agent",
                 "__end__": END,
             },
         )
@@ -97,11 +107,14 @@ class EcommerceAssistantGraph:
         # Todos los agentes vuelven al supervisor para posible re-routing
         for agent in [
             "category_agent",
+            "data_insights_agent",
             "product_agent",
             "promotions_agent",
             "tracking_agent",
             "support_agent",
             "invoice_agent",
+            "fallback_agent",
+            "farewell_agent",
         ]:
             workflow.add_conditional_edges(
                 agent,
@@ -159,36 +172,57 @@ class EcommerceAssistantGraph:
 
             logger.info(f"Processing message for conversation {conversation_id}")
 
-            # Procesar con el graph
-            final_state = await self.app.ainvoke(initial_state)
-
             # Configurar checkpointing si está disponible
-            config = {}
-            if self.checkpointer_manager and conversation_id:
-                config = {"configurable": {"thread_id": conversation_id, **(session_config or {})}}
+            config = None
+            if self.app.checkpointer and conversation_id:
+                # Usar thread_id más simple según documentación oficial
+                config = {
+                    "configurable": {
+                        "thread_id": str(conversation_id)  # Asegurar que sea string
+                    }
+                }
+                # Solo agregar session_config si está presente
+                if session_config:
+                    config["configurable"].update(session_config)
 
                 try:
                     # Intentar obtener estado previo
                     current_state = await self.app.aget_state(config)
 
-                    if current_state.values:
+                    if current_state and current_state.values:
+                        logger.debug(f"Retrieved previous state with {len(current_state.values)} keys")
                         # Actualizar estado existente con nuevo mensaje
                         state_dict = current_state.values
-                        # state_dict.update(self.state_manager.add_human_message(state_dict, message))
-
-                        # Resetear completado si era final
+                        
+                        # Resetear completado si era final para permitir nuevo procesamiento
                         if state_dict.get("is_complete"):
                             state_dict["is_complete"] = False
 
                         initial_state = state_dict
+                    else:
+                        logger.debug("No previous state found, using fresh initial state")
 
                 except Exception as e:
                     logger.warning(f"Could not retrieve previous state: {e}")
                     # Continuar con estado inicial
 
-            # Procesar con el graph
+            # Procesar con el graph usando la configuración apropiada
             logger.debug(f"State keys before processing: {list(initial_state.keys())}")
-            final_state = await self.app.ainvoke(initial_state, config)
+            logger.debug(f"Config for checkpointer: {config}")
+            
+            try:
+                if config:
+                    logger.debug("Processing with checkpointer config")
+                    final_state = await self.app.ainvoke(initial_state, config)
+                else:
+                    logger.debug("Processing without checkpointer")
+                    final_state = await self.app.ainvoke(initial_state)
+                logger.debug("Message processing completed successfully")
+            except Exception as e:
+                logger.error(f"Error during graph processing: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                raise
 
             # Extraer respuesta usando StateManager
             response_text = self.state_manager.get_last_ai_message(final_state)
@@ -262,6 +296,8 @@ class EcommerceAssistantGraph:
             "tracking_agent",
             "support_agent",
             "invoice_agent",
+            "fallback_agent",
+            "farewell_agent",
         ]
 
         if target_agent in valid_agents:
@@ -287,13 +323,13 @@ class EcommerceAssistantGraph:
         return "continue"
 
     # Nodos de agentes (ejemplo para product_agent)
-    def _product_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+    async def _product_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del agente de productos"""
         try:
             user_message = self.state_manager.get_last_user_message(state)
 
             # Procesar con el agente especializado
-            result = self.product_agent._process_internal(user_message, dict(state))
+            result = await self.product_agent._process_internal(user_message, dict(state))
 
             # Extraer contenido de la respuesta
             if "messages" in result and result["messages"]:
@@ -326,7 +362,7 @@ class EcommerceAssistantGraph:
             error_updates["is_complete"] = True
             return error_updates
 
-    def _category_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+    async def _category_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del agente de categorías"""
         try:
             user_message = self.state_manager.get_last_user_message(state)
@@ -335,7 +371,7 @@ class EcommerceAssistantGraph:
                 updates["is_complete"] = True
                 return updates
 
-            result = self.category_agent._process_internal(user_message, dict(state))
+            result = await self.category_agent._process_internal(user_message, dict(state))
 
             if "messages" in result and result["messages"]:
                 message_content = result["messages"][0]
@@ -360,7 +396,48 @@ class EcommerceAssistantGraph:
             updates["is_complete"] = True
             return updates
 
-    def _promotions_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+    async def _data_insights_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+        """Nodo del agente de insights de datos"""
+        try:
+            user_message = self.state_manager.get_last_user_message(state)
+            if not user_message:
+                updates = self.state_manager.add_ai_message(state, "No pude obtener tu mensaje.")
+                updates["is_complete"] = True
+                return updates
+
+            result = await self.data_insights_agent._process_internal(user_message, dict(state))
+            
+            logger.debug(f"Data insights agent result: {result}")
+
+            if "messages" in result and result["messages"]:
+                message_content = result["messages"][0]
+                if isinstance(message_content, dict):
+                    content = message_content.get("content", "Sin respuesta")
+                else:
+                    content = str(message_content)
+
+                updates = self.state_manager.add_ai_message(state, content)
+                updates["is_complete"] = result.get("is_complete", True)
+                updates["current_agent"] = "data_insights_agent"
+                
+                # Incluir datos adicionales de la consulta
+                if "retrieved_data" in result:
+                    updates["retrieved_data"] = result["retrieved_data"]
+                
+                return updates
+
+            updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de datos.")
+            updates["is_complete"] = True
+            updates["current_agent"] = "data_insights_agent"
+            return updates
+
+        except Exception as e:
+            logger.error(f"Error in data insights agent node: {str(e)}")
+            updates = self.state_manager.add_ai_message(state, "Disculpa, tuve un problema analizando los datos.")
+            updates["is_complete"] = True
+            return updates
+
+    async def _promotions_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del agente de promociones"""
         try:
             user_message = self.state_manager.get_last_user_message(state)
@@ -369,7 +446,7 @@ class EcommerceAssistantGraph:
                 updates["is_complete"] = True
                 return updates
 
-            result = self.promotions_agent._process_internal(user_message, dict(state))
+            result = await self.promotions_agent._process_internal(user_message, dict(state))
 
             if "messages" in result and result["messages"]:
                 message_content = result["messages"][0]
@@ -394,7 +471,7 @@ class EcommerceAssistantGraph:
             updates["is_complete"] = True
             return updates
 
-    def _tracking_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+    async def _tracking_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del agente de seguimiento"""
         try:
             user_message = self.state_manager.get_last_user_message(state)
@@ -403,7 +480,7 @@ class EcommerceAssistantGraph:
                 updates["is_complete"] = True
                 return updates
 
-            result = self.tracking_agent._process_internal(user_message, dict(state))
+            result = await self.tracking_agent._process_internal(user_message, dict(state))
 
             if "messages" in result and result["messages"]:
                 message_content = result["messages"][0]
@@ -428,7 +505,7 @@ class EcommerceAssistantGraph:
             updates["is_complete"] = True
             return updates
 
-    def _support_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+    async def _support_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del agente de soporte"""
         try:
             user_message = self.state_manager.get_last_user_message(state)
@@ -437,7 +514,7 @@ class EcommerceAssistantGraph:
                 updates["is_complete"] = True
                 return updates
 
-            result = self.support_agent._process_internal(user_message, dict(state))
+            result = await self.support_agent._process_internal(user_message, dict(state))
 
             if "messages" in result and result["messages"]:
                 message_content = result["messages"][0]
@@ -462,7 +539,7 @@ class EcommerceAssistantGraph:
             updates["is_complete"] = True
             return updates
 
-    def _invoice_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+    async def _invoice_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del agente de facturación"""
         try:
             user_message = self.state_manager.get_last_user_message(state)
@@ -471,7 +548,7 @@ class EcommerceAssistantGraph:
                 updates["is_complete"] = True
                 return updates
 
-            result = self.invoice_agent._process_internal(user_message, dict(state))
+            result = await self.invoice_agent._process_internal(user_message, dict(state))
 
             if "messages" in result and result["messages"]:
                 message_content = result["messages"][0]
@@ -493,6 +570,74 @@ class EcommerceAssistantGraph:
         except Exception as e:
             logger.error(f"Error in invoice agent node: {str(e)}")
             updates = self.state_manager.add_ai_message(state, "Disculpa, tuve un problema con la facturación.")
+            updates["is_complete"] = True
+            return updates
+
+    async def _fallback_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+        """Nodo del agente de fallback"""
+        try:
+            user_message = self.state_manager.get_last_user_message(state)
+            if not user_message:
+                updates = self.state_manager.add_ai_message(state, "No pude obtener tu mensaje.")
+                updates["is_complete"] = True
+                return updates
+
+            result = await self.fallback_agent._process_internal(user_message, dict(state))
+
+            if "messages" in result and result["messages"]:
+                message_content = result["messages"][0]
+                if isinstance(message_content, dict):
+                    content = message_content.get("content", "Sin respuesta")
+                else:
+                    content = str(message_content)
+
+                updates = self.state_manager.add_ai_message(state, content)
+                updates["is_complete"] = result.get("is_complete", True)
+                updates["current_agent"] = "fallback_agent"
+                return updates
+
+            updates = self.state_manager.add_ai_message(state, "¿En qué puedo ayudarte hoy?")
+            updates["is_complete"] = True
+            updates["current_agent"] = "fallback_agent"
+            return updates
+
+        except Exception as e:
+            logger.error(f"Error in fallback agent node: {str(e)}")
+            updates = self.state_manager.add_ai_message(state, "Estoy aquí para ayudarte. ¿Qué necesitas?")
+            updates["is_complete"] = True
+            return updates
+
+    async def _farewell_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
+        """Nodo del agente de despedida"""
+        try:
+            user_message = self.state_manager.get_last_user_message(state)
+            if not user_message:
+                updates = self.state_manager.add_ai_message(state, "¡Hasta luego! 👋")
+                updates["is_complete"] = True
+                return updates
+
+            result = await self.farewell_agent._process_internal(user_message, dict(state))
+
+            if "messages" in result and result["messages"]:
+                message_content = result["messages"][0]
+                if isinstance(message_content, dict):
+                    content = message_content.get("content", "¡Hasta luego! 👋")
+                else:
+                    content = str(message_content)
+
+                updates = self.state_manager.add_ai_message(state, content)
+                updates["is_complete"] = result.get("is_complete", True)
+                updates["current_agent"] = "farewell_agent"
+                return updates
+
+            updates = self.state_manager.add_ai_message(state, "¡Hasta luego! Que tengas un excelente día. 👋")
+            updates["is_complete"] = True
+            updates["current_agent"] = "farewell_agent"
+            return updates
+
+        except Exception as e:
+            logger.error(f"Error in farewell agent node: {str(e)}")
+            updates = self.state_manager.add_ai_message(state, "¡Hasta pronto! 👋")
             updates["is_complete"] = True
             return updates
 
@@ -522,6 +667,9 @@ class EcommerceAssistantGraph:
             self.category_agent = CategoryAgent(
                 ollama=self.ollama, chroma=self.chroma, config=agent_config.get("category", {})
             )
+            self.data_insights_agent = DataInsightsAgent(
+                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("data_insights", {})
+            )
             self.promotions_agent = PromotionsAgent(
                 ollama=self.ollama, chroma=self.chroma, config=agent_config.get("promotions", {})
             )
@@ -534,6 +682,12 @@ class EcommerceAssistantGraph:
             self.invoice_agent = InvoiceAgent(
                 ollama=self.ollama, chroma=self.chroma, config=agent_config.get("invoice", {})
             )
+            self.fallback_agent = FallbackAgent(
+                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("fallback", {})
+            )
+            self.farewell_agent = FarewellAgent(
+                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("farewell", {})
+            )
 
             logger.info("Agents initialized successfully")
         except Exception as e:
@@ -544,7 +698,7 @@ class EcommerceAssistantGraph:
         """Crea un agente placeholder para evitar errores"""
 
         class PlaceholderAgent(BaseAgent):
-            def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+            async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
                 response_text = f"Agente {self.name} está en mantenimiento. Por favor, contacta soporte."
                 return {
                     "messages": [{"role": "assistant", "content": response_text}],
@@ -564,9 +718,11 @@ class EcommerceAssistantGraph:
                     checkpointer_healthy = await initialize_checkpointer()
 
                     if checkpointer_healthy:
-                        checkpointer = await self.checkpointer_manager.get_async_checkpointer()
-                        self.app = self.graph.compile(checkpointer=checkpointer)
-                        logger.info("Graph compiled with PostgreSQL checkpointer")
+                        # Usar checkpointer en memoria por ahora (funciona sin problemas)
+                        from langgraph.checkpoint.memory import MemorySaver
+                        memory_checkpointer = MemorySaver()
+                        self.app = self.graph.compile(checkpointer=memory_checkpointer)
+                        logger.info("Graph compiled with memory checkpointer (PostgreSQL checkpointer needs further investigation)")
                     else:
                         self.app = self.graph.compile()
                         logger.warning("PostgreSQL checkpointer unhealthy, using in-memory")
@@ -611,7 +767,8 @@ class EcommerceAssistantGraph:
             # Verificar agentes
             agents_status = {}
             agent_names = ["category_agent", "product_agent", "promotions_agent", 
-                          "tracking_agent", "support_agent", "invoice_agent"]
+                          "tracking_agent", "support_agent", "invoice_agent",
+                          "fallback_agent", "farewell_agent"]
             for agent_name in agent_names:
                 try:
                     agent = getattr(self, agent_name, None)

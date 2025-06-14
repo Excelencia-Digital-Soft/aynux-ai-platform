@@ -20,7 +20,7 @@ class PromotionsAgent(BaseAgent):
         self.eligibility_tool = PromotionEligibilityTool()
         self.coupon_tool = CouponGeneratorTool()
 
-    def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa consultas sobre promociones"""
         user_message = message
         customer = state_dict.get("customer", {})

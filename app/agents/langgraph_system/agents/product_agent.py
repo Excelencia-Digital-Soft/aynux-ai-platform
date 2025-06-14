@@ -2,10 +2,12 @@
 Agente especializado en consultas de productos
 """
 
+import json
 import logging
-import re
 from typing import Any, Dict, List, Optional
 
+from ..integrations.ollama_integration import OllamaIntegration
+from ..tools.product_tool import ProductTool
 from .base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -23,12 +25,13 @@ class ProductAgent(BaseAgent):
         self.show_prices = self.config.get("show_prices", True)
         self.enable_recommendations = self.config.get("enable_recommendations", True)
 
-        # Inicializar herramientas
-        self.tools = []
+        # Initialize tools
+        self.product_tool = ProductTool()
+        self.ollama = ollama or OllamaIntegration()
 
-    def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Procesa consultas de productos.
+        Procesa consultas de productos usando AI y base de datos.
 
         Args:
             message: Mensaje del usuario
@@ -38,33 +41,28 @@ class ProductAgent(BaseAgent):
             Diccionario con actualizaciones para el estado
         """
         try:
-            # Extraer información de productos del mensaje
-            query_info = self._extract_product_query(message)
+            # Analyze user intent using AI
+            intent_analysis = await self._analyze_user_intent(message)
 
-            # Buscar productos
-            products = self._search_products_sync(query_info)
+            # Search products based on intent
+            products_data = await self._get_products_from_db(intent_analysis)
 
-            # Generar respuesta
+            if not products_data["success"]:
+                raise Exception(f"Error fetching products: {products_data.get('error', 'Unknown error')}")
+
+            products = products_data.get("products", [])
+
+            # Generate AI-powered response
             if not products:
-                response_text = self._generate_no_results_response(query_info.get("query", message))
+                response_text = await self._generate_no_results_response(message, intent_analysis)
             else:
-                response_text = self._generate_product_response(products)
+                response_text = await self._generate_ai_response(products, message, intent_analysis)
 
-            # Crear respuesta estructurada
-            response = self._create_response(
-                response_text=response_text,
-                success=True,
-                data_retrieved={"products": products, "query": query_info},
-                tools_used=["product_search"],
-            )
-
-            # Retornar actualizaciones para el estado
             return {
                 "messages": [{"role": "assistant", "content": response_text}],
-                "agent_responses": [response.to_dict()],
                 "current_agent": self.name,
                 "agent_history": [self.name],
-                "retrieved_data": {"products": products},
+                "retrieved_data": {"products": products, "intent": intent_analysis},
                 "is_complete": True,
             }
 
@@ -79,129 +77,284 @@ class ProductAgent(BaseAgent):
                 "current_agent": self.name,
             }
 
-    def _extract_product_query(self, message: str) -> Dict[str, Any]:
-        """Extrae información de consulta de productos del mensaje."""
-        query_info = {"query": message, "product_name": None, "category": None, "price_range": None, "brand": None}
+    async def _analyze_user_intent(self, message: str) -> Dict[str, Any]:
+        """Analyze user intent using AI."""
+        prompt = f"""# MENSAJE DEL USUARIO
+"{message}"
 
-        # Patrones simples para extraer información
-        message_lower = message.lower()
+# INSTRUCCIONES
+Extrae del mensaje la intención del usuario y responde en JSON con los siguientes campos:
+{{
+  "intent": "search_general|search_by_brand|search_by_category|get_specific|search_by_price",
+  "search_terms": ["..."],
+  "category": "nombre|null",
+  "brand": "marca|null",
+  "price_min": float|null,
+  "price_max": float|null,
+  "specific_product": "nombre|null",
+  "wants_stock_info": bool,
+  "wants_featured": bool,
+  "wants_sale": bool
+}}"""
 
-        # Buscar categorías comunes
-        categories = ["teléfono", "celular", "smartphone", "laptop", "computadora", "tablet", "audífonos"]
-        for category in categories:
-            if category in message_lower:
-                query_info["category"] = category
-                break
+        try:
+            llm = self.ollama.get_llm(temperature=0.3)
+            response = await llm.ainvoke(prompt)
+            # Try to parse as JSON, fallback to basic intent if fails
+            try:
+                return json.loads(response.content)
+            except Exception:
+                return {
+                    "intent": "search_general",
+                    "search_terms": message.split(),
+                    "category": None,
+                    "brand": None,
+                    "price_min": None,
+                    "price_max": None,
+                    "specific_product": None,
+                    "wants_stock_info": False,
+                    "wants_featured": False,
+                    "wants_sale": False,
+                }
+        except Exception as e:
+            logger.error(f"Error analyzing product intent: {str(e)}")
+            return {
+                "intent": "search_general",
+                "search_terms": message.split(),
+                "category": None,
+                "brand": None,
+                "price_min": None,
+                "price_max": None,
+                "specific_product": None,
+                "wants_stock_info": False,
+                "wants_featured": False,
+                "wants_sale": False,
+            }
 
-        # Buscar marcas comunes
-        brands = ["iphone", "samsung", "huawei", "xiaomi", "sony", "lg", "apple"]
-        for brand in brands:
-            if brand in message_lower:
-                query_info["brand"] = brand
-                break
+    async def _get_products_from_db(self, intent_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """Fetch products from database based on intent analysis."""
+        intent = intent_analysis.get("intent", "search_general")
 
-        # Buscar rangos de precio
-        price_pattern = r"\$?(\d{1,3}(?:,?\d{3})*)\s*(?:a|hasta|-)?\s*\$?(\d{1,3}(?:,?\d{3})*)?"
-        price_match = re.search(price_pattern, message)
-        if price_match:
-            min_price = int(price_match.group(1).replace(",", ""))
-            max_price = int(price_match.group(2).replace(",", "")) if price_match.group(2) else None
-            query_info["price_range"] = {"min": min_price, "max": max_price}
+        # Check for special intents first
+        if intent_analysis.get("wants_featured") or intent == "featured_products":
+            return await self.product_tool("featured", limit=self.max_products_shown)
 
-        return query_info
+        if intent_analysis.get("wants_sale") or intent == "sale_products":
+            return await self.product_tool("on_sale", limit=self.max_products_shown)
 
-    def _search_products_sync(self, query_info: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Búsqueda síncrona de productos (simulada)."""
-        # Datos de productos simulados para demostración
-        mock_products = [
-            {
-                "id": "1",
-                "name": "iPhone 15 Pro",
-                "category": "smartphone",
-                "brand": "apple",
-                "price": 999.99,
-                "stock": 15,
-                "available": True,
-                "description": "El último iPhone con chip A17 Pro",
-            },
-            {
-                "id": "2",
-                "name": "Samsung Galaxy S24",
-                "category": "smartphone",
-                "brand": "samsung",
-                "price": 849.99,
-                "stock": 8,
-                "available": True,
-                "description": "Smartphone Android de alta gama",
-            },
-            {
-                "id": "3",
-                "name": "MacBook Air M3",
-                "category": "laptop",
-                "brand": "apple",
-                "price": 1299.99,
-                "stock": 5,
-                "available": True,
-                "description": "Laptop ultraligera con chip M3",
-            },
-        ]
+        # Handle specific product search
+        if intent == "get_specific" and intent_analysis.get("specific_product"):
+            search_term = intent_analysis["specific_product"]
+            return await self.product_tool("search", search_term=search_term, limit=1)
 
-        # Filtrar productos basado en la consulta
-        filtered_products = []
-        query_lower = query_info.get("query", "").lower()
+        # Handle category-based search
+        if intent == "search_by_category" and intent_analysis.get("category"):
+            return await self.product_tool(
+                "by_category", category=intent_analysis["category"], limit=self.max_products_shown
+            )
 
-        for product in mock_products:
-            # Filtrar por categoría
-            if query_info.get("category") and query_info["category"] not in product["category"]:
-                continue
+        # Handle brand-based search
+        if intent == "search_by_brand" and intent_analysis.get("brand"):
+            return await self.product_tool("by_brand", brand=intent_analysis["brand"], limit=self.max_products_shown)
 
-            # Filtrar por marca
-            if query_info.get("brand") and query_info["brand"] not in product["brand"]:
-                continue
+        # Handle price range search
+        price_filter = intent_analysis.get("price_min") or intent_analysis.get("price_max")
+        if intent == "search_by_price" and price_filter:
+            return await self.product_tool(
+                "by_price_range",
+                min_price=intent_analysis.get("price_min"),
+                max_price=intent_analysis.get("price_max"),
+                limit=self.max_products_shown,
+            )
 
-            # Filtrar por rango de precio
-            price_range = query_info.get("price_range")
-            if price_range:
-                product_price = product["price"]
-                if price_range.get("min") and product_price < price_range["min"]:
-                    continue
-                if price_range.get("max") and product_price > price_range["max"]:
-                    continue
+        # Advanced search for complex queries
+        search_params = {}
 
-            # Filtrar por nombre del producto
-            if any(word in product["name"].lower() for word in query_lower.split()):
-                filtered_products.append(product)
+        if intent_analysis.get("search_terms"):
+            search_params["search_term"] = " ".join(intent_analysis["search_terms"])
 
-        return filtered_products[: self.max_products_shown]
+        if intent_analysis.get("category"):
+            search_params["category"] = intent_analysis["category"]
 
-    def _generate_no_results_response(self, query: str) -> str:
-        """Genera respuesta cuando no se encuentran productos."""
-        return f"""
-No encontré productos que coincidan con "{query}". 
+        if intent_analysis.get("brand"):
+            search_params["brand"] = intent_analysis["brand"]
 
-¿Te gustaría que:
-• Busque en una categoría específica
-• Te muestre productos similares  
-• Te ayude con otra consulta
+        if intent_analysis.get("price_min"):
+            search_params["min_price"] = intent_analysis["price_min"]
 
-¿Qué prefieres?
-        """.strip()
+        if intent_analysis.get("price_max"):
+            search_params["max_price"] = intent_analysis["price_max"]
 
-    def _generate_product_response(self, products: List[Dict[str, Any]]) -> str:
-        """Genera respuesta con productos encontrados."""
+        search_params["in_stock"] = True  # Default to showing only in-stock items
+        search_params["limit"] = self.max_products_shown
+
+        return await self.product_tool("advanced_search", **search_params)
+
+    async def _generate_ai_response(
+        self, products: List[Dict[str, Any]], message: str, intent_analysis: Dict[str, Any]
+    ) -> str:
+        """Generate AI-powered response based on products and user intent."""
+        # Prepare product information for AI
+        product_info = []
+        for product in products[: self.max_products_shown]:
+            info = f"- {product['name']}"
+            if product.get("brand", {}).get("name"):
+                info += f" ({product['brand']['name']})"
+
+            if self.show_prices:
+                info += f" - ${product['price']:.2f}"
+
+            if self.show_stock:
+                stock = product["stock"]
+                if stock > 0:
+                    info += f" ✅ ({stock} en stock)"
+                else:
+                    info += " ❌ (Sin stock)"
+
+            if product.get("category", {}).get("display_name"):
+                info += f" | Categoría: {product['category']['display_name']}"
+
+            if product.get("description"):
+                desc_text = product["description"]
+                desc = desc_text[:100] + "..." if len(desc_text) > 100 else desc_text
+                info += f" | {desc}"
+
+            product_info.append(info)
+
+        prompt = f"""# CONSULTA DEL USUARIO
+"{message}"
+
+# RESULTADOS
+Se encontraron {len(products)} productos relevantes. Aquí un resumen de los principales:
+{chr(10).join(product_info[:5])}
+
+# INSTRUCCIONES
+Responde brevemente destacando productos, precios y stock.
+- Sé claro y amigable.
+- No excedas 4 líneas.
+- Puedes usar emojis moderadamente.
+"""
+
+        try:
+            llm = self.ollama.get_llm(temperature=0.7)
+            response = await llm.ainvoke(prompt)
+            return response.content  # type: ignore
+        except Exception as e:
+            logger.error(f"Error generating AI product response: {str(e)}")
+            # Fallback to formatted response
+            return self._generate_fallback_response(products, intent_analysis)
+
+    async def _generate_no_results_response(self, message: str, intent_analysis: Dict[str, Any]) -> str:
+        """Generate response when no products are found."""
+        prompt = f"""# CONSULTA
+El usuario buscó: "{message}"
+
+# INSTRUCCIONES
+No se encontraron coincidencias. 
+Sugiere 2 alternativas relevantes.
+- Máximo 3 líneas.
+- Sé cordial.
+"""
+
+        try:
+            llm = self.ollama.get_llm(temperature=0.7)
+            response = await llm.ainvoke(prompt)
+            return response.content  # type: ignore
+        except Exception as e:
+            logger.error(f"Error generating no results response: {str(e)}")
+            return await self._generate_fallback_no_results(message, intent_analysis)
+
+    def _generate_fallback_response(self, products: List[Dict[str, Any]], intent_analysis: Dict[str, Any]) -> str:
+        """Generate fallback response without AI."""
         if len(products) == 1:
             return self._format_single_product(products[0])
         else:
             return self._format_multiple_products(products)
 
+    async def _generate_fallback_no_results(self, message: str, intent_analysis: Dict[str, Any]) -> str:
+        """Generate AI-powered fallback no results response with multiple attempts."""
+        prompts = [
+            # First attempt - detailed and contextual
+            f"""# CONSULTA SIN RESULTADOS
+El usuario buscó: "{message}"
+
+# ANÁLISIS DE INTENCIÓN
+{json.dumps(intent_analysis, indent=2)}
+
+# INSTRUCCIONES
+No se encontraron productos que coincidan. Genera una respuesta que:
+- Sea empática y comprensiva
+- Ofrezca 2-3 alternativas específicas basadas en la consulta
+- Use un tono conversacional y amigable
+- Máximo 4 líneas
+- Incluya emojis relevantes""",
+            # Second attempt - simpler approach
+            f"""El usuario buscó "{message}" pero no hay resultados.
+
+Responde de forma amigable ofreciendo:
+1. Buscar en categorías similares
+2. Mostrar productos relacionados
+3. Ayuda con otra búsqueda
+
+Sé breve y cordial.""",
+            # Third attempt - very simple
+            f'Usuario buscó "{message}" sin resultados. Ofrece ayuda alternativa en 2-3 líneas.',
+        ]
+
+        for attempt, prompt in enumerate(prompts, 1):
+            try:
+                # Use different temperature for each attempt
+                temperature = 0.7 if attempt == 1 else 0.5 if attempt == 2 else 0.3
+                llm = self.ollama.get_llm(temperature=temperature)
+                response = await llm.ainvoke(prompt)
+
+                if response.content and len(response.content.strip()) > 20:  # type: ignore
+                    logger.info(f"AI fallback response generated on attempt {attempt}")
+                    return response.content.strip()  # type: ignore
+
+            except Exception as e:
+                logger.warning(f"AI fallback attempt {attempt} failed: {str(e)}")
+                continue
+
+        # Final hardcoded fallback if all AI attempts fail
+        logger.error("All AI fallback attempts failed, using hardcoded response")
+
+        # Dynamic hardcoded response based on intent analysis
+        search_term = message
+        suggestions = []
+
+        if intent_analysis.get("category"):
+            suggestions.append(f"• Buscar en la categoría {intent_analysis['category']}")
+        else:
+            suggestions.append("• Buscar en una categoría específica")
+
+        if intent_analysis.get("brand"):
+            suggestions.append(f"• Ver otros productos de {intent_analysis['brand']}")
+        else:
+            suggestions.append("• Te muestre productos similares")
+
+        suggestions.append("• Te ayude con otra consulta")
+
+        return f"""No encontré productos que coincidan con "{search_term}". 
+
+¿Te gustaría que:
+{chr(10).join(suggestions)}
+
+¿Qué prefieres? 🤔""".strip()
+
     def _format_single_product(self, product: Dict[str, Any]) -> str:
-        """Formatea respuesta para un solo producto."""
+        """Format response for a single product."""
         name = product.get("name", "Producto")
         price = product.get("price", 0)
         stock = product.get("stock", 0) if self.show_stock else None
         description = product.get("description", "")
+        brand = product.get("brand", {}).get("name", "")
+        category = product.get("category", {}).get("display_name", "")
 
-        response = f"📱 **{name}**\n"
+        response = f"📱 **{name}**"
+        if brand:
+            response += f" ({brand})"
+        response += "\n"
 
         if self.show_prices and price:
             response += f"💰 Precio: ${price:,.2f}\n"
@@ -212,6 +365,9 @@ No encontré productos que coincidan con "{query}".
             else:
                 response += "❌ Sin stock\n"
 
+        if category:
+            response += f"📂 Categoría: {category}\n"
+
         if description:
             response += f"\n{description}\n"
 
@@ -220,15 +376,18 @@ No encontré productos que coincidan con "{query}".
         return response
 
     def _format_multiple_products(self, products: List[Dict[str, Any]]) -> str:
-        """Formatea respuesta para múltiples productos."""
+        """Format response for multiple products."""
         response = f"Encontré {len(products)} productos que podrían interesarte:\n\n"
 
         for i, product in enumerate(products, 1):
             name = product.get("name", f"Producto {i}")
             price = product.get("price", 0)
             stock = product.get("stock", 0) if self.show_stock else None
+            brand = product.get("brand", {}).get("name", "")
 
             response += f"{i}. **{name}**"
+            if brand:
+                response += f" ({brand})"
 
             if self.show_prices and price:
                 response += f" - ${price:,.2f}"

@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 from enum import Enum
-from typing import Any, Callable, Optional, Dict
+from typing import Any, Callable, Optional, Dict, Type
 from functools import wraps
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class CircuitBreaker:
         self,
         failure_threshold: int = 5,
         recovery_timeout: int = 60,
-        expected_exception: type = Exception,
+        expected_exception: Type[Exception] = Exception,
         name: str = "default"
     ):
         self.failure_threshold = failure_threshold
@@ -253,9 +253,10 @@ def circuit_breaker(
         
         # Agregar métodos de control al wrapper
         wrapper = async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
-        wrapper.circuit_breaker = cb
-        wrapper.get_stats = cb.get_stats
-        wrapper.reset = cb.reset
+        # Type ignore for dynamic attributes - pyright doesn't understand we're adding attributes
+        wrapper.circuit_breaker = cb  # type: ignore
+        wrapper.get_stats = cb.get_stats  # type: ignore
+        wrapper.reset = cb.reset  # type: ignore
         
         return wrapper
     

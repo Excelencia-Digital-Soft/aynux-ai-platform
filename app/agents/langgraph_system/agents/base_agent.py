@@ -27,7 +27,7 @@ class BaseAgent(ABC):
         self.metrics = {"total_requests": 0, "successful_requests": 0, "average_response_time": 0.0}
 
     @abstractmethod
-    def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Procesa un mensaje internamente. Cada agente debe implementar esto.
 

@@ -4,7 +4,8 @@ Tools especializadas para el Product Agent
 
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 

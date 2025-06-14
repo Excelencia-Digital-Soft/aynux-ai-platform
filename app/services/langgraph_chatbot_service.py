@@ -11,9 +11,8 @@ from app.agents.langgraph_system.graph import EcommerceAssistantGraph
 from app.agents.langgraph_system.models import ConversationContext, CustomerContext
 from app.config.langgraph_config import get_langgraph_config
 from app.config.settings import get_settings
-from app.database import check_db_connection, get_db_context
+from app.database import check_db_connection
 from app.models.conversation import ConversationHistory
-from app.models.database import Message
 from app.models.message import BotResponse, Contact, WhatsAppMessage
 from app.repositories.redis_repository import RedisRepository
 from app.services.customer_service import CustomerService
@@ -67,6 +66,8 @@ class LangGraphChatbotService:
 
     def _create_security_placeholder(self):
         """Crea un placeholder para el sistema de seguridad"""
+
+        # TODO: Implementar seguridad
 
         class SecurityPlaceholder:
             async def check_rate_limit(self, user_id: str) -> bool:
@@ -138,10 +139,8 @@ class LangGraphChatbotService:
             profile_name = None
             if contact.profile and isinstance(contact.profile, dict):
                 profile_name = contact.profile.get("name")
-            
-            customer_context = await self._get_or_create_customer_context(
-                user_number, profile_name or "Usuario"
-            )
+
+            customer_context = await self._get_or_create_customer_context(user_number, profile_name or "Usuario")
 
             # 4. Crear contexto de conversación
             conversation_context = ConversationContext(
@@ -275,11 +274,14 @@ class LangGraphChatbotService:
                 )
 
             # Crear contexto usando modelo Pydantic para validación
+            # Usar name si existe, sino profile_name, sino user_name, sino fallback
+            customer_name = customer.get("name") or customer.get("profile_name") or user_name or "Usuario"
+
             customer_context = CustomerContext(
                 customer_id=str(customer.get("id", f"whatsapp_{user_number}")),
-                name=customer.get("name", user_name or "Usuario"),
+                name=customer_name,
                 email=customer.get("email"),
-                phone=customer.get("phone", user_number),
+                phone=customer.get("phone_number", user_number),
                 tier=customer.get("tier", "basic"),
                 purchase_history=[],  # Se puede cargar desde DB si es necesario
                 preferences=customer.get("preferences", {}),
@@ -292,13 +294,13 @@ class LangGraphChatbotService:
 
             # Crear contexto básico como fallback
             return CustomerContext(
-                customer_id=f"temp_{user_number}", 
-                name=user_name or "Usuario", 
-                phone=user_number, 
+                customer_id=f"temp_{user_number}",
+                name=user_name or "Usuario",
+                phone=user_number,
                 tier="basic",
                 email=None,
                 purchase_history=[],
-                preferences={}
+                preferences={},
             )
 
     async def _check_message_security(self, user_number: str, message_text: str) -> Dict[str, Any]:
@@ -315,7 +317,7 @@ class LangGraphChatbotService:
         try:
             # Verificar rate limiting
             rate_limit_result = await self.security.check_rate_limit(user_number)
-            
+
             # Manejar diferentes tipos de respuesta de check_rate_limit
             if isinstance(rate_limit_result, tuple):
                 # Si es una tupla, el primer elemento es el booleano
@@ -323,13 +325,13 @@ class LangGraphChatbotService:
             else:
                 # Si es un booleano directo
                 rate_allowed = rate_limit_result
-                
+
             if not rate_allowed:
                 return {"allowed": False, "message": "Has enviado demasiados mensajes. Por favor espera un momento."}
 
             # Verificar contenido del mensaje
             content_check_result = await self.security.check_message_content(message_text)
-            
+
             # Manejar diferentes tipos de respuesta de check_message_content
             if isinstance(content_check_result, tuple):
                 # Si es una tupla (bool, dict)
@@ -388,12 +390,12 @@ class LangGraphChatbotService:
             # For now, just log to logger
             self.logger.info(f"Conversation log - User ({user_number}): {user_message[:100]}...")
             self.logger.info(f"Conversation log - Bot (agent: {agent_used}): {bot_response[:100]}...")
-            
+
             # Note: The actual implementation needs:
             # 1. Proper conversation model that returns UUID for conversation_id
             # 2. Message model expects: user_phone, message_type ("user"/"bot"), content, conversation_id (UUID)
             # 3. Async database operations
-            
+
         except Exception as e:
             self.logger.error(f"Error logging conversation: {e}")
 
@@ -425,7 +427,7 @@ class LangGraphChatbotService:
         """Envía respuesta por WhatsApp"""
         try:
             # Para pruebas: solo registrar en log en lugar de enviar por WhatsApp
-            self.logger.info(f"[TEST MODE] WhatsApp message to {user_number}: {response[:100]}...")
+            self.logger.info(f"[TEST MODE] WhatsApp message to {user_number}: {response[:20]}...")
             # Comentado para pruebas locales:
             # await self.whatsapp_service.enviar_mensaje_texto(user_number, response)
         except Exception as e:
@@ -464,54 +466,48 @@ class LangGraphChatbotService:
     async def get_conversation_history_langgraph(self, user_number: str, limit: int = 50) -> Dict[str, Any]:
         """
         Obtiene el historial de conversación para un usuario usando LangGraph
-        
+
         Args:
             user_number: Número de teléfono del usuario
             limit: Límite de mensajes a obtener
-            
+
         Returns:
             Dict con el historial de conversación
         """
         try:
             if not self.graph_system or not self.graph_system.app:
-                return {
-                    "error": "LangGraph system not initialized",
-                    "user_number": user_number,
-                    "messages": []
-                }
-            
+                return {"error": "LangGraph system not initialized", "user_number": user_number, "messages": []}
+
             # Intentar obtener el estado de la conversación
             config = {"configurable": {"thread_id": user_number}}
-            
+
             try:
                 current_state = await self.graph_system.app.aget_state(config)
-                
+
                 if current_state and current_state.values:
                     messages = current_state.values.get("messages", [])
-                    
+
                     # Limitar los mensajes
                     limited_messages = messages[-limit:] if len(messages) > limit else messages
-                    
+
                     # Convertir mensajes a formato serializable
                     serialized_messages = []
                     for msg in limited_messages:
                         try:
-                            if hasattr(msg, 'content'):
-                                serialized_messages.append({
-                                    "type": getattr(msg, 'type', 'unknown'),
-                                    "content": msg.content,
-                                    "timestamp": getattr(msg, 'timestamp', None)
-                                })
+                            if hasattr(msg, "content"):
+                                serialized_messages.append(
+                                    {
+                                        "type": getattr(msg, "type", "unknown"),
+                                        "content": msg.content,
+                                        "timestamp": getattr(msg, "timestamp", None),
+                                    }
+                                )
                             else:
-                                serialized_messages.append({
-                                    "type": "unknown",
-                                    "content": str(msg),
-                                    "timestamp": None
-                                })
+                                serialized_messages.append({"type": "unknown", "content": str(msg), "timestamp": None})
                         except Exception as e:
                             self.logger.warning(f"Error serializing message: {e}")
                             continue
-                    
+
                     return {
                         "user_number": user_number,
                         "messages": serialized_messages,
@@ -520,67 +516,64 @@ class LangGraphChatbotService:
                         "conversation_state": {
                             "current_agent": current_state.values.get("current_agent"),
                             "is_complete": current_state.values.get("is_complete", False),
-                            "requires_human": current_state.values.get("requires_human", False)
-                        }
+                            "requires_human": current_state.values.get("requires_human", False),
+                        },
                     }
                 else:
                     return {
                         "user_number": user_number,
                         "messages": [],
                         "total_messages": 0,
-                        "note": "No conversation history found"
+                        "note": "No conversation history found",
                     }
-                    
+
             except Exception as e:
                 self.logger.warning(f"Could not retrieve conversation state: {e}")
                 return {
                     "user_number": user_number,
                     "messages": [],
                     "total_messages": 0,
-                    "error": f"Could not retrieve conversation: {str(e)}"
+                    "error": f"Could not retrieve conversation: {str(e)}",
                 }
-                
+
         except Exception as e:
             self.logger.error(f"Error getting conversation history: {e}")
             return {
                 "error": f"Error retrieving conversation history: {str(e)}",
                 "user_number": user_number,
-                "messages": []
+                "messages": [],
             }
 
     async def get_conversation_stats(self, user_number: str) -> Dict[str, Any]:
         """
         Obtiene estadísticas de conversación para un usuario
-        
+
         Args:
             user_number: Número de teléfono del usuario
-            
+
         Returns:
             Dict con estadísticas de la conversación
         """
         try:
             if not self.graph_system or not self.graph_system.app:
-                return {
-                    "error": "LangGraph system not initialized",
-                    "user_number": user_number
-                }
-            
+                return {"error": "LangGraph system not initialized", "user_number": user_number}
+
             config = {"configurable": {"thread_id": user_number}}
-            
+
             try:
                 current_state = await self.graph_system.app.aget_state(config)
-                
+
                 if current_state and current_state.values:
                     state_values = current_state.values
                     messages = state_values.get("messages", [])
-                    
+
                     # Contar tipos de mensajes
-                    human_messages = len([m for m in messages if hasattr(m, 'type') and m.type == 'human'])
-                    ai_messages = len([m for m in messages if hasattr(m, 'type') and m.type == 'ai'])
-                    
+                    human_messages = len([m for m in messages if hasattr(m, "type") and m.type == "human"])
+                    ai_messages = len([m for m in messages if hasattr(m, "type") and m.type == "ai"])
+
                     # Obtener agentes utilizados
                     agent_history = state_values.get("agent_history", [])
-                    
+
                     return {
                         "user_number": user_number,
                         "total_messages": len(messages),
@@ -593,31 +586,31 @@ class LangGraphChatbotService:
                         "requires_human": state_values.get("requires_human", False),
                         "error_count": state_values.get("error_count", 0),
                         "conversation_active": len(messages) > 0,
-                        "last_intent": (state_values.get("current_intent", {}).get("primary_intent") 
-                                       if state_values.get("current_intent") else None)
+                        "last_intent": (
+                            state_values.get("current_intent", {}).get("primary_intent")
+                            if state_values.get("current_intent")
+                            else None
+                        ),
                     }
                 else:
                     return {
                         "user_number": user_number,
                         "total_messages": 0,
                         "conversation_active": False,
-                        "note": "No conversation found"
+                        "note": "No conversation found",
                     }
-                    
+
             except Exception as e:
                 self.logger.warning(f"Could not retrieve conversation state for stats: {e}")
                 return {
                     "user_number": user_number,
                     "error": f"Could not retrieve stats: {str(e)}",
-                    "conversation_active": False
+                    "conversation_active": False,
                 }
-                
+
         except Exception as e:
             self.logger.error(f"Error getting conversation stats: {e}")
-            return {
-                "error": f"Error retrieving conversation stats: {str(e)}",
-                "user_number": user_number
-            }
+            return {"error": f"Error retrieving conversation stats: {str(e)}", "user_number": user_number}
 
     async def cleanup(self):
         """Limpieza de recursos"""

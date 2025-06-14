@@ -19,7 +19,7 @@ class SupportAgent(BaseAgent):
         # FAQ común
         self.faq_responses = self._load_faq_responses()
 
-    def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa consultas de soporte técnico."""
         try:
             # Detectar tipo de problema

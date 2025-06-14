@@ -232,12 +232,12 @@ class ProductService:
 
                 return [
                     {
-                        "name": row.name,
-                        "display_name": row.display_name,
-                        "product_count": row.product_count,
-                        "avg_price": float(row.avg_price) if row.avg_price else 0,
-                        "min_price": float(row.min_price) if row.min_price else 0,
-                        "max_price": float(row.max_price) if row.max_price else 0,
+                        "name": row[0],  # name
+                        "display_name": row[1],  # display_name
+                        "product_count": row[2],  # product_count
+                        "avg_price": float(row[3]) if row[3] else 0,  # avg_price
+                        "min_price": float(row[4]) if row[4] else 0,  # min_price
+                        "max_price": float(row[5]) if row[5] else 0,  # max_price
                     }
                     for row in result
                 ]
@@ -386,17 +386,17 @@ class ProductService:
                         {
                             "name": p.name,
                             "current_stock": p.stock,
-                            "category": p.category.display_name,
+                            "category": p.category.display_name if p.category else "Unknown",
                             "price": p.price,
                         }
                         for p in low_stock_products
                     ],
                     "category_breakdown": [
                         {
-                            "category": row.display_name,
-                            "products": row.products,
-                            "total_stock": row.total_stock or 0,
-                            "stock_value": float(row.stock_value or 0),
+                            "category": row[0],  # display_name
+                            "products": row[1],  # products count
+                            "total_stock": row[2] or 0,  # total_stock
+                            "stock_value": float(row[3] or 0),  # stock_value
                         }
                         for row in category_stock
                     ],
@@ -442,10 +442,10 @@ class ProductService:
                     "period_days": days,
                     "active_customers": active_customers,
                     "category_inquiries": [
-                        {"category": row.display_name, "inquiries": row.inquiry_count} for row in category_inquiries
+                        {"category": row[0], "inquiries": row[1]} for row in category_inquiries  # display_name, inquiry_count
                     ],
                     "top_products": [
-                        {"product": row.name, "inquiries": row.inquiry_count} for row in product_inquiries
+                        {"product": row[0], "inquiries": row[1]} for row in product_inquiries  # name, inquiry_count
                     ],
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 }

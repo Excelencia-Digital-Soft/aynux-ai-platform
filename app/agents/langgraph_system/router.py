@@ -18,88 +18,6 @@ class IntentRouter:
     def __init__(self, llm):
         self.llm = llm
 
-        # Patrones de intención mejorados con más variaciones
-        self.intent_patterns = {
-            "category_browsing": [
-                r"mostrar.*categor",
-                r"ver.*productos",
-                r"qué.*vend",
-                r"qué.*tien",
-                r"explorar.*tienda",
-                r"catálogo",
-                r"tipos.*product",
-                r"opciones.*dispon",
-            ],
-            "product_inquiry": [
-                r"precio.*producto",
-                r"cuánto.*cuest",
-                r"valor.*",
-                r"característic",
-                r"especificacion",
-                r"detalles.*",
-                r"información.*producto",
-                r"stock",
-                r"disponib",
-                r"hay.*unidad",
-                r"quedan.*",
-            ],
-            "promotions": [
-                r"oferta",
-                r"descuento",
-                r"promocion",
-                r"promoción",
-                r"rebaja",
-                r"ahorro",
-                r"sale",
-                r"black.*friday",
-                r"cyber.*monday",
-                r"cupón",
-                r"cupon",
-                r"código.*descuento",
-            ],
-            "order_tracking": [
-                r"dónde.*pedido",
-                r"donde.*pedido",
-                r"rastrear",
-                r"tracking",
-                r"seguimiento",
-                r"estado.*envío",
-                r"estado.*envio",
-                r"cuándo.*llega",
-                r"cuando.*llega",
-                r"número.*orden",
-                r"numero.*orden",
-                r"#\d{5,}",
-            ],
-            "technical_support": [
-                r"no.*funciona",
-                r"problema",
-                r"error",
-                r"ayuda.*técnica",
-                r"ayuda.*tecnica",
-                r"soporte",
-                r"falla",
-                r"defecto",
-                r"roto",
-                r"dañado",
-                r"danado",
-                r"garantía",
-                r"garantia",
-                r"devol",
-                r"cambio",
-            ],
-            "invoice_request": [
-                r"factura",
-                r"comprobante",
-                r"recibo",
-                r"ticket",
-                r"documento.*fiscal",
-                r"cfdi",
-                r"nota.*venta",
-                r"constancia.*compra",
-            ],
-        }
-
         # Mapeo de intenciones a agentes
         self.agent_mapping = {
             "category_browsing": "category_agent",
@@ -122,76 +40,30 @@ class IntentRouter:
                 primary_intent="general_inquiry", confidence=0.5, target_agent=self.agent_mapping.get("general_inquiry")
             )
 
-        # 1. Intentar con patrones regex (rápido)
-        intent, pattern_confidence = self._pattern_matching(last_message)
-
-        # 2. Si no hay match claro o baja confianza, usar LLM
-        if not intent or pattern_confidence < 0.7:
-            context_summary = self._get_context_summary(state_dict)
-            llm_intent, llm_confidence = await self._llm_intent_detection(last_message, context_summary)
-
-            # Combinar resultados
-            if llm_confidence > pattern_confidence:
-                intent = llm_intent
-                confidence = llm_confidence
-            else:
-                confidence = pattern_confidence
-        else:
-            confidence = pattern_confidence
+        # 1. usar siempre LLM --  No quiero pattern match
+        context_summary = self._get_context_summary(state_dict)
+        llm_intent, llm_confidence = await self._llm_intent_detection(last_message, context_summary)
 
         # 3. Extraer entidades relevantes
-        entities = await self._extract_entities(last_message, intent)
+        entities = await self._extract_entities(last_message, llm_intent)
 
         # 4. Determinar si requiere handoff
         requires_handoff = self._check_handoff_requirement(
-            intent, confidence, state_dict.get("error_count", 0), entities
+            llm_intent, llm_confidence, state_dict.get("error_count", 0), entities
         )
 
         # 5. Crear objeto IntentInfo
         intent_info = IntentInfo(
-            primary_intent=intent or "general_inquiry",
-            confidence=confidence,
+            primary_intent=llm_intent or "general_inquiry",
+            confidence=llm_confidence,
             entities=entities,
             requires_handoff=requires_handoff,
-            target_agent=self.agent_mapping.get(intent, "category_agent"),
+            target_agent=self.agent_mapping.get(llm_intent, "category_agent"),
         )
 
         logger.info(f"Intent detected: {intent_info.primary_intent} (confidence: {intent_info.confidence:.2f})")
 
         return intent_info
-
-    def _pattern_matching(self, text: str) -> Tuple[Optional[str], float]:
-        """Detección rápida basada en patrones regex"""
-        text_lower = text.lower().strip()
-
-        # Contar matches por intención
-        intent_scores = {}
-
-        for intent, patterns in self.intent_patterns.items():
-            score = 0
-            matches = 0
-
-            for pattern in patterns:
-                if re.search(pattern, text_lower):
-                    matches += 1
-                    # Dar más peso a matches exactos
-                    if re.search(f"\\b{pattern}\\b", text_lower):
-                        score += 2
-                    else:
-                        score += 1
-
-            if matches > 0:
-                # Normalizar score por número de patrones
-                intent_scores[intent] = score / len(patterns)
-
-        if not intent_scores:
-            return None, 0.0
-
-        # Obtener la intención con mayor score
-        best_intent = max(intent_scores, key=intent_scores.get)
-        confidence = min(intent_scores[best_intent], 0.95)  # Cap at 0.95
-
-        return best_intent, confidence
 
     async def _llm_intent_detection(self, message: str, context: Dict[str, Any]) -> Tuple[str, float]:
         """Detección de intención usando LLM"""
@@ -209,9 +81,9 @@ INTENCIONES DISPONIBLES:
 - general_inquiry: Consultas generales que no encajan en las anteriores
 
 CONTEXTO DE LA CONVERSACIÓN:
-- Mensajes enviados: {context.get('message_count', 0)}
-- Cliente tipo: {context.get('customer_tier', 'basic')}
-- Intención previa: {context.get('current_intent', 'ninguna')}
+- Mensajes enviados: {context.get("message_count", 0)}
+- Cliente tipo: {context.get("customer_tier", "basic")}
+- Intención previa: {context.get("current_intent", "ninguna")}
 
 MENSAJE DEL CLIENTE:
 "{message}"
@@ -498,5 +370,5 @@ class SupervisorAgent:
         # Continuar si hay mensajes sin procesar
         messages = state_dict.get("messages", [])
         agent_responses = state_dict.get("agent_responses", [])
-        
+
         return len(messages) > len(agent_responses)
