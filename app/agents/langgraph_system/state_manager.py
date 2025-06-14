@@ -171,7 +171,15 @@ class StateManager:
         Returns:
             Contenido del último mensaje del usuario o None
         """
+        if not isinstance(state, dict):
+            logger.error(f"get_last_user_message: Expected dict, got {type(state)}: {state}")
+            return None
+            
         messages = state.get("messages", [])
+        if not isinstance(messages, list):
+            logger.error(f"get_last_user_message: Expected list for messages, got {type(messages)}: {messages}")
+            return None
+            
         for message in reversed(messages):
             if isinstance(message, HumanMessage):
                 return message.content or ""

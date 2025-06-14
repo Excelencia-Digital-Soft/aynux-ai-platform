@@ -8,6 +8,7 @@ import re
 from typing import Any, Dict, Optional, Tuple
 
 from app.agents.langgraph_system.models import IntentInfo
+from app.schemas import get_intent_to_agent_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +20,15 @@ class IntentRouter:
         self.llm = llm
 
         # Mapeo de intenciones a agentes
+        base_mapping = get_intent_to_agent_mapping()
         self.agent_mapping = {
-            "category_browsing": "category_agent",
-            "product_inquiry": "product_agent",
-            "promotions": "promotions_agent",
-            "order_tracking": "tracking_agent",
-            "technical_support": "support_agent",
-            "invoice_request": "invoice_agent",
-            "general_inquiry": "category_agent",  # Por defecto
+            "category_browsing": base_mapping.get("categoria", "category_agent"),
+            "product_inquiry": base_mapping.get("producto", "product_agent"),
+            "promotions": base_mapping.get("promociones", "promotions_agent"),
+            "order_tracking": base_mapping.get("seguimiento", "tracking_agent"),
+            "technical_support": base_mapping.get("soporte", "support_agent"),
+            "invoice_request": base_mapping.get("facturacion", "invoice_agent"),
+            "general_inquiry": base_mapping.get("categoria", "category_agent"),
         }
 
         # Intenciones que requieren transferencia humana

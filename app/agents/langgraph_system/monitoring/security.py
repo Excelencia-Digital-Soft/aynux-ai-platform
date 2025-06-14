@@ -5,7 +5,7 @@ Sistema de seguridad y RBAC para el sistema multi-agente
 import hmac
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import jwt
@@ -132,6 +132,7 @@ class SecurityManager:
             Token JWT firmado
         """
         try:
+            now = datetime.now(timezone.utc)
             # Obtener tiempo de expiración según tipo
             expiry = self.security_policies["token_expiry"].get(f"{token_type}_token", timedelta(hours=1))
 
@@ -140,8 +141,8 @@ class SecurityManager:
                 "user_id": user_id,
                 "role": role,
                 "token_type": token_type,
-                "iat": datetime.utcnow(),
-                "exp": datetime.utcnow() + expiry,
+                "iat": now,
+                "exp": now + expiry,
                 "jti": secrets.token_hex(16),  # Token ID único
                 "permissions": self.get_role_permissions(role),
             }
@@ -188,7 +189,7 @@ class SecurityManager:
                 raise SecurityException("Token not found in active tokens")
 
             # Verificar expiración
-            if datetime.utcnow() > payload["exp"]:
+            if datetime.now(timezone.utc) > payload["exp"]:
                 self.revoke_token(token_id)
                 raise SecurityException("Token expired")
 
@@ -414,15 +415,16 @@ class SecurityManager:
             Información de la sesión
         """
         try:
+            now = datetime.now(timezone.utc)
             session_id = secrets.token_hex(32)
 
             session_info = {
                 "session_id": session_id,
                 "user_id": user_id,
                 "role": role,
-                "created_at": datetime.utcnow(),
-                "expires_at": datetime.utcnow() + self.security_policies["session_security"]["session_timeout"],
-                "last_activity": datetime.utcnow(),
+                "created_at": now,
+                "expires_at": now + self.security_policies["session_security"]["session_timeout"],
+                "last_activity": now,
                 "permissions": self.get_role_permissions(role),
                 "data": session_data or {},
             }
@@ -453,7 +455,7 @@ class SecurityManager:
         """
         try:
             audit_entry = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "user_id": user_id,
                 "action": action,
                 "resource": resource,
@@ -482,7 +484,11 @@ class SecurityManager:
         """
         # Implementación básica - en producción usar Redis
         # Por ahora solo retornamos True
-        return True, {"allowed": True, "remaining": 100, "reset_time": datetime.utcnow() + timedelta(minutes=1)}
+        return True, {
+            "allowed": True,
+            "remaining": 100,
+            "reset_time": datetime.now(timezone.utc) + timedelta(minutes=1),
+        }
 
     async def check_message_content(self, message: str) -> Tuple[bool, Dict[str, Any]]:
         """
@@ -500,30 +506,19 @@ class SecurityManager:
             # Palabras ofensivas o spam podrían ir aquí
             # Por ahora solo una implementación básica
         ]
-        
+
         message_lower = message.lower()
-        
+
         for pattern in prohibited_patterns:
             if pattern in message_lower:
-                return False, {
-                    "safe": False,
-                    "reason": "prohibited_content",
-                    "pattern_matched": pattern
-                }
-        
+                return False, {"safe": False, "reason": "prohibited_content", "pattern_matched": pattern}
+
         # Verificar longitud excesiva
         if len(message) > 5000:
-            return False, {
-                "safe": False,
-                "reason": "message_too_long",
-                "max_length": 5000
-            }
-        
+            return False, {"safe": False, "reason": "message_too_long", "max_length": 5000}
+
         # Por defecto, el mensaje es seguro
-        return True, {
-            "safe": True,
-            "content_length": len(message)
-        }
+        return True, {"safe": True, "content_length": len(message)}
 
     def sanitize_input(self, input_data: Any) -> Any:
         """
@@ -567,7 +562,7 @@ class SecurityManager:
             _ = {
                 "user_id": user_id,
                 "permissions": permissions,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "expires_at": expires_at.isoformat() if expires_at else None,
                 "key_id": secrets.token_hex(16),
             }
@@ -592,7 +587,7 @@ class SecurityManager:
             Número de tokens eliminados
         """
         try:
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
             expired_tokens = []
 
             for token_id, token_info in self.active_tokens.items():
@@ -617,7 +612,7 @@ class SecurityManager:
             Métricas de seguridad actuales
         """
         try:
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
 
             # Contar tokens activos por tipo
             token_types = {}

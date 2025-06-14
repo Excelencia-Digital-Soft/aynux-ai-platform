@@ -12,18 +12,8 @@ from app.agents.langgraph_system.integrations.postgres_checkpointer import (
     get_checkpointer_manager,
     initialize_checkpointer,
 )
+from app.schemas import DEFAULT_AGENT_SCHEMA, AgentType, get_agent_class_mapping, get_graph_node_names
 
-from .agents import (
-    CategoryAgent,
-    DataInsightsAgent,
-    FallbackAgent,
-    FarewellAgent,
-    InvoiceAgent,
-    ProductAgent,
-    PromotionsAgent,
-    SupportAgent,
-    TrackingAgent,
-)
 from .agents.base_agent import BaseAgent
 from .integrations import (
     ChromaDBIntegration,
@@ -36,6 +26,12 @@ from .router import SupervisorAgent
 from .state_manager import StateManager
 from .state_schema import LangGraphState
 
+# Import agent classes for type hints and initialization
+from .agents import (
+    ProductAgent, CategoryAgent, DataInsightsAgent, PromotionsAgent,
+    TrackingAgent, SupportAgent, InvoiceAgent, FallbackAgent, FarewellAgent
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,6 +41,17 @@ class EcommerceAssistantGraph:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.state_manager = StateManager()
+        
+        # Declare agent attributes for type checking (will be set in _init_agents)
+        self.product_agent: ProductAgent
+        self.category_agent: CategoryAgent
+        self.data_insights_agent: DataInsightsAgent
+        self.promotions_agent: PromotionsAgent
+        self.tracking_agent: TrackingAgent
+        self.support_agent: SupportAgent
+        self.invoice_agent: InvoiceAgent
+        self.fallback_agent: FallbackAgent
+        self.farewell_agent: FarewellAgent
 
         # Inicializar integraciones
         self._init_integrations()
@@ -71,51 +78,25 @@ class EcommerceAssistantGraph:
         # Crear StateGraph con el schema TypedDict
         workflow = StateGraph(state_schema=LangGraphState)
 
-        # Añadir nodos
-        workflow.add_node("supervisor", self._supervisor_node)
-        workflow.add_node("category_agent", self._category_agent_node)
-        workflow.add_node("data_insights_agent", self._data_insights_agent_node)
-        workflow.add_node("product_agent", self._product_agent_node)
-        workflow.add_node("promotions_agent", self._promotions_agent_node)
-        workflow.add_node("tracking_agent", self._tracking_agent_node)
-        workflow.add_node("support_agent", self._support_agent_node)
-        workflow.add_node("invoice_agent", self._invoice_agent_node)
-        workflow.add_node("fallback_agent", self._fallback_agent_node)
-        workflow.add_node("farewell_agent", self._farewell_agent_node)
+        # Add supervisor
+        workflow.add_node(AgentType.SUPERVISOR.value, self._supervisor_node)
+
+        # Add all other agents dynamically
+        for agent_name in get_graph_node_names():
+            node_method = getattr(self, f"_{agent_name}_node")
+            workflow.add_node(agent_name, node_method)
 
         # Definir punto de entrada
         workflow.set_entry_point("supervisor")
 
         # Añadir aristas condicionales desde supervisor
-        workflow.add_conditional_edges(
-            "supervisor",
-            self._route_to_agent,
-            {
-                "category_agent": "category_agent",
-                "data_insights_agent": "data_insights_agent",
-                "product_agent": "product_agent",
-                "promotions_agent": "promotions_agent",
-                "tracking_agent": "tracking_agent",
-                "support_agent": "support_agent",
-                "invoice_agent": "invoice_agent",
-                "fallback_agent": "fallback_agent",
-                "farewell_agent": "farewell_agent",
-                "__end__": END,
-            },
-        )
+        edges_mapping = {agent: agent for agent in get_graph_node_names()}
+        edges_mapping["__end__"] = END
+
+        workflow.add_conditional_edges("supervisor", self._route_to_agent, edges_mapping)
 
         # Todos los agentes vuelven al supervisor para posible re-routing
-        for agent in [
-            "category_agent",
-            "data_insights_agent",
-            "product_agent",
-            "promotions_agent",
-            "tracking_agent",
-            "support_agent",
-            "invoice_agent",
-            "fallback_agent",
-            "farewell_agent",
-        ]:
+        for agent in get_graph_node_names():
             workflow.add_conditional_edges(
                 agent,
                 self._should_continue,
@@ -193,7 +174,7 @@ class EcommerceAssistantGraph:
                         logger.debug(f"Retrieved previous state with {len(current_state.values)} keys")
                         # Actualizar estado existente con nuevo mensaje
                         state_dict = current_state.values
-                        
+
                         # Resetear completado si era final para permitir nuevo procesamiento
                         if state_dict.get("is_complete"):
                             state_dict["is_complete"] = False
@@ -209,7 +190,7 @@ class EcommerceAssistantGraph:
             # Procesar con el graph usando la configuración apropiada
             logger.debug(f"State keys before processing: {list(initial_state.keys())}")
             logger.debug(f"Config for checkpointer: {config}")
-            
+
             try:
                 if config:
                     logger.debug("Processing with checkpointer config")
@@ -221,11 +202,12 @@ class EcommerceAssistantGraph:
             except Exception as e:
                 logger.error(f"Error during graph processing: {e}")
                 import traceback
+
                 logger.error(f"Traceback: {traceback.format_exc()}")
                 raise
 
             # Extraer respuesta usando StateManager
-            response_text = self.state_manager.get_last_ai_message(final_state)
+            response_text = StateManager.get_last_ai_message(final_state)
 
             if not response_text:
                 response_text = "Lo siento, no pude procesar tu mensaje correctamente."
@@ -249,19 +231,20 @@ class EcommerceAssistantGraph:
     async def _supervisor_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del supervisor que coordina el flujo"""
         try:
-            logger.debug(f"Processing supervisor node with state type: {type(state)}")
+            # Ensure state is a dictionary
+            if not isinstance(state, dict):
+                logger.error(f"Expected dict, got {type(state)}: {state}")
+                return self.state_manager.mark_complete({}, requires_human=True)
+            
             # Obtener último mensaje del usuario
-            user_message = self.state_manager.get_last_user_message(state)
+            user_message = StateManager.get_last_user_message(state)
 
             if not user_message:
                 return self.state_manager.mark_complete(state, requires_human=True)
 
             # Determinar intención usando el router (llamada asíncrona)
             intent_result = await self.intent_router.analyze_intent_with_llm(
-                user_message, {
-                    "customer_data": state.get("customer"),
-                    "conversation_data": state.get("conversation")
-                }
+                user_message, {"customer_data": state.get("customer"), "conversation_data": state.get("conversation")}
             )
 
             # Crear objeto IntentInfo y añadirlo al estado
@@ -289,16 +272,7 @@ class EcommerceAssistantGraph:
         target_agent = current_intent.get("target_agent")
 
         # Validar que el agente objetivo existe
-        valid_agents = [
-            "category_agent",
-            "product_agent",
-            "promotions_agent",
-            "tracking_agent",
-            "support_agent",
-            "invoice_agent",
-            "fallback_agent",
-            "farewell_agent",
-        ]
+        valid_agents = get_graph_node_names()
 
         if target_agent in valid_agents:
             return target_agent
@@ -326,7 +300,7 @@ class EcommerceAssistantGraph:
     async def _product_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del agente de productos"""
         try:
-            user_message = self.state_manager.get_last_user_message(state)
+            user_message = StateManager.get_last_user_message(state)
 
             # Procesar con el agente especializado
             result = await self.product_agent._process_internal(user_message, dict(state))
@@ -406,7 +380,7 @@ class EcommerceAssistantGraph:
                 return updates
 
             result = await self.data_insights_agent._process_internal(user_message, dict(state))
-            
+
             logger.debug(f"Data insights agent result: {result}")
 
             if "messages" in result and result["messages"]:
@@ -419,11 +393,11 @@ class EcommerceAssistantGraph:
                 updates = self.state_manager.add_ai_message(state, content)
                 updates["is_complete"] = result.get("is_complete", True)
                 updates["current_agent"] = "data_insights_agent"
-                
+
                 # Incluir datos adicionales de la consulta
                 if "retrieved_data" in result:
                     updates["retrieved_data"] = result["retrieved_data"]
-                
+
                 return updates
 
             updates = self.state_manager.add_ai_message(state, "No pude procesar tu consulta de datos.")
@@ -657,36 +631,60 @@ class EcommerceAssistantGraph:
         """Inicializa agentes especializados"""
         try:
             agent_config = self.config.get("agents", {})
-
-            # Inicializar agentes de forma segura
+            
+            # Initialize agents explicitly using schema for configuration
             self.product_agent = ProductAgent(
-                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("product", {})
+                ollama=self.ollama,
+                postgres=self.postgres,
+                config=agent_config.get("product", {})
             )
-
-            # Inicializar agentes reales
+            
             self.category_agent = CategoryAgent(
-                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("category", {})
+                ollama=self.ollama,
+                chroma=self.chroma,
+                config=agent_config.get("category", {})
             )
+            
             self.data_insights_agent = DataInsightsAgent(
-                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("data_insights", {})
+                ollama=self.ollama,
+                postgres=self.postgres,
+                config=agent_config.get("data_insights", {})
             )
+            
             self.promotions_agent = PromotionsAgent(
-                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("promotions", {})
+                ollama=self.ollama,
+                chroma=self.chroma,
+                config=agent_config.get("promotions", {})
             )
+            
             self.tracking_agent = TrackingAgent(
-                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("tracking", {})
+                ollama=self.ollama,
+                chroma=self.chroma,
+                config=agent_config.get("tracking", {})
             )
+            
             self.support_agent = SupportAgent(
-                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("support", {})
+                ollama=self.ollama,
+                chroma=self.chroma,
+                config=agent_config.get("support", {})
             )
+            
             self.invoice_agent = InvoiceAgent(
-                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("invoice", {})
+                ollama=self.ollama,
+                chroma=self.chroma,
+                config=agent_config.get("invoice", {})
             )
+            
             self.fallback_agent = FallbackAgent(
-                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("fallback", {})
+                ollama=self.ollama,
+                postgres=self.postgres,
+                config=agent_config.get("fallback", {})
             )
+            
             self.farewell_agent = FarewellAgent(
-                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("farewell", {})
+                ollama=self.ollama,
+                postgres=self.postgres,
+                config=agent_config.get("farewell", {})
             )
 
             logger.info("Agents initialized successfully")
@@ -720,9 +718,13 @@ class EcommerceAssistantGraph:
                     if checkpointer_healthy:
                         # Usar checkpointer en memoria por ahora (funciona sin problemas)
                         from langgraph.checkpoint.memory import MemorySaver
+
                         memory_checkpointer = MemorySaver()
                         self.app = self.graph.compile(checkpointer=memory_checkpointer)
-                        logger.info("Graph compiled with memory checkpointer (PostgreSQL checkpointer needs further investigation)")
+                        logger.info(
+                            "Graph compiled with memory checkpointer "
+                            "(PostgreSQL checkpointer needs further investigation)"
+                        )
                     else:
                         self.app = self.graph.compile()
                         logger.warning("PostgreSQL checkpointer unhealthy, using in-memory")
@@ -744,7 +746,7 @@ class EcommerceAssistantGraph:
     async def health_check(self) -> Dict[str, Any]:
         """
         Verificación de salud del sistema LangGraph
-        
+
         Returns:
             Dict con el estado de salud de todos los componentes
         """
@@ -752,9 +754,9 @@ class EcommerceAssistantGraph:
             "overall_status": "healthy",
             "timestamp": datetime.now().isoformat(),
             "components": {},
-            "errors": []
+            "errors": [],
         }
-        
+
         try:
             # Verificar que el grafo esté compilado
             if not self.app:
@@ -763,12 +765,10 @@ class EcommerceAssistantGraph:
                 health_status["errors"].append("Graph not compiled")
             else:
                 health_status["components"]["graph"] = {"status": "healthy", "compiled": True}
-            
+
             # Verificar agentes
             agents_status = {}
-            agent_names = ["category_agent", "product_agent", "promotions_agent", 
-                          "tracking_agent", "support_agent", "invoice_agent",
-                          "fallback_agent", "farewell_agent"]
+            agent_names = get_graph_node_names()
             for agent_name in agent_names:
                 try:
                     agent = getattr(self, agent_name, None)
@@ -783,86 +783,86 @@ class EcommerceAssistantGraph:
                     agents_status[agent_name] = {"status": "error", "error": str(e)}
                     health_status["errors"].append(f"Agent {agent_name} error: {str(e)}")
                     health_status["overall_status"] = "unhealthy"
-            
+
             health_status["components"]["agents"] = agents_status
-            
+
             # Verificar componentes principales
             try:
-                if hasattr(self, 'intent_router') and self.intent_router:
+                if hasattr(self, "intent_router") and self.intent_router:
                     health_status["components"]["intent_router"] = {"status": "healthy"}
                 else:
                     health_status["components"]["intent_router"] = {"status": "not_initialized"}
                     health_status["errors"].append("Intent router not initialized")
                     if health_status["overall_status"] == "healthy":
                         health_status["overall_status"] = "degraded"
-                
-                if hasattr(self, 'state_manager') and self.state_manager:
+
+                if hasattr(self, "state_manager") and self.state_manager:
                     health_status["components"]["state_manager"] = {"status": "healthy"}
                 else:
                     health_status["components"]["state_manager"] = {"status": "not_initialized"}
                     health_status["errors"].append("State manager not initialized")
                     if health_status["overall_status"] == "healthy":
                         health_status["overall_status"] = "degraded"
-                        
+
             except Exception as e:
                 health_status["components"]["core_components"] = {"status": "error", "error": str(e)}
                 health_status["errors"].append(f"Core components error: {str(e)}")
                 health_status["overall_status"] = "unhealthy"
-            
+
             # Verificar integraciones
             integrations_status = {}
-            
+
             # Ollama
             try:
-                if hasattr(self, 'ollama') and self.ollama:
-                    url = getattr(self.ollama, 'url', 'unknown')
+                if hasattr(self, "ollama") and self.ollama:
+                    url = getattr(self.ollama, "url", "unknown")
                     integrations_status["ollama"] = {"status": "healthy", "url": url}
                 else:
                     integrations_status["ollama"] = {"status": "not_initialized"}
             except Exception as e:
                 integrations_status["ollama"] = {"status": "error", "error": str(e)}
-            
+
             # ChromaDB
             try:
-                if hasattr(self, 'chroma') and self.chroma:
+                if hasattr(self, "chroma") and self.chroma:
                     integrations_status["chromadb"] = {"status": "healthy"}
                 else:
                     integrations_status["chromadb"] = {"status": "not_initialized"}
             except Exception as e:
                 integrations_status["chromadb"] = {"status": "error", "error": str(e)}
-            
+
             # PostgreSQL
             try:
-                if hasattr(self, 'postgres') and self.postgres:
+                if hasattr(self, "postgres") and self.postgres:
                     integrations_status["postgresql"] = {"status": "healthy"}
                 else:
                     integrations_status["postgresql"] = {"status": "not_initialized"}
             except Exception as e:
                 integrations_status["postgresql"] = {"status": "error", "error": str(e)}
-            
+
             health_status["components"]["integrations"] = integrations_status
-            
+
             # Verificar checkpointer
             try:
-                if hasattr(self, 'checkpointer_manager') and self.checkpointer_manager:
+                if hasattr(self, "checkpointer_manager") and self.checkpointer_manager:
                     health_status["components"]["checkpointer"] = {"status": "healthy", "type": "postgresql"}
                 else:
                     health_status["components"]["checkpointer"] = {"status": "in_memory", "type": "memory"}
             except Exception as e:
                 health_status["components"]["checkpointer"] = {"status": "error", "error": str(e)}
-            
+
             # Agregar métricas básicas
             health_status["metrics"] = {
                 "agents_count": len([a for a in agents_status.values() if a.get("status") == "healthy"]),
                 "total_agents": len(agents_status),
                 "graph_compiled": bool(self.app),
-                "use_postgres_checkpointer": getattr(self, 'use_postgres_checkpointer', False)
+                "use_postgres_checkpointer": getattr(self, "use_postgres_checkpointer", False),
             }
-            
+
         except Exception as e:
             logger.error(f"Error in health check: {e}")
             health_status["overall_status"] = "unhealthy"
             health_status["errors"].append(f"Health check error: {str(e)}")
             health_status["components"]["health_check"] = {"status": "error", "error": str(e)}
-        
+
         return health_status

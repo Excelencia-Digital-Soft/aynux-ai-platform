@@ -5,12 +5,44 @@ Router inteligente que usa IA con caché optimizado para detectar intenciones
 import hashlib
 import json
 import logging
-import re
 import time
 from collections import OrderedDict
 from typing import Any, Dict, Optional
 
+from app.schemas import get_intent_to_agent_mapping, get_valid_intents
+
+from ..prompts.intent_analyzer import get_build_llm_prompt, get_system_prompt
+
 logger = logging.getLogger(__name__)
+
+
+def _get_cache_key(message: str, context: Dict[str, Any] = None) -> str:
+    """Generar clave de caché basada en mensaje y contexto"""
+    # Normalizar mensaje para mejor hit rate
+    normalized_message = message.lower().strip()
+
+    # Incluir contexto relevante en la clave
+    context_str = ""
+    if context:
+        # Solo incluir contexto relevante para evitar cache misses innecesarios
+        relevant_context = {
+            "language": context.get("language", "es"),
+            "user_tier": context.get("customer_data", {}).get("tier", "basic"),
+        }
+        context_str = json.dumps(relevant_context, sort_keys=True)
+
+    # Hash para clave compacta
+    cache_input = f"{normalized_message}|{context_str}"
+    return hashlib.md5(cache_input.encode()).hexdigest()
+
+
+def _map_intent_to_agent(intent: str) -> str:
+    """Mapea intenciones a agentes específicos"""
+    mapping = get_intent_to_agent_mapping()
+
+    agent = mapping.get(intent, "fallback_agent")
+    logger.info(f"Mapping intent '{intent}' to agent '{agent}'")
+    return agent
 
 
 class IntentRouter:
@@ -35,7 +67,7 @@ class IntentRouter:
 
         # Sistema de caché inteligente
         self.cache_size = self.config.get("cache_size", 1000)
-        self.cache_ttl = self.config.get("cache_ttl", 60)  # 1 minuto instead of 1 hour for debugging
+        self.cache_ttl = self.config.get("cache_ttl", 60)  # 1 minuto instead
         self._intent_cache = OrderedDict()
         self._cache_timestamps = {}
 
@@ -102,25 +134,6 @@ class IntentRouter:
             self.logger.error(f"Error determining intent: {str(e)}")
             return self._simple_fallback_detection(message)
 
-    def _get_cache_key(self, message: str, context: Dict[str, Any] = None) -> str:
-        """Generar clave de caché basada en mensaje y contexto"""
-        # Normalizar mensaje para mejor hit rate
-        normalized_message = message.lower().strip()
-
-        # Incluir contexto relevante en la clave
-        context_str = ""
-        if context:
-            # Solo incluir contexto relevante para evitar cache misses innecesarios
-            relevant_context = {
-                "language": context.get("language", "es"),
-                "user_tier": context.get("customer_data", {}).get("tier", "basic"),
-            }
-            context_str = json.dumps(relevant_context, sort_keys=True)
-
-        # Hash para clave compacta
-        cache_input = f"{normalized_message}|{context_str}"
-        return hashlib.md5(cache_input.encode()).hexdigest()
-
     def _get_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
         """Obtener resultado del caché si está disponible y vigente"""
         current_time = time.time()
@@ -167,6 +180,8 @@ class IntentRouter:
         """Fallback simple cuando no hay IA disponible"""
         self._stats["fallback_calls"] += 1
 
+        logger.debug(f"-> Simple fallback for message: {message[:8]}...")
+
         # Usar fallback agent para consultas no reconocidas
         return {
             "primary_intent": "fallback",
@@ -185,99 +200,48 @@ class IntentRouter:
             return self._simple_fallback_detection(message)
 
         # Generar clave de caché
-        cache_key = self._get_cache_key(message, state_dict)
+        cache_key = _get_cache_key(message, state_dict)
 
-        # TEMPORARY: Disable cache to fix routing issues
-        # TODO: Re-enable cache after fixing the underlying issue
-        # cached_result = self._get_from_cache(cache_key)
-        # if cached_result:
-        #     # Hit de caché - registrar métricas y retornar
-        #     response_time = time.time() - start_time
-        #     self._update_response_time_stats(response_time)
-        #     # Debug log to identify the issue
-        #     logger.debug(f"Cache key: {cache_key} for message: '{message}'")
-        #     logger.info(
-        #         f"Intent cache hit for '{message}': {cached_result['primary_intent']} (confidence: {cached_result['confidence']:.2f}) - {response_time:.3f}s"
-        #     )
-        #     return cached_result
+        if cached_result := self._get_from_cache(cache_key):
+            self._stats["cache_hits"] += 1
+            response_time = time.time() - start_time
+            self._update_response_time_stats(response_time)
+            logger.info(
+                f"Intent cache hit for key '{cache_key[:50]}...':"
+                f" {cached_result['primary_intent']} ({response_time:.3f}s)"
+            )
+            return cached_result
 
         # Cache miss - hacer llamada a LLM
         self._stats["cache_misses"] += 1
         self._stats["llm_calls"] += 1
 
-        # Construir contexto del cliente y conversación
-        customer_context = ""
-        if state_dict.get("customer_data"):
-            customer_context = f"Cliente: {state_dict['customer_data']}"
+        system_prompt = get_system_prompt()
 
-        conversation_context = ""
-        if state_dict.get("conversation_data"):
-            conversation_context = f"Conversación previa: {state_dict['conversation_data']}"
-
-        system_prompt = """
-Eres un sistema de clasificación de intenciones para un asistente de atención al cliente. 
-
-Tu objetivo es identificar la intención principal del usuario según su mensaje. 
-Devuelve siempre un objeto JSON válido en una sola línea, sin explicaciones ni texto adicional.
-
-Estructura del JSON:
-{
-  "intent": "una_de_las_intenciones_validas",
-  "confidence": valor_decimal_entre_0_y_1
-}
-
-Lista de intenciones válidas:
-- producto: preguntas sobre productos, características, precios, stock
-- datos: consultas analíticas, estadísticas, reportes, "cuántos", "total", "últimos"
-- soporte: problemas técnicos, errores, ayuda, garantía
-- seguimiento: pedidos, envíos, tracking de órdenes
-- facturacion: pagos, facturas, devoluciones
-- promociones: descuentos, cupones, ofertas
-- categoria: exploración general del catálogo
-- despedida: cierre de conversación, agradecimientos, saludos de salida
-- fallback: saludos iniciales, dudas vagas, sin información clara
-
-Si no estás seguro, elige "fallback" con una confidence menor a 0.7.
-"""
-
-        user_prompt = f"""
-Mensaje del usuario: "{message}"
-
-Responde solo el JSON correspondiente a la intención detectada:
-"""
-
+        user_prompt = get_build_llm_prompt(message, state_dict)
+        response_text = ""
         try:
-            response = await self.ollama.generate_response(
+            response_text = await self.ollama.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                model=None,  # Use default configured model
-                temperature=0.1,
+                model=None,  # Use a default configured model
+                temperature=0.5,
             )
 
             # Limpiar respuesta para extraer solo el JSON
-            response = response.strip()
-            if response.startswith("```json"):
-                response = response[7:-3]
-            elif response.startswith("```"):
-                response = response[3:-3]
+            clean_response = response_text.strip().removeprefix("```json").removesuffix("```").strip()
+            result = json.loads(clean_response)
 
-            result = json.loads(response)
+            logger.debug(f"LLM response: {clean_response}")
 
             # Validar que la intención sea válida
-            valid_intents = [
-                "producto",
-                "datos",
-                "soporte",
-                "seguimiento",
-                "facturacion",
-                "promociones",
-                "categoria",
-                "despedida",
-                "fallback",
-            ]
+            valid_intents = get_valid_intents()
+
             if result["intent"] not in valid_intents:
+                logger.warning(f"Invalid intent detected: {result['intent']}. Using fallback intent.")
                 result["intent"] = "fallback"
-                result["confidence"] = 0.5
+                result["confidence"] = 0.4
+                result["reasoning"] = "LLM returned an invalid intent."
 
             # Crear resultado final
             final_result = {
@@ -285,7 +249,7 @@ Responde solo el JSON correspondiente a la intención detectada:
                 "confidence": result["confidence"],
                 "entities": result.get("entities", {}),
                 "requires_handoff": False,
-                "target_agent": self._map_intent_to_agent(result["intent"]),
+                "target_agent": _map_intent_to_agent(result["intent"]),
             }
 
             # Almacenar en caché
@@ -296,10 +260,16 @@ Responde solo el JSON correspondiente a la intención detectada:
             self._update_response_time_stats(response_time)
 
             self.logger.info(
-                f"LLM Intent analysis for '{message}': {result['intent']} (confidence: {result['confidence']:.2f}) - {response_time:.3f}s - {result.get('reasoning', '')}"
+                f"LLM Intent analysis for '{message}': {result['intent']} "
+                f"(confidence: {result['confidence']:.2f}) - {response_time:.3f}s - "
+                f"{result.get('reasoning', '')}"
             )
 
             return final_result
+
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Error parsing LLM JSON response: {e}. Raw response: '{response_text}'")
+            return self._simple_fallback_detection(message)
 
         except Exception as e:
             logger.error(f"Error in LLM analysis: {e}")
@@ -333,32 +303,13 @@ Responde solo el JSON correspondiente a la intención detectada:
         self._intent_cache.clear()
         self._cache_timestamps.clear()
         logger.info(f"Intent cache cleared - removed {cache_size} entries")
-    
+
     def clear_cache_for_message(self, message: str):
         """Clear cache for a specific message"""
-        cache_key = self._get_cache_key(message, {})
+        cache_key = _get_cache_key(message, {})
         if cache_key in self._intent_cache:
             del self._intent_cache[cache_key]
             del self._cache_timestamps[cache_key]
             logger.info(f"Cleared cache for message: '{message}' (key: {cache_key[:8]}...)")
         else:
             logger.info(f"No cache entry found for message: '{message}'")
-
-    def _map_intent_to_agent(self, intent: str) -> str:
-        """Mapea intenciones a agentes específicos"""
-        mapping = {
-            "producto": "product_agent",
-            "datos": "data_insights_agent",
-            "soporte": "support_agent",
-            "seguimiento": "tracking_agent",
-            "facturacion": "invoice_agent",
-            "promociones": "promotions_agent",
-            "categoria": "category_agent",
-            "despedida": "farewell_agent",
-            "fallback": "fallback_agent",
-            "general": "fallback_agent",
-        }
-
-        agent = mapping.get(intent, "fallback_agent")
-        logger.info(f"Mapping intent '{intent}' to agent '{agent}'")
-        return agent

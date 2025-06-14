@@ -2,6 +2,7 @@
 Agentes especializados del sistema
 """
 
+# Explicit imports for better type checking and reliability
 from .category_agent import CategoryAgent
 from .data_insights_agent import DataInsightsAgent
 from .fallback_agent import FallbackAgent
@@ -12,14 +13,15 @@ from .promotions_agent import PromotionsAgent
 from .support_agent import SupportAgent
 from .tracking_agent import TrackingAgent
 
+# Export all agent classes
 __all__ = [
-    "CategoryAgent", 
-    "DataInsightsAgent",
+    "CategoryAgent",
+    "DataInsightsAgent", 
     "FallbackAgent",
     "FarewellAgent",
     "InvoiceAgent",
-    "ProductAgent", 
-    "PromotionsAgent", 
+    "ProductAgent",
+    "PromotionsAgent",
     "SupportAgent",
-    "TrackingAgent"
+    "TrackingAgent",
 ]

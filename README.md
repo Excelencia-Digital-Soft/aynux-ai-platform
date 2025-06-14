@@ -5,7 +5,7 @@ Sistema inteligente de comercio conversacional que revoluciona la experiencia de
 ## 🌟 Características
 
 - 🚀 **FastAPI**: Framework moderno y de alto rendimiento para crear APIs asíncronas
-- 🧠 **Gemini AI**: Integración con modelos avanzados de IA para respuestas contextuales inteligentes
+- 🧠 **Ollama AI**: Integración con modelos avanzados de IA para respuestas contextuales inteligentes
 - 💬 **WhatsApp Business API**: Comunicación directa con los ciudadanos a través de WhatsApp
 - 📱 **Verificación de identidad**: Sistema seguro de verificación de ciudadanos
 - 🏢 **Gestión municipal**: Consulta de deudas, trámites, reclamos y certificados
@@ -16,7 +16,7 @@ Sistema inteligente de comercio conversacional que revoluciona la experiencia de
 
 ## 📋 Requisitos
 
-- Python 3.11+
+- Python 3.13+
 - Redis
 - Cuenta en WhatsApp Business API
 - Cuenta en Gemini AI
