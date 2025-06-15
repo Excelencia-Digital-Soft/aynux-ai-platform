@@ -193,6 +193,9 @@ class IntentRouter:
 
     async def analyze_intent_with_llm(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Usa LLM para análisis profundo de intención con caché optimizado"""
+
+        logger.debug(f"--> LLM analysis for message: {message[:8]}...")
+
         start_time = time.time()
         self._stats["total_requests"] += 1
 

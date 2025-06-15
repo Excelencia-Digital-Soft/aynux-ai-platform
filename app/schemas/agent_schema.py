@@ -8,7 +8,7 @@ including intent definitions, agent mappings, routing logic, and descriptions.
 from enum import Enum
 from typing import Dict, List, Optional, Set, Union
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class IntentType(str, Enum):
@@ -86,11 +86,12 @@ class AgentSchema(BaseModel):
     intent_cache_ttl: int = Field(default=300, description="Intent cache TTL in seconds")
     enable_fallback: bool = Field(default=True, description="Whether to enable fallback routing")
 
-    @validator("intents")
-    def validate_intent_agent_mapping(cls, v, values):
+    @field_validator("intents")
+    @classmethod
+    def validate_intent_agent_mapping(cls, v: Dict[IntentType, IntentDefinition], info):
         """Validate that all intents have valid target agents."""
-        if "agents" in values:
-            agent_types = set(values["agents"].keys())
+        if info.data.get("agents"):
+            agent_types = set(info.data["agents"].keys())
             for intent_def in v.values():
                 if intent_def.target_agent not in agent_types:
                     raise ValueError(f"Intent {intent_def.intent} targets unknown agent {intent_def.target_agent}")
@@ -155,12 +156,16 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
     intents={
         IntentType.PRODUCTO: IntentDefinition(
             intent=IntentType.PRODUCTO,
-            description="Preguntas sobre características, precio, stock de productos",
+            description="Preguntas sobre productos disponibles, búsquedas generales "
+            "de productos, características, precio, stock",
             examples=[
+                "¿qué productos tienes?",
+                "muéstrame los productos",
                 "¿tienen stock del iphone 15?",
                 "¿cuánto cuesta?",
                 "¿qué características tiene este producto?",
-                "¿está disponible en otros colores?",
+                "lista de productos disponibles",
+                "¿qué venden?",
             ],
             target_agent=AgentType.PRODUCT_AGENT,
             confidence_threshold=0.8,
@@ -228,8 +233,15 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
         ),
         IntentType.CATEGORIA: IntentDefinition(
             intent=IntentType.CATEGORIA,
-            description="Búsqueda o exploración general de productos",
-            examples=["muéstrame zapatillas", "busco televisores", "productos de tecnología", "ropa deportiva"],
+            description="Búsqueda por categorías específicas o tipos de productos",
+            examples=[
+                "muéstrame zapatillas",
+                "busco televisores",
+                "productos de tecnología",
+                "ropa deportiva",
+                "accesorios para celular",
+                "laptops gaming",
+            ],
             target_agent=AgentType.CATEGORY_AGENT,
             confidence_threshold=0.7,
         ),
@@ -412,4 +424,3 @@ __all__ = [
     "get_intent_descriptions",
     "build_intent_prompt_text",
 ]
-
