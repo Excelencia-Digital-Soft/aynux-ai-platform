@@ -15,7 +15,7 @@ import logging
 from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db_context, init_db
-from app.models.database import Brand, Category, Product, Promotion, Subcategory
+from app.models.db import Brand, Category, Product, Promotion, Subcategory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -16,7 +16,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.async_db import AsyncSessionLocal
-from app.models.database import Category, Product, Brand, Base
+from app.models.db import Category, Product, Brand
+from app.models.db.base import Base
 from app.config.settings import get_settings
 
 # Configure logging

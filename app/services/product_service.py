@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload
 
 from app.config.settings import get_settings
 from app.database import get_db_context
-from app.models.database import (
+from app.models.db import (
     Brand,
     Category,
     Customer,

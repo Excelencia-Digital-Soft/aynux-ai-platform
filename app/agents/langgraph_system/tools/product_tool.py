@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, func, or_, select
 
 from app.database.async_db import get_async_db_context
-from app.models.database import Brand, Category, Product
+from app.models.db import Brand, Category, Product
 
 logger = logging.getLogger(__name__)
 

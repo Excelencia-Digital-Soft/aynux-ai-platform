@@ -10,7 +10,7 @@ from langchain_ollama import OllamaEmbeddings
 from sqlalchemy import and_, select
 
 from app.database.async_db import get_async_db
-from app.models.database import Brand, Category, Product, Promotion, Subcategory
+from app.models.db import Brand, Category, Product, Promotion, Subcategory
 
 logger = logging.getLogger(__name__)
 

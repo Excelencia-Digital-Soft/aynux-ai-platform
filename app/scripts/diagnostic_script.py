@@ -98,7 +98,7 @@ class SystemDiagnostic:
 
                 # Verificar si las tablas existen
                 from app.database import get_db_context
-                from app.models.database import Customer
+                from app.models.db import Customer
 
                 try:
                     with get_db_context() as db:

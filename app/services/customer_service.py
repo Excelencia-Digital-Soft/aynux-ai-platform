@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.database import get_db_context
-from app.models.database import (
+from app.models.db import (
     Customer,
     ProductInquiry,
 )

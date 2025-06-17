@@ -112,3 +112,7 @@ class BaseAgent(ABC):
             if hasattr(tool, "name") and tool.name == name:
                 return tool
         return None
+
+    def _extract_user_id(self, state_dict: Dict[str, Any]) -> Optional[str]:
+        """Extrae el ID del usuario del estado."""
+        return state_dict.get("user_id") or state_dict.get("customer_id") or state_dict.get("phone_number")

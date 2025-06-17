@@ -13,7 +13,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from sqlalchemy import func
 
 from app.database import get_db_context
-from app.models.database import Category, Product
+from app.models.db import Category, Product
 
 
 async def list_all_categories():

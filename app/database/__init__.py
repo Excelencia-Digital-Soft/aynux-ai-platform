@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool, QueuePool
 
 from app.config.settings import get_settings
-from app.models.database import Brand, Category, Conversation, Customer, Product
+from app.models.db import Brand, Category, Conversation, Customer, Product
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +155,7 @@ async def init_db():
             logger.debug("Database connection test successful")
 
         # Crear tablas
-        from app.models.database import Base
+        from app.models.db.base import Base
 
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables created successfully")

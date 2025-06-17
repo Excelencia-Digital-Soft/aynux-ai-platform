@@ -21,7 +21,7 @@ from app.config.settings import get_settings
 from app.database import check_db_connection, get_db_context
 from app.models.chatbot import UserIntent
 from app.models.conversation import ConversationHistory
-from app.models.database import Conversation, Customer, Message, Product
+from app.models.db import Conversation, Customer, Message, Product
 from app.models.message import BotResponse, Contact, WhatsAppMessage
 from app.repositories.redis_repository import RedisRepository
 from app.services.ai_service import AIService

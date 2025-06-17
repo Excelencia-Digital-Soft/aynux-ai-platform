@@ -2,8 +2,22 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, Table, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, relationship
 
@@ -18,27 +32,45 @@ product_promotion_association = Table(
 )
 
 
-class Category(Base):
+class TimestampMixin:
+    """Mixin para agregar timestamps automáticos."""
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class Category(Base, TimestampMixin):
     """Categorías de productos (Laptops, Desktops, Components, etc.)"""
 
     __tablename__ = "categories"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(100), nullable=False, unique=True)  # laptops, desktops, components
-    display_name = Column(String(200), nullable=False)  # Laptops, PCs de Escritorio, Componentes
+    name = Column(String(100), nullable=False, unique=True)
+    display_name = Column(String(200), nullable=False)
     description = Column(Text)
     active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
-    )
+    sort_order = Column(Integer, default=0)
+
+    # Metadatos adicionales
+    meta_data = Column(JSONB, default=dict)
 
     # Relationships
     subcategories: Mapped[List["Subcategory"]] = relationship("Subcategory", back_populates="category")
     products: Mapped[List["Product"]] = relationship("Product", back_populates="category")
 
+    # Índices
+    __table_args__ = (
+        Index("idx_categories_active", active),
+        Index("idx_categories_sort", sort_order),
+    )
 
-class Subcategory(Base):
+
+class Subcategory(Base, TimestampMixin):
     """Subcategorías (Gaming, Work, Budget, etc.)"""
 
     __tablename__ = "subcategories"
@@ -49,17 +81,13 @@ class Subcategory(Base):
     description = Column(Text)
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)
     active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
-    )
 
     # Relationships
     category: Mapped["Category"] = relationship("Category", back_populates="subcategories")
     products: Mapped[List["Product"]] = relationship("Product", back_populates="subcategory")
 
 
-class Brand(Base):
+class Brand(Base, TimestampMixin):
     """Marcas de productos"""
 
     __tablename__ = "brands"
@@ -72,16 +100,21 @@ class Brand(Base):
     warranty_years = Column(Integer, default=2)
     description = Column(Text)
     active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
-    )
+
+    # Metadatos adicionales
+    meta_data = Column(JSONB, default=dict)
 
     # Relationships
     products: Mapped[List["Product"]] = relationship("Product", back_populates="brand")
 
+    # Índices
+    __table_args__ = (
+        Index("idx_brands_active", active),
+        Index("idx_brands_name_trgm", name, postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+    )
 
-class Product(Base):
+
+class Product(Base, TimestampMixin):
     """Productos principales"""
 
     __tablename__ = "products"
@@ -91,8 +124,10 @@ class Product(Base):
     model = Column(String(100))  # ROG Strix G15, Katana 15, etc.
     specs = Column(Text, nullable=False)  # Especificaciones técnicas
     description = Column(Text)  # Descripción detallada
+    short_description = Column(String(500), nullable=True)
     price = Column(Float, nullable=False, index=True)
     original_price = Column(Float)  # Para tracking de descuentos
+    cost_price = Column(Numeric(10, 2))  # Para análisis de márgenes
     stock = Column(Integer, default=0, index=True)
     min_stock = Column(Integer, default=5)  # Alerta de stock bajo
     sku = Column(String(50), unique=True, index=True)  # Código de producto
@@ -114,22 +149,113 @@ class Product(Base):
     weight = Column(Float)  # Para shipping
     dimensions = Column(JSONB)  # {"width": 35, "height": 25, "depth": 2}
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
-    )
+    # Campos para búsqueda full-text
+    search_vector = Column(TSVECTOR)
+
+    # Metadatos adicionales
+    meta_data = Column(JSONB, default=dict)
 
     # Relationships
     category: Mapped["Category"] = relationship("Category", back_populates="products")
     subcategory: Mapped[Optional["Subcategory"]] = relationship("Subcategory", back_populates="products")
     brand: Mapped[Optional["Brand"]] = relationship("Brand", back_populates="products")
+    attributes: Mapped[List["ProductAttribute"]] = relationship("ProductAttribute", back_populates="product", cascade="all, delete-orphan")
+    images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
     promotions: Mapped[List["Promotion"]] = relationship(
         "Promotion", secondary=product_promotion_association, back_populates="products"
     )
     reviews: Mapped[List["ProductReview"]] = relationship("ProductReview", back_populates="product")
 
+    # Índices
+    __table_args__ = (
+        Index("idx_products_active", active),
+        Index("idx_products_featured", featured),
+        Index("idx_products_sale", on_sale),
+        Index("idx_products_stock", stock),
+        Index("idx_products_price", price),
+        Index("idx_products_category", category_id),
+        Index("idx_products_brand", brand_id),
+        Index("idx_products_search", search_vector, postgresql_using="gin"),
+        Index("idx_products_name_trgm", name, postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+        Index(
+            "idx_products_description_trgm",
+            description,
+            postgresql_using="gin",
+            postgresql_ops={"description": "gin_trgm_ops"},
+        ),
+        CheckConstraint("price >= 0", name="check_price_positive"),
+        CheckConstraint("stock >= 0", name="check_stock_non_negative"),
+    )
+
     def __repr__(self):
         return f"<Product(name='{self.name}', price={self.price}, stock={self.stock})>"
+
+    @property
+    def is_in_stock(self) -> bool:
+        """Verifica si el producto está en stock."""
+        return self.stock > 0
+
+    @property
+    def is_low_stock(self) -> bool:
+        """Verifica si el producto está con stock bajo."""
+        return self.stock <= self.min_stock
+
+    @property
+    def discount_percentage(self) -> Optional[float]:
+        """Calcula el porcentaje de descuento si aplica."""
+        if self.original_price and self.original_price > self.price:
+            return ((self.original_price - self.price) / self.original_price) * 100
+        return None
+
+
+class ProductAttribute(Base, TimestampMixin):
+    """Atributos adicionales de productos (color, talla, etc.)."""
+
+    __tablename__ = "product_attributes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    value = Column(String(500), nullable=False)
+    attribute_type = Column(String(50), default="text")  # text, number, boolean, json
+    is_searchable = Column(Boolean, default=True)
+
+    # Relaciones
+    product = relationship("Product", back_populates="attributes")
+
+    # Índices
+    __table_args__ = (
+        Index("idx_product_attributes_product", product_id),
+        Index("idx_product_attributes_name", name),
+        Index("idx_product_attributes_searchable", is_searchable),
+        UniqueConstraint("product_id", "name", name="uq_product_attribute_name"),
+    )
+
+    def __repr__(self):
+        return f"<ProductAttribute(name='{self.name}', value='{self.value}')>"
+
+
+class ProductImage(Base, TimestampMixin):
+    """Imágenes de productos."""
+
+    __tablename__ = "product_images"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    url = Column(String(1000), nullable=False)
+    alt_text = Column(String(200))
+    is_primary = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
+
+    # Relaciones
+    product = relationship("Product", back_populates="images")
+
+    # Índices
+    __table_args__ = (
+        Index("idx_product_images_product", product_id),
+        Index("idx_product_images_primary", is_primary),
+        Index("idx_product_images_sort", sort_order),
+    )
 
 
 class Promotion(Base):
@@ -176,13 +302,14 @@ class Promotion(Base):
         )
 
 
-class ProductReview(Base):
+class ProductReview(Base, TimestampMixin):
     """Reviews y calificaciones de productos"""
 
     __tablename__ = "product_reviews"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True)
     customer_name = Column(String(200))
     customer_phone = Column(String(20))  # Para identificar cliente de WhatsApp
     rating = Column(Integer, nullable=False)  # 1-5 estrellas
@@ -191,13 +318,10 @@ class ProductReview(Base):
     helpful_votes = Column(Integer, default=0)
 
     active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
-    )
 
     # Relationships
     product: Mapped["Product"] = relationship("Product", back_populates="reviews")
+    customer: Mapped[Optional["Customer"]] = relationship("Customer", back_populates="reviews")
 
 
 class PriceHistory(Base):
@@ -239,7 +363,7 @@ class StockMovement(Base):
     product: Mapped["Product"] = relationship("Product")
 
 
-class Customer(Base):
+class Customer(Base, TimestampMixin):
     """Clientes del chatbot"""
 
     __tablename__ = "customers"
@@ -247,12 +371,20 @@ class Customer(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone_number = Column(String(20), unique=True, nullable=False, index=True)
     name = Column(String(200))
+    first_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
     profile_name = Column(String(200))  # Nombre del perfil de WhatsApp
+
+    # Información adicional
+    date_of_birth = Column(DateTime)
+    gender = Column(String(10))
 
     # Customer analytics
     total_interactions = Column(Integer, default=0)
     total_inquiries = Column(Integer, default=0)
     interests = Column(JSONB)  # ["gaming", "work", "components"]
+    preferences = Column(JSONB, default=dict)  # Preferencias generales del cliente
+    meta_data = Column(JSONB, default=dict)
     budget_range = Column(String(50))  # "1000-1500", "1500-3000"
     preferred_brands = Column(JSONB)  # ["ASUS", "MSI"]
 
@@ -263,14 +395,26 @@ class Customer(Base):
 
     first_contact = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_contact = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
-    )
 
     # Relationships
     conversations: Mapped[List["Conversation"]] = relationship("Conversation", back_populates="customer")
     inquiries: Mapped[List["ProductInquiry"]] = relationship("ProductInquiry", back_populates="customer")
+    reviews = relationship("ProductReview", back_populates="customer")
+
+    # Índices
+    __table_args__ = (
+        Index("idx_customers_active", active),
+        Index("idx_customers_name", first_name, last_name),
+    )
+
+    def __repr__(self):
+        return f"<Customer(phone='{self.phone_number}', name='{self.first_name} {self.last_name}')>"
+
+    @property
+    def full_name(self) -> str:
+        """Nombre completo del cliente."""
+        names = [full_name for full_name in [self.first_name, self.last_name] if full_name]
+        return " ".join(names) if names else self.phone_number
 
 
 class Conversation(Base):
@@ -376,3 +520,51 @@ Index("idx_customer_phone_active", Customer.phone_number, Customer.active)
 Index("idx_conversation_customer_date", Conversation.customer_id, Conversation.started_at)
 Index("idx_message_conversation_date", Message.conversation_id, Message.created_at)
 Index("idx_promotion_validity", Promotion.valid_from, Promotion.valid_until, Promotion.active)
+
+
+def create_search_trigger():
+    """
+    SQL para crear trigger de búsqueda full-text en productos.
+    """
+    return """
+    CREATE OR REPLACE FUNCTION update_product_search_vector()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        NEW.search_vector := 
+            setweight(to_tsvector('spanish', COALESCE(NEW.name, '')), 'A') ||
+            setweight(to_tsvector('spanish', COALESCE(NEW.description, '')), 'B') ||
+            setweight(to_tsvector('spanish', COALESCE(NEW.model, '')), 'C');
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    DROP TRIGGER IF EXISTS products_search_vector_trigger ON products;
+    CREATE TRIGGER products_search_vector_trigger
+        BEFORE INSERT OR UPDATE ON products
+        FOR EACH ROW EXECUTE FUNCTION update_product_search_vector();
+    """
+
+
+def create_indexes():
+    """
+    SQL adicional para crear índices especiales.
+    """
+    return """
+    -- Extensiones necesarias
+    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    CREATE EXTENSION IF NOT EXISTS btree_gin;
+    
+    -- Índices GIN para búsquedas avanzadas
+    CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_meta_data_gin 
+        ON products USING gin (meta_data);
+    
+    CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_customers_preferences_gin 
+        ON customers USING gin (preferences);
+    
+    -- Índices compuestos útiles
+    CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_active_category_stock 
+        ON products (active, category_id, stock) WHERE active = true;
+    
+    CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_active_brand_price 
+        ON products (active, brand_id, price) WHERE active = true;
+    """

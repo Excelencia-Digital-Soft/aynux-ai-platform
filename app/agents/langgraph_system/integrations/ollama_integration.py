@@ -306,7 +306,12 @@ class OllamaIntegration:
         return RetryLLM(base_llm, max_retries, backoff_factor)
 
     async def generate_response(
-        self, system_prompt: str, user_prompt: str, model: Optional[str] = None, temperature: float = 0.7
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
     ) -> str:
         """
         Genera una respuesta usando el LLM de Ollama
@@ -316,12 +321,13 @@ class OllamaIntegration:
             user_prompt: Prompt del usuario
             model: Modelo específico a usar
             temperature: Temperatura para la generación
+            max_tokens: Máximo número de tokens
 
         Returns:
             Respuesta del LLM
         """
         try:
-            llm = self.get_llm(temperature=temperature, model=model)
+            llm = self.get_llm(temperature=temperature, model=model, num_predict=max_tokens)
 
             # Crear el prompt combinado
             full_prompt = f"{system_prompt}\n\nUsuario: {user_prompt}\n\nAsistente:"
