@@ -6,19 +6,18 @@ Script to populate database with more categories and products
 import asyncio
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Dict
 
 # Add the project root to the Python path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database.async_db import AsyncSessionLocal
-from app.models.db import Category, Product, Brand
-from app.models.db.base import Base
-from app.config.settings import get_settings
+from app.models.db import Brand, Category, Product
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -43,21 +42,21 @@ async def create_brands(session: AsyncSession) -> Dict[str, Brand]:
         {"name": "Google", "description": "Tecnología inteligente"},
         {"name": "Motorola", "description": "Comunicación confiable"},
     ]
-    
+
     brands = {}
     for brand_data in brands_data:
         # Check if brand exists
         result = await session.execute(select(Brand).where(Brand.name == brand_data["name"]))
         brand = result.scalar_one_or_none()
-        
+
         if not brand:
             brand = Brand(**brand_data)
             session.add(brand)
             await session.flush()
             logger.info(f"Created brand: {brand.name}")
-        
+
         brands[brand.name] = brand
-    
+
     return brands
 
 
@@ -68,60 +67,50 @@ async def create_categories(session: AsyncSession) -> Dict[str, Category]:
             "name": "informatica",
             "display_name": "Informática",
             "description": "Computadoras, componentes y accesorios informáticos",
-            "icon": "💻"
+            "icon": "💻",
         },
         {
             "name": "celulares",
             "display_name": "Celulares",
             "description": "Smartphones y accesorios móviles",
-            "icon": "📱"
+            "icon": "📱",
         },
-        {
-            "name": "zapatillas",
-            "display_name": "Zapatillas",
-            "description": "Calzado deportivo y casual",
-            "icon": "👟"
-        },
-        {
-            "name": "tablets",
-            "display_name": "Tablets",
-            "description": "Tablets y accesorios",
-            "icon": "📱"
-        },
+        {"name": "zapatillas", "display_name": "Zapatillas", "description": "Calzado deportivo y casual", "icon": "👟"},
+        {"name": "tablets", "display_name": "Tablets", "description": "Tablets y accesorios", "icon": "📱"},
         {
             "name": "gaming",
             "display_name": "Gaming",
             "description": "Consolas, juegos y accesorios gaming",
-            "icon": "🎮"
+            "icon": "🎮",
         },
         {
             "name": "audio",
             "display_name": "Audio",
             "description": "Auriculares, parlantes y equipos de sonido",
-            "icon": "🎧"
+            "icon": "🎧",
         },
     ]
-    
+
     categories = {}
     for cat_data in categories_data:
         # Check if category exists
         result = await session.execute(select(Category).where(Category.name == cat_data["name"]))
         category = result.scalar_one_or_none()
-        
+
         if not category:
             category = Category(**cat_data)
             session.add(category)
             await session.flush()
             logger.info(f"Created category: {category.display_name}")
-        
+
         categories[category.name] = category
-    
+
     return categories
 
 
 async def create_products(session: AsyncSession, categories: Dict[str, Category], brands: Dict[str, Brand]):
     """Create products for all categories"""
-    
+
     products_data = [
         # Informática Products
         {
@@ -140,7 +129,7 @@ async def create_products(session: AsyncSession, categories: Dict[str, Category]
                 "ram": "16GB DDR5",
                 "storage": "512GB NVMe SSD",
                 "gpu": "NVIDIA RTX 4050 6GB",
-                "display": "15.6\" 4K OLED Touch"
+                "display": '15.6" 4K OLED Touch',
             },
             "features": ["Pantalla táctil OLED", "Thunderbolt 4", "Windows 11 Pro", "Teclado retroiluminado"],
         },
@@ -166,7 +155,7 @@ async def create_products(session: AsyncSession, categories: Dict[str, Category]
         {
             "sku": "LENOVO-THINKPAD-X1",
             "name": "Lenovo ThinkPad X1 Carbon",
-            "description": "Ultrabook empresarial, Intel i7, 16GB RAM, 512GB SSD, 14\" FHD",
+            "description": 'Ultrabook empresarial, Intel i7, 16GB RAM, 512GB SSD, 14" FHD',
             "price": 1599.99,
             "stock": 12,
             "category": "informatica",
@@ -174,7 +163,7 @@ async def create_products(session: AsyncSession, categories: Dict[str, Category]
         },
         {
             "sku": "APPLE-MACBOOK-PRO16",
-            "name": "MacBook Pro 16\" M3 Max",
+            "name": 'MacBook Pro 16" M3 Max',
             "description": "MacBook Pro con chip M3 Max, 36GB RAM, 1TB SSD, pantalla Liquid Retina XDR",
             "price": 3999.99,
             "stock": 7,
@@ -182,7 +171,6 @@ async def create_products(session: AsyncSession, categories: Dict[str, Category]
             "brand": "Apple",
             "featured": True,
         },
-        
         # Celulares Products
         {
             "sku": "IPHONE-15-PRO-MAX",
@@ -240,7 +228,6 @@ async def create_products(session: AsyncSession, categories: Dict[str, Category]
             "category": "celulares",
             "brand": "Motorola",
         },
-        
         # Zapatillas Products
         {
             "sku": "NIKE-AIR-MAX-2024",
@@ -307,11 +294,10 @@ async def create_products(session: AsyncSession, categories: Dict[str, Category]
             "category": "zapatillas",
             "brand": "Nike",
         },
-        
         # Tablets
         {
             "sku": "IPAD-PRO-M2",
-            "name": "iPad Pro 12.9\" M2",
+            "name": 'iPad Pro 12.9" M2',
             "description": "Tablet profesional con chip M2, 256GB, pantalla Liquid Retina XDR",
             "price": 1299.99,
             "stock": 10,
@@ -322,13 +308,12 @@ async def create_products(session: AsyncSession, categories: Dict[str, Category]
         {
             "sku": "SAMSUNG-TAB-S9-ULTRA",
             "name": "Samsung Galaxy Tab S9 Ultra",
-            "description": "Tablet Android premium 14.6\", Snapdragon 8 Gen 2, 12GB RAM, S-Pen incluido",
+            "description": 'Tablet Android premium 14.6", Snapdragon 8 Gen 2, 12GB RAM, S-Pen incluido',
             "price": 1199.99,
             "stock": 8,
             "category": "tablets",
             "brand": "Samsung",
         },
-        
         # Gaming
         {
             "sku": "ASUS-ROG-ALLY",
@@ -340,7 +325,6 @@ async def create_products(session: AsyncSession, categories: Dict[str, Category]
             "brand": "Asus",
             "featured": True,
         },
-        
         # Audio
         {
             "sku": "APPLE-AIRPODS-PRO2",
@@ -362,75 +346,73 @@ async def create_products(session: AsyncSession, categories: Dict[str, Category]
             "brand": "Samsung",
         },
     ]
-    
+
     created_count = 0
     for product_data in products_data:
         # Check if product exists
         result = await session.execute(select(Product).where(Product.sku == product_data["sku"]))
         existing_product = result.scalar_one_or_none()
-        
+
         if not existing_product:
             # Get category and brand
             category = categories[product_data.pop("category")]
             brand = brands[product_data.pop("brand")]
-            
+
             product = Product(
                 **product_data,
                 category_id=category.id,
                 brand_id=brand.id,
                 is_active=True,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
             )
             session.add(product)
             created_count += 1
             logger.info(f"Created product: {product.name}")
-    
+
     return created_count
 
 
 async def main():
     """Main function to populate database"""
     logger.info("Starting database population...")
-    
+
     async with AsyncSessionLocal() as session:
         try:
             # Create brands
             brands = await create_brands(session)
             logger.info(f"Total brands: {len(brands)}")
-            
+
             # Create categories
             categories = await create_categories(session)
             logger.info(f"Total categories: {len(categories)}")
-            
+
             # Create products
             product_count = await create_products(session, categories, brands)
             logger.info(f"Created {product_count} new products")
-            
+
             # Commit all changes
             await session.commit()
-            
+
             # Show summary
             result = await session.execute(select(Product))
             total_products = len(result.scalars().all())
-            
-            logger.info("\n" + "="*50)
+
+            logger.info("\n" + "=" * 50)
             logger.info("DATABASE POPULATION COMPLETE")
             logger.info(f"Total products in database: {total_products}")
-            logger.info("="*50)
-            
+            logger.info("=" * 50)
+
             # Show products by category
-            for cat_name, category in categories.items():
-                result = await session.execute(
-                    select(Product).where(Product.category_id == category.id)
-                )
+            for _, category in categories.items():
+                result = await session.execute(select(Product).where(Product.category_id == category.id))
                 products = result.scalars().all()
                 logger.info(f"\n{category.display_name}: {len(products)} products")
                 for product in products[:3]:  # Show first 3
                     logger.info(f"  - {product.name} (${product.price})")
                 if len(products) > 3:
                     logger.info(f"  ... and {len(products) - 3} more")
-            
+
         except Exception as e:
             logger.error(f"Error populating database: {e}")
             await session.rollback()
@@ -439,3 +421,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

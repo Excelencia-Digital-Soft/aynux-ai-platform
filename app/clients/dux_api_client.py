@@ -1,0 +1,181 @@
+"""
+Cliente HTTP para la API DUX
+Responsabilidad: Manejar las comunicaciones HTTP con la API de DUX
+"""
+
+import asyncio
+import logging
+from typing import Optional
+
+import aiohttp
+from aiohttp import ClientTimeout
+from config.settings import get_settings
+
+from app.models.dux import DuxApiError, DuxItemsResponse, DuxRubrosResponse
+
+
+class DuxApiClient:
+    """Cliente para interactuar con la API de DUX"""
+
+    def __init__(
+        self,
+        base_url: str = "https://erp.duxsoftware.com.ar/WSERP/rest/services",
+        auth_token: str = "UyJ9PjF8mojO9NaexobUURe6mDlnts2J35jnaO8wKVxoSZK4RBTFa6tYZMvyJD7i",
+        timeout_seconds: int = 30,
+    ):
+        self.settings = get_settings()
+        self.base_url = self.settings.DUX_API_BASE_URL or base_url.rstrip("/")
+        self.auth_token = self.settings.DUX_API_KEY or auth_token
+        timeout_value = self.settings.DUX_API_TIMEOUT or timeout_seconds
+        self.timeout = ClientTimeout(total=timeout_value)
+        self.logger = logging.getLogger(__name__)
+
+    async def __aenter__(self):
+        """Inicializa la sesión HTTP"""
+        self.session = aiohttp.ClientSession(timeout=self.timeout)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Cierra la sesión HTTP"""
+        if hasattr(self, "session"):
+            await self.session.close()
+
+    def _get_headers(self) -> dict:
+        """Obtiene los headers para las requests"""
+        return {
+            "accept": "application/json",
+            "authorization": self.auth_token,
+            "User-Agent": "ConversaShop-Bot/1.0",
+        }
+
+    async def get_items(
+        self, offset: int = 0, limit: int = 20, timeout_override: Optional[int] = None
+    ) -> DuxItemsResponse:
+        """
+        Obtiene items/productos de la API DUX
+
+        Args:
+            offset: Offset para paginación
+            limit: Límite de resultados por página
+            timeout_override: Timeout personalizado para esta request
+
+        Returns:
+            DuxItemsResponse: Respuesta con los items
+
+        Raises:
+            DuxApiError: Error de la API
+            aiohttp.ClientError: Error de conexión
+        """
+        url = f"{self.base_url}/items"
+        params = {
+            "offset": offset,
+            "limit": limit,
+        }
+
+        headers = self._get_headers()
+
+        # Usar timeout personalizado si se proporciona
+        if timeout_override:
+            timeout = ClientTimeout(total=timeout_override)
+        else:
+            timeout = self.timeout
+
+        self.logger.info(f"Fetching items from DUX API: offset={offset}, limit={limit}")
+
+        try:
+            async with self.session.get(url, headers=headers, params=params, timeout=timeout) as response:
+                # Log del status code
+                self.logger.debug(f"DUX API response status: {response.status}")
+
+                if response.status == 200:
+                    data = await response.json()
+
+                    # Validar y parsear la respuesta
+                    try:
+                        return DuxItemsResponse(**data)
+                    except Exception as e:
+                        self.logger.error(f"Error parsing DUX API response: {e}")
+                        raise DuxApiError(
+                            error_code="PARSE_ERROR", error_message=f"Failed to parse API response: {str(e)}"
+                        ) from e
+
+                elif response.status == 401:
+                    error_msg = "Authentication failed - check API token"
+                    self.logger.error(error_msg)
+                    raise DuxApiError(error_code="AUTH_ERROR", error_message=error_msg)
+
+                elif response.status == 429:
+                    error_msg = "Rate limit exceeded"
+                    self.logger.warning(error_msg)
+                    raise DuxApiError(error_code="RATE_LIMIT", error_message=error_msg)
+
+                else:
+                    error_text = await response.text()
+                    error_msg = f"API returned status {response.status}: {error_text}"
+                    self.logger.error(error_msg)
+                    raise DuxApiError(error_code=f"HTTP_{response.status}", error_message=error_msg)
+
+        except (aiohttp.ServerTimeoutError, aiohttp.ClientConnectionError, asyncio.TimeoutError) as tout:
+            error_msg = f"Request timeout after {timeout.total} seconds"
+            self.logger.error(error_msg)
+            raise DuxApiError(error_code="TIMEOUT", error_message=error_msg) from tout
+
+        except aiohttp.ClientError as e:
+            error_msg = f"HTTP client error: {str(e)}"
+            self.logger.error(error_msg)
+            raise DuxApiError(error_code="CONNECTION_ERROR", error_message=error_msg) from e
+
+        except Exception as e:
+            error_msg = f"Unexpected error: {str(e)}"
+            self.logger.error(error_msg)
+            raise DuxApiError(error_code="UNEXPECTED_ERROR", error_message=error_msg) from e
+
+    async def test_connection(self) -> bool:
+        """
+        Prueba la conexión con la API DUX
+
+        Returns:
+            bool: True si la conexión es exitosa
+        """
+        try:
+            # Intentar obtener solo 1 item para probar la conexión
+            await self.get_items(offset=0, limit=1)
+            self.logger.info("DUX API connection test successful")
+            return True
+        except Exception as e:
+            self.logger.error(f"DUX API connection test failed: {e}")
+            return False
+
+    async def get_total_items_count(self) -> int:
+        """
+        Obtiene el total de items disponibles en la API
+
+        Returns:
+            int: Total de items
+        """
+        try:
+            response = await self.get_items(offset=0, limit=1)
+            return response.get_total_items()
+        except Exception as e:
+            self.logger.error(f"Failed to get total items count: {e}")
+            return 0
+
+
+class DuxApiClientFactory:
+    """Factory para crear instancias del cliente DUX"""
+
+    @staticmethod
+    def create_client(auth_token: Optional[str] = None, timeout_seconds: int = 30) -> DuxApiClient:
+        """
+        Crea una instancia del cliente DUX
+
+        Args:
+            auth_token: Token de autenticación (usa el default si no se proporciona)
+            timeout_seconds: Timeout para las requests
+
+        Returns:
+            DuxApiClient: Instancia del cliente
+        """
+        token = auth_token or "UyJ9PjF8mojO9NaexobUURe6mDlnts2J35jnaO8wKVxoSZK4RBTFa6tYZMvyJD7i"
+
+        return DuxApiClient(auth_token=token, timeout_seconds=timeout_seconds)

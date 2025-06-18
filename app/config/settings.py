@@ -66,9 +66,12 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(False, description="Modo de depuración")
     ENVIRONMENT: str = Field("production", description="Entorno de ejecución")
 
-    # External Service
+    # External Service - DUX ERP Integration
     DUX_API_BASE_URL: str = Field("https://erp.duxsoftware.com.ar/WSERP/rest/services", description="URL base de Dux")
     DUX_API_KEY: Optional[str] = Field(None, description="Clave de la aplicación de Dux")
+    DUX_API_TIMEOUT: int = Field(30, description="Timeout para requests a la API de Dux en segundos")
+    DUX_API_RATE_LIMIT_SECONDS: int = Field(5, description="Límite de rate limiting para la API de Dux")
+    DUX_SYNC_BATCH_SIZE: int = Field(50, description="Tamaño del lote para sincronización de productos DUX")
 
     model_config = SettingsConfigDict(
         case_sensitive=True,

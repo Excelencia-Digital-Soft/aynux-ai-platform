@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from app.agents.langgraph_system.agents.smart_product_agent import SmartProductAgent
 from app.agents.langgraph_system.integrations.ollama_integration import OllamaIntegration
@@ -279,7 +280,7 @@ Respuesta:"""
         return AgentType.GENERAL
 
 
-def create_smart_product_graph(ollama: Optional[OllamaIntegration] = None, postgres=None) -> StateGraph:
+def create_smart_product_graph(ollama: Optional[OllamaIntegration] = None, postgres=None) -> CompiledStateGraph:
     """
     Crea el grafo de LangGraph con el SmartProductAgent integrado.
     """

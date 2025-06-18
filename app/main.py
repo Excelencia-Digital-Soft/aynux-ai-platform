@@ -1,5 +1,6 @@
 import logging
 
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,10 +9,15 @@ from app.api.middleware.auth_middleware import authenticate_request
 from app.api.router import api_router
 from app.config.settings import get_settings
 
-# Configuración del logger
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+sentry_sdk.init(
+    dsn="https://d44f9586fda96f0cb06a8e8bda42a3bb@o4509520816963584.ingest.us.sentry.io/4509520843243520",
+    # Add data like request headers and IP for users,
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    send_default_pii=True,
 )
+
+# Configuración del logger
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -59,9 +65,7 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         logger.error(f"Global exception handler caught: {str(exc)}", exc_info=True)
-        return JSONResponse(
-            status_code=500, content={"message": "Internal Server Error"}
-        )
+        return JSONResponse(status_code=500, content={"message": "Internal Server Error"})
 
     # Registro de routers
     app.include_router(api_router, prefix=settings.API_V1_STR)

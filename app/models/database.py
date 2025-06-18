@@ -159,7 +159,9 @@ class Product(Base, TimestampMixin):
     category: Mapped["Category"] = relationship("Category", back_populates="products")
     subcategory: Mapped[Optional["Subcategory"]] = relationship("Subcategory", back_populates="products")
     brand: Mapped[Optional["Brand"]] = relationship("Brand", back_populates="products")
-    attributes: Mapped[List["ProductAttribute"]] = relationship("ProductAttribute", back_populates="product", cascade="all, delete-orphan")
+    attributes: Mapped[List["ProductAttribute"]] = relationship(
+        "ProductAttribute", back_populates="product", cascade="all, delete-orphan"
+    )
     images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
     promotions: Mapped[List["Promotion"]] = relationship(
         "Promotion", secondary=product_promotion_association, back_populates="products"
@@ -193,18 +195,18 @@ class Product(Base, TimestampMixin):
     @property
     def is_in_stock(self) -> bool:
         """Verifica si el producto está en stock."""
-        return self.stock > 0
+        return self.stock > 0  # type: ignore
 
     @property
     def is_low_stock(self) -> bool:
         """Verifica si el producto está con stock bajo."""
-        return self.stock <= self.min_stock
+        return self.stock <= self.min_stock  # type: ignore
 
     @property
     def discount_percentage(self) -> Optional[float]:
         """Calcula el porcentaje de descuento si aplica."""
-        if self.original_price and self.original_price > self.price:
-            return ((self.original_price - self.price) / self.original_price) * 100
+        if self.original_price and self.original_price > self.price:  # type: ignore
+            return ((self.original_price - self.price) / self.original_price) * 100  # type: ignore
         return None
 
 
@@ -413,8 +415,8 @@ class Customer(Base, TimestampMixin):
     @property
     def full_name(self) -> str:
         """Nombre completo del cliente."""
-        names = [full_name for full_name in [self.first_name, self.last_name] if full_name]
-        return " ".join(names) if names else self.phone_number
+        names = [full_name for full_name in [self.first_name, self.last_name] if full_name]  # type: ignore
+        return " ".join(names) if names else self.phone_number  # type: ignore
 
 
 class Conversation(Base):

@@ -43,6 +43,7 @@ structlog = "^24.4.0"
 cryptography = "^44.0.0"
 pyjwt = "^2.10.1"
 greenlet = "^3.2.3"
+sentry-sdk = {extras = ["fastapi"], version = "^2.30.0"}
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.2.0"

@@ -522,10 +522,10 @@ class DatabaseSetup:
                     subtotal += total_price
 
                 # Actualizar totales
-                order.subtotal = float(subtotal)
-                order.tax_amount = float(subtotal * Decimal("0.21"))  # 21% IVA
-                order.shipping_amount = 10.0 if subtotal < 100 else 0.0
-                order.total_amount = order.subtotal + order.tax_amount + order.shipping_amount
+                order.subtotal = float(subtotal)  # type: ignore
+                order.tax_amount = float(subtotal * Decimal("0.21"))  # 21% IVA # type: ignore
+                order.shipping_amount = 10.0 if subtotal < 100 else 0.0  # type: ignore
+                order.total_amount = order.subtotal + order.tax_amount + order.shipping_amount  # type: ignore
 
                 orders.append(order)
 

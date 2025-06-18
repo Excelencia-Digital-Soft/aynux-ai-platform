@@ -82,8 +82,8 @@ async def get_product_agent() -> SmartProductAgent:
 @router.post("/search", response_model=ProductSearchResponse)
 async def search_products(
     request: ProductSearchRequest,
-    agent: SmartProductAgent = Depends(get_product_agent),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
+    agent: SmartProductAgent = Depends(get_product_agent),  # noqa: B008
+    background_tasks: BackgroundTasks = BackgroundTasks(),  # noqa: B008
 ) -> ProductSearchResponse:
     """
     Endpoint principal para búsqueda inteligente de productos.
@@ -157,8 +157,8 @@ async def search_products(
 @router.post("/whatsapp/message", response_model=WhatsAppMessageResponse)
 async def handle_whatsapp_message(
     request: WhatsAppMessageRequest,
-    agent: SmartProductAgent = Depends(get_product_agent),
-    redis_client: redis.Redis = Depends(get_redis_client),
+    agent: SmartProductAgent = Depends(get_product_agent),  # noqa: B008
+    redis_client: redis.Redis = Depends(get_redis_client),  # noqa: B008
 ) -> WhatsAppMessageResponse:
     """
     Endpoint para manejar mensajes de WhatsApp.
@@ -224,7 +224,8 @@ async def handle_whatsapp_message(
 
 @router.get("/conversation/{phone_number}")
 async def get_conversation_history(
-    phone_number: str, redis_client: redis.Redis = Depends(get_redis_client)
+    phone_number: str,
+    redis_client: redis.Redis = Depends(get_redis_client),  # noqa: B008
 ) -> Dict[str, Any]:
     """
     Obtiene el historial de conversación de un número.
@@ -243,12 +244,13 @@ async def get_conversation_history(
 
     except Exception as e:
         logger.error(f"Error getting conversation history: {e}")
-        raise HTTPException(status_code=500, detail="Error retrieving conversation history")
+        raise HTTPException(status_code=500, detail="Error retrieving conversation history") from e
 
 
 @router.delete("/conversation/{phone_number}")
 async def clear_conversation(
-    phone_number: str, redis_client: redis.Redis = Depends(get_redis_client)
+    phone_number: str,
+    redis_client: redis.Redis = Depends(get_redis_client),  # noqa: B008
 ) -> Dict[str, Any]:
     """
     Limpia el historial de conversación de un número.
@@ -261,11 +263,11 @@ async def clear_conversation(
 
     except Exception as e:
         logger.error(f"Error clearing conversation: {e}")
-        raise HTTPException(status_code=500, detail="Error clearing conversation")
+        raise HTTPException(status_code=500, detail="Error clearing conversation") from e
 
 
 @router.get("/health")
-async def health_check(agent: SmartProductAgent = Depends(get_product_agent)) -> Dict[str, Any]:
+async def health_check(agent: SmartProductAgent = Depends(get_product_agent)) -> Dict[str, Any]:  # noqa: B008
     """
     Health check del sistema de productos inteligentes.
     """
@@ -286,7 +288,7 @@ async def health_check(agent: SmartProductAgent = Depends(get_product_agent)) ->
 
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service unhealthy")
+        raise HTTPException(status_code=503, detail="Service unhealthy") from e
 
 
 # Funciones auxiliares
@@ -399,16 +401,3 @@ async def log_search_analytics(
 
     except Exception as e:
         logger.error(f"Error logging analytics: {e}")
-
-
-# Middleware para CORS y rate limiting (opcional)
-@router.middleware("http")
-async def add_process_time_header(request, call_next):
-    """
-    Middleware para agregar tiempo de procesamiento en headers.
-    """
-    start_time = datetime.now()
-    response = await call_next(request)
-    process_time = (datetime.now() - start_time).total_seconds()
-    response.headers["X-Process-Time"] = str(process_time)
-    return response

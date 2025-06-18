@@ -93,13 +93,13 @@ class EnhancedProductService(ProductService):
 
         except Exception as e:
             logger.error(f"Error in hybrid search: {str(e)}")
-            # Fallback to traditional search
+            # Fallback to SQL search
             return await self._fallback_search(query, limit, price_range, brand_filter)
 
     async def _fallback_search(
         self, query: str, limit: int, price_range: Optional[tuple], brand_filter: Optional[str]
     ) -> List[Dict[str, Any]]:
-        """Fallback to traditional SQL search"""
+        """Fallback to SQL search"""
         products = await self.search_products(search_term=query, brand_filter=brand_filter, limit=limit)
 
         # Filter by price if needed

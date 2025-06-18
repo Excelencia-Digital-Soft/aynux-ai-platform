@@ -70,5 +70,6 @@ class Customer(Base, TimestampMixin):
     @hybrid_property
     def full_name(self) -> str:
         """Nombre completo del cliente."""
-        names = [name for name in [self.first_name, self.last_name] if name]
-        return " ".join(names) if names else (self.phone_number or "")
+        names = [name for name in [self.first_name, self.last_name] if name]  # type: ignore
+        return " ".join(names) if names else (self.phone_number or "")  # type: ignore
+

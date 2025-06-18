@@ -187,18 +187,18 @@ class Product(Base, TimestampMixin):
     @hybrid_property
     def is_in_stock(self) -> bool:
         """Verifica si el producto está en stock."""
-        return self.stock > 0
+        return self.stock > 0  # type: ignore
 
     @hybrid_property
     def is_low_stock(self) -> bool:
         """Verifica si el producto está con stock bajo."""
-        return self.stock <= self.min_stock
+        return self.stock <= self.min_stock  # type: ignore
 
     @hybrid_property
     def discount_percentage(self) -> Optional[float]:
         """Calcula el porcentaje de descuento si aplica."""
-        if self.original_price and self.original_price > self.price:
-            return ((self.original_price - self.price) / self.original_price) * 100
+        if self.original_price and self.original_price > self.price:  # type: ignore
+            return ((self.original_price - self.price) / self.original_price) * 100  # type: ignore
         return None
 
 
@@ -250,4 +250,3 @@ class ProductImage(Base, TimestampMixin):
         Index("idx_product_images_primary", is_primary),
         Index("idx_product_images_sort", sort_order),
     )
-
