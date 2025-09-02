@@ -398,7 +398,7 @@ def get_intent_descriptions() -> Dict[str, str]:
 
 def build_intent_prompt_text() -> str:
     """Build the intent prompt text for LLM processing."""
-    lines = ["Intenciones Válidas y Ejemplos:"]
+    lines = ["Valid Intents and Examples:"]
 
     for intent, definition in DEFAULT_AGENT_SCHEMA.intents.items():
         examples_text = ", ".join([f'"{ex}"' for ex in definition.examples[:2]])  # Limit to 2 examples

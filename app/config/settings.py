@@ -73,6 +73,16 @@ class Settings(BaseSettings):
     DUX_API_RATE_LIMIT_SECONDS: int = Field(5, description="Límite de rate limiting para la API de Dux")
     DUX_SYNC_BATCH_SIZE: int = Field(50, description="Tamaño del lote para sincronización de productos DUX")
 
+    # DUX Synchronization Configuration (independent from ProductAgent)
+    DUX_SYNC_ENABLED: bool = Field(True, description="Habilitar sincronización automática DUX a PostgreSQL")
+    DUX_SYNC_HOURS: list[int] = Field(
+        [2, 14], description="Horas del día para sincronización automática (0-23)"
+    )
+    DUX_FORCE_SYNC_THRESHOLD_HOURS: int = Field(24, description="Forzar sync si datos > X horas antiguos")
+    
+    # ProductAgent Configuration (always uses PostgreSQL only)
+    PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",
@@ -89,6 +99,30 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [ext.strip() for ext in value.split(",")]
         return value
+
+    @field_validator("PRODUCT_AGENT_DATA_SOURCE")
+    @classmethod
+    def validate_data_source(cls, v):
+        if v != "database":
+            raise ValueError("PRODUCT_AGENT_DATA_SOURCE must be 'database' (always uses PostgreSQL)")
+        return v
+    
+    @field_validator("DUX_SYNC_HOURS", mode="before")
+    @classmethod
+    def parse_dux_sync_hours(cls, value):
+        if isinstance(value, str):
+            hours = [int(hour.strip()) for hour in value.split(",")]
+            for hour in hours:
+                if not 0 <= hour <= 23:
+                    raise ValueError("DUX sync hours must be between 0 and 23")
+            return hours
+        elif isinstance(value, list):
+            for hour in value:
+                if not 0 <= hour <= 23:
+                    raise ValueError("DUX sync hours must be between 0 and 23")
+            return value
+        return value
+
 
     @field_validator("DB_POOL_SIZE")
     @classmethod

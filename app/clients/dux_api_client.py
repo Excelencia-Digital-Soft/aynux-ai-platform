@@ -9,8 +9,8 @@ from typing import Optional
 
 import aiohttp
 from aiohttp import ClientTimeout
-from config.settings import get_settings
 
+from app.config.settings import get_settings
 from app.models.dux import DuxApiError
 from app.models.dux.response_items import DuxItemsResponse
 

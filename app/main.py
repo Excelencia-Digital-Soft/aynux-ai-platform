@@ -86,6 +86,34 @@ def create_app() -> FastAPI:
             "documentation_urls": {"swagger": app.docs_url, "redoc": app.redoc_url},
         }
 
+    # Startup event - iniciar servicios de background
+    @app.on_event("startup")
+    async def startup_event():
+        """Inicia servicios de background al arrancar la aplicación."""
+        logger.info("Starting background services...")
+
+        # Iniciar sincronización programada DUX si está habilitada
+        if settings.DUX_SYNC_ENABLED:
+            from app.services.scheduled_sync_service import get_scheduled_sync_service
+
+            sync_service = get_scheduled_sync_service()
+            await sync_service.start()
+            logger.info("DUX scheduled sync service started")
+
+    # Shutdown event - detener servicios de background
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Detiene servicios de background al cerrar la aplicación."""
+        logger.info("Stopping background services...")
+
+        # Detener sincronización programada DUX
+        if settings.DUX_SYNC_ENABLED:
+            from app.services.scheduled_sync_service import get_scheduled_sync_service
+
+            sync_service = get_scheduled_sync_service()
+            await sync_service.stop()
+            logger.info("DUX scheduled sync service stopped")
+
     return app
 
 

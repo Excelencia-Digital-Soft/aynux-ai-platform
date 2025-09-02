@@ -1,0 +1,11 @@
+# Development dependencies
+# Use: uv pip sync requirements-dev.txt
+black>=24.2.0
+isort>=5.13.2
+pytest>=8.0.0
+pytest-asyncio>=0.23.5
+pytest-cov>=4.1.0
+ruff>=0.2.2
+sqlalchemy-stubs>=0.4
+types-sqlalchemy>=1.4.53.38
+pyright>=1.1.402

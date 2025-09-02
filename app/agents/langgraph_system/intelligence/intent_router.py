@@ -17,21 +17,21 @@ logger = logging.getLogger(__name__)
 
 
 def _get_cache_key(message: str, context: Dict[str, Any] = None) -> str:
-    """Generar clave de caché basada en mensaje y contexto"""
-    # Normalizar mensaje para mejor hit rate
+    """Generate cache key based on message and context"""
+    # Normalize message for better hit rate but keep it unique
     normalized_message = message.lower().strip()
-
-    # Incluir contexto relevante en la clave
+    
+    # Include relevant context in the key
     context_str = ""
     if context:
-        # Solo incluir contexto relevante para evitar cache misses innecesarios
+        # Only include relevant context to avoid unnecessary cache misses
         relevant_context = {
             "language": context.get("language", "es"),
             "user_tier": context.get("customer_data", {}).get("tier", "basic"),
         }
         context_str = json.dumps(relevant_context, sort_keys=True)
 
-    # Hash para clave compacta
+    # Hash for compact key - IMPORTANT: include the full message to ensure uniqueness
     cache_input = f"{normalized_message}|{context_str}"
     return hashlib.md5(cache_input.encode()).hexdigest()
 
@@ -204,6 +204,7 @@ class IntentRouter:
 
         # Generar clave de caché
         cache_key = _get_cache_key(message, state_dict)
+        logger.debug(f"Generated cache key for message '{message[:30]}...': {cache_key[:16]}...")
 
         if cached_result := self._get_from_cache(cache_key):
             self._stats["cache_hits"] += 1

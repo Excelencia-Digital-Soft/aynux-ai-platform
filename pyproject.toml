@@ -1,64 +1,70 @@
-[tool.poetry]
+[project]
 name = "bot-conversashop"
 version = "0.1.0"
 description = "Bot para ventas con WhatsApp"
-authors = ["Leonardo Illanez <leonardoilla777@icloud.com>"]
+authors = [
+    { name = "Leonardo Illanez", email = "leonardoilla777@icloud.com" }
+]
 readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "fastapi>=0.115.12",
+    "pydantic>=2.11.4",
+    "pytest>=8.3.5",
+    "redis>=6.0.0",
+    "qrcode>=8.2",
+    "pillow>=11.2.1",
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.9.1",
+    "uvicorn>=0.34.2",
+    "google-generativeai>=0.8.5",
+    "python-multipart>=0.0.20",
+    "python-jose>=3.4.0",
+    "passlib>=1.7.4",
+    "email-validator>=2.2.0",
+    "bcrypt>=4.3.0",
+    "bson>=0.5.10",
+    "sqlalchemy>=2.0.41",
+    "psycopg2-binary>=2.9.10",
+    "langchain-core>=0.3.62",
+    "langchain-ollama>=0.3.3",
+    "langchain-community>=0.3.24",
+    "langchain-text-splitters>=0.3.8",
+    "langchain-experimental>=0.3.4",
+    "langchain-chroma>=0.1.2",
+    "asyncpg>=0.30.0",
+    "langgraph>=0.4.8",
+    "langgraph-checkpoint-postgres>=2.0.6",
+    "chromadb>=0.5.23",
+    "opentelemetry-api>=1.28.2",
+    "opentelemetry-sdk>=1.28.2",
+    "opentelemetry-exporter-prometheus>=0.49b2",
+    "opentelemetry-instrumentation-logging>=0.49b2",
+    "structlog>=24.4.0",
+    "cryptography>=44.0.0",
+    "pyjwt>=2.10.1",
+    "greenlet>=3.2.3",
+    "sentry-sdk[fastapi]>=2.30.0",
+    "langsmith>=0.1.137",
+    "langchain>=0.3.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.11,<3.14"
-fastapi = "^0.115.12"
-pydantic = "^2.11.4"
-pytest = "^8.3.5"
-redis = "^6.0.0"
-qrcode = "^8.2"
-pillow = "^11.2.1"
-httpx = "^0.28.1"
-pydantic-settings = "^2.9.1"
-uvicorn = "^0.34.2"
-google-generativeai = "^0.8.5"
-python-multipart = "^0.0.20"
-python-jose = "^3.4.0"
-passlib = "^1.7.4"
-email-validator = "^2.2.0"
-bcrypt = "^4.3.0"
-bson = "^0.5.10"
-sqlalchemy = "^2.0.41"
-psycopg2-binary = "^2.9.10"
-langchain-core = "^0.3.62"
-langchain-ollama = "^0.3.3"
-langchain-community = "^0.3.24"
-langchain-text-splitters = "^0.3.8"
-langchain-experimental = "^0.3.4"
-langchain-chroma = ">=0.1.2"
-asyncpg = "^0.30.0"
-langgraph = "^0.4.8"
-langgraph-checkpoint-postgres = "^2.0.6"
-chromadb = "^0.5.23"
-opentelemetry-api = "^1.28.2"
-opentelemetry-sdk = "^1.28.2"
-opentelemetry-exporter-prometheus = "^0.49b2"
-opentelemetry-instrumentation-logging = "^0.49b2"
-structlog = "^24.4.0"
-cryptography = "^44.0.0"
-pyjwt = "^2.10.1"
-greenlet = "^3.2.3"
-sentry-sdk = {extras = ["fastapi"], version = "^2.30.0"}
-
-[tool.poetry.group.dev.dependencies]
-black = "^24.2.0"
-isort = "^5.13.2"
-pytest = "^8.0.0"
-pytest-asyncio = "^0.23.5"
-pytest-cov = "^4.1.0"
-ruff = "^0.2.2"
-sqlalchemy-stubs = "^0.4"
-types-sqlalchemy = "^1.4.53.38"
-pyright = "^1.1.402"
+[tool.uv]
+dev-dependencies = [
+    "black>=24.2.0",
+    "isort>=5.13.2",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.5",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.2.2",
+    "sqlalchemy-stubs>=0.4",
+    "types-sqlalchemy>=1.4.53.38",
+    "pyright>=1.1.402",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.black]
 line-length = 120

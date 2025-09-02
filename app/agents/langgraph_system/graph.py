@@ -6,14 +6,28 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from langchain_core.tracers.context import tracing_v2_enabled
 from langgraph.graph import END, StateGraph
 
 from app.agents.langgraph_system.integrations.postgres_checkpointer import (
     get_checkpointer_manager,
     initialize_checkpointer,
 )
-from app.schemas import DEFAULT_AGENT_SCHEMA, AgentType, get_agent_class_mapping, get_graph_node_names
+from app.config.langsmith_config import ConversationTracer, get_tracer
+from app.schemas import AgentType, get_graph_node_names
 
+# Import agent classes for type hints and initialization
+from .agents import (
+    CategoryAgent,
+    DataInsightsAgent,
+    FallbackAgent,
+    FarewellAgent,
+    InvoiceAgent,
+    ProductAgent,
+    PromotionsAgent,
+    SupportAgent,
+    TrackingAgent,
+)
 from .agents.base_agent import BaseAgent
 from .integrations import (
     ChromaDBIntegration,
@@ -25,12 +39,7 @@ from .models import ConversationContext, CustomerContext, IntentInfo
 from .router import SupervisorAgent
 from .state_manager import StateManager
 from .state_schema import LangGraphState
-
-# Import agent classes for type hints and initialization
-from .agents import (
-    ProductAgent, CategoryAgent, DataInsightsAgent, PromotionsAgent,
-    TrackingAgent, SupportAgent, InvoiceAgent, FallbackAgent, FarewellAgent
-)
+from .utils.tracing import AgentTracer, log_agent_response, trace_async_method, trace_context
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +50,13 @@ class EcommerceAssistantGraph:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.state_manager = StateManager()
-        
+
+        # Initialize LangSmith tracing
+        self.tracer = get_tracer()
+
+        # Track conversation tracers by conversation_id
+        self.conversation_tracers: Dict[str, ConversationTracer] = {}
+
         # Declare agent attributes for type checking (will be set in _init_agents)
         self.product_agent: ProductAgent
         self.category_agent: CategoryAgent
@@ -108,6 +123,9 @@ class EcommerceAssistantGraph:
 
         return workflow
 
+    @trace_async_method(
+        name="process_message", run_type="chain", metadata={"component": "EcommerceAssistantGraph"}, extract_state=True
+    )
     async def process_message(
         self,
         message: str,
@@ -129,6 +147,15 @@ class EcommerceAssistantGraph:
         """
         if not self.app:
             raise RuntimeError("Graph not compiled. Call initialize() first.")
+
+        # Initialize or get conversation tracer
+        conv_tracer = None
+        if conversation_id:
+            if conversation_id not in self.conversation_tracers:
+                user_id = customer_data.get("user_id") if customer_data else None
+                self.conversation_tracers[conversation_id] = ConversationTracer(conversation_id, user_id)
+            conv_tracer = self.conversation_tracers[conversation_id]
+            conv_tracer.add_message("user", message)
 
         try:
             # Crear contextos usando modelos Pydantic para validación
@@ -172,12 +199,18 @@ class EcommerceAssistantGraph:
 
                     if current_state and current_state.values:
                         logger.debug(f"Retrieved previous state with {len(current_state.values)} keys")
-                        # Actualizar estado existente con nuevo mensaje
-                        state_dict = current_state.values
+                        # Merge new message into existing state
+                        state_dict = current_state.values.copy()
 
-                        # Resetear completado si era final para permitir nuevo procesamiento
-                        if state_dict.get("is_complete"):
-                            state_dict["is_complete"] = False
+                        # Add the new user message to existing messages
+                        from langchain_core.messages import HumanMessage
+
+                        new_message = HumanMessage(content=message)
+                        existing_messages = state_dict.get("messages", [])
+                        state_dict["messages"] = existing_messages + [new_message]
+
+                        # Reset completion flags to allow processing
+                        state_dict["is_complete"] = False
 
                         initial_state = state_dict
                     else:
@@ -191,30 +224,63 @@ class EcommerceAssistantGraph:
             logger.debug(f"State keys before processing: {list(initial_state.keys())}")
             logger.debug(f"Config for checkpointer: {config}")
 
-            try:
-                if config:
-                    logger.debug("Processing with checkpointer config")
-                    final_state = await self.app.ainvoke(initial_state, config)
-                else:
-                    logger.debug("Processing without checkpointer")
-                    final_state = await self.app.ainvoke(initial_state)
-                logger.debug("Message processing completed successfully")
-            except Exception as e:
-                logger.error(f"Error during graph processing: {e}")
-                import traceback
+            # Use tracing context for the entire graph execution
+            trace_metadata = {
+                "conversation_id": conversation_id,
+                "message_length": len(message),
+                "has_customer_data": bool(customer_data),
+                "has_checkpointer": bool(config),
+            }
 
-                logger.error(f"Traceback: {traceback.format_exc()}")
-                raise
+            async with trace_context(
+                name="graph_execution", metadata=trace_metadata, tags=["langgraph", "conversation"]
+            ):
+                try:
+                    if config:
+                        logger.debug("Processing with checkpointer config")
+                        final_state = await self.app.ainvoke(initial_state, config)
+                    else:
+                        logger.debug("Processing without checkpointer")
+                        final_state = await self.app.ainvoke(initial_state)
+                    logger.debug("Message processing completed successfully")
+                except Exception as e:
+                    logger.error(f"Error during graph processing: {e}")
+                    import traceback
+
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    raise
 
             # Extraer respuesta usando StateManager
             response_text = StateManager.get_last_ai_message(final_state)
+            agent_used = final_state.get("current_agent")
 
             if not response_text:
                 response_text = "Lo siento, no pude procesar tu mensaje correctamente."
 
+            # Log assistant message to conversation tracer
+            if conv_tracer:
+                conv_tracer.add_message(
+                    "assistant",
+                    response_text,
+                    {"agent_used": agent_used, "is_complete": final_state.get("is_complete", False)},
+                )
+
+            # Log agent response for analysis
+            if agent_used:
+                log_agent_response(
+                    agent_used,
+                    message,
+                    response_text,
+                    metadata={
+                        "conversation_id": conversation_id,
+                        "requires_human": final_state.get("requires_human", False),
+                        "is_complete": final_state.get("is_complete", False),
+                    },
+                )
+
             return {
                 "response": response_text,
-                "agent_used": final_state.get("current_agent"),
+                "agent_used": agent_used,
                 "requires_human": final_state.get("requires_human", False),
                 "is_complete": final_state.get("is_complete", False),
                 "conversation_id": conversation_id,
@@ -222,12 +288,20 @@ class EcommerceAssistantGraph:
 
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
+
+            # End conversation with error if we have a tracer
+            if conv_tracer:
+                conv_tracer.end_conversation("failure")
+
             return {
                 "response": "Lo siento, ocurrió un error al procesar tu mensaje.",
                 "error": str(e),
                 "conversation_id": conversation_id,
             }
 
+    @trace_async_method(
+        name="supervisor_node", run_type="agent", metadata={"node_type": "supervisor", "component": "routing"}
+    )
     async def _supervisor_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del supervisor que coordina el flujo"""
         try:
@@ -235,7 +309,7 @@ class EcommerceAssistantGraph:
             if not isinstance(state, dict):
                 logger.error(f"Expected dict, got {type(state)}: {state}")
                 return self.state_manager.mark_complete({}, requires_human=True)
-            
+
             # Obtener último mensaje del usuario
             user_message = StateManager.get_last_user_message(state)
 
@@ -297,6 +371,9 @@ class EcommerceAssistantGraph:
         return "continue"
 
     # Nodos de agentes (ejemplo para product_agent)
+    @trace_async_method(
+        name="product_agent_node", run_type="agent", metadata={"agent_type": "product", "component": "agent_execution"}
+    )
     async def _product_agent_node(self, state: LangGraphState) -> Dict[str, Any]:
         """Nodo del agente de productos"""
         try:
@@ -631,60 +708,42 @@ class EcommerceAssistantGraph:
         """Inicializa agentes especializados"""
         try:
             agent_config = self.config.get("agents", {})
-            
+
             # Initialize agents explicitly using schema for configuration
             self.product_agent = ProductAgent(
-                ollama=self.ollama,
-                postgres=self.postgres,
-                config=agent_config.get("product", {})
+                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("product", {})
             )
-            
+
             self.category_agent = CategoryAgent(
-                ollama=self.ollama,
-                chroma=self.chroma,
-                config=agent_config.get("category", {})
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("category", {})
             )
-            
+
             self.data_insights_agent = DataInsightsAgent(
-                ollama=self.ollama,
-                postgres=self.postgres,
-                config=agent_config.get("data_insights", {})
+                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("data_insights", {})
             )
-            
+
             self.promotions_agent = PromotionsAgent(
-                ollama=self.ollama,
-                chroma=self.chroma,
-                config=agent_config.get("promotions", {})
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("promotions", {})
             )
-            
+
             self.tracking_agent = TrackingAgent(
-                ollama=self.ollama,
-                chroma=self.chroma,
-                config=agent_config.get("tracking", {})
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("tracking", {})
             )
-            
+
             self.support_agent = SupportAgent(
-                ollama=self.ollama,
-                chroma=self.chroma,
-                config=agent_config.get("support", {})
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("support", {})
             )
-            
+
             self.invoice_agent = InvoiceAgent(
-                ollama=self.ollama,
-                chroma=self.chroma,
-                config=agent_config.get("invoice", {})
+                ollama=self.ollama, chroma=self.chroma, config=agent_config.get("invoice", {})
             )
-            
+
             self.fallback_agent = FallbackAgent(
-                ollama=self.ollama,
-                postgres=self.postgres,
-                config=agent_config.get("fallback", {})
+                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("fallback", {})
             )
-            
+
             self.farewell_agent = FarewellAgent(
-                ollama=self.ollama,
-                postgres=self.postgres,
-                config=agent_config.get("farewell", {})
+                ollama=self.ollama, postgres=self.postgres, config=agent_config.get("farewell", {})
             )
 
             logger.info("Agents initialized successfully")

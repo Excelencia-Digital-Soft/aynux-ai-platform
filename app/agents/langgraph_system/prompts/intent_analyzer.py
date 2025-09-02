@@ -8,25 +8,24 @@ from app.schemas import build_intent_prompt_text
 def get_system_prompt() -> str:
     intent_text = build_intent_prompt_text()
     prompt = """
-    Eres un experto clasificador de intenciones para un asistente de e-commerce. 
-    Tu tarea es analizar el contexto y el mensaje del usuario para identificar una única intención principal.
+You are an expert intent classifier for an e-commerce assistant.
+Your task is to analyze the context and user message to identify a single primary intent.
 
-Considera el historial de la conversación. Un mensaje como "¿y para este?" 
-depende completamente de los mensajes anteriores.
-Usa los datos del cliente para entender mejor su consulta.
+Consider conversation history. A message like "what about this one?" depends completely on previous messages.
+Use customer data to better understand their query.
 
-Devuelve SIEMPRE un objeto JSON válido en una sola línea, sin explicaciones, intros, o markdown.
+ALWAYS return a valid JSON object in a single line, without explanations, intros, or markdown.
 
-Estructura del JSON:
+JSON structure:
 {{
-"intent": "una_de_las_intenciones_validas",
+"intent": "one_of_the_valid_intents",
 "confidence": 0.0,
-"reasoning": "Breve explicación de por qué elegiste esa intención."
+"reasoning": "Brief explanation of why you chose this intent."
 }}
 
-    {intent_text}
+{intent_text}
 
-Si no estás seguro, elige "fallback" con una confidence menor a 0.7. La calidad es más importante que la velocidad.
+If unsure, choose "fallback" with confidence < 0.7. Quality is more important than speed.
     """
 
     formatted_prompt = prompt.format(
@@ -37,36 +36,36 @@ Si no estás seguro, elige "fallback" con una confidence menor a 0.7. La calidad
 
 
 def get_build_llm_prompt(message: str, state_dict: Dict[str, Any]) -> str:
-    """Construye el prompt completo para el LLM, incluyendo contexto."""
+    """Build complete LLM prompt including context."""
 
-    # Se añaden solo si tienen contenido.
+    # Add context only if available
     context_parts = []
     if customer_data := state_dict.get("customer_data"):
-        context_parts.append(f"### Datos del Cliente\n{json.dumps(customer_data, indent=2)}")
+        context_parts.append(f"### Customer Data\n{json.dumps(customer_data, indent=2)}")
 
     if conversation_data := state_dict.get("conversation_data"):
-        # conversation_data es un diccionario con metadatos de la conversación, no un historial de mensajes
-        # Solo incluimos la información relevante para el análisis de intención
+        # conversation_data is a dict with conversation metadata, not message history
+        # Only include information relevant for intent analysis
         if isinstance(conversation_data, dict):
             context_info = []
             if channel := conversation_data.get("channel"):
-                context_info.append(f"Canal: {channel}")
+                context_info.append(f"Channel: {channel}")
             if language := conversation_data.get("language"):
-                context_info.append(f"Idioma: {language}")
+                context_info.append(f"Language: {language}")
             if context_info:
-                context_parts.append(f"### Información de Contexto\n{', '.join(context_info)}")
+                context_parts.append(f"### Context Information\n{', '.join(context_info)}")
         elif isinstance(conversation_data, dict):
-            # Si es una lista de mensajes (historial real)
+            # If it's a list of messages (actual history)
             try:
                 formatted_history = "\n".join([
                     f"- {turn.get('role', 'unknown')}: {turn.get('content', '')}"
                     for turn in conversation_data if isinstance(turn, dict)
                 ])
                 if formatted_history:
-                    context_parts.append(f"### Historial de la Conversación\n{formatted_history}")
+                    context_parts.append(f"### Conversation History\n{formatted_history}")
             except Exception as e:
-                # Ignorar errores de formateo, no es crítico
-                logging.error(f"Error en la consulta: {e}")
+                # Ignore formatting errors, not critical
+                logging.error(f"Error in query: {e}")
                 pass
 
     context_string = "\n\n".join(context_parts)
@@ -74,10 +73,10 @@ def get_build_llm_prompt(message: str, state_dict: Dict[str, Any]) -> str:
     user_prompt = f"""
 {context_string}
 
-### Mensaje Actual del Usuario
+### Current User Message
 "{message}"
 
-Basado en TODA la información anterior (datos del cliente, historial y mensaje actual), 
-responde solo con el JSON de la intención.
+Based on ALL the information above (customer data, history and current message), 
+respond only with the intent JSON.
 """
     return user_prompt.strip()
