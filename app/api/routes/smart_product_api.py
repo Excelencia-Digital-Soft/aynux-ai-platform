@@ -13,8 +13,8 @@ import redis.asyncio as redis
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.agents.langgraph_system.agents.smart_product_agent import SmartProductAgent
-from app.agents.langgraph_system.integrations.ollama_integration import OllamaIntegration
+from app.agents.integrations.ollama_integration import OllamaIntegration
+from app.agents.subagent.smart_product_agent import SmartProductAgent
 from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)

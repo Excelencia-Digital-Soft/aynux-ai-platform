@@ -2,22 +2,21 @@
 Core architecture components for the WhatsApp bot system
 """
 
-from .agent_manager import OptimizedWhatsAppAgentManager
 from .circuit_breaker import CircuitBreaker, ResilientOllamaService, circuit_breaker
-from .message_batcher import WhatsAppMessageBatcher, BatchMessage
-from .multilayer_cache import MultiLayerCache, EcommerceResponseCache, CacheLayer
-from .performance_monitor import PerformanceMonitor, MetricType
+from .message_batcher import BatchMessage, WhatsAppMessageBatcher
+from .multilayer_cache import CacheLayer, EcommerceResponseCache, MultiLayerCache
+from .performance_monitor import MetricType, PerformanceMonitor
 
 __all__ = [
-    "OptimizedWhatsAppAgentManager",
-    "CircuitBreaker", 
+    "CircuitBreaker",
     "ResilientOllamaService",
     "circuit_breaker",
     "WhatsAppMessageBatcher",
     "BatchMessage",
     "MultiLayerCache",
-    "EcommerceResponseCache", 
+    "EcommerceResponseCache",
     "CacheLayer",
     "PerformanceMonitor",
-    "MetricType"
+    "MetricType",
 ]
+

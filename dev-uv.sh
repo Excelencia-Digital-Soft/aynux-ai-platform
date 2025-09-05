@@ -65,7 +65,7 @@ show_menu() {
 # Instalar dependencias
 install_dependencies() {
   show_status "Instalando dependencias con UV..."
-  uv pip sync pyproject.toml
+  uv sync
   if [ $? -eq 0 ]; then
     show_success "Dependencias instaladas correctamente."
   else
@@ -76,7 +76,7 @@ install_dependencies() {
 # Iniciar servidor de desarrollo
 start_dev_server() {
   show_status "Iniciando servidor de desarrollo..."
-  uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+  uv run --with uvicorn uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 }
 
 # Ejecutar verificación de código
@@ -100,33 +100,34 @@ run_tests() {
 # Actualizar dependencias
 update_dependencies() {
   show_status "Actualizando dependencias..."
-  uv pip compile pyproject.toml -o requirements.txt
-  uv pip sync requirements.txt
+  uv lock --upgrade
+  uv sync
   show_success "Dependencias actualizadas."
 }
 
 # Crear entorno virtual
 create_venv() {
   show_status "Creando entorno virtual con UV..."
-  uv venv
-  show_success "Entorno virtual creado en .venv"
+  uv venv bot-conversashop --python 3.13
+  show_success "Entorno virtual creado con nombre 'bot-conversashop'"
 }
 
 # Activar entorno virtual
 activate_venv() {
   show_status "Para activar el entorno virtual, ejecuta:"
-  echo "source .venv/bin/activate"
+  echo "source ~/.local/share/uv/python/bot-conversashop/bin/activate"
   echo ""
   echo "O si usas fish shell:"
-  echo "source .venv/bin/activate.fish"
+  echo "source ~/.local/share/uv/python/bot-conversashop/bin/activate.fish"
+  echo ""
+  echo "Nota: Con UV no es necesario activar el entorno virtual."
+  echo "Puedes usar 'uv run' directamente para ejecutar comandos."
 }
 
 # Sincronizar dependencias
 sync_dependencies() {
   show_status "Sincronizando dependencias..."
-  uv pip compile pyproject.toml -o requirements.txt
-  uv pip compile pyproject.toml --extra dev -o requirements-dev.txt
-  uv pip sync requirements.txt requirements-dev.txt
+  uv sync --dev
   show_success "Dependencias sincronizadas."
 }
 

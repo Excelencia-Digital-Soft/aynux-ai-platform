@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.agents.schemas import CustomerContext
 from app.database import get_db_context
 from app.models.db import (
     Customer,
@@ -31,7 +32,7 @@ class CustomerService:
                             profile_name=profile_name,
                             first_contact=datetime.now(timezone.utc),
                             last_contact=datetime.now(timezone.utc),
-                            total_interactions=1
+                            total_interactions=1,
                         )
                         db.add(customer)
                         db.commit()
@@ -71,6 +72,63 @@ class CustomerService:
         except Exception as e:
             logger.error(f"Error getting/creating customer: {e}")
             return None
+
+    async def _get_or_create_customer_context(self, user_number: str, user_name: str) -> CustomerContext:
+        """
+        Obtiene o crea el contexto del cliente usando modelos Pydantic.
+
+        Args:
+            user_number: Número de WhatsApp del usuario
+            user_name: Nombre del usuario
+
+        Returns:
+            Contexto del cliente validado
+        """
+        try:
+            # Intentar obtener cliente existente
+            customer = await self.get_or_create_customer(phone_number=user_number, profile_name=user_name)
+
+            if not customer:
+                # Si no se pudo obtener/crear el cliente, crear contexto por defecto
+                return CustomerContext(
+                    customer_id=f"whatsapp_{user_number}",
+                    name=user_name or "Usuario",
+                    email=None,
+                    phone=user_number,
+                    tier="basic",
+                    purchase_history=[],
+                    preferences={},
+                )
+
+            # Crear contexto usando modelo Pydantic para validación
+            # Usar name si existe, sino profile_name, sino user_name, sino fallback
+            customer_name = customer.get("name") or customer.get("profile_name") or user_name or "Usuario"
+
+            customer_context = CustomerContext(
+                customer_id=str(customer.get("id", f"whatsapp_{user_number}")),
+                name=customer_name,
+                email=customer.get("email"),
+                phone=customer.get("phone_number", user_number),
+                tier=customer.get("tier", "basic"),
+                purchase_history=[],  # Se puede cargar desde DB si es necesario
+                preferences=customer.get("preferences", {}),
+            )
+
+            return customer_context
+
+        except Exception as e:
+            logger.warning(f"Error getting customer context: {e}")
+
+            # Crear contexto básico como fallback
+            return CustomerContext(
+                customer_id=f"temp_{user_number}",
+                name=user_name or "Usuario",
+                phone=user_number,
+                tier="basic",
+                email=None,
+                purchase_history=[],
+                preferences={},
+            )
 
     async def update_customer_interests(self, customer_id: str, interests: List[str]) -> bool:
         """Actualiza los intereses del cliente"""

@@ -1,0 +1,14 @@
+# UV global configuration file for this project
+# This configures UV behavior for the ConversaShop project
+
+# Cache configuration
+cache-dir = ".uv-cache"
+
+# Index configuration for faster installs  
+index-url = "https://pypi.org/simple"
+
+# Compile bytecode by default for better performance
+compile-bytecode = true
+
+# Use preview features for better performance
+preview = true

@@ -6,7 +6,7 @@ Responsabilidad: Orquestar la sincronización de productos entre DUX y la base d
 import logging
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -105,16 +105,18 @@ class DuxSyncService:
     Responsabilidad: Coordinar la sincronización completa de productos
     """
 
-    def __init__(self, batch_size: int = 50):
+    def __init__(self, batch_size: int = 50, post_sync_callback: Optional[Callable] = None):
         """
         Inicializa el servicio de sincronización
 
         Args:
             batch_size: Tamaño del lote para procesar productos
+            post_sync_callback: Función opcional a llamar después de cada sincronización de producto
         """
         self.batch_size = batch_size
         self.logger = logging.getLogger(__name__)
         self.mapper = DuxProductMapper()
+        self.post_sync_callback = post_sync_callback
 
     async def sync_all_products(self, max_products: Optional[int] = None, dry_run: bool = False) -> DuxSyncResult:
         """
@@ -275,6 +277,9 @@ class DuxSyncService:
         if brand:
             product_data["brand_id"] = brand.id
 
+        sync_result = {}
+        product_for_callback = None
+
         if existing_product:
             # Actualizar producto existente
             for key, value in product_data.items():
@@ -282,12 +287,37 @@ class DuxSyncService:
                     setattr(existing_product, key, value)
 
             existing_product.updated_at = datetime.now()
-            return {"created": False, "updated": True}
+            sync_result = {"created": False, "updated": True}
+            product_for_callback = existing_product
         else:
             # Crear nuevo producto
             new_product = Product(**product_data)
             session.add(new_product)
-            return {"created": True, "updated": False}
+            sync_result = {"created": True, "updated": False}
+            product_for_callback = new_product
+
+        # Ejecutar callback post-sincronización si está definido
+        if self.post_sync_callback and product_for_callback:
+            try:
+                # Hacer flush para obtener el ID del producto si es nuevo
+                await session.flush()
+                
+                # Llamar al callback con información del producto sincronizado
+                callback_data = {
+                    "product": product_for_callback,
+                    "dux_item": dux_item,
+                    "sync_result": sync_result,
+                    "category": category,
+                    "brand": brand
+                }
+                
+                await self.post_sync_callback(callback_data)
+                
+            except Exception as e:
+                self.logger.warning(f"Post-sync callback failed for product {dux_item.cod_item}: {str(e)}")
+                # No interrumpir el sync por errores en el callback
+
+        return sync_result
 
     async def _get_or_create_category(self, session: AsyncSession, dux_item: DuxItem) -> Category:
         """Obtiene o crea una categoría"""

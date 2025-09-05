@@ -9,7 +9,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Protocol, Union
+from typing import Any, Dict, List, Optional, Protocol
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -415,4 +415,3 @@ def create_extraction_service_from_config(config: Dict[str, Any]) -> DataExtract
         return create_sql_extraction_service(engine)
     else:
         raise ValueError(f"Unsupported source type: {source_type}")
-

@@ -42,6 +42,11 @@ class DuxSyncResult(DuxBaseModel):
     def is_successful(self) -> bool:
         """Verifica si la sincronización fue exitosa"""
         return self.total_errors == 0 and self.total_processed > 0
+    
+    @property
+    def success(self) -> bool:
+        """Property alias for is_successful() for compatibility"""
+        return self.is_successful()
 
     def get_summary(self) -> str:
         """Genera un resumen de la sincronización"""
