@@ -9,6 +9,7 @@ from typing import Optional
 
 import aiohttp
 from aiohttp import ClientTimeout
+from pydantic import ValidationError
 
 from app.config.langsmith_config import trace_integration
 from app.config.settings import get_settings
@@ -98,7 +99,19 @@ class DuxApiClient:
                     try:
                         return DuxItemsResponse(**data)
                     except Exception as e:
+                        # Log datos útiles para debugging
                         self.logger.error(f"Error parsing DUX API response: {e}")
+                        if isinstance(e, ValidationError):
+                            self.logger.error(f"Validation errors: {e.errors()}")
+
+                        # Log una muestra de los datos para debugging
+                        if isinstance(data, dict) and "results" in data:
+                            sample_size = min(2, len(data.get("results", [])))
+                            if sample_size > 0:
+                                self.logger.error(
+                                    f"Sample data (first {sample_size} items): {data['results'][:sample_size]}"
+                                )
+
                         raise DuxApiError(
                             error_code="PARSE_ERROR", error_message=f"Failed to parse API response: {str(e)}"
                         ) from e

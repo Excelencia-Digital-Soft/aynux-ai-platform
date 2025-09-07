@@ -5,13 +5,29 @@ Responsabilidad: Definir estructuras de categorías, marcas y proveedores
 
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class DuxRubro(BaseModel):
     """Categoría/Rubro de producto en DUX"""
-    id: int
-    nombre: str
+    id_rubro: int = -1
+    rubro: str = "Sin categoría"
+
+    @field_validator("id_rubro", mode="before")
+    @classmethod
+    def validate_id_rubro(cls, v: Optional[int]) -> int:
+        """Valida el ID del rubro, proporciona valor por defecto si es None"""
+        if v is None:
+            return -1  # Valor por defecto para rubros sin ID
+        return v
+    
+    @field_validator("rubro", mode="before")
+    @classmethod
+    def validate_rubro(cls, v: Optional[str]) -> str:
+        """Valida el nombre del rubro, proporciona valor por defecto si es None"""
+        if v is None or v.strip() == "":
+            return "Sin categoría"  # Valor por defecto para rubros sin nombre
+        return v.strip()
 
 
 class DuxSubRubro(BaseModel):

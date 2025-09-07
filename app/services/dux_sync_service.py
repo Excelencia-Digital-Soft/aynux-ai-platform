@@ -73,9 +73,9 @@ class DuxProductMapper:
             Dict con los campos de Category
         """
         return {
-            "name": dux_item.rubro.nombre.strip(),
-            "description": f"Categoría importada de DUX - ID: {dux_item.rubro.id}",
-            "external_id": str(dux_item.rubro.id),
+            "name": dux_item.rubro.rubro.strip(),
+            "description": f"Categoría importada de DUX - ID: {dux_item.rubro.id_rubro}",
+            "external_id": str(dux_item.rubro.id_rubro),
         }
 
     @staticmethod
@@ -322,7 +322,7 @@ class DuxSyncService:
     async def _get_or_create_category(self, session: AsyncSession, dux_item: DuxItem) -> Category:
         """Obtiene o crea una categoría"""
         # Buscar por external_id
-        stmt = select(Category).where(Category.external_id == str(dux_item.rubro.id))
+        stmt = select(Category).where(Category.external_id == str(dux_item.rubro.id_rubro))
         result = await session.execute(stmt)
         category = result.scalar_one_or_none()
 

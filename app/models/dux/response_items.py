@@ -55,7 +55,7 @@ class DuxItemsResponse(DuxBaseModel):
         return [
             item
             for item in self.results
-            if item.rubro.rubro.lower() == rubro_nombre.lower()  # type: ignore
+            if item.rubro.rubro.lower() == rubro_nombre.lower()
         ]
 
     def find_items_by_marca(self, marca_nombre: str) -> List[DuxItem]:
