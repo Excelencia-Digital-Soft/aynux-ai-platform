@@ -154,6 +154,8 @@ Contexto adicional:
 - Marca: {intent.get("search_params", {}).get("brand", "N/A")}
 - Características: {intent.get("filters", {}).get("characteristics", [])}"""
 
+            print("embedding_prompt", embedding_prompt)
+
             # Por ahora, usar un embedding simple basado en palabras clave
             # En producción, usar un modelo de embedding real
             keywords = self._extract_keywords_for_embedding(enriched_query, intent)
@@ -266,9 +268,7 @@ Contexto adicional:
         keywords = self._extract_keywords_for_embedding(query, intent)
         return await self._create_mock_embedding(keywords)
 
-    async def _find_similar_products(
-        self, query_embedding: List[float], intent: Dict[str, Any], limit: int
-    ) -> List[Dict[str, Any]]:
+    async def _find_similar_products(self, _: List[float], intent: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
         """
         Encuentra productos similares usando el embedding.
         En producción, usar una base de datos vectorial real.

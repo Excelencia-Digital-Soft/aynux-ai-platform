@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from ..integrations.ollama_integration import OllamaIntegration
 from ..tools.product_tool import ProductTool
+from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,12 @@ class ProductAgent(BaseAgent):
         # Always use PostgreSQL database
         self.data_source = "database"
 
+    @trace_async_method(
+        name="product_agent_process",
+        run_type="agent",
+        metadata={"agent_type": "product", "data_source": "database"},
+        extract_state=True,
+    )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Procesa consultas de productos usando AI y base de datos.
@@ -300,6 +307,7 @@ No matches found. Suggest 2 relevant alternatives.
 
     def _generate_fallback_response(self, products: List[Dict[str, Any]], intent_analysis: Dict[str, Any]) -> str:
         """Generate fallback response without AI."""
+        print("Generating fallback response", intent_analysis)
         if len(products) == 1:
             return self._format_single_product(products[0])
         else:

@@ -17,6 +17,7 @@ from ..integrations.ai_data_integration import AgentDataContext
 from ..integrations.ollama_integration import OllamaIntegration
 from ..tools.product_sql_generator import ProductSQLGenerator
 from ..tools.smart_product_search_tool import SmartProductSearchTool
+from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,12 @@ class SmartProductAgent(BaseAgent):
             "category_browse": ["categoría", "tipo", "clase", "sección"],
         }
 
+    @trace_async_method(
+        name="smart_product_agent_process",
+        run_type="agent",
+        metadata={"agent_type": "smart_product", "ai_search": "semantic_sql"},
+        extract_state=True,
+    )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Procesa consultas de productos usando AI avanzado.
@@ -139,7 +146,8 @@ class SmartProductAgent(BaseAgent):
 Analiza la intención del usuario y responde en JSON con la siguiente estructura:
 
 {{
-  "intent_type": "search_general|search_specific|comparison|availability_check|price_inquiry|category_browse|recommendation_request|specification_inquiry",
+  "intent_type": "search_general|search_specific|comparison|availability_check|price_inquiry|category_browse
+    |recommendation_request|specification_inquiry",
   
   "search_params": {{
     "keywords": ["lista", "de", "palabras", "clave"],
@@ -173,7 +181,8 @@ IMPORTANTE:
 
         try:
             response = await self.ollama.generate_response(
-                system_prompt="Eres un experto analista de intenciones para e-commerce que interpreta consultas de productos en lenguaje natural.",
+                system_prompt="Eres un experto analista de intenciones para e-commerce que interpreta consultas\
+                    de productos en lenguaje natural.",
                 user_prompt=intent_prompt,
                 temperature=0.3,
             )
@@ -216,6 +225,8 @@ IMPORTANTE:
         """
         Ejecuta búsqueda inteligente usando múltiples estrategias.
         """
+
+        print("Executing intelligent search using multiple strategies", state_dict)
         try:
             # Estrategia 1: Búsqueda semántica si está recomendada
             if intent_analysis.get("semantic_search_recommended", False) and self.enable_semantic_search:
@@ -272,7 +283,7 @@ IMPORTANTE:
         user_message: str,
         intent_analysis: Dict[str, Any],
         search_results: Dict[str, Any],
-        state_dict: Dict[str, Any],
+        _: Dict[str, Any],
     ) -> str:
         """
         Genera respuesta inteligente y contextual basada en los resultados.
@@ -319,7 +330,8 @@ TONO: Amigable, profesional, orientado a la acción.
 
         try:
             response = await self.ollama.generate_response(
-                system_prompt="Eres un experto asistente de ventas de e-commerce que ayuda a clientes a encontrar productos perfectos.",
+                system_prompt="Eres un experto asistente de ventas de e-commerce que ayuda a clientes a encontrar\
+                    productos perfectos.",
                 user_prompt=response_prompt,
                 temperature=0.7,
             )
@@ -384,9 +396,7 @@ TONO: Amigable, profesional, orientado a la acción.
 
         return response.strip()
 
-    async def _handle_no_results(
-        self, message: str, intent_analysis: Dict[str, Any], search_results: Dict[str, Any]
-    ) -> str:
+    async def _handle_no_results(self, message: str, intent_analysis: Dict[str, Any], _: Dict[str, Any]) -> str:
         """Maneja el caso cuando no se encuentran resultados."""
 
         no_results_prompt = f"""# NO HAY RESULTADOS
@@ -424,9 +434,10 @@ Ejemplos de alternativas:
 
         except Exception as e:
             logger.error(f"Error generating no results response: {e}")
-            return f"No encontré productos que coincidan con '{message}'. ¿Podrías darme más detalles sobre lo que buscas? 🤔"
+            return f"No encontré productos que coincidan con '{message}'. \
+                ¿Podrías darme más detalles sobre lo que buscas? 🤔"
 
-    async def _generate_error_response(self, message: str, error: str) -> str:
+    async def _generate_error_response(self, message: str, _: str) -> str:
         """Genera respuesta amigable para errores."""
 
         error_responses = [
@@ -453,7 +464,7 @@ Hubo un error técnico. Genera una respuesta breve y amigable que:
 
             return response.strip()
 
-        except:
+        except Exception:
             # Fallback a respuesta predefinida
             import random
 

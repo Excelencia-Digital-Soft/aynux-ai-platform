@@ -199,6 +199,15 @@ class SpacyIntentAnalyzer:
 
         return scores
 
+    def get_supported_intents(self) -> List[str]:
+        """
+        Get list of supported intents.
+        
+        Returns:
+            List of intent names that can be recognized
+        """
+        return list(self.intent_keywords.keys())
+
     def _analyze_entities(self, doc) -> Dict[str, float]:
         """Analiza entidades nombradas relevantes"""
         scores = {intent: 0.0 for intent in self.intent_keywords.keys()}

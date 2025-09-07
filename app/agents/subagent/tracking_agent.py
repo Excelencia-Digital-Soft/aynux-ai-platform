@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 
@@ -21,6 +22,12 @@ class TrackingAgent(BaseAgent):
         self.delivery_tool = DeliveryEstimationTool()
         self.notification_tool = TrackingNotificationTool()
 
+    @trace_async_method(
+        name="tracking_agent_process",
+        run_type="agent",
+        metadata={"agent_type": "tracking", "order_lookup": "enabled"},
+        extract_state=True,
+    )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa consultas de rastreo de pedidos"""
         user_message = message
@@ -298,7 +305,7 @@ class OrderLookupTool:
             }
         return None
 
-    def get_recent_orders_sync(self, customer_id: str, limit: int = 5) -> List[Dict]:
+    def get_recent_orders_sync(self, customer_id: str) -> List[Dict]:
         """Obtiene órdenes recientes de un cliente"""
         # En producción esto consultaría la BD
         # Simulación
@@ -414,10 +421,12 @@ class TrackingNotificationTool:
 
     async def setup_notifications(self, order_number: str, customer_id: str, notification_preferences: Dict) -> bool:
         """Configura notificaciones para un pedido"""
+        print("setup_notifications", order_number, customer_id, notification_preferences)
         # En producción esto configuraría webhooks o suscripciones
         return True
 
     async def send_status_update(self, order_number: str, new_status: str, customer_contact: str) -> bool:
         """Envía actualización de estado"""
+        print("Send status update", order_number, new_status, customer_contact)
         # En producción esto enviaría SMS/Email/WhatsApp
         return True

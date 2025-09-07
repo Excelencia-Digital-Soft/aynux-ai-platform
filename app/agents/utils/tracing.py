@@ -53,7 +53,7 @@ def trace_async_method(
     run_type: str = "chain",
     metadata: Optional[Dict[str, Any]] = None,
     extract_state: bool = True,
-    measure_tokens: bool = False,
+    _: bool = False,
 ):
     """
     Comprehensive async method tracer with metrics collection.
@@ -453,4 +453,3 @@ __all__ = [
     "log_agent_response",
     "TracingMetrics",
 ]
-

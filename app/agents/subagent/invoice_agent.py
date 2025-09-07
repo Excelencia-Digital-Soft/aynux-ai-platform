@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
+from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,12 @@ class InvoiceAgent(BaseAgent):
     def __init__(self, ollama=None, chroma=None, config: Optional[Dict[str, Any]] = None):
         super().__init__("invoice_agent", config or {}, ollama=ollama, chroma=chroma)
 
+    @trace_async_method(
+        name="invoice_agent_process",
+        run_type="agent",
+        metadata={"agent_type": "invoice", "payment_processing": "enabled"},
+        extract_state=True,
+    )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa consultas sobre facturación y pagos."""
         try:
@@ -134,12 +141,12 @@ Por favor verifica:
 
         emoji = status_emoji.get(invoice_info["status"], "📄")
 
-        response = f"""📄 **Factura #{invoice_info['number']}**
+        response = f"""📄 **Factura #{invoice_info["number"]}**
 
-{emoji} **Estado**: {invoice_info['status'].capitalize()}
-💰 **Monto**: ${invoice_info['amount']:,}
-📅 **Fecha de emisión**: {invoice_info['issue_date']}
-🗓️ **Vencimiento**: {invoice_info['due_date']}
+{emoji} **Estado**: {invoice_info["status"].capitalize()}
+💰 **Monto**: ${invoice_info["amount"]:,}
+📅 **Fecha de emisión**: {invoice_info["issue_date"]}
+🗓️ **Vencimiento**: {invoice_info["due_date"]}
 
 """
 
@@ -154,8 +161,8 @@ Por favor verifica:
 
         elif invoice_info["status"] == "pagada":
             response += f"""✅ **Pago confirmado**
-📅 Fecha de pago: {invoice_info.get('payment_date', 'No disponible')}
-💳 Método: {invoice_info.get('payment_method', 'No especificado')}
+📅 Fecha de pago: {invoice_info.get("payment_date", "No disponible")}
+💳 Método: {invoice_info.get("payment_method", "No especificado")}
 
 ¿Necesitas el comprobante de pago?"""
 
@@ -195,6 +202,7 @@ Puedes realizar el pago con recargo mínimo.
 
     def _handle_payment_issue(self, message: str) -> str:
         """Maneja problemas con pagos."""
+        print("message", message)
         return """🔧 **Solución de Problemas de Pago**
 
 **Si tu tarjeta fue rechazada:**
@@ -216,6 +224,7 @@ Puedes realizar el pago con recargo mínimo.
 ¿Cuál es específicamente tu problema? Puedo ayudarte a resolverlo."""
 
     def _handle_refund_request(self, message: str) -> str:
+        print("reembolso", message)
         """Maneja solicitudes de reembolso."""
         return """💰 **Proceso de Reembolso**
 

@@ -293,7 +293,7 @@ class EnhancedProductAgent(DataEnhancedAgentMixin):
     This is a demonstration of how to integrate the data pipeline
     with existing LangGraph agents.
     """
-    
+
     def __init__(self):
         self.name = "enhanced_product_agent"
 
@@ -311,7 +311,7 @@ class EnhancedProductAgent(DataEnhancedAgentMixin):
             # Get enhanced prompt with user context
             base_prompt = f"El usuario pregunta sobre productos: {message}"
 
-            enhanced_prompt = await self.enhance_prompt_with_context(
+            await self.enhance_prompt_with_context(
                 base_prompt=base_prompt, user_id=user_id, query=message, context_type="products"
             )
 
@@ -333,9 +333,9 @@ class EnhancedProductAgent(DataEnhancedAgentMixin):
     async def _process_internal_without_context(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Normal processing without user context."""
         # Original agent processing logic
+        print("Original processing logic", message, state_dict)
         return {
             "messages": [{"role": "assistant", "content": "Standard response"}],
             "current_agent": self.name,
             "is_complete": True,
         }
-

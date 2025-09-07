@@ -12,6 +12,7 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 from app.agents.integrations.ollama_integration import OllamaIntegration
+from app.config.langsmith_config import trace_integration
 from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ class ChromaDBIntegration:
             persist_directory=self.persist_directory,
         )
 
+    @trace_integration("chromadb_add_documents")
     async def add_documents(
         self, collection_name: str, documents: List[Document], ids: Optional[List[str]] = None
     ) -> List[str]:
@@ -113,6 +115,7 @@ class ChromaDBIntegration:
         logger.info(f"Added {len(documents)} documents to {collection_name}")
         return added_ids
 
+    @trace_integration("chromadb_search_similar")
     async def search_similar(
         self,
         collection_name: str,
@@ -226,6 +229,7 @@ class ChromaDBIntegration:
             logger.error(f"Error deleting collection {collection_name}: {e}")
             return False
 
+    @trace_integration("chromadb_health_check")
     async def health_check(self) -> bool:
         """
         Verifica el estado de ChromaDB
@@ -393,7 +397,7 @@ class ChromaDBIntegration:
         """Calcula el tamaño del directorio de persistencia"""
         try:
             total_size = 0
-            for dirpath, _dirnames, filenames in os.walk(self.persist_directory):
+            for dirpath, _, filenames in os.walk(self.persist_directory):
                 for filename in filenames:
                     filepath = os.path.join(dirpath, filename)
                     total_size += os.path.getsize(filepath)

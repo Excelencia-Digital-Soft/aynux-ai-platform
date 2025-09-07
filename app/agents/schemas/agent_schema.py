@@ -28,6 +28,7 @@ class IntentType(str, Enum):
 class AgentType(str, Enum):
     """Enumeration of all valid agent types."""
 
+    ORCHESTRATOR = "orchestrator"
     SUPERVISOR = "supervisor"
     PRODUCT_AGENT = "product_agent"
     CATEGORY_AGENT = "category_agent"
@@ -110,8 +111,9 @@ class AgentSchema(BaseModel):
 
     @property
     def graph_node_names(self) -> List[str]:
-        """Get list of all graph node names (excludes supervisor)."""
-        return [agent.value for agent in self.agents.keys() if agent != AgentType.SUPERVISOR]
+        """Get list of all graph node names (excludes orchestrator and supervisor)."""
+        return [agent.value for agent in self.agents.keys() 
+                if agent not in (AgentType.ORCHESTRATOR, AgentType.SUPERVISOR)]
 
     @property
     def intent_to_agent_mapping(self) -> Dict[str, str]:
@@ -260,11 +262,19 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
         ),
     },
     agents={
+        AgentType.ORCHESTRATOR: AgentDefinition(
+            agent=AgentType.ORCHESTRATOR,
+            class_name="OrchestratorAgent",
+            display_name="Orchestrator",
+            description="Analyzes user intent and routes to appropriate specialized agents",
+            primary_intents=[],
+            config_key="orchestrator",
+        ),
         AgentType.SUPERVISOR: AgentDefinition(
             agent=AgentType.SUPERVISOR,
             class_name="SupervisorAgent",
             display_name="Supervisor",
-            description="Orchestrates conversation flow and routes to appropriate agents",
+            description="Evaluates agent responses and manages conversation quality and flow",
             primary_intents=[],
             config_key="supervisor",
         ),
@@ -413,8 +423,9 @@ def get_agent_routing_literal():
     Returns:
         Tipo Literal con todos los agentes válidos para routing más "__end__"
     """
-    # Obtener todos los agentes excepto SUPERVISOR
-    agent_names = [agent.value for agent in AgentType if agent != AgentType.SUPERVISOR]
+    # Obtener todos los agentes especializados (excluye ORCHESTRATOR y SUPERVISOR)
+    agent_names = [agent.value for agent in AgentType 
+                   if agent not in (AgentType.ORCHESTRATOR, AgentType.SUPERVISOR)]
     # Agregar __end__ para terminación
     routing_options = ["__end__"] + agent_names
     return routing_options
@@ -432,12 +443,13 @@ def get_agent_type_mapping() -> Dict[str, AgentType]:
 
 def get_non_supervisor_agents() -> List[AgentType]:
     """
-    Obtiene todos los tipos de agente excepto SUPERVISOR.
+    Obtiene todos los tipos de agente especializados (excluye ORCHESTRATOR y SUPERVISOR).
 
     Returns:
-        Lista de AgentType sin el supervisor
+        Lista de AgentType especializados sin orchestrator ni supervisor
     """
-    return [agent for agent in AgentType if agent != AgentType.SUPERVISOR]
+    return [agent for agent in AgentType 
+            if agent not in (AgentType.ORCHESTRATOR, AgentType.SUPERVISOR)]
 
 
 # Export the default schema instance

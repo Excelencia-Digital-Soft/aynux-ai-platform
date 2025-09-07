@@ -9,8 +9,9 @@ from typing import Optional
 
 import aiohttp
 from aiohttp import ClientTimeout
-from config.settings import get_settings
 
+from app.config.langsmith_config import trace_integration
+from app.config.settings import get_settings
 from app.models.dux import DuxApiError
 from app.models.dux.response_facturas import DuxFacturasResponse
 
@@ -38,6 +39,7 @@ class DuxFacturasClient:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Cierra la sesión HTTP"""
+        print("Cerrando sesión HTTP", exc_type, exc_val, exc_tb)
         if hasattr(self, "session"):
             await self.session.close()
 
@@ -49,15 +51,16 @@ class DuxFacturasClient:
             "User-Agent": "ConversaShop-Bot/1.0",
         }
 
+    @trace_integration("dux_get_facturas")
     async def get_facturas(
-        self, 
-        offset: int = 0, 
+        self,
+        offset: int = 0,
         limit: int = 20,
         fecha_desde: Optional[str] = None,
         fecha_hasta: Optional[str] = None,
         cliente_id: Optional[int] = None,
         estado: Optional[str] = None,
-        timeout_override: Optional[int] = None
+        timeout_override: Optional[int] = None,
     ) -> DuxFacturasResponse:
         """
         Obtiene facturas de la API DUX con filtros opcionales
@@ -79,13 +82,13 @@ class DuxFacturasClient:
             aiohttp.ClientError: Error de conexión
         """
         url = f"{self.base_url}/facturas"
-        
+
         # Construir parámetros de query
         params = {
             "offset": offset,
             "limit": limit,
         }
-        
+
         # Agregar filtros opcionales
         if fecha_desde:
             params["fecha_desde"] = fecha_desde
@@ -124,10 +127,7 @@ class DuxFacturasClient:
                             wrapped_data = data
                         elif "results" in data:
                             # Formato con paginación
-                            wrapped_data = {
-                                "facturas": data["results"],
-                                "paging": data.get("paging")
-                            }
+                            wrapped_data = {"facturas": data["results"], "paging": data.get("paging")}
                         else:
                             # Asumir que todo el objeto es la lista de facturas
                             wrapped_data = {"facturas": [data]}
@@ -140,8 +140,7 @@ class DuxFacturasClient:
                     except Exception as e:
                         self.logger.error(f"Error parsing DUX API facturas response: {e}")
                         raise DuxApiError(
-                            error_code="PARSE_ERROR", 
-                            error_message=f"Failed to parse facturas API response: {str(e)}"
+                            error_code="PARSE_ERROR", error_message=f"Failed to parse facturas API response: {str(e)}"
                         ) from e
 
                 elif response.status == 401:
@@ -246,6 +245,7 @@ class DuxFacturasClient:
             self.logger.error(f"Failed to get pending facturas: {e}")
             return None
 
+    @trace_integration("dux_facturas_test_connection")
     async def test_connection(self) -> bool:
         """
         Prueba la conexión con el endpoint de facturas de la API DUX
@@ -295,3 +295,4 @@ class DuxFacturasClientFactory:
         token = auth_token or "UyJ9PjF8mojO9NaexobUURe6mDlnts2J35jnaO8wKVxoSZK4RBTFa6tYZMvyJD7i"
 
         return DuxFacturasClient(auth_token=token, timeout_seconds=timeout_seconds)
+

@@ -38,6 +38,7 @@ class DuxRubrosClient:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Cierra la sesión HTTP"""
+        print("Cierre sesión HTTP...", exc_type, exc_val, exc_tb)
         if hasattr(self, "session"):
             await self.session.close()
 
@@ -199,4 +200,3 @@ class DuxRubrosClientFactory:
         token = auth_token or "UyJ9PjF8mojO9NaexobUURe6mDlnts2J35jnaO8wKVxoSZK4RBTFa6tYZMvyJD7i"
 
         return DuxRubrosClient(auth_token=token, timeout_seconds=timeout_seconds)
-

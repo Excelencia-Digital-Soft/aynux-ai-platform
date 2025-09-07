@@ -83,10 +83,10 @@ class LangGraphChatbotService:
         """Crea un placeholder simplificado para el sistema de seguridad"""
 
         class SecurityPlaceholder:
-            async def check_rate_limit(self, user_id: str) -> bool:
+            async def check_rate_limit(self, _: str) -> bool:
                 return True  # Permitir por defecto
 
-            async def check_message_content(self, message: str) -> Tuple[bool, Dict[str, Any]]:
+            async def check_message_content(self, _: str) -> Tuple[bool, Dict[str, Any]]:
                 return True, {"safe": True}
 
         return SecurityPlaceholder()
@@ -442,7 +442,7 @@ class LangGraphChatbotService:
             return "es"  # Default a español en caso de error
 
     async def _log_conversation_safely(
-        self, user_number: str, user_message: str, bot_response: str, agent_used: Optional[str], session_id: str
+        self, user_number: str, user_message: str, bot_response: str, agent_used: Optional[str], _: str
     ):
         """Registra la conversación en la base de datos (placeholder)"""
         try:
@@ -497,10 +497,11 @@ class LangGraphChatbotService:
             self.logger.error(f"Error recording metrics: {e}")
 
     # Métodos auxiliares adicionales...
-    async def _get_or_create_conversation(self, db, user_number: str, session_id: str) -> ConversationHistory:
+    async def _get_or_create_conversation(self, db, user_number: str, _: str) -> ConversationHistory:
         """Obtiene o crea una conversación en la base de datos"""
         # TODO: Implementar según modelo de datos
         # Por ahora, crear un objeto ConversationHistory con el user_id requerido
+        print("Getting or creating conversation", db)
         return ConversationHistory(user_id=user_number)
 
     async def get_conversation_history_langgraph(self, user_number: str, limit: int = 50) -> Dict[str, Any]:

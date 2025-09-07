@@ -5,6 +5,7 @@ Agente especializado en soporte técnico y atención al cliente
 import logging
 from typing import Any, Dict, List, Optional
 
+from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,12 @@ class SupportAgent(BaseAgent):
         # FAQ común
         self.faq_responses = self._load_faq_responses()
 
+    @trace_async_method(
+        name="support_agent_process",
+        run_type="agent",
+        metadata={"agent_type": "support", "escalation_enabled": True},
+        extract_state=True,
+    )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa consultas de soporte técnico."""
         try:
@@ -94,7 +101,7 @@ class SupportAgent(BaseAgent):
 
         return None
 
-    def _generate_support_response(self, message: str, problem_type: str) -> str:
+    def _generate_support_response(self, _: str, problem_type: str) -> str:
         """Genera respuesta de soporte personalizada."""
         responses = {
             "payment": """Entiendo que tienes problemas con el pago. Te puedo ayudar con:

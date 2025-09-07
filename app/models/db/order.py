@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -29,7 +29,7 @@ class Order(Base, TimestampMixin):
     discount_amount = Column(Numeric(10, 2), default=0)
 
     # Fechas importantes
-    order_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    order_date = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     shipped_date = Column(DateTime)
     delivered_date = Column(DateTime)
 

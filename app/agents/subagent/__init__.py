@@ -8,6 +8,7 @@ from .data_insights_agent import DataInsightsAgent
 from .fallback_agent import FallbackAgent
 from .farewell_agent import FarewellAgent
 from .invoice_agent import InvoiceAgent
+from .orchestrator_agent import OrchestratorAgent
 from .product_agent import ProductAgent
 from .promotions_agent import PromotionsAgent
 from .supervisor_agent import SupervisorAgent
@@ -21,6 +22,7 @@ __all__ = [
     "FallbackAgent",
     "FarewellAgent",
     "InvoiceAgent",
+    "OrchestratorAgent",
     "ProductAgent",
     "PromotionsAgent",
     "SupervisorAgent",

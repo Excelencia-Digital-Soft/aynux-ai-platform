@@ -5,15 +5,16 @@ This tool provides AI-powered SQL generation and execution capabilities
 for LangGraph agents to interact with data dynamically.
 """
 
-import logging
 import json
+import logging
 import re
-from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
-from app.database.async_db import get_async_db_context
 from app.agents.integrations.ollama_integration import OllamaIntegration
+from app.database.async_db import get_async_db_context
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +175,8 @@ Responde SOLO el JSON válido:"""
 
         try:
             response = await self.ollama.generate_response(
-                system_prompt="Eres un experto en análisis de consultas SQL. Extrae información estructurada de consultas en lenguaje natural.",
+                system_prompt="Eres un experto en análisis de consultas SQL. \
+                    Extrae información estructurada de consultas en lenguaje natural.",
                 user_prompt=intent_prompt,
                 temperature=0.1,
             )
@@ -259,13 +261,15 @@ Pregunta: "¿Cuántos pedidos se hicieron la semana pasada?"
 SQL: SELECT COUNT(*) as total_orders FROM orders WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY);
 
 Pregunta: "Muestra mis últimos 5 pedidos"
-SQL: SELECT o.*, p.name as product_name FROM orders o LEFT JOIN products p ON o.product_id = p.id ORDER BY o.created_at DESC LIMIT 5;
+SQL: SELECT o.*, p.name as product_name FROM orders o LEFT JOIN products p ON 
+    o.product_id = p.id ORDER BY o.created_at DESC LIMIT 5;
 
 Pregunta: "¿Cuántos productos tenemos en total?"
 SQL: SELECT COUNT(*) as total_products FROM products;
 
 Pregunta: "¿Cuáles son los productos más vendidos en Brasil?"
-SQL: SELECT p.name, COUNT(o.id) as sales_count FROM products p JOIN orders o ON p.id = o.product_id WHERE o.country = 'Brasil' GROUP BY p.id, p.name ORDER BY sales_count DESC LIMIT 10;
+SQL: SELECT p.name, COUNT(o.id) as sales_count FROM products p JOIN orders o ON p.id = o.product_id 
+    WHERE o.country = 'Brasil' GROUP BY p.id, p.name ORDER BY sales_count DESC LIMIT 10;
 
 ## RESPUESTA:
 Genera SOLO la consulta SQL válida. NO incluyas explicaciones, comentarios o notas.
@@ -275,7 +279,8 @@ SQL:"""
 
         try:
             response = await self.ollama.generate_response(
-                system_prompt="Eres un experto en SQL que genera consultas precisas y seguras basadas en esquemas de base de datos.",
+                system_prompt="Eres un experto en SQL que genera consultas precisas y seguras \
+                    basadas en esquemas de base de datos.",
                 user_prompt=sql_prompt,
                 temperature=0.1,
             )
@@ -286,7 +291,7 @@ SQL:"""
 
         except Exception as e:
             logger.error(f"Error generating SQL: {e}")
-            raise Exception(f"Failed to generate SQL query: {str(e)}")
+            raise Exception(f"Failed to generate SQL query: {str(e)}") from e
 
     async def _validate_and_sanitize_sql(self, sql_query: str, context: SQLGenerationContext) -> str:
         """Validate and sanitize the generated SQL query."""
@@ -334,16 +339,16 @@ SQL:"""
                 # Convert to list of dictionaries
                 if rows:
                     columns = result.keys()
-                    return [dict(zip(columns, row)) for row in rows]
+                    return [dict(zip(columns, row, strict=True)) for row in rows]
                 else:
                     return []
 
         except Exception as e:
             logger.error(f"Error executing SQL query: {e}")
-            raise Exception(f"Database query failed: {str(e)}")
+            raise Exception(f"Database query failed: {str(e)}") from e
 
     async def _generate_embedding_context(
-        self, user_query: str, results: List[Dict[str, Any]], intent_analysis: Dict[str, Any]
+        self, user_query: str, results: List[Dict[str, Any]], _: Dict[str, Any]
     ) -> str:
         """Generate embedding-ready context from query results."""
 
@@ -361,7 +366,8 @@ DATOS RELEVANTES:
 {json.dumps(results[:10], indent=2, default=str)}
 
 RESUMEN EJECUTIVO:
-Genera un resumen conciso y estructurado de estos datos que permita a un agente AI responder de manera informativa y útil. Incluye:
+Genera un resumen conciso y estructurado de estos datos que permita a un agente AI responder de manera 
+    informativa y útil. Incluye:
 - Números clave y estadísticas
 - Patrones o tendencias importantes
 - Respuesta directa a la pregunta original
@@ -371,7 +377,8 @@ Respuesta en español, máximo 300 palabras:"""
 
         try:
             context_summary = await self.ollama.generate_response(
-                system_prompt="Eres un analista de datos experto que resume información de manera clara y útil para agentes AI.",
+                system_prompt="Eres un analista de datos experto que resume información de manera \
+                    clara y útil para agentes AI.",
                 user_prompt=context_prompt,
                 temperature=0.3,
             )
@@ -626,4 +633,3 @@ Respuesta en español, máximo 300 palabras:"""
             summary += f"... y {len(results) - 3} registros más."
 
         return summary
-

@@ -10,6 +10,7 @@ from typing import Optional
 import aiohttp
 from aiohttp import ClientTimeout
 
+from app.config.langsmith_config import trace_integration
 from app.config.settings import get_settings
 from app.models.dux import DuxApiError
 from app.models.dux.response_items import DuxItemsResponse
@@ -38,6 +39,7 @@ class DuxApiClient:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Cierra la sesión HTTP"""
+        print("Cierre sesión HTTP", exc_type, exc_val, exc_tb)
         if hasattr(self, "session"):
             await self.session.close()
 
@@ -49,6 +51,7 @@ class DuxApiClient:
             "User-Agent": "ConversaShop-Bot/1.0",
         }
 
+    @trace_integration("dux_get_items")
     async def get_items(
         self, offset: int = 0, limit: int = 20, timeout_override: Optional[int] = None
     ) -> DuxItemsResponse:
@@ -131,6 +134,7 @@ class DuxApiClient:
             self.logger.error(error_msg)
             raise DuxApiError(error_code="UNEXPECTED_ERROR", error_message=error_msg) from e
 
+    @trace_integration("dux_test_connection")
     async def test_connection(self) -> bool:
         """
         Prueba la conexión con la API DUX

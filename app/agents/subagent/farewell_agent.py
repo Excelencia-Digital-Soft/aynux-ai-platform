@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from ..integrations.ollama_integration import OllamaIntegration
+from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,12 @@ class FarewellAgent(BaseAgent):
         super().__init__("farewell_agent", config or {}, ollama=ollama, postgres=postgres)
         self.ollama = ollama or OllamaIntegration()
 
+    @trace_async_method(
+        name="farewell_agent_process",
+        run_type="agent",
+        metadata={"agent_type": "farewell", "conversation_end": True},
+        extract_state=True,
+    )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Procesa despedidas y agradecimientos finales.

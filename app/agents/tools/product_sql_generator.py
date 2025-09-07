@@ -195,7 +195,6 @@ CRITERIOS:
         Crea análisis de complejidad básico como fallback.
         """
         query_lower = user_query.lower()
-        intent_type = intent.get("intent_type", "search_general")
 
         # Detectar patrones básicos
         requires_joins = any(word in query_lower for word in ["marca", "categoría", "brand", "category"])
@@ -290,7 +289,8 @@ Responde SOLO con el SQL, sin explicaciones.
 
         try:
             response = await self.ollama.generate_response(
-                system_prompt="Eres un experto desarrollador SQL especializado en e-commerce y bases de datos de productos.",
+                system_prompt="Eres un experto desarrollador SQL especializado en e-commerce y bases de \
+                    datos de productos.",
                 user_prompt=sql_prompt,
                 temperature=0.1,  # Baja temperatura para consistencia
             )
@@ -452,7 +452,7 @@ Responde SOLO con el SQL, sin explicaciones.
 
         # Verificar límites básicos
         if "LIMIT" not in sql_upper:
-            sql = sql.rstrip(";") + f" LIMIT 100;"
+            sql = sql.rstrip(";") + " LIMIT 100;"
 
         return sql
 
@@ -510,7 +510,7 @@ Responde SOLO con el SQL, sin explicaciones.
 
         except Exception as e:
             logger.error(f"Error executing product SQL: {e}")
-            raise ValueError(f"Error en ejecución SQL: {str(e)}")
+            raise ValueError(f"Error en ejecución SQL: {str(e)}") from e
 
     async def generate_aggregation_sql(
         self, user_query: str, intent: Dict[str, Any], aggregation_type: str = "count"

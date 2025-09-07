@@ -13,8 +13,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from app.agents.subagent.smart_product_agent import SmartProductAgent
 from app.agents.integrations.ollama_integration import OllamaIntegration
+from app.agents.subagent.smart_product_agent import SmartProductAgent
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +170,7 @@ class AgentRouter:
         """
         Construye contexto para la decisión de enrutamiento.
         """
+        print("Building routing context...", message)
         context_parts = []
 
         # Historial de agentes usados
@@ -287,6 +288,7 @@ def create_smart_product_graph(ollama: Optional[OllamaIntegration] = None, postg
 
     # Inicializar componentes
     router = AgentRouter(ollama)
+    print("Router initialized", router)
     smart_product_node = SmartProductAgentNode(ollama, postgres)
 
     # Crear grafo

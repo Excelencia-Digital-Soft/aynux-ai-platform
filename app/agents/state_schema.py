@@ -70,7 +70,15 @@ class LangGraphState(TypedDict):
     
     # Información de routing y análisis
     routing_decision: Optional[Dict[str, Any]]
+    orchestrator_analysis: Optional[Dict[str, Any]]
     supervisor_analysis: Optional[Dict[str, Any]]
+    supervisor_evaluation: Optional[Dict[str, Any]]
+    conversation_flow: Optional[Dict[str, Any]]
+    
+    # Nuevos campos para manejo de re-routing y calidad
+    needs_re_routing: Optional[bool]
+    routing_attempts: int
+    supervisor_retry_count: int
 
     # Metadatos y optimización
     conversation_checkpoint_id: Optional[str]

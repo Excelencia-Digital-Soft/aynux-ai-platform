@@ -5,6 +5,7 @@ Agente especializado en promociones y ofertas
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 
@@ -20,6 +21,12 @@ class PromotionsAgent(BaseAgent):
         self.eligibility_tool = PromotionEligibilityTool()
         self.coupon_tool = CouponGeneratorTool()
 
+    @trace_async_method(
+        name="promotions_agent_process",
+        run_type="agent",
+        metadata={"agent_type": "promotions", "personalization": "enabled"},
+        extract_state=True,
+    )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa consultas sobre promociones"""
         user_message = message
@@ -119,6 +126,7 @@ class PromotionsAgent(BaseAgent):
         self, message: str, promotions: List[Dict], personalized: List[Dict]
     ) -> Dict[str, Any]:
         """Maneja consultas sobre promociones de productos específicos"""
+        print("Handling product promotions...", personalized)
         # Buscar promociones relacionadas con el producto mencionado
         relevant_promos = []
 
@@ -338,6 +346,8 @@ class PersonalizedOffersTool:
 
     def generate_personalized_offers_sync(self, customer, promotions: List[Dict], context: str = "") -> List[Dict]:
         """Genera ofertas personalizadas basadas en el cliente"""
+
+        print(f"Genera ofertas...{promotions} {context}")
         if not customer:
             return []
 

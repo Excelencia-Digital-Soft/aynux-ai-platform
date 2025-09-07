@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from ..integrations.ollama_integration import OllamaIntegration
 from ..tools.category_tool import CategoryTool
+from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,12 @@ class CategoryAgent(BaseAgent):
         self.category_tool = CategoryTool()
         self.ollama = ollama or OllamaIntegration()
 
+    @trace_async_method(
+        name="category_agent_process",
+        run_type="agent",
+        metadata={"agent_type": "category", "use_vector_search": "enabled"},
+        extract_state=True,
+    )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Procesa consultas de categorías usando AI y base de datos."""
         try:
@@ -161,7 +168,7 @@ Responde breve, menciona 3-4 categorías principales. Usa emojis. Máximo 3 lín
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:
-            logger.error(f"Error generating AI response: {str(e)}")
+            logger.error(f"Error generating AI response: {str(e)}, {intent_analysis}")
             # Fallback to formatted response
             return self._generate_fallback_response(categories)
 

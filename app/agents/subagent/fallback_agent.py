@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from ..integrations.ollama_integration import OllamaIntegration
+from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,12 @@ class FallbackAgent(BaseAgent):
         super().__init__("fallback_agent", config or {}, ollama=ollama, postgres=postgres)
         self.ollama = ollama or OllamaIntegration()
 
+    @trace_async_method(
+        name="fallback_agent_process",
+        run_type="agent",
+        metadata={"agent_type": "fallback", "recovery_mode": "active"},
+        extract_state=True,
+    )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Procesa mensajes no reconocidos y guía al usuario.

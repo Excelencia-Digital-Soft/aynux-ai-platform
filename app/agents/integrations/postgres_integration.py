@@ -165,7 +165,7 @@ class PostgreSQLIntegration:
         """
         if self.async_session is None:
             raise RuntimeError("Database not initialized. Call initialize() first.")
-        
+
         try:
             async with self.async_session() as session:
                 if params:
@@ -352,6 +352,7 @@ class PostgreSQLIntegration:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit"""
+        print("Closing PostgreSQL connection", exc_type, exc_val, exc_tb)
         await self.close()
 
     # Métodos de conveniencia para operaciones comunes
@@ -368,7 +369,7 @@ class PostgreSQLIntegration:
         """
         if self.async_session is None:
             raise RuntimeError("Database not initialized. Call initialize() first.")
-        
+
         try:
             async with self.async_session() as session:
                 # Usar raw SQL para hacer upsert correctamente
@@ -400,7 +401,7 @@ class PostgreSQLIntegration:
         """
         if self.async_session is None:
             raise RuntimeError("Database not initialized. Call initialize() first.")
-        
+
         try:
             async with self.async_session() as session:
                 query = """

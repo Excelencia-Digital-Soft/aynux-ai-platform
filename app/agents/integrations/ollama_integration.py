@@ -10,6 +10,7 @@ import httpx
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 from app.config.settings import get_settings
+from app.config.langsmith_config import trace_integration
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,8 @@ class OllamaIntegration:
         # Cache de modelos
         self._llm_cache = {}
         self._embedding_cache = None
+        
+        # LangSmith tracing will be handled by decorators
 
     def get_llm(self, temperature: float = 0.7, model: Optional[str] = None, **kwargs) -> ChatOllama:
         """
@@ -83,6 +86,7 @@ class OllamaIntegration:
 
         return self._embedding_cache
 
+    @trace_integration("ollama_health_check")
     async def health_check(self) -> bool:
         """
         Verifica la disponibilidad del servicio Ollama
@@ -159,6 +163,7 @@ class OllamaIntegration:
             logger.error(f"Error pulling model {model_name}: {e}")
             return False
 
+    @trace_integration("ollama_test_llm")
     async def test_llm(self, test_prompt: str = "Hello, world!") -> bool:
         """
         Prueba la funcionalidad del LLM
@@ -179,6 +184,7 @@ class OllamaIntegration:
             logger.error(f"LLM test failed: {e}")
             return False
 
+    @trace_integration("ollama_test_embeddings")
     async def test_embeddings(self, test_text: str = "Hello, world!") -> bool:
         """
         Prueba la funcionalidad de embeddings
@@ -312,6 +318,7 @@ class OllamaIntegration:
 
         return RetryLLM(base_llm, max_retries, backoff_factor)
 
+    @trace_integration("ollama_generate_response")
     async def generate_response(
         self,
         system_prompt: str,

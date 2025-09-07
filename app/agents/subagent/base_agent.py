@@ -5,6 +5,7 @@ Agente base para todos los agentes especializados
 import logging
 import time
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.config.langsmith_config import get_tracer
@@ -159,3 +160,12 @@ class BaseAgent(ABC):
                 "integrations": list(self.integrations.keys()),
             },
         }
+
+    def get_current_timestamp(self) -> str:
+        """
+        Get current timestamp in ISO format.
+        
+        Returns:
+            Current timestamp as ISO formatted string
+        """
+        return datetime.now(timezone.utc).isoformat()
