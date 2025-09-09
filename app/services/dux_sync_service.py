@@ -44,10 +44,11 @@ class DuxProductMapper:
         product_data = {
             "name": dux_item.item.strip(),
             "description": f"Producto {dux_item.item} - Código: {dux_item.cod_item}",
+            "specs": f"SKU: {dux_item.cod_item}",  # Required field - basic specs
             "price": float(price),
             "stock": int(stock) if stock >= 0 else 0,
             "sku": dux_item.cod_item,
-            "is_active": True,
+            "active": True,  # Changed from is_active to active
             # Campos adicionales específicos de DUX
             "cost": float(Decimal(dux_item.costo)) if dux_item.costo else 0.0,
             "tax_percentage": float(Decimal(dux_item.porc_iva)) if dux_item.porc_iva else 0.0,
@@ -72,8 +73,10 @@ class DuxProductMapper:
         Returns:
             Dict con los campos de Category
         """
+        category_name = dux_item.rubro.rubro.strip() if dux_item.rubro.rubro else "Sin categoría"
         return {
-            "name": dux_item.rubro.rubro.strip(),
+            "name": category_name,
+            "display_name": category_name,  # Required field - using same as name
             "description": f"Categoría importada de DUX - ID: {dux_item.rubro.id_rubro}",
             "external_id": str(dux_item.rubro.id_rubro),
         }
@@ -92,8 +95,10 @@ class DuxProductMapper:
         if not dux_item.marca.marca:
             return None
 
+        brand_name = dux_item.marca.marca.strip()
         return {
-            "name": dux_item.marca.marca.strip(),
+            "name": brand_name,
+            "display_name": brand_name,  # Required field - using same as name
             "description": "Marca importada de DUX",
             "external_code": dux_item.marca.codigo_marca,
         }
@@ -220,21 +225,26 @@ class DuxSyncService:
                 async with AsyncSessionLocal() as session:
                     for dux_item in response.results:
                         try:
-                            item_result = await self._sync_single_product(session, dux_item)
+                            # Use a savepoint for each product to isolate errors
+                            async with session.begin_nested():
+                                item_result = await self._sync_single_product(session, dux_item)
 
-                            if item_result["created"]:
-                                batch_result.total_created += 1
-                            elif item_result["updated"]:
-                                batch_result.total_updated += 1
+                                if item_result["created"]:
+                                    batch_result.total_created += 1
+                                elif item_result["updated"]:
+                                    batch_result.total_updated += 1
 
-                            batch_result.total_processed += 1
+                                batch_result.total_processed += 1
 
                         except Exception as e:
+                            # Rollback just this product's transaction
+                            await session.rollback()
                             error_msg = f"Error syncing product {dux_item.cod_item}: {str(e)}"
                             batch_result.add_error(error_msg)
                             self.logger.warning(error_msg)
+                            # Continue with the next product
 
-                    # Commit del lote
+                    # Commit all successful products
                     await session.commit()
             else:
                 # En dry run, solo contar
@@ -276,6 +286,13 @@ class DuxSyncService:
         product_data["category_id"] = category.id
         if brand:
             product_data["brand_id"] = brand.id
+        
+        # Remove fields that don't exist in the Product model
+        fields_to_check = ['cost', 'tax_percentage', 'external_code', 'image_url', 'barcode']
+        for field in fields_to_check:
+            if field in product_data and not hasattr(Product, field):
+                del product_data[field]
+                self.logger.debug(f"Removed {field} from product_data as field doesn't exist in model")
 
         sync_result = {}
         product_for_callback = None
@@ -285,8 +302,10 @@ class DuxSyncService:
             for key, value in product_data.items():
                 if hasattr(existing_product, key):
                     setattr(existing_product, key, value)
+                else:
+                    self.logger.debug(f"Skipping field {key} as it doesn't exist in Product model")
 
-            existing_product.updated_at = datetime.now()
+            existing_product.updated_at = datetime.now()  # Using naive datetime
             sync_result = {"created": False, "updated": True}
             product_for_callback = existing_product
         else:
@@ -321,13 +340,27 @@ class DuxSyncService:
 
     async def _get_or_create_category(self, session: AsyncSession, dux_item: DuxItem) -> Category:
         """Obtiene o crea una categoría"""
-        # Buscar por external_id
-        stmt = select(Category).where(Category.external_id == str(dux_item.rubro.id_rubro))
-        result = await session.execute(stmt)
-        category = result.scalar_one_or_none()
+        # Check if Category model has external_id field (for backward compatibility)
+        if hasattr(Category, 'external_id'):
+            # Buscar por external_id
+            stmt = select(Category).where(Category.external_id == str(dux_item.rubro.id_rubro))
+            result = await session.execute(stmt)
+            category = result.scalar_one_or_none()
+        else:
+            # Fallback: buscar por nombre si external_id no existe
+            self.logger.warning("Category model doesn't have external_id field, using name-based lookup")
+            stmt = select(Category).where(Category.name == dux_item.rubro.rubro.strip())
+            result = await session.execute(stmt)
+            category = result.scalar_one_or_none()
 
         if not category:
             category_data = self.mapper.map_dux_category(dux_item)
+            
+            # Remove external_id if the field doesn't exist in the model
+            if not hasattr(Category, 'external_id') and 'external_id' in category_data:
+                del category_data['external_id']
+                self.logger.warning("Removed external_id from category_data as field doesn't exist in model")
+            
             category = Category(**category_data)
             session.add(category)
             await session.flush()  # Para obtener el ID
@@ -346,6 +379,11 @@ class DuxSyncService:
         brand = result.scalar_one_or_none()
 
         if not brand:
+            # Remove external_code if the field doesn't exist in the model
+            if not hasattr(Brand, 'external_code') and 'external_code' in brand_data:
+                del brand_data['external_code']
+                self.logger.warning("Removed external_code from brand_data as field doesn't exist in model")
+            
             brand = Brand(**brand_data)
             session.add(brand)
             await session.flush()  # Para obtener el ID

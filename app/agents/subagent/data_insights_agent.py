@@ -59,7 +59,7 @@ class DataInsightsAgent(BaseAgent):
 
     @trace_async_method(
         name="data_insights_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "data_insights", "sql_generation": "ai_powered"},
         extract_state=True,
     )

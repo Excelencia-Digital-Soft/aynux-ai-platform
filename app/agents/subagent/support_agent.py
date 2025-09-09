@@ -22,7 +22,7 @@ class SupportAgent(BaseAgent):
 
     @trace_async_method(
         name="support_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "support", "escalation_enabled": True},
         extract_state=True,
     )

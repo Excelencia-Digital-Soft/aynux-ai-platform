@@ -64,7 +64,7 @@ class SmartProductAgent(BaseAgent):
 
     @trace_async_method(
         name="smart_product_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "smart_product", "ai_search": "semantic_sql"},
         extract_state=True,
     )

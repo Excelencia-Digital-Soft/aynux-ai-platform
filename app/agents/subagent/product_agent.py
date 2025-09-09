@@ -4,8 +4,14 @@ Agente especializado en consultas de productos
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+import os
+from typing import Any, Dict, List, Optional, Tuple, cast
 
+from langchain_core.documents import Document
+
+from app.config.settings import get_settings
+
+from ..integrations.chroma_integration import ChromaDBIntegration
 from ..integrations.ollama_integration import OllamaIntegration
 from ..tools.product_tool import ProductTool
 from ..utils.tracing import trace_async_method
@@ -30,12 +36,21 @@ class ProductAgent(BaseAgent):
         self.product_tool = ProductTool()
         self.ollama = ollama or OllamaIntegration()
 
-        # Always use PostgreSQL database
+        # Initialize ChromaDB integration for semantic search (all products)
+        all_products_path = os.path.join(get_settings().OLLAMA_API_CHROMADB, "products", "all_products")
+        self.chroma = ChromaDBIntegration(all_products_path)
+        self.chroma_collection = "products_all_products"
+
+        # Configure search thresholds (lower threshold for better recall)
+        self.min_chroma_results = 2
+        self.similarity_threshold = 0.5  # Lowered from 0.7 for better semantic matching
+
+        # Always use PostgreSQL database as fallback
         self.data_source = "database"
 
     @trace_async_method(
         name="product_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "product", "data_source": "database"},
         extract_state=True,
     )
@@ -54,25 +69,57 @@ class ProductAgent(BaseAgent):
             # Analyze user intent using AI
             intent_analysis = await self._analyze_user_intent(message)
 
-            # Search products based on intent (always from database)
-            products_data = await self._get_products_from_db(intent_analysis)
+            # Step 1: Try ChromaDB semantic search first
+            self.logger.debug("Attempting ChromaDB semantic search...")
+            chroma_data = await self._query_products_from_chroma(message, intent_analysis)
 
-            if not products_data["success"]:
-                raise Exception(f"Error fetching products: {products_data.get('error', 'Unknown error')}")
+            products = []
+            response_text = ""
+            source = "chroma"
 
-            products = products_data.get("products", [])
+            # Check if ChromaDB returned sufficient relevant results
+            chroma_products = chroma_data.get("products", [])
+            chroma_success = chroma_data.get("success", False)
 
-            # Generate AI-powered response
-            if not products:
-                response_text = await self._generate_no_results_response(message, intent_analysis)
+            if chroma_success and len(chroma_products) >= self.min_chroma_results:
+                # ChromaDB found sufficient results - use them
+                products = chroma_products
+                self.logger.info(f"Using ChromaDB results: {len(products)} products found")
+
+                # Generate response using ChromaDB-specific AI prompt
+                response_text = await self._generate_chroma_ai_response(products, message, intent_analysis, chroma_data)
+
             else:
-                response_text = await self._generate_ai_response(products, message, intent_analysis)
+                # Step 2: Fallback to database search
+                self.logger.info(
+                    f"ChromaDB insufficient results ({len(chroma_products)}),\
+                    falling back to database search..."
+                )
+
+                products_data = await self._get_products_from_db(intent_analysis)
+
+                if not products_data["success"]:
+                    raise Exception(f"Error fetching products: {products_data.get('error', 'Unknown error')}")
+
+                products = products_data.get("products", [])
+                source = "database"
+
+                # Generate AI-powered response using traditional method
+                if not products:
+                    response_text = await self._generate_no_results_response(message, intent_analysis)
+                else:
+                    response_text = await self._generate_ai_response(products, message, intent_analysis)
 
             return {
                 "messages": [{"role": "assistant", "content": response_text}],
                 "current_agent": self.name,
                 "agent_history": [self.name],
-                "retrieved_data": {"products": products, "intent": intent_analysis},
+                "retrieved_data": {
+                    "products": products,
+                    "intent": intent_analysis,
+                    "source": source,
+                    "chroma_metadata": chroma_data if source == "chroma" else None,
+                },
                 "is_complete": True,
             }
 
@@ -231,6 +278,260 @@ For search_terms, only include meaningful product-related words, not filler word
 
         return await self.product_tool("advanced_search", **search_params)
 
+    async def _query_products_from_chroma(self, user_query: str, intent_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Query products from ChromaDB using semantic search.
+
+        Args:
+            user_query: Original user query
+            intent_analysis: AI-analyzed user intent
+
+        Returns:
+            Dict with success, products, and metadata
+        """
+        try:
+            # Construct semantic search query in English for better embedding matching
+            search_terms = intent_analysis.get("search_terms", [])
+            category = intent_analysis.get("category")
+            brand = intent_analysis.get("brand")
+            specific_product = intent_analysis.get("specific_product")
+
+            # Build comprehensive search query
+            query_parts = []
+
+            if specific_product:
+                query_parts.append(f"product: {specific_product}")
+            elif search_terms:
+                query_parts.append(" ".join(search_terms))
+
+            if category:
+                query_parts.append(f"category: {category}")
+
+            if brand:
+                query_parts.append(f"brand: {brand}")
+
+            # Fallback to original user query if no specific terms
+            semantic_query = " ".join(query_parts) if query_parts else user_query
+
+            self.logger.debug(f"ChromaDB semantic search query: '{semantic_query}'")
+
+            # Perform semantic search (returns List[Tuple[Document, float]] when include_scores=True)
+            results = await self.chroma.search_similar(
+                collection_name=self.chroma_collection,
+                query=semantic_query,
+                k=10,  # Get more results to filter
+                include_scores=True,
+            )
+
+            # Cast to correct type since we know include_scores=True returns tuples
+            results = cast(List[Tuple[Document, float]], results)
+
+            if not results:
+                self.logger.info("No results from ChromaDB semantic search")
+                return {"success": True, "products": [], "source": "chroma", "query": semantic_query}
+
+            # Process results and extract product information
+            products = []
+            for result in results:
+                try:
+                    # Unpack the tuple (Document, score)
+                    if isinstance(result, tuple) and len(result) == 2:
+                        doc, score = result
+                    else:
+                        # Fallback if structure is unexpected
+                        self.logger.warning(f"Unexpected result structure: {type(result)}")
+                        continue
+
+                    # Filter by similarity threshold
+                    if score < self.similarity_threshold:
+                        continue
+
+                    # Parse metadata to reconstruct product data
+                    metadata = doc.metadata
+                    product_data = {
+                        "id": metadata.get("product_id"),
+                        "name": metadata.get("name", ""),
+                        "description": metadata.get("description", ""),
+                        "price": float(metadata.get("price", 0)),
+                        "stock": int(metadata.get("stock", 0)),
+                        "sku": metadata.get("sku", ""),
+                        "category": {
+                            "name": metadata.get("category_name", ""),
+                            "display_name": metadata.get("category_display_name", ""),
+                        },
+                        "brand": {"name": metadata.get("brand_name", "")} if metadata.get("brand_name") else None,
+                        "specs": metadata.get("specs", ""),
+                        "similarity_score": float(score),
+                    }
+
+                    products.append(product_data)
+
+                except Exception as e:
+                    self.logger.warning(f"Error processing ChromaDB result: {e}")
+                    continue
+
+            # Sort by similarity score (descending)
+            products.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
+
+            # Limit to max products shown
+            products = products[: self.max_products_shown]
+
+            self.logger.info(
+                f"ChromaDB found {len(products)} relevant products (similarity >= {self.similarity_threshold})"
+            )
+
+            return {
+                "success": True,
+                "products": products,
+                "source": "chroma",
+                "query": semantic_query,
+                "total_results": len(results),
+                "filtered_results": len(products),
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error querying ChromaDB: {str(e)}")
+            return {"success": False, "error": str(e), "products": [], "source": "chroma"}
+
+    async def _generate_chroma_ai_response(
+        self,
+        products: List[Dict[str, Any]],
+        message: str,
+        _: Dict[str, Any],
+        chroma_metadata: Dict[str, Any],
+    ) -> str:
+        """Generate AI-powered response specifically for ChromaDB semantic search results."""
+        # Prepare product information for AI in structured format
+        product_info = []
+        for product in products:
+            info = {
+                "name": product["name"],
+                "brand": product.get("brand", {}).get("name", "N/A") if product.get("brand") else "N/A",
+                "price": f"${product['price']:.2f}",
+                "stock": "Available" if product["stock"] > 0 else "Out of stock",
+                "stock_count": product["stock"],
+                "category": product.get("category", {}).get("display_name", "N/A"),
+                "description": product.get("description", "")[:150] + "..."
+                if len(product.get("description", "")) > 150
+                else product.get("description", ""),
+                "specs": product.get("specs", "")[:100] + "..."
+                if len(product.get("specs", "")) > 100
+                else product.get("specs", ""),
+                "similarity_score": product.get("similarity_score", 0),
+                "sku": product.get("sku", ""),
+            }
+            product_info.append(info)
+
+        # Create structured product data for the prompt
+        products_json = []
+        for info in product_info:
+            products_json.append(f"""{{
+    "name": "{info["name"]}",
+    "brand": "{info["brand"]}",
+    "price": "{info["price"]}",
+    "stock": "{info["stock"]} ({info["stock_count"]} units)",
+    "category": "{info["category"]}",
+    "description": "{info["description"]}",
+    "relevance": {info["similarity_score"]:.3f}
+}}""")
+
+        products_text = ",\n".join(products_json)
+
+        # Enhanced English prompt for better multilingual understanding and processing
+        prompt = f"""# E-COMMERCE PRODUCT SEARCH ASSISTANT
+
+## USER QUERY
+"{message}"
+
+## LANGUAGE DETECTION & RESPONSE REQUIREMENT
+IMPORTANT: Detect the language of the user's query and respond in the SAME language.
+- If Spanish → Respond in Spanish
+- If English → Respond in English  
+- If Portuguese → Respond in Portuguese
+- Default: Spanish
+
+## SEMANTIC SEARCH RESULTS
+Found {len(products)} relevant products from vector database:
+[
+{products_text}
+]
+
+## SEARCH METADATA
+- Source: ChromaDB semantic search
+- Query processed: "{chroma_metadata.get("query", message)}"
+- Total results found: {chroma_metadata.get("total_results", 0)}
+- Results after filtering: {chroma_metadata.get("filtered_results", len(products))}
+
+## INSTRUCTIONS
+You are a helpful multilingual e-commerce assistant. Based on the semantic search results above:
+
+1. **ANALYZE LANGUAGE**: Detect user's language and respond accordingly
+2. **ANALYZE RELEVANCE**: Review the similarity scores and product details
+3. **PRIORITIZE RESULTS**: Focus on products with higher relevance scores (>0.7 excellent, >0.5 good)
+4. **GENERATE RESPONSE**: Create a natural, conversational response that:
+   - Highlights the most relevant products (top 3-5)
+   - Includes key details: name, brand, price, stock status
+   - Uses natural language and friendly tone
+   - Includes relevant emojis moderately (1-3 max)
+   - Mentions category if helpful for context
+   - Suggests alternatives if needed
+
+## RESPONSE FORMAT
+- Maximum 6 lines
+- Start with products found confirmation
+- List top products with essential details
+- End with helpful offer for more information
+
+## QUALITY REQUIREMENTS
+- **Language Match**: Respond in user's detected language
+- **Accuracy**: All prices and product details must be exact
+- **Relevance**: Prioritize higher similarity scores
+- **Completeness**: Include stock status and key specifications
+- **Tone**: Professional but friendly and helpful
+- **Brevity**: Concise but informative
+
+Generate your response now:"""
+
+        try:
+            # Use fast model for user-facing responses
+            llm = self.ollama.get_llm(temperature=0.7, model="llama3.2:1b")
+            response = await llm.ainvoke(prompt)
+            return response.content.strip()  # type: ignore
+        except Exception as e:
+            self.logger.error(f"Error generating ChromaDB AI response: {str(e)}")
+            # Fallback to formatted response
+            return self._format_chroma_fallback_response(products, chroma_metadata)
+
+    def _format_chroma_fallback_response(self, products: List[Dict[str, Any]], _: Dict[str, Any]) -> str:
+        """Fallback response formatting for ChromaDB results when AI fails."""
+        if not products:
+            return "🔍 Busqué en nuestro catálogo pero no encontré productos que coincidan exactamente con tu consulta.\
+                ¿Podrías ser más específico?"
+
+        count = len(products)
+        response = f"🎯 Encontré {count} producto{'s' if count > 1 else ''} relevante{'s' if count > 1 else ''}\
+            para tu búsqueda:\n\n"
+
+        for i, product in enumerate(products[:5], 1):
+            name = product["name"]
+            brand = product.get("brand", {}).get("name", "") if product.get("brand") else ""
+            price = product["price"]
+            stock = product["stock"]
+
+            response += f"{i}. **{name}**"
+            if brand:
+                response += f" ({brand})"
+            response += f" - ${price:,.2f}"
+
+            if stock > 0:
+                response += f" ✅ ({stock} disponibles)"
+            else:
+                response += " ❌ Sin stock"
+            response += "\n"
+
+        response += "\n¿Te interesa alguno? Puedo darte más detalles. 🛒"
+        return response
+
     async def _generate_ai_response(
         self, products: List[Dict[str, Any]], message: str, intent_analysis: Dict[str, Any]
     ) -> str:
@@ -262,22 +563,33 @@ For search_terms, only include meaningful product-related words, not filler word
 
             product_info.append(info)
 
-        prompt = f"""# CONSULTA DEL USUARIO
+        prompt = f"""# USER QUERY
 "{message}"
 
-# RESULTADOS
-Se encontraron {len(products)} productos relevantes. Aquí un resumen de los principales:
+# LANGUAGE DETECTION
+IMPORTANT: Detect the language of the user's query and respond in the SAME language.
+- Spanish query → Respond in Spanish
+- English query → Respond in English
+- Portuguese query → Respond in Portuguese
+- Default → Spanish
+
+# SEARCH RESULTS
+Found {len(products)} relevant products. Here's a summary of the main ones:
 {chr(10).join(product_info[:5])}
 
-# INSTRUCCIONES
-Responde brevemente destacando productos, precios y stock.
-- Sé claro y amigable.
-- No excedas 4 líneas.
-- Puedes usar emojis moderadamente.
-"""
+# INSTRUCTIONS
+Generate a brief response highlighting products, prices and stock availability:
+- Be clear and friendly
+- Maximum 5 lines
+- Use emojis moderately (1-3 max)
+- Match the user's language
+- Include key product details (name, price, stock status)
+
+Generate your response now:"""
 
         try:
-            llm = self.ollama.get_llm(temperature=0.7)
+            # Use fast model for user-facing responses
+            llm = self.ollama.get_llm(temperature=0.7, model="llama3.2:1b")
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:
@@ -298,7 +610,8 @@ No matches found. Suggest 2 relevant alternatives.
 """
 
         try:
-            llm = self.ollama.get_llm(temperature=0.7)
+            # Use fast model for user-facing responses
+            llm = self.ollama.get_llm(temperature=0.7, model="llama3.2:1b")
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:
@@ -332,7 +645,8 @@ No matching products found. Generate a helpful response that:
 - Include relevant emojis"""
 
         try:
-            llm = self.ollama.get_llm(temperature=0.7)
+            # Use fast model for user-facing responses
+            llm = self.ollama.get_llm(temperature=0.7, model="llama3.2:1b")
             response = await llm.ainvoke(prompt)
             return response.content.strip()  # type: ignore
         except Exception as e:

@@ -185,9 +185,13 @@ async def trace_context(name: str, metadata: Optional[Dict[str, Any]] = None, ta
         yield
         return
 
-    with tracing_v2_enabled(project_name=tracer.config.project_name, tags=tags or [], metadata=metadata or {}):
+    # Use the correct API for tracing_v2_enabled (without metadata parameter)
+    with tracing_v2_enabled(project_name=tracer.config.project_name, tags=tags or []):
         start_time = time.time()
         try:
+            # Store metadata in logger if provided
+            if metadata:
+                logger.debug(f"Trace context {name} started with metadata: {metadata}")
             yield
         finally:
             duration = (time.time() - start_time) * 1000
@@ -229,7 +233,7 @@ class AgentTracer:
             @wraps(func)
             @traceable(
                 name=f"{self.agent_name}_process",
-                run_type="agent",
+                run_type="chain",
                 metadata={
                     "agent_name": self.agent_name,
                     "agent_type": self.agent_type,
@@ -243,9 +247,15 @@ class AgentTracer:
                 try:
                     # Extract message and state
                     message = args[1] if len(args) > 1 else ""
+                    
+                    # Safely format message for logging
+                    if isinstance(message, str):
+                        message_preview = message[:100]
+                    else:
+                        message_preview = str(message)[:100]
 
                     # Log agent invocation
-                    logger.info(f"Agent {self.agent_name} processing message: {message[:100]}...")
+                    logger.info(f"Agent {self.agent_name} processing message: {message_preview}...")
 
                     result = await func(*args, **kwargs)
 
@@ -356,7 +366,7 @@ class IntegrationTracer:
             @wraps(func)
             @traceable(
                 name=f"{self.integration_name}_{operation}",
-                run_type="integration",
+                run_type="tool",
                 metadata={
                     "integration": self.integration_name,
                     "operation": operation,
@@ -399,7 +409,7 @@ def trace_langgraph_edge(from_node: str, to_node: str):
         @wraps(func)
         @traceable(
             name=f"edge_{from_node}_to_{to_node}",
-            run_type="edge",
+            run_type="chain",
             metadata={
                 "from_node": from_node,
                 "to_node": to_node,

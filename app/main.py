@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.api.middleware.auth_middleware import authenticate_request
 from app.api.router import api_router
 from app.config.settings import get_settings
+from app.config.langsmith_init import initialize_langsmith, get_langsmith_status
 
 sentry_sdk.init(
     dsn="https://d44f9586fda96f0cb06a8e8bda42a3bb@o4509520816963584.ingest.us.sentry.io/4509520843243520",
@@ -91,6 +92,19 @@ def create_app() -> FastAPI:
     async def startup_event():
         """Inicia servicios de background al arrancar la aplicación."""
         logger.info("Starting background services...")
+
+        # Initialize LangSmith tracing
+        try:
+            langsmith_initialized = initialize_langsmith(force=True)
+            if langsmith_initialized:
+                logger.info("✅ LangSmith tracing initialized successfully")
+                status = get_langsmith_status()
+                logger.info(f"   Project: {status.get('project')}")
+                logger.info(f"   Tracing enabled: {status.get('tracing_enabled')}")
+            else:
+                logger.warning("⚠️ LangSmith tracing not initialized (may be disabled or misconfigured)")
+        except Exception as e:
+            logger.error(f"Error initializing LangSmith: {e}")
 
         # Verificar configuraciones críticas
         try:

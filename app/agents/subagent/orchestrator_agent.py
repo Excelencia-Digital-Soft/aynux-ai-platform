@@ -37,7 +37,7 @@ class OrchestratorAgent(BaseAgent):
 
     @trace_async_method(
         name="orchestrator_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "orchestrator", "role": "intent_analysis"},
         extract_state=True,
     )

@@ -3,10 +3,12 @@ Message processing logic for LangGraph chatbot service
 """
 
 import logging
-from typing import Any, Dict
+from datetime import datetime
+from typing import Any, AsyncGenerator, Dict
 
 from app.agents.graph import EcommerceAssistantGraph
 from app.agents.schemas import ConversationContext, CustomerContext
+from app.models.chat import ChatStreamEvent, StreamEventType
 from app.models.message import WhatsAppMessage
 from app.utils.language_detector import get_language_detector
 
@@ -15,23 +17,25 @@ logger = logging.getLogger(__name__)
 
 class MessageProcessor:
     """Handles message processing and LangGraph integration"""
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.language_detector = get_language_detector({
-            "supported_languages": ["es", "en"],
-            "default_language": "es",
-            "confidence_threshold": 0.6,
-            "cache_size": 500,
-            "cache_ttl": 1800,  # 30 minutos
-        })
-    
+        self.language_detector = get_language_detector(
+            {
+                "supported_languages": ["es", "en"],
+                "default_language": "es",
+                "confidence_threshold": 0.6,
+                "cache_size": 500,
+                "cache_ttl": 1800,  # 30 minutos
+            }
+        )
+
     def extract_message_text(self, message: WhatsAppMessage) -> str:
         """Extrae el texto del mensaje de WhatsApp"""
         if hasattr(message, "text") and message.text:
             return message.text.body.strip()
         return ""
-    
+
     def detect_language(self, text: str) -> str:
         """Detecta el idioma del mensaje usando spaCy con fallback robusto"""
         try:
@@ -39,20 +43,20 @@ class MessageProcessor:
             detected_language = result.get("language", "es")
             confidence = result.get("confidence", 0.0)
             method = result.get("method", "unknown")
-            
+
             # Log para debugging (opcional)
             if confidence < 0.7:
                 self.logger.debug(
                     f"Language detection with low confidence: {detected_language} "
                     f"({confidence:.2f}) using {method} for text: '{text[:50]}...'"
                 )
-            
+
             return detected_language
-            
+
         except Exception as e:
             self.logger.warning(f"Error in language detection, falling back to default: {e}")
             return "es"  # Default a español en caso de error
-    
+
     async def process_with_langgraph(
         self,
         graph_system: EcommerceAssistantGraph,
@@ -63,21 +67,21 @@ class MessageProcessor:
     ) -> Dict[str, Any]:
         """
         Procesa el mensaje usando el sistema LangGraph multi-agente.
-        
+
         Args:
             graph_system: Sistema de graph LangGraph
             message_text: Texto del mensaje del usuario
             customer_context: Contexto del cliente
             conversation_context: Contexto de la conversación
             session_id: ID de la sesión
-            
+
         Returns:
             Diccionario con respuesta del graph y metadatos
         """
         try:
             if not graph_system:
                 raise RuntimeError("Graph system not initialized")
-            
+
             # Procesar con el graph multi-agente
             result = await graph_system.invoke(
                 message=message_text,
@@ -85,18 +89,18 @@ class MessageProcessor:
                 customer_data=customer_context.model_dump(),
                 conversation_data=conversation_context.model_dump(),
             )
-            
+
             # Extraer la respuesta del último mensaje AI
             response_text = "Lo siento, no pude procesar tu mensaje."
             agent_used = result.get("current_agent", "unknown")
-            
+
             # Buscar el último mensaje AI en los mensajes
             messages = result.get("messages", [])
             for msg in reversed(messages):
                 if hasattr(msg, "content") and msg.__class__.__name__ == "AIMessage":
                     response_text = msg.content
                     break
-            
+
             return {
                 "response": response_text,
                 "agent_used": agent_used,
@@ -105,7 +109,7 @@ class MessageProcessor:
                 "processing_time_ms": 0,  # TODO: Implement timing
                 "graph_result": result,
             }
-            
+
         except Exception as e:
             self.logger.error(f"Error in LangGraph processing: {e}")
             # Respuesta de fallback
@@ -117,11 +121,231 @@ class MessageProcessor:
                 "processing_time_ms": 0,
                 "error": str(e),
             }
-    
+
+    async def process_with_langgraph_stream(
+        self,
+        graph_system: EcommerceAssistantGraph,
+        message_text: str,
+        customer_context: CustomerContext,
+        conversation_context: ConversationContext,
+        session_id: str,
+    ) -> AsyncGenerator[ChatStreamEvent, None]:
+        """
+        Procesa el mensaje usando el sistema LangGraph multi-agente con streaming.
+
+        Args:
+            graph_system: Sistema de graph LangGraph
+            message_text: Texto del mensaje del usuario
+            customer_context: Contexto del cliente
+            conversation_context: Contexto de la conversación
+            session_id: ID de la sesión
+
+        Yields:
+            ChatStreamEvent: Eventos de streaming durante el procesamiento
+        """
+        try:
+            if not graph_system:
+                raise RuntimeError("Graph system not initialized")
+
+            # Verify that the graph system has the astream method
+            if not hasattr(graph_system, "astream"):
+                raise AttributeError("Graph system does not support streaming")
+
+            start_time = datetime.now()
+
+            # Emit initial thinking event
+            yield ChatStreamEvent(
+                event_type=StreamEventType.THINKING,
+                message="🤔 Analizando tu consulta...",
+                agent_current="orchestrator",
+                progress=0.1,
+                metadata={"step": "initial_analysis"},
+                timestamp=start_time.isoformat(),
+            )
+
+            step_count = 0
+            current_agent = "orchestrator"
+
+            # Stream through the graph execution
+            async for chunk in graph_system.astream(  # type: ignore[misc]
+                message=message_text,
+                conversation_id=session_id,
+                customer_data=customer_context.model_dump(),
+                conversation_data=conversation_context.model_dump(),
+            ):
+                step_count += 1
+
+                if chunk.get("type") == "stream_event":
+                    data = chunk.get("data", {})
+                    current_node = data.get("current_node", "unknown")
+
+                    # Map node names to user-friendly agent names and messages
+                    agent_info = self._map_node_to_agent_info(current_node, step_count)
+                    current_agent = agent_info["agent_name"]
+
+                    # Calculate progress based on step count
+                    progress = min(0.9, 0.1 + (step_count * 0.15))
+
+                    yield ChatStreamEvent(
+                        event_type=agent_info["event_type"],
+                        message=agent_info["message"],
+                        agent_current=current_agent,
+                        progress=progress,
+                        metadata={
+                            "step": step_count,
+                            "node": current_node,
+                            "state_preview": data.get("state_preview", {}),
+                        },
+                        timestamp=datetime.now().isoformat(),
+                    )
+
+                elif chunk.get("type") == "final_result":
+                    # Process final result
+                    result = chunk.get("data", {})
+
+                    # Extract response text from final result
+                    response_text = "Lo siento, no pude procesar tu mensaje."
+                    agent_used = result.get("current_agent", current_agent)
+
+                    # Get response from last AI message
+                    messages = result.get("messages", [])
+                    for msg in reversed(messages):
+                        if hasattr(msg, "content") and msg.__class__.__name__ == "AIMessage":
+                            response_text = msg.content
+                            break
+
+                    # Calculate processing time
+                    processing_time = (datetime.now() - start_time).total_seconds() * 1000
+
+                    # Emit final generation event
+                    yield ChatStreamEvent(
+                        event_type=StreamEventType.GENERATING,
+                        message="✨ Generando respuesta final...",
+                        agent_current=agent_used,
+                        progress=0.95,
+                        metadata={"step": "final_generation"},
+                        timestamp=datetime.now().isoformat(),
+                    )
+
+                    # Emit completion event with response
+                    yield ChatStreamEvent(
+                        event_type=StreamEventType.COMPLETE,
+                        message=response_text,
+                        agent_current=agent_used,
+                        progress=1.0,
+                        metadata={
+                            "requires_human": result.get("human_handoff_requested", False),
+                            "is_complete": result.get("is_complete", True),
+                            "processing_time_ms": int(processing_time),
+                            "total_steps": step_count,
+                            "session_id": session_id,
+                        },
+                        timestamp=datetime.now().isoformat(),
+                    )
+
+                elif chunk.get("type") == "error":
+                    # Emit error event
+                    error_data = chunk.get("data", {})
+                    yield ChatStreamEvent(
+                        event_type=StreamEventType.ERROR,
+                        message=f"❌ Error procesando tu mensaje: {error_data.get('error', 'Error desconocido')}",
+                        agent_current=current_agent,
+                        progress=0.0,
+                        metadata={"error": error_data.get("error")},
+                        timestamp=datetime.now().isoformat(),
+                    )
+                    break
+
+        except Exception as e:
+            self.logger.error(f"Error in LangGraph streaming: {e}")
+            # Emit error event
+            yield ChatStreamEvent(
+                event_type=StreamEventType.ERROR,
+                message="❌ Disculpa, tuve un problema procesando tu mensaje. ¿Podrías intentar de nuevo?",
+                agent_current="fallback",
+                progress=0.0,
+                metadata={"error": str(e)},
+                timestamp=datetime.now().isoformat(),
+            )
+
+    def _map_node_to_agent_info(self, node_name: str, step_count: int) -> Dict[str, Any]:
+        """Map LangGraph node names to user-friendly agent information"""
+
+        # Mapping of node names to user-friendly information
+        node_mapping = {
+            "orchestrator": {
+                "agent_name": "orchestrator",
+                "event_type": StreamEventType.THINKING,
+                "message": "🎯 Analizando el tipo de consulta...",
+            },
+            "supervisor": {
+                "agent_name": "supervisor",
+                "event_type": StreamEventType.PROCESSING,
+                "message": "🔍 Coordinando la respuesta...",
+            },
+            "product_agent": {
+                "agent_name": "product_agent",
+                "event_type": StreamEventType.PROCESSING,
+                "message": "🛍️ Buscando productos en el catálogo...",
+            },
+            "category_agent": {
+                "agent_name": "category_agent",
+                "event_type": StreamEventType.PROCESSING,
+                "message": "📂 Explorando categorías de productos...",
+            },
+            "promotions_agent": {
+                "agent_name": "promotions_agent",
+                "event_type": StreamEventType.PROCESSING,
+                "message": "🏷️ Revisando ofertas y promociones...",
+            },
+            "support_agent": {
+                "agent_name": "support_agent",
+                "event_type": StreamEventType.PROCESSING,
+                "message": "🛟 Preparando asistencia técnica...",
+            },
+            "tracking_agent": {
+                "agent_name": "tracking_agent",
+                "event_type": StreamEventType.PROCESSING,
+                "message": "📦 Consultando estado de pedidos...",
+            },
+            "invoice_agent": {
+                "agent_name": "invoice_agent",
+                "event_type": StreamEventType.PROCESSING,
+                "message": "🧾 Revisando información de facturación...",
+            },
+            "data_insights_agent": {
+                "agent_name": "data_insights_agent",
+                "event_type": StreamEventType.PROCESSING,
+                "message": "📊 Analizando datos y métricas...",
+            },
+            "fallback_agent": {
+                "agent_name": "fallback_agent",
+                "event_type": StreamEventType.PROCESSING,
+                "message": "🤝 Preparando asistencia general...",
+            },
+            "farewell_agent": {
+                "agent_name": "farewell_agent",
+                "event_type": StreamEventType.GENERATING,
+                "message": "👋 Preparando despedida...",
+            },
+        }
+
+        # Get agent info or use default
+        agent_info = node_mapping.get(
+            node_name,
+            {
+                "agent_name": node_name,
+                "event_type": StreamEventType.PROCESSING,
+                "message": f"⚙️ Procesando con {node_name}...",
+            },
+        )
+
+        return agent_info
+
     def create_customer_context(self, user_id: str, metadata: Dict[str, Any] = None) -> CustomerContext:
         """Crea contexto del cliente para chat genérico"""
         metadata = metadata or {}
-        
+
         return CustomerContext(
             customer_id=user_id,
             name=metadata.get("user_name", "Usuario"),
@@ -131,11 +355,13 @@ class MessageProcessor:
             purchase_history=[],
             preferences=metadata.get("preferences", {}),
         )
-    
-    def create_conversation_context(self, session_id: str, message_text: str, metadata: Dict[str, Any] = None) -> ConversationContext:
+
+    def create_conversation_context(
+        self, session_id: str, message_text: str, metadata: Dict[str, Any] = None
+    ) -> ConversationContext:
         """Crea contexto de conversación"""
         metadata = metadata or {}
-        
+
         return ConversationContext(
             conversation_id=session_id,
             session_id=session_id,

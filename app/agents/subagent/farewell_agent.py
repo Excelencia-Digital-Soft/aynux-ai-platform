@@ -22,7 +22,7 @@ class FarewellAgent(BaseAgent):
 
     @trace_async_method(
         name="farewell_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "farewell", "conversation_end": True},
         extract_state=True,
     )
@@ -84,7 +84,8 @@ Si ayudamos, agradece su confianza. Invita a volver en el futuro.
 """
 
         try:
-            llm = self.ollama.get_llm(temperature=0.8)
+            # Use fast model for user-facing responses
+            llm = self.ollama.get_llm(temperature=0.8, model="llama3.2:1b")
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:

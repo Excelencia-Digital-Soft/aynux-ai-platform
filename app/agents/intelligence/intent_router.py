@@ -2,6 +2,7 @@
 Router inteligente que usa IA con caché optimizado para detectar intenciones
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -324,11 +325,14 @@ class IntentRouter:
         user_prompt = get_build_llm_prompt(message, state_dict)
         response_text = ""
         try:
-            response_text = await self.ollama.generate_response(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                model=None,  # Use a default configured model
-                temperature=0.5,
+            response_text = await asyncio.wait_for(
+                self.ollama.generate_response(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    model=None,  # Use a default configured model
+                    temperature=0.5,
+                ),
+                timeout=8.0  # Add timeout to prevent hanging
             )
 
             # Limpiar respuesta para extraer solo el JSON

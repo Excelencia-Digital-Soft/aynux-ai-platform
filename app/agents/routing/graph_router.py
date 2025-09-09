@@ -22,8 +22,8 @@ class GraphRouter:
         
     @trace_sync_method(
         name="route_to_agent", 
-        run_type="routing", 
-        metadata={"operation": "agent_selection"}
+        run_type="chain", 
+        metadata={"operation": "agent_selection", "component": "router"}
     )
     def route_to_agent(self, state: LangGraphState) -> str:
         """
@@ -58,8 +58,8 @@ class GraphRouter:
     
     @trace_sync_method(
         name="supervisor_should_continue", 
-        run_type="routing", 
-        metadata={"operation": "supervisor_flow_decision"}
+        run_type="chain", 
+        metadata={"operation": "supervisor_flow_decision", "component": "router"}
     )
     def supervisor_should_continue(self, state: LangGraphState) -> Literal["continue", "__end__"]:
         """
@@ -116,8 +116,8 @@ class GraphRouter:
     
     @trace_sync_method(
         name="should_continue", 
-        run_type="routing", 
-        metadata={"operation": "continuation_decision"}
+        run_type="chain", 
+        metadata={"operation": "continuation_decision", "component": "router"}
     )
     def should_continue(self, state: LangGraphState) -> Literal["continue", "__end__"]:
         """

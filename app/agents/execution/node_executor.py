@@ -23,7 +23,7 @@ class NodeExecutor:
 
     @trace_async_method(
         name="execute_orchestrator",
-        run_type="langgraph_node",
+        run_type="chain",
         metadata={"node_type": "orchestrator", "role": "intent_routing"},
         extract_state=True,
     )
@@ -63,7 +63,7 @@ class NodeExecutor:
 
     @trace_async_method(
         name="execute_supervisor",
-        run_type="langgraph_node",
+        run_type="chain",
         metadata={"node_type": "supervisor", "role": "response_evaluation"},
         extract_state=True,
     )
@@ -124,7 +124,7 @@ class NodeExecutor:
 
     @trace_async_method(
         name="execute_agent",
-        run_type="langgraph_node",
+        run_type="chain",
         metadata={"operation": "agent_execution"},
         extract_state=True,
     )

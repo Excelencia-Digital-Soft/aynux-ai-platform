@@ -21,7 +21,7 @@ class FallbackAgent(BaseAgent):
 
     @trace_async_method(
         name="fallback_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "fallback", "recovery_mode": "active"},
         extract_state=True,
     )
@@ -80,7 +80,8 @@ Responde de forma amable y útil:
 """
 
         try:
-            llm = self.ollama.get_llm(temperature=0.7)
+            # Use fast model for user-facing responses
+            llm = self.ollama.get_llm(temperature=0.7, model="llama3.2:1b")
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:

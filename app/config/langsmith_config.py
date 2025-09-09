@@ -74,16 +74,33 @@ class LangSmithTracer:
         self._initialize_client()
 
     def _load_config(self) -> LangSmithConfig:
-        """Load configuration from environment variables."""
-        return LangSmithConfig(
-            api_key=os.getenv("LANGSMITH_API_KEY"),
-            project_name=os.getenv("LANGSMITH_PROJECT", "conversashop-production"),
-            tracing_enabled=os.getenv("LANGSMITH_TRACING_ENABLED", "true").lower() == "true",
-            verbose_tracing=os.getenv("LANGSMITH_VERBOSE", "false").lower() == "true",
-            trace_sample_rate=float(os.getenv("LANGSMITH_SAMPLE_RATE", "1.0")),
-            auto_eval_enabled=os.getenv("LANGSMITH_AUTO_EVAL", "false").lower() == "true",
-            metrics_enabled=os.getenv("LANGSMITH_METRICS_ENABLED", "true").lower() == "true",
-        )
+        """Load configuration from environment variables and settings."""
+        try:
+            from app.config.settings import get_settings
+            settings = get_settings()
+            
+            # Use settings if available, fallback to environment variables
+            return LangSmithConfig(
+                api_key=settings.LANGSMITH_API_KEY or os.getenv("LANGSMITH_API_KEY"),
+                api_url=settings.LANGSMITH_ENDPOINT or os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
+                project_name=settings.LANGSMITH_PROJECT or os.getenv("LANGSMITH_PROJECT", "conversashop-production"),
+                tracing_enabled=settings.LANGSMITH_TRACING if hasattr(settings, 'LANGSMITH_TRACING') else os.getenv("LANGSMITH_TRACING", "true").lower() == "true",
+                verbose_tracing=settings.LANGSMITH_VERBOSE if hasattr(settings, 'LANGSMITH_VERBOSE') else os.getenv("LANGSMITH_VERBOSE", "false").lower() == "true",
+                trace_sample_rate=float(os.getenv("LANGSMITH_SAMPLE_RATE", "1.0")),
+                auto_eval_enabled=os.getenv("LANGSMITH_AUTO_EVAL", "false").lower() == "true",
+                metrics_enabled=os.getenv("LANGSMITH_METRICS_ENABLED", "true").lower() == "true",
+            )
+        except ImportError:
+            # Fallback to environment variables if settings not available
+            return LangSmithConfig(
+                api_key=os.getenv("LANGSMITH_API_KEY"),
+                project_name=os.getenv("LANGSMITH_PROJECT", "conversashop-production"),
+                tracing_enabled=os.getenv("LANGSMITH_TRACING", "true").lower() == "true",
+                verbose_tracing=os.getenv("LANGSMITH_VERBOSE", "false").lower() == "true",
+                trace_sample_rate=float(os.getenv("LANGSMITH_SAMPLE_RATE", "1.0")),
+                auto_eval_enabled=os.getenv("LANGSMITH_AUTO_EVAL", "false").lower() == "true",
+                metrics_enabled=os.getenv("LANGSMITH_METRICS_ENABLED", "true").lower() == "true",
+            )
 
     def _initialize_client(self):
         """Initialize the LangSmith client."""
@@ -123,9 +140,8 @@ class LangSmithTracer:
             yield
             return
 
-        with tracing_v2_enabled(
-            project_name=self.config.project_name, tags=metadata.get("tags", []), metadata=metadata
-        ):
+        tags = metadata.get("tags", [])
+        with tracing_v2_enabled(project_name=self.config.project_name, tags=tags):
             yield
 
     @asynccontextmanager
@@ -141,12 +157,11 @@ class LangSmithTracer:
             yield
             return
 
-        with tracing_v2_enabled(
-            project_name=self.config.project_name, tags=metadata.get("tags", []), metadata=metadata
-        ):
+        tags = metadata.get("tags", [])
+        with tracing_v2_enabled(project_name=self.config.project_name, tags=tags):
             yield
 
-    def trace_agent(self, agent_name: str, agent_type: str = "agent"):
+    def trace_agent(self, agent_name: str, agent_type: str = "chain"):
         """
         Decorator for tracing agent executions.
 
@@ -162,7 +177,7 @@ class LangSmithTracer:
             @wraps(func)
             @traceable(
                 name=agent_name,
-                run_type=agent_type,
+                run_type="chain",  # Use 'chain' for agents as it's the closest valid type
                 project_name=self.config.project_name,
             )
             async def wrapper(*args, **kwargs):

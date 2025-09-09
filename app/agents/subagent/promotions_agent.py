@@ -23,7 +23,7 @@ class PromotionsAgent(BaseAgent):
 
     @trace_async_method(
         name="promotions_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "promotions", "personalization": "enabled"},
         extract_state=True,
     )

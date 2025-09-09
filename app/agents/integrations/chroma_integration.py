@@ -21,9 +21,14 @@ logger = logging.getLogger(__name__)
 class ChromaDBIntegration:
     """Gestiona la integración con ChromaDB para almacenamiento vectorial"""
 
-    def __init__(self, persist_directory: str = None):
+    def __init__(self, config: Union[str, Dict[str, Any]] = None):
         self.settings = get_settings()
-        self.persist_directory = persist_directory or self.settings.OLLAMA_API_CHROMADB
+
+        # Handle both string path and config dict
+        if isinstance(config, str):
+            self.persist_directory = config
+        elif isinstance(config, dict):
+            self.persist_directory = config.get("path", self.settings.OLLAMA_API_CHROMADB)
 
         # Asegurar que el directorio existe
         os.makedirs(self.persist_directory, exist_ok=True)

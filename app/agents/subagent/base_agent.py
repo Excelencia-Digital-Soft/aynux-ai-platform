@@ -33,7 +33,7 @@ class BaseAgent(ABC):
 
         # Initialize LangSmith tracing
         self.tracer = get_tracer()
-        self.agent_tracer = AgentTracer(name, "specialized_agent")
+        self.agent_tracer = AgentTracer(name, "chain")
 
     @abstractmethod
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:

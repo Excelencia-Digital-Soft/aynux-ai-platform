@@ -9,8 +9,8 @@ from typing import Optional
 import httpx
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
-from app.config.settings import get_settings
 from app.config.langsmith_config import trace_integration
+from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class OllamaIntegration:
 
     def __init__(self, config: dict = None, base_url: str = None, model_name: str = None):
         self.settings = get_settings()
-        
+
         # Handle config dictionary or individual parameters
         if config and isinstance(config, dict):
             self.base_url = config.get("base_url") or self.settings.OLLAMA_API_URL
@@ -34,7 +34,7 @@ class OllamaIntegration:
         # Cache de modelos
         self._llm_cache = {}
         self._embedding_cache = None
-        
+
         # LangSmith tracing will be handled by decorators
 
     def get_llm(self, temperature: float = 0.7, model: Optional[str] = None, **kwargs) -> ChatOllama:
@@ -343,8 +343,8 @@ class OllamaIntegration:
         try:
             llm = self.get_llm(temperature=temperature, model=model, num_predict=max_tokens)
 
-            # Crear el prompt combinado
-            full_prompt = f"{system_prompt}\n\nUsuario: {user_prompt}\n\nAsistente:"
+            # Crear el prompt combinado - sin "Asistente:" al final para evitar hang
+            full_prompt = f"{system_prompt}\n\nUsuario: {user_prompt}"
 
             # Generar respuesta
             response = await llm.ainvoke(full_prompt)

@@ -4,6 +4,7 @@ Responsabilidad: Controlar la frecuencia de requests para respetar límites de A
 """
 
 import asyncio
+import logging
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
@@ -184,4 +185,48 @@ class BatchRateLimiter:
 
 # Instancia global del rate limiter para DUX
 dux_rate_limiter = DuxApiRateLimiter()
+
+
+async def retry_with_rate_limit(
+    func, 
+    max_retries: int = 3, 
+    backoff_factor: float = 2.0,
+    logger: Optional[logging.Logger] = None
+):
+    """
+    Retry a function with exponential backoff for rate limit errors
+    
+    Args:
+        func: Async function to retry
+        max_retries: Maximum number of retry attempts
+        backoff_factor: Multiplier for backoff time
+        logger: Optional logger for retry messages
+    
+    Returns:
+        Result of the successful function call
+        
+    Raises:
+        Last exception if all retries fail
+    """
+    from app.models.dux import DuxApiError
+    
+    for attempt in range(max_retries + 1):
+        try:
+            return await func()
+        except DuxApiError as e:
+            if e.error_code == "RATE_LIMIT" and attempt < max_retries:
+                wait_time = backoff_factor ** attempt
+                if logger:
+                    logger.info(f"Rate limit hit, retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries + 1})")
+                await asyncio.sleep(wait_time)
+                continue
+            raise
+        except Exception as e:
+            if attempt < max_retries and "rate limit" in str(e).lower():
+                wait_time = backoff_factor ** attempt
+                if logger:
+                    logger.info(f"Possible rate limit error, retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries + 1})")
+                await asyncio.sleep(wait_time)
+                continue
+            raise
 

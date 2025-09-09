@@ -45,7 +45,7 @@ class SupervisorAgent(BaseAgent):
 
     @trace_async_method(
         name="supervisor_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "supervisor", "role": "response_evaluation"},
         extract_state=True,
     )
@@ -282,7 +282,7 @@ Now, provide the enhanced customer service response:"""
 
             # Llamar a Ollama para mejorar la respuesta
             if self.ollama:
-                llm = self.ollama.get_llm(temperature=0.7)
+                llm = self.ollama.get_llm(temperature=0.7, model="llama3.2:1b")
                 response = await llm.ainvoke(enhancement_prompt)
                 enhanced_response = response.content if response else None
 

@@ -15,6 +15,7 @@ from app.config.langsmith_config import trace_integration
 from app.config.settings import get_settings
 from app.models.dux import DuxApiError
 from app.models.dux.response_items import DuxItemsResponse
+from app.utils.rate_limiter import dux_rate_limiter
 
 
 class DuxApiClient:
@@ -156,10 +157,23 @@ class DuxApiClient:
             bool: True si la conexión es exitosa
         """
         try:
+            # Aplicar rate limiting antes de la prueba de conexión
+            rate_info = await dux_rate_limiter.wait_for_next_request()
+            if rate_info['wait_time_seconds'] > 0:
+                self.logger.debug(f"Rate limit wait for connection test: {rate_info['wait_time_seconds']:.2f}s")
+            
             # Intentar obtener solo 1 item para probar la conexión
             await self.get_items(offset=0, limit=1)
             self.logger.info("DUX API connection test successful")
             return True
+        except DuxApiError as e:
+            if e.error_code == "RATE_LIMIT":
+                # Para rate limits, registrar pero no fallar inmediatamente
+                self.logger.warning(f"DUX API rate limited during connection test: {e.error_message}")
+                return False
+            else:
+                self.logger.error(f"DUX API connection test failed: {e}")
+                return False
         except Exception as e:
             self.logger.error(f"DUX API connection test failed: {e}")
             return False

@@ -9,10 +9,11 @@ from typing import Optional
 
 import aiohttp
 from aiohttp import ClientTimeout
-from config.settings import get_settings
 
+from app.config.settings import get_settings
 from app.models.dux import DuxApiError
 from app.models.dux.response_rubros import DuxRubrosResponse
+from app.utils.rate_limiter import dux_rate_limiter
 
 
 class DuxRubrosClient:
@@ -138,9 +139,22 @@ class DuxRubrosClient:
             bool: True si la conexión es exitosa
         """
         try:
+            # Aplicar rate limiting antes de la prueba de conexión
+            rate_info = await dux_rate_limiter.wait_for_next_request()
+            if rate_info['wait_time_seconds'] > 0:
+                self.logger.debug(f"Rate limit wait for rubros connection test: {rate_info['wait_time_seconds']:.2f}s")
+            
             await self.get_rubros()
             self.logger.info("DUX API rubros connection test successful")
             return True
+        except DuxApiError as e:
+            if e.error_code == "RATE_LIMIT":
+                # Para rate limits, registrar pero no fallar inmediatamente
+                self.logger.warning(f"DUX API rubros rate limited during connection test: {e.error_message}")
+                return False
+            else:
+                self.logger.error(f"DUX API rubros connection test failed: {e}")
+                return False
         except Exception as e:
             self.logger.error(f"DUX API rubros connection test failed: {e}")
             return False

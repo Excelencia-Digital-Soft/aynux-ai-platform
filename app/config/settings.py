@@ -53,6 +53,7 @@ class Settings(BaseSettings):
 
     # AI Service Settings
     OLLAMA_API_MODEL: str = Field("llama3.2:1b", description="Modelo de ollama a usar")
+    OLLAMA_API_MODEL_FAST: str = Field("llama3.2:1b", description="Modelo rápido para respuestas al usuario")
     OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
     OLLAMA_API_CHROMADB: str = Field("./data/vector_db/", description="Ruta de la base de datos de ollama")
     OLLAMA_API_MODEL_EMBEDDING: str = Field("mxbai-embed-large", description="Embedding del modelo de ollama")
@@ -82,6 +83,13 @@ class Settings(BaseSettings):
     
     # ProductAgent Configuration (always uses PostgreSQL only)
     PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")
+    
+    # LangSmith Configuration
+    LANGSMITH_TRACING: bool = Field(True, description="Enable LangSmith tracing")
+    LANGSMITH_ENDPOINT: str = Field("https://api.smith.langchain.com", description="LangSmith API endpoint")
+    LANGSMITH_API_KEY: Optional[str] = Field(None, description="LangSmith API key")
+    LANGSMITH_PROJECT: str = Field("conversashop-production", description="LangSmith project name")
+    LANGSMITH_VERBOSE: bool = Field(False, description="Enable verbose LangSmith logging")
 
     model_config = SettingsConfigDict(
         case_sensitive=True,

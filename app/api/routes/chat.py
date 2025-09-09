@@ -2,15 +2,19 @@
 Endpoint de chat para procesamiento de mensajes con LangGraph multi-agente
 """
 
+import json
 import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from app.models.chat import (
     ChatErrorResponse,
     ChatMessageRequest,
     ChatMessageResponse,
+    ChatStreamEvent,
+    ChatStreamRequest,
     ConversationHistoryResponse,
 )
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
@@ -90,6 +94,89 @@ async def process_chat_message(request: ChatMessageRequest) -> ChatMessageRespon
         logger.error(f"Error processing chat message: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error processing message: {str(e)}"
+        ) from e
+
+
+@router.post("/message/stream")
+async def process_chat_message_stream(request: ChatStreamRequest):
+    """
+    Procesa un mensaje de chat usando el sistema multi-agente LangGraph con streaming en tiempo real.
+
+    Este endpoint utiliza Server-Sent Events (SSE) para enviar actualizaciones de progreso
+    en tiempo real mientras los agentes especializados procesan la consulta.
+
+    Args:
+        request: Datos del mensaje para procesamiento con streaming
+
+    Returns:
+        StreamingResponse con eventos de progreso en formato SSE
+    """
+    try:
+        # Obtener el servicio
+        service = await _get_langgraph_service()
+
+        # Generar session_id si no se proporciona
+        session_id = request.session_id or f"chat_{request.user_id}"
+
+        logger.info(f"Processing streaming chat message from user {request.user_id} in session {session_id}")
+
+        # Crear generador de eventos SSE
+        async def generate_sse_stream():
+            """Generador de eventos Server-Sent Events"""
+            try:
+                # Procesar el mensaje con streaming
+                async for stream_event in service.process_chat_message_stream(
+                    message=request.message,
+                    user_id=request.user_id,
+                    session_id=session_id,
+                    metadata=request.metadata or {},
+                ):
+                    # Convertir el evento a formato SSE
+                    event_data = stream_event.model_dump()
+                    
+                    # Formato Server-Sent Events
+                    sse_event = f"data: {json.dumps(event_data)}\n\n"
+                    yield sse_event.encode('utf-8')
+                    
+                    # Si es el evento final, terminamos
+                    if stream_event.event_type.value == "complete" or stream_event.event_type.value == "error":
+                        break
+
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error in streaming: {str(e)}")
+                # Enviar evento de error en formato SSE
+                error_event = ChatStreamEvent(
+                    event_type="error",
+                    message=f"❌ Error procesando tu mensaje: {str(e)}",
+                    agent_current="fallback",
+                    progress=0.0,
+                    metadata={"error": str(e)},
+                    timestamp="",
+                )
+                error_data = error_event.model_dump()
+                sse_event = f"data: {json.dumps(error_data)}\n\n"
+                yield sse_event.encode('utf-8')
+
+        # Devolver respuesta streaming con headers SSE apropiados
+        return StreamingResponse(
+            generate_sse_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",  # Desactivar buffering en nginx
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting up chat message stream: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error setting up message stream: {str(e)}"
         ) from e
 
 

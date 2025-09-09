@@ -3,11 +3,12 @@ Servicio integrado de chatbot usando LangGraph multi-agente
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, AsyncGenerator, Dict
 
 from app.agents.graph import EcommerceAssistantGraph
 from app.config.langgraph_config import get_langgraph_config
 from app.config.settings import get_settings
+from app.models.chat import ChatStreamEvent
 from app.models.message import BotResponse, Contact, WhatsAppMessage
 from app.services.customer_service import CustomerService
 from app.services.langgraph import (
@@ -41,7 +42,7 @@ class LangGraphChatbotService:
 
         # Servicios básicos
         self.customer_service = CustomerService()
-        
+
         # Módulos especializados
         self.message_processor = MessageProcessor()
         self.security_validator = SecurityValidator()
@@ -174,9 +175,7 @@ class LangGraphChatbotService:
             customer_context = self.message_processor.create_customer_context(user_id, metadata)
 
             # Crear contexto de conversación
-            conversation_context = self.message_processor.create_conversation_context(
-                session_id, message, metadata
-            )
+            conversation_context = self.message_processor.create_conversation_context(session_id, message, metadata)
 
             # Procesar con el sistema LangGraph
             response_data = await self.message_processor.process_with_langgraph(
@@ -205,16 +204,88 @@ class LangGraphChatbotService:
                 "error": str(e),
             }
 
+    async def process_chat_message_stream(
+        self, message: str, user_id: str, session_id: str, metadata: Dict[str, Any] = None
+    ) -> AsyncGenerator[ChatStreamEvent, None]:
+        """
+        Procesa un mensaje de chat con streaming en tiempo real usando el sistema multi-agente.
+
+        Args:
+            message: Texto del mensaje del usuario
+            user_id: ID único del usuario
+            session_id: ID de la sesión
+            metadata: Metadatos adicionales opcionales
+
+        Yields:
+            ChatStreamEvent: Eventos de streaming durante el procesamiento
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        metadata = metadata or {}
+        self.logger.info(
+            f"Processing streaming chat message from user {user_id} in session {session_id}:\
+            {message[:100]}..."
+        )
+
+        try:
+            # Preparar contextos
+            customer_context = self.message_processor.create_customer_context(user_id, metadata)
+            conversation_context = self.message_processor.create_conversation_context(session_id, message, metadata)
+
+            # Procesar con streaming usando el sistema LangGraph
+            last_event = None
+            async for stream_event in self.message_processor.process_with_langgraph_stream(
+                graph_system=self.graph_system,
+                message_text=message,
+                customer_context=customer_context,
+                conversation_context=conversation_context,
+                session_id=session_id,
+            ):
+                last_event = stream_event
+                yield stream_event
+
+            # Post-procesamiento simplificado (sin WhatsApp)
+            # Solo si el último evento fue de completion
+            if last_event and last_event.event_type.value == "complete":
+                await self.conversation_manager.handle_chat_post_processing(
+                    user_id=user_id,
+                    user_message=message,
+                    session_id=session_id,
+                    response_data={
+                        "response": last_event.message,
+                        "agent_used": last_event.agent_current,
+                        "requires_human": last_event.metadata.get("requires_human", False),
+                        "is_complete": last_event.metadata.get("is_complete", True),
+                        "processing_time_ms": last_event.metadata.get("processing_time_ms", 0),
+                    },
+                )
+
+        except Exception as e:
+            self.logger.error(f"Error processing streaming chat message: {str(e)}")
+
+            # Yield error event
+            from datetime import datetime
+
+            from app.models.chat import StreamEventType
+
+            yield ChatStreamEvent(
+                event_type=StreamEventType.ERROR,
+                message="❌ Disculpa, tuve un problema procesando tu mensaje. ¿Podrías intentar de nuevo?",
+                agent_current="fallback",
+                progress=0.0,
+                metadata={"error": str(e)},
+                timestamp=datetime.now().isoformat(),
+            )
+
     async def get_conversation_history_langgraph(self, user_number: str, limit: int = 50) -> Dict[str, Any]:
         """Obtiene el historial de conversación para un usuario usando LangGraph"""
-        return await self.system_monitor.get_conversation_history_langgraph(
-            self.graph_system, user_number, limit
-        )
-    
+        return await self.system_monitor.get_conversation_history_langgraph(self.graph_system, user_number, limit)
+
     async def get_conversation_stats(self, user_number: str) -> Dict[str, Any]:
         """Obtiene estadísticas de conversación para un usuario"""
         return await self.system_monitor.get_conversation_stats(self.graph_system, user_number)
-    
+
     async def get_system_health(self) -> Dict[str, Any]:
         """Obtiene el estado de salud del sistema LangGraph"""
         return await self.system_monitor.get_system_health(self._initialized, self.graph_system)
@@ -227,3 +298,4 @@ class LangGraphChatbotService:
             # TODO: Cleanup graph resources if needed
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
+

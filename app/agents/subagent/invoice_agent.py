@@ -21,7 +21,7 @@ class InvoiceAgent(BaseAgent):
 
     @trace_async_method(
         name="invoice_agent_process",
-        run_type="agent",
+        run_type="chain",
         metadata={"agent_type": "invoice", "payment_processing": "enabled"},
         extract_state=True,
     )
