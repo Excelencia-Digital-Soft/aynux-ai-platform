@@ -159,7 +159,7 @@ class SupervisorAgent(BaseAgent):
         return None
 
     async def _evaluate_response_quality(
-        self, user_message: str, agent_response: str, agent_name: str, _: Dict[str, Any]
+        self, user_message: str, agent_response: str, agent_name: str, conversation_context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Evalúa la calidad de la respuesta del agente.
@@ -195,6 +195,7 @@ class SupervisorAgent(BaseAgent):
                 "provides_specific_info": self._provides_specific_info(agent_response),
                 "appropriate_tone": self._has_appropriate_tone(agent_response),
             },
+            "conversation_context": conversation_context,
         }
 
     async def _enhance_response_with_ollama(

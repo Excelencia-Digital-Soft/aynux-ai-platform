@@ -5,6 +5,7 @@ Database models package - Organized by responsibility
 from .analytics import Analytics, PriceHistory, StockMovement
 from .base import Base, TimestampMixin
 from .catalog import Brand, Category, Product, ProductAttribute, ProductImage, Subcategory
+from .contact_domains import ContactDomain, DomainConfig
 from .conversations import Conversation, Message
 from .customers import Customer
 from .inquiries import ProductInquiry
@@ -23,6 +24,9 @@ __all__ = [
     "ProductAttribute",
     "ProductImage",
     "Subcategory",
+    # Contact Domains
+    "ContactDomain",
+    "DomainConfig",
     # Customers
     "Customer",
     # Conversations

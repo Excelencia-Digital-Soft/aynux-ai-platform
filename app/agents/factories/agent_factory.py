@@ -10,6 +10,7 @@ from ..subagent import (
     DataInsightsAgent,
     FallbackAgent,
     FarewellAgent,
+    GreetingAgent,
     InvoiceAgent,
     OrchestratorAgent,
     ProductAgent,
@@ -99,6 +100,12 @@ class AgentFactory:
             )
             
             self.agents["farewell_agent"] = FarewellAgent(
+                ollama=self.ollama,
+                postgres=self.postgres,
+                config={}
+            )
+            
+            self.agents["greeting_agent"] = GreetingAgent(
                 ollama=self.ollama,
                 postgres=self.postgres,
                 config={}

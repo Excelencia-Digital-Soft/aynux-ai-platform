@@ -108,9 +108,13 @@ class EcommerceAssistantGraph:
 
         workflow.add_conditional_edges(AgentType.ORCHESTRATOR.value, self.router.route_to_agent, orchestrator_edges)
 
-        # All specialized agents route to supervisor
+        # Most specialized agents route to supervisor, except greeting_agent
         for agent_type in get_non_supervisor_agents():
-            workflow.add_edge(agent_type.value, AgentType.SUPERVISOR.value)
+            if agent_type.value == AgentType.GREETING_AGENT.value:
+                # Greeting agent goes directly to END (no supervisor needed)
+                workflow.add_edge(agent_type.value, END)
+            else:
+                workflow.add_edge(agent_type.value, AgentType.SUPERVISOR.value)
 
         # Supervisor routing
         supervisor_edges = {
@@ -220,12 +224,6 @@ class EcommerceAssistantGraph:
             logger.error(f"Error invoking graph: {e}")
             raise
 
-    @trace_async_method(
-        name="graph_astream",
-        run_type="chain",
-        metadata={"component": "langgraph", "operation": "conversation_streaming"},
-        extract_state=False,
-    )
     async def astream(self, message: str, conversation_id: Optional[str] = None, **kwargs):
         """
         Process a message through the graph with streaming support.
@@ -269,20 +267,11 @@ class EcommerceAssistantGraph:
             if conv_id:
                 config["configurable"] = {"thread_id": conv_id}
 
-            # Execute graph with streaming and tracing
-            async with trace_context(
-                name=f"conversation_stream_{conv_id}",
-                metadata={
-                    "conversation_id": conv_id,
-                    "user_id": user_id,
-                    "message_preview": message[:100],
-                    "graph_type": "ecommerce_multi_agent_stream",
-                },
-                tags=["langgraph", "conversation", "multi_agent", "streaming"],
-            ):
-                final_result = None
-                step_count = 0
+            # Execute graph with streaming (removed tracing context to prevent async generator issues)
+            final_result = None
+            step_count = 0
 
+            try:
                 # Stream through the graph execution
                 async for chunk in app.astream(initial_state, config):
                     step_count += 1
@@ -322,10 +311,19 @@ class EcommerceAssistantGraph:
 
                 # Yield final result
                 yield {"type": "final_result", "data": final_result or {}}
+                
+            except GeneratorExit:
+                # Handle generator cleanup gracefully
+                logger.debug(f"Stream generator for conversation {conv_id} was closed")
+                return
+            except Exception as e:
+                # Handle other exceptions and yield error
+                logger.error(f"Error streaming graph: {e}")
+                yield {"type": "error", "data": {"error": str(e), "timestamp": datetime.now().isoformat()}}
+                raise
 
         except Exception as e:
-            logger.error(f"Error streaming graph: {e}")
-            # Yield error event
+            logger.error(f"Error in conversation stream setup: {e}")
             yield {"type": "error", "data": {"error": str(e), "timestamp": datetime.now().isoformat()}}
             raise
 

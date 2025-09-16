@@ -19,14 +19,14 @@ class OrchestratorAgent(BaseAgent):
         super().__init__("orchestrator", config or {}, ollama=ollama)
 
         # Configuración del orquestador
-        self.confidence_threshold = self.config.get("confidence_threshold", 0.7)
+        self.confidence_threshold = self.config.get("confidence_threshold", 0.4)
         self.max_routing_attempts = self.config.get("max_routing_attempts", 2)
 
         # Inicializar el router de intents con thresholds ajustados para spaCy
         self.intent_router = IntentRouter(
             ollama=ollama,
             config={
-                "confidence_threshold": min(self.confidence_threshold, 0.4),  # Threshold más bajo para router
+                "confidence_threshold": min(self.confidence_threshold, 0.3),  # Threshold más bajo para router
                 "fallback_agent": "fallback_agent",
                 "use_spacy_fallback": True,
                 "cache_size": 1000,
@@ -291,3 +291,4 @@ class OrchestratorAgent(BaseAgent):
             Lista de nombres de intenciones válidas
         """
         return self.intent_router.spacy_analyzer.get_supported_intents() if self.intent_router.spacy_analyzer else []
+

@@ -150,9 +150,10 @@ class NodeExecutor:
             state_dict = self._prepare_state_dict(state, messages)
 
             # Execute agent
-            agent = self.agents.get(agent_name.replace("_agent", "_agent" if not agent_name.endswith("_agent") else ""))
+            agent = self.agents.get(agent_name)
             if not agent:
-                agent = self.agents.get(agent_name)
+                logger.error(f"Agent '{agent_name}' not found. Available agents: {list(self.agents.keys())}")
+                raise ValueError(f"Agent '{agent_name}' not found")
 
             result = await agent._process_internal(message=user_message, state_dict=state_dict)
 

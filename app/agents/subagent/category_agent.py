@@ -2,9 +2,10 @@
 Agente especializado en navegación de categorías
 """
 
-import json
 import logging
 from typing import Any, Dict, List, Optional
+
+from app.utils import extract_json_from_text
 
 from ..integrations.ollama_integration import OllamaIntegration
 from ..tools.category_tool import CategoryTool
@@ -89,17 +90,32 @@ Devuelve un JSON con esta estructura:
 Responde solo con el JSON, sin texto adicional.
 """
 
+        default_intent = {
+            "intent": "browse_all",
+            "category_mentioned": None,
+            "search_terms": [],
+            "needs_details": False,
+        }
+
         try:
             llm = self.ollama.get_llm(temperature=0.3)
             response = await llm.ainvoke(prompt)
-            # Try to parse as JSON, fallback to basic intent if fails
-            try:
-                return json.loads(response.content)
-            except Exception:
-                return {"intent": "browse_all", "category_mentioned": None, "search_terms": [], "needs_details": False}
+
+            # Extract JSON from response using the utility function
+            extracted_json = extract_json_from_text(response.content, default=default_intent, required_keys=["intent"])
+
+            # Ensure all expected keys are present with defaults
+            if extracted_json and isinstance(extracted_json, dict):
+                for key, value in default_intent.items():
+                    if key not in extracted_json:
+                        extracted_json[key] = value
+                return extracted_json
+            else:
+                return default_intent
+
         except Exception as e:
             logger.error(f"Error analyzing intent: {str(e)}")
-            return {"intent": "browse_all", "category_mentioned": None, "search_terms": [], "needs_details": False}
+            return default_intent
 
     async def _get_categories_from_db(self, intent_analysis: Dict[str, Any]) -> Dict[str, Any]:
         """Fetch categories from database based on intent."""

@@ -2,18 +2,28 @@ import logging
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import Settings, get_settings
+from app.database.async_db import get_async_db
 from app.models.message import BotResponse, WhatsAppWebhookRequest
+from app.services.domain_detector import get_domain_detector
+from app.services.domain_manager import get_domain_manager
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
+from app.services.super_orchestrator_service import get_super_orchestrator
 from app.services.whatsapp_service import WhatsAppService
 
 router = APIRouter(tags=["webhook"])
 logger = logging.getLogger(__name__)
 
-# LangGraph multi-agent service (initialized lazily)
+# Services (initialized lazily)
 _langgraph_service = None
 whatsapp_service = WhatsAppService()
+
+# Multi-domain system components
+domain_detector = get_domain_detector()
+domain_manager = get_domain_manager()
+super_orchestrator = get_super_orchestrator()
 
 
 @router.get("/webhook/")
@@ -66,11 +76,13 @@ async def _get_langgraph_service():
 @router.post("/webhook")
 async def process_webhook(
     request: WhatsAppWebhookRequest = Body(...),  # noqa: B008
+    db_session: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
-    Procesa las notificaciones del webhook de WhatsApp
+    Procesa las notificaciones del webhook de WhatsApp con sistema multi-dominio
 
-    Esta ruta recibe las notificaciones de WhatsApp cuando hay nuevos mensajes.
+    Esta ruta recibe las notificaciones de WhatsApp, detecta el dominio del contacto
+    y enruta al servicio especializado correspondiente.
     """
 
     # Verificar si es una actualización de estado
@@ -88,21 +100,60 @@ async def process_webhook(
         logger.warning("Invalid webhook payload: missing message or contact")
         return {"status": "error", "message": "Invalid webhook payload"}
 
-    # Obtener el servicio LangGraph
-    try:
-        service = await _get_langgraph_service()
-        logger.info("Processing message with LangGraph multi-agent service")
-    except Exception as e:
-        logger.error(f"Error getting LangGraph service: {e}")
-        return {"status": "error", "message": "LangGraph service initialization failed"}
+    wa_id = contact.wa_id
+    logger.info(f"Processing message from WhatsApp ID: {wa_id}")
 
-    # Procesar el mensaje con el servicio LangGraph
+    # PASO 1: Detectar dominio del contacto
     try:
-        result: BotResponse = await service.process_webhook_message(message, contact)
+        detection_result = await domain_detector.detect_domain(wa_id, db_session)
+        domain = detection_result["domain"]
+        confidence = detection_result["confidence"]
+        method = detection_result["method"]
+
+        logger.info(f"Domain detected: {wa_id} -> {domain} (confidence: {confidence:.2f}, method: {method})")
+
+    except Exception as e:
+        logger.error(f"Error in domain detection: {e}")
+        # Fallback al dominio por defecto
+        domain = "ecommerce"
+        confidence = 0.1  # Baja confianza por fallback de error
+        method = "error_fallback"
+        logger.warning(f"Using fallback domain: {domain}")
+
+    # PASO 2: Procesar según estrategia
+    try:
+        if method == "fallback_default" and confidence < 0.5:
+            # Contacto nuevo sin dominio claro -> Super Orquestador
+            logger.info(f"Using SuperOrchestrator for new contact: {wa_id}")
+            result: BotResponse = await super_orchestrator.process_webhook_message(message, contact, db_session)
+
+        else:
+            # Dominio conocido -> Servicio directo
+            logger.info(f"Using direct domain service: {domain}")
+            domain_service = await domain_manager.get_service(domain)
+
+            if not domain_service:
+                logger.error(f"Domain service not available: {domain}")
+                return {"status": "error", "message": f"Service for domain '{domain}' not available"}
+
+            result: BotResponse = await domain_service.process_webhook_message(message, contact)
+
         logger.info(f"Message processed successfully: {result}")
-        return {"status": "ok", "result": result}
+        return {"status": "ok", "result": result, "domain": domain, "method": method}
+
     except Exception as e:
         logger.error(f"Error processing message: {str(e)}")
+
+        # Fallback final al servicio e-commerce
+        try:
+            logger.info("Attempting fallback to ecommerce service")
+            ecommerce_service = await domain_manager.get_service("ecommerce")
+            if ecommerce_service:
+                result: BotResponse = await ecommerce_service.process_webhook_message(message, contact)
+                return {"status": "ok", "result": result, "domain": "ecommerce", "method": "fallback"}
+        except Exception as fallback_error:
+            logger.error(f"Fallback also failed: {fallback_error}")
+
         return {"status": "error", "message": str(e)}
 
 
@@ -147,3 +198,4 @@ def is_status_update(request: WhatsAppWebhookRequest) -> bool:
         return bool(request.entry[0].changes[0].value.get("statuses"))
     except (IndexError, AttributeError, KeyError):
         return False
+

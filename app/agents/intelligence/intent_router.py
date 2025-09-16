@@ -10,6 +10,8 @@ import time
 from collections import OrderedDict
 from typing import Any, Dict, Optional
 
+from app.utils import extract_json_from_text
+
 from ..prompts.intent_analyzer import get_build_llm_prompt, get_system_prompt
 from ..schemas import get_intent_to_agent_mapping, get_valid_intents
 from .spacy_intent_analyzer import SpacyIntentAnalyzer
@@ -332,14 +334,22 @@ class IntentRouter:
                     model=None,  # Use a default configured model
                     temperature=0.5,
                 ),
-                timeout=8.0  # Add timeout to prevent hanging
+                timeout=70.0,  # Add timeout to prevent hanging
             )
 
-            # Limpiar respuesta para extraer solo el JSON
-            clean_response = self._extract_json_from_response(response_text)
-            result = json.loads(clean_response)
+            # Extraer JSON usando la utilidad centralizada
+            result = extract_json_from_text(
+                response_text,
+                default={"intent": "fallback", "confidence": 0.4, "reasoning": "Could not parse LLM response"},
+                required_keys=["intent"],
+            )
 
-            logger.debug(f"LLM response: {clean_response}")
+            # Si no se pudo extraer, usar fallback
+            if not result or not isinstance(result, dict):
+                logger.warning("Failed to extract JSON from LLM response")
+                return self._keyword_fallback_detection(message)
+
+            logger.debug(f"LLM response: {json.dumps(result)}")
 
             # Validar que la intención sea válida
             valid_intents = get_valid_intents()
@@ -374,63 +384,24 @@ class IntentRouter:
 
             return final_result
 
-        except (json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Error parsing LLM JSON response: {e}. Raw response: '{response_text}'")
+        except KeyError as e:
+            logger.error(f"Missing required key in LLM response: {e}. Raw response: '{response_text}'")
+            return self._keyword_fallback_detection(message)
+
+        except asyncio.TimeoutError:
+            logger.error(f"LLM analysis timed out after 8s for message: '{message[:50]}...'")
             return self._keyword_fallback_detection(message)
 
         except Exception as e:
-            logger.error(f"Error in LLM analysis: {e}")
-            return self._keyword_fallback_detection(message)
-
-    def _extract_json_from_response(self, response_text: str) -> str:
-        """
-        Extrae JSON de respuesta de LLM que puede incluir <think> tags u otros formatos
-
-        Args:
-            response_text: Respuesta cruda del LLM
-
-        Returns:
-            JSON string limpio
-        """
-        import re
-
-        # Remover tags de thinking
-        clean_text = re.sub(r"<think>.*?</think>", "", response_text, flags=re.DOTALL).strip()
-
-        # Buscar JSON en bloques de código
-        json_patterns = [
-            r"```json\s*(\{.*?\})\s*```",  # ```json {...} ```
-            r"```\s*(\{.*?\})\s*```",  # ``` {...} ```
-            r'(\{[^}]*"intent"[^}]*\})',  # JSON que contenga "intent"
-            r"(\{.*?\})",  # Cualquier JSON
-        ]
-
-        for pattern in json_patterns:
-            match = re.search(pattern, clean_text, re.DOTALL)
-            if match:
-                potential_json = match.group(1).strip()
-                # Verificar que sea JSON válido
-                try:
-                    json.loads(potential_json)
-                    return potential_json
-                except json.JSONDecodeError:
-                    continue
-
-        # Si no se encuentra JSON estructurado, buscar patrones clave
-        # Esto es un fallback para casos donde el LLM no devuelve JSON válido
-        intent_match = re.search(r'"intent":\s*"([^"]+)"', clean_text)
-        confidence_match = re.search(r'"confidence":\s*([0-9.]+)', clean_text)
-
-        if intent_match:
-            intent = intent_match.group(1)
-            confidence = float(confidence_match.group(1)) if confidence_match else 0.5
-
-            return json.dumps(
-                {"intent": intent, "confidence": confidence, "reasoning": "Extracted from partial LLM response"}
+            # Improved error logging with more context
+            error_msg = str(e) if str(e) else "Unknown error"
+            logger.error(
+                f"Error in LLM analysis: {error_msg} | "
+                f"Message: '{message[:100]}...' | "
+                f"Response length: {len(response_text)} chars | "
+                f"Response preview: '{response_text[:200]}...'"
             )
-
-        # Último recurso: devolver JSON de fallback
-        return json.dumps({"intent": "fallback", "confidence": 0.4, "reasoning": "Could not parse LLM response"})
+            return self._keyword_fallback_detection(message)
 
     def _update_response_time_stats(self, response_time: float):
         """Actualizar estadísticas de tiempo de respuesta"""

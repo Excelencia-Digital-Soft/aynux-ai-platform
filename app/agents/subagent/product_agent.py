@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 from langchain_core.documents import Document
 
 from app.config.settings import get_settings
+from app.utils import extract_json_from_text
 
 from ..integrations.chroma_integration import ChromaDBIntegration
 from ..integrations.ollama_integration import OllamaIntegration
@@ -168,39 +169,44 @@ INTENT ANALYSIS:
 
 For search_terms, only include meaningful product-related words, not filler words."""
 
+        default_intent = {
+            "intent": "search_general",
+            "search_terms": message.split(),
+            "category": None,
+            "brand": None,
+            "price_min": None,
+            "price_max": None,
+            "specific_product": None,
+            "wants_stock_info": False,
+            "wants_featured": False,
+            "wants_sale": False,
+        }
+        
         try:
             llm = self.ollama.get_llm(temperature=0.3)
             response = await llm.ainvoke(prompt)
-            # Try to parse as JSON, fallback to basic intent if fails
-            try:
-                return json.loads(response.content)
-            except Exception:
-                return {
-                    "intent": "search_general",
-                    "search_terms": message.split(),
-                    "category": None,
-                    "brand": None,
-                    "price_min": None,
-                    "price_max": None,
-                    "specific_product": None,
-                    "wants_stock_info": False,
-                    "wants_featured": False,
-                    "wants_sale": False,
-                }
+            
+            # Extract JSON from response using the utility function
+            required_keys = ["intent"]  # Minimum required key
+            extracted_json = extract_json_from_text(
+                response.content, 
+                default=default_intent,
+                required_keys=required_keys
+            )
+            
+            # Ensure all expected keys are present with defaults
+            if extracted_json and isinstance(extracted_json, dict):
+                for key, value in default_intent.items():
+                    if key not in extracted_json:
+                        extracted_json[key] = value
+                        
+                return extracted_json
+            else:
+                return default_intent
+                
         except Exception as e:
             logger.error(f"Error analyzing product intent: {str(e)}")
-            return {
-                "intent": "search_general",
-                "search_terms": message.split(),
-                "category": None,
-                "brand": None,
-                "price_min": None,
-                "price_max": None,
-                "specific_product": None,
-                "wants_stock_info": False,
-                "wants_featured": False,
-                "wants_sale": False,
-            }
+            return default_intent
 
     async def _get_products_from_db(self, intent_analysis: Dict[str, Any]) -> Dict[str, Any]:
         """Fetch products from database based on AI intent analysis."""

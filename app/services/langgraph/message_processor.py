@@ -24,7 +24,7 @@ class MessageProcessor:
             {
                 "supported_languages": ["es", "en"],
                 "default_language": "es",
-                "confidence_threshold": 0.6,
+                "confidence_threshold": 0.4,
                 "cache_size": 500,
                 "cache_ttl": 1800,  # 30 minutos
             }
@@ -167,7 +167,7 @@ class MessageProcessor:
             current_agent = "orchestrator"
 
             # Stream through the graph execution
-            async for chunk in graph_system.astream(  # type: ignore[misc]
+            async for chunk in graph_system.astream(
                 message=message_text,
                 conversation_id=session_id,
                 customer_data=customer_context.model_dump(),

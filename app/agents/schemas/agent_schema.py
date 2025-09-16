@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 class IntentType(str, Enum):
     """Enumeration of all valid intent types."""
 
+    SALUDO = "saludo"
     PRODUCTO = "producto"
     CATEGORIA = "categoria"
     DATOS = "datos"
@@ -30,6 +31,7 @@ class AgentType(str, Enum):
 
     ORCHESTRATOR = "orchestrator"
     SUPERVISOR = "supervisor"
+    GREETING_AGENT = "greeting_agent"
     PRODUCT_AGENT = "product_agent"
     CATEGORY_AGENT = "category_agent"
     DATA_INSIGHTS_AGENT = "data_insights_agent"
@@ -156,6 +158,26 @@ class AgentSchema(BaseModel):
 # Default schema configuration
 DEFAULT_AGENT_SCHEMA = AgentSchema(
     intents={
+        IntentType.SALUDO: IntentDefinition(
+            intent=IntentType.SALUDO,
+            description="Greetings, welcome messages, and initial system capability inquiries",
+            examples=[
+                "hello",
+                "hi",
+                "hola", 
+                "buenos días",
+                "good morning",
+                "hey there",
+                "greetings",
+                "buenas tardes",
+                "good afternoon",
+                "hey",
+                "hi there",
+                "hello there"
+            ],
+            target_agent=AgentType.GREETING_AGENT,
+            confidence_threshold=0.8,
+        ),
         IntentType.PRODUCTO: IntentDefinition(
             intent=IntentType.PRODUCTO,
             description="Questions about available products, general product searches, features, price, stock",
@@ -277,6 +299,17 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             description="Evaluates agent responses and manages conversation quality and flow",
             primary_intents=[],
             config_key="supervisor",
+        ),
+        AgentType.GREETING_AGENT: AgentDefinition(
+            agent=AgentType.GREETING_AGENT,
+            class_name="GreetingAgent",
+            display_name="Greeting Agent",
+            description="Handles greetings and provides comprehensive system capabilities overview",
+            primary_intents=[IntentType.SALUDO],
+            requires_postgres=False,
+            requires_chroma=False,
+            requires_external_apis=False,
+            config_key="greeting",
         ),
         AgentType.PRODUCT_AGENT: AgentDefinition(
             agent=AgentType.PRODUCT_AGENT,
