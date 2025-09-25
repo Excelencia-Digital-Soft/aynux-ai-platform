@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import sentry_sdk
@@ -7,8 +8,8 @@ from fastapi.responses import JSONResponse
 
 from app.api.middleware.auth_middleware import authenticate_request
 from app.api.router import api_router
+from app.config.langsmith_init import get_langsmith_status, initialize_langsmith
 from app.config.settings import get_settings
-from app.config.langsmith_init import initialize_langsmith, get_langsmith_status
 
 sentry_sdk.init(
     dsn="https://d44f9586fda96f0cb06a8e8bda42a3bb@o4509520816963584.ingest.us.sentry.io/4509520843243520",
@@ -87,6 +88,23 @@ def create_app() -> FastAPI:
             "documentation_urls": {"swagger": app.docs_url, "redoc": app.redoc_url},
         }
 
+    # Background task management
+    _background_tasks = set()
+
+    async def _run_background_initial_sync(sync_service):
+        """Ejecuta sincronización inicial en background sin bloquear el startup."""
+        try:
+            logger.info("Starting background initial sync check...")
+            sync_executed = await sync_service.force_sync_if_needed()
+            if sync_executed:
+                logger.info("✅ Background initial sync completed successfully")
+            else:
+                logger.info("ℹ️ Background initial sync not needed (data is recent)")
+        except Exception as e:
+            logger.error(f"❌ Background initial sync failed: {e}", exc_info=True)
+        finally:
+            logger.info("Background initial sync task finished")
+
     # Startup event - iniciar servicios de background
     @app.on_event("startup")
     async def startup_event():
@@ -127,9 +145,13 @@ def create_app() -> FastAPI:
                     f"Next sync: {initial_status['next_scheduled_sync']}"
                 )
                 
-                # Verificar si necesita sincronización inicial
-                if await sync_service.force_sync_if_needed():
-                    logger.info("Initial sync completed on startup")
+                # Ejecutar sincronización inicial en background (no bloquear startup)
+                background_sync_task = asyncio.create_task(
+                    _run_background_initial_sync(sync_service)
+                )
+                _background_tasks.add(background_sync_task)
+                background_sync_task.add_done_callback(_background_tasks.discard)
+                logger.info("Background initial sync task created and will run asynchronously")
                     
             elif not settings.DUX_SYNC_ENABLED:
                 logger.info("DUX sync is disabled via DUX_SYNC_ENABLED=False")

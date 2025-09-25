@@ -3,6 +3,7 @@ API endpoints para administración de sincronización DUX-RAG
 """
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -265,4 +266,88 @@ async def get_sync_metrics():
     except Exception as e:
         logger.error(f"Error getting sync metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/sync/progress", response_model=Dict[str, Any])
+async def get_sync_progress():
+    """
+    Obtiene el progreso detallado de la sincronización actual
+
+    Returns:
+        Dict con información detallada del progreso de sincronización
+    """
+    try:
+        sync_service = get_scheduled_sync_service()
+        progress_info = sync_service.get_current_sync_state()
+
+        return {
+            "success": True,
+            "data": progress_info,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting sync progress: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/sync/cancel", response_model=SyncResponse)
+async def cancel_sync():
+    """
+    Cancela la sincronización en progreso
+
+    Returns:
+        Resultado de la operación de cancelación
+    """
+    try:
+        sync_service = get_scheduled_sync_service()
+        cancelled = await sync_service.cancel_current_sync()
+
+        if cancelled:
+            return SyncResponse(
+                success=True,
+                message="Sync cancelled successfully",
+                data={"cancelled": True}
+            )
+        else:
+            return SyncResponse(
+                success=False,
+                message="No active sync to cancel or cancellation failed",
+                data={"cancelled": False}
+            )
+
+    except Exception as e:
+        logger.error(f"Error cancelling sync: {e}")
+        return SyncResponse(
+            success=False,
+            message=f"Error cancelling sync: {str(e)}",
+            data={"error": str(e)}
+        )
+
+
+@router.post("/sync/reset", response_model=SyncResponse)
+async def reset_sync_state():
+    """
+    Resetea el estado de sincronización a IDLE
+
+    Returns:
+        Resultado de la operación de reset
+    """
+    try:
+        sync_service = get_scheduled_sync_service()
+        sync_service.reset_sync_state()
+
+        return SyncResponse(
+            success=True,
+            message="Sync state reset to IDLE",
+            data={"state": "idle"}
+        )
+
+    except Exception as e:
+        logger.error(f"Error resetting sync state: {e}")
+        return SyncResponse(
+            success=False,
+            message=f"Error resetting sync state: {str(e)}",
+            data={"error": str(e)}
+        )
 

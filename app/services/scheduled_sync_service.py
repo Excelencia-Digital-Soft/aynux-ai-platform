@@ -5,6 +5,7 @@ Servicio de sincronización programada para productos DUX
 import asyncio
 import logging
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Any, Dict, Optional
 
 from sqlalchemy import func, select
@@ -16,6 +17,15 @@ from app.services.dux_rag_sync_service import create_dux_rag_sync_service
 from app.services.dux_sync_service import DuxSyncService
 
 logger = logging.getLogger(__name__)
+
+
+class SyncState(Enum):
+    """Estados de sincronización."""
+    IDLE = "idle"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class ScheduledSyncService:
@@ -42,6 +52,19 @@ class ScheduledSyncService:
         self.is_running = False
         self._sync_task: Optional[asyncio.Task] = None
         self._last_sync_results: Dict[str, Dict] = {}
+
+        # Estado de sincronización
+        self._sync_state = SyncState.IDLE
+        self._current_sync_task: Optional[asyncio.Task] = None
+        self._sync_progress = {
+            "total_items": 0,
+            "processed_items": 0,
+            "current_batch": 0,
+            "total_batches": 0,
+            "start_time": None,
+            "estimated_completion": None,
+            "error_message": None,
+        }
 
     async def start(self):
         """Inicia el servicio de sincronización programada."""
@@ -76,7 +99,7 @@ class ScheduledSyncService:
                     last_sync_time = await self._get_last_sync_time()
                     if not last_sync_time or (datetime.now() - last_sync_time).total_seconds() > 3600:
                         logger.info(f"Starting scheduled sync at hour {current_hour}")
-                        await self._execute_sync()
+                        await self._execute_sync_with_state_management()
 
                 # Esperar hasta el próximo chequeo (cada 30 minutos)
                 await asyncio.sleep(1800)
@@ -92,20 +115,25 @@ class ScheduledSyncService:
         Returns:
             bool: True si se ejecutó la sincronización, False si no fue necesario
         """
+        # Verificar si ya hay una sincronización en progreso
+        if self._sync_state == SyncState.RUNNING:
+            logger.warning("Sync already in progress, skipping force sync check")
+            return False
+
         try:
             last_update = await self._get_most_recent_product_update()
 
             if not last_update:
                 # No hay productos, sincronizar
                 logger.info("No products in database, forcing sync")
-                await self._execute_sync()
+                await self._execute_sync_with_state_management()
                 return True
 
             hours_since_update = (datetime.now() - last_update).total_seconds() / 3600
 
             if hours_since_update > self.settings.DUX_FORCE_SYNC_THRESHOLD_HOURS:
                 logger.info(f"Products are {hours_since_update:.1f} hours old, forcing sync")
-                await self._execute_sync()
+                await self._execute_sync_with_state_management()
                 return True
 
             logger.debug(f"Products are {hours_since_update:.1f} hours old, no sync needed")
@@ -114,6 +142,39 @@ class ScheduledSyncService:
         except Exception as e:
             logger.error(f"Error checking sync need: {e}")
             return False
+
+    async def _execute_sync_with_state_management(self):
+        """Wrapper que ejecuta sincronización con manejo de estado."""
+        # Verificar si ya hay una sincronización en progreso
+        if self._sync_state == SyncState.RUNNING:
+            logger.warning("Sync already in progress, skipping")
+            return
+
+        try:
+            # Inicializar estado
+            self._sync_state = SyncState.RUNNING
+            self._sync_progress["start_time"] = datetime.now()
+            self._sync_progress["error_message"] = None
+
+            # Crear y ejecutar task de sincronización
+            self._current_sync_task = asyncio.create_task(self._execute_sync())
+            await self._current_sync_task
+
+            # Marcar como completado
+            self._sync_state = SyncState.COMPLETED
+            logger.info("✅ Sync completed successfully")
+
+        except asyncio.CancelledError:
+            self._sync_state = SyncState.CANCELLED
+            logger.info("🚫 Sync was cancelled")
+            raise
+        except Exception as e:
+            self._sync_state = SyncState.FAILED
+            self._sync_progress["error_message"] = str(e)
+            logger.error(f"❌ Sync failed: {e}")
+            raise
+        finally:
+            self._current_sync_task = None
 
     async def _execute_sync(self):
         """Ejecuta la sincronización completa con DUX (productos + facturas)."""
@@ -233,6 +294,7 @@ class ScheduledSyncService:
             "hours_since_update": ((datetime.now() - last_update).total_seconds() / 3600 if last_update else None),
             "next_scheduled_sync": self._get_next_scheduled_sync_time(),
             "last_sync_results": self._last_sync_results,
+            "current_sync": self.get_current_sync_state(),
         }
 
         # Agregar estado detallado si usa RAG sync
@@ -329,6 +391,43 @@ class ScheduledSyncService:
         except Exception as e:
             logger.error(f"Error during forced embedding update: {e}")
             return {"success": False, "error": str(e)}
+
+    def get_current_sync_state(self) -> dict:
+        """Obtiene el estado actual de sincronización con progreso detallado."""
+        return {
+            "state": self._sync_state.value,
+            "is_running": self._sync_state == SyncState.RUNNING,
+            "progress": self._sync_progress.copy(),
+            "has_current_task": self._current_sync_task is not None,
+        }
+
+    async def cancel_current_sync(self) -> bool:
+        """Cancela la sincronización en progreso si existe."""
+        if self._current_sync_task and not self._current_sync_task.done():
+            try:
+                self._current_sync_task.cancel()
+                await asyncio.sleep(0.1)  # Give time for cancellation
+                logger.info("🚫 Current sync task cancelled")
+                return True
+            except Exception as e:
+                logger.error(f"Error cancelling sync task: {e}")
+                return False
+        return False
+
+    def reset_sync_state(self):
+        """Resetea el estado de sincronización a IDLE."""
+        if self._sync_state != SyncState.RUNNING:
+            self._sync_state = SyncState.IDLE
+            self._sync_progress = {
+                "total_items": 0,
+                "processed_items": 0,
+                "current_batch": 0,
+                "total_batches": 0,
+                "start_time": None,
+                "estimated_completion": None,
+                "error_message": None,
+            }
+            logger.info("Sync state reset to IDLE")
 
 
 # Instancia global del servicio
