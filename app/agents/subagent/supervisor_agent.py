@@ -249,7 +249,7 @@ class SupervisorAgent(BaseAgent):
                         conversation_summary += f"- {role}: {content}...\n"
 
             # Crear el prompt mejorado para la respuesta
-            enhancement_prompt = f"""You are a friendly and professional customer service assistant for ConversaShop,\
+            enhancement_prompt = f"""You are a friendly and professional customer service assistant for Aynux,\
                 an e-commerce platform.
 
 CONTEXT:

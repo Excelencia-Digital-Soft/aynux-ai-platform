@@ -4,7 +4,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-Bot ConversaShop is a WhatsApp e-commerce chatbot built with FastAPI and a LangGraph multi-agent system, integrated with DUX ERP. The system uses specialized agents to handle different customer intents through a sophisticated supervisor-agent architecture.
+Bot Aynux is a WhatsApp e-commerce chatbot built with FastAPI and a LangGraph multi-agent system, integrated with DUX ERP. The system uses specialized agents to handle different customer intents through a sophisticated supervisor-agent architecture.
 
 ## Common Development Commands
 
@@ -51,7 +51,7 @@ python test_langsmith_integration.py
 
 ```bash
 # View product statistics
-PGPASSWORD="" psql -h localhost -U enzo -d conversashop -c "SELECT c.display_name as categoria, COUNT(p.id) as total_productos FROM categories c LEFT JOIN products p ON c.id = p.category_id GROUP BY c.display_name;"
+PGPASSWORD="" psql -h localhost -U enzo -d aynux -c "SELECT c.display_name as categoria, COUNT(p.id) as total_productos FROM categories c LEFT JOIN products p ON c.id = p.category_id GROUP BY c.display_name;"
 
 # Check database migrations
 # SQL migration files are located in app/scripts/
@@ -168,7 +168,7 @@ Essential environment variables in `.env`:
 ```bash
 # Database
 DB_HOST=localhost
-DB_NAME=conversashop
+DB_NAME=aynux
 DB_USER=postgres
 DB_PASSWORD=
 
@@ -193,7 +193,7 @@ WHATSAPP_PHONE_NUMBER_ID=your_number_id
 
 # LangSmith Monitoring
 LANGSMITH_API_KEY=your_key
-LANGSMITH_PROJECT=conversashop-production
+LANGSMITH_PROJECT=aynux-production
 LANGSMITH_TRACING_ENABLED=true
 ```
 
@@ -269,7 +269,7 @@ For local development, ensure these services are running:
 
 3. **Database Connection Issues**
    - Check PostgreSQL is running
-   - Verify database exists: `createdb conversashop`
+   - Verify database exists: `createdb aynux`
    - Check credentials in `.env`
 
 ### Monitoring

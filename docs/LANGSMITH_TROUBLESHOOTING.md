@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides comprehensive instructions for debugging and troubleshooting LangSmith tracing in the ConversaShop LangGraph multi-agent system.
+This guide provides comprehensive instructions for debugging and troubleshooting LangSmith tracing in the Aynux LangGraph multi-agent system.
 
 ## ✅ Quick Verification
 

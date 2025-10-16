@@ -5,6 +5,14 @@ import httpx
 
 from app.config.settings import get_settings
 from app.services.phone_normalizer_pydantic import get_normalized_number_only
+from app.models.whatsapp_advanced import (
+    ProductListMessage,
+    FlowMessage,
+    MessageFactory,
+    WhatsAppApiResponse,
+    CatalogConfiguration,
+    FlowConfiguration,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +28,14 @@ class WhatsAppService:
         self.version = self.settings.WHATSAPP_API_VERSION
         self.phone_number_id = self.settings.WHATSAPP_PHONE_NUMBER_ID
         self.access_token = self.settings.WHATSAPP_ACCESS_TOKEN
+        self.catalog_id = self.settings.WHATSAPP_CATALOG_ID
 
         # Logging de configuración (sin exponer el token completo)
         logger.info("WhatsApp Service initialized:")
         logger.info(f"  Base URL: {self.base_url}")
         logger.info(f"  Version: {self.version}")
         logger.info(f"  Phone ID: {self.phone_number_id}")
+        logger.info(f"  Catalog ID: {self.catalog_id}")
         logger.info(f"  Token: ***{self.access_token[-8:] if len(self.access_token) > 8 else '***'}")
 
     def _get_headers(self) -> Dict[str, str]:
@@ -294,6 +304,276 @@ class WhatsAppService:
 
         return await self._make_request(payload)
 
+    async def send_product_list(
+        self,
+        numero: str,
+        body_text: str,
+        header_text: Optional[str] = None,
+        product_retailer_id: Optional[str] = None,
+        catalog_id: Optional[str] = None
+    ) -> WhatsAppApiResponse:
+        """
+        Envía una lista de productos del catálogo de WhatsApp Business
+
+        Args:
+            numero: Número de teléfono del destinatario
+            body_text: Texto principal del mensaje
+            header_text: Texto opcional del header
+            product_retailer_id: ID específico de producto a destacar
+            catalog_id: ID del catálogo (usa el configurado por defecto si no se especifica)
+
+        Returns:
+            Respuesta estructurada de la API de WhatsApp
+        """
+        if not numero or not body_text:
+            return WhatsAppApiResponse(
+                success=False,
+                error="Número y texto del cuerpo son requeridos"
+            )
+
+        # Normalizar número de teléfono
+        test_mode = self.settings.is_development
+        numero_normalizado = get_normalized_number_only(numero, test_mode=test_mode)
+
+        if numero_normalizado:
+            numero = numero_normalizado
+        else:
+            logger.warning(f"No se pudo normalizar el número {numero}")
+
+        # Usar catalog_id proporcionado o el configurado por defecto
+        used_catalog_id = catalog_id or self.catalog_id
+
+        try:
+            # Crear mensaje usando el factory pattern
+            message = MessageFactory.create_product_list_message(
+                to=numero,
+                catalog_id=used_catalog_id,
+                body_text=body_text,
+                header_text=header_text,
+                product_retailer_id=product_retailer_id
+            )
+
+            # Convertir a diccionario para envío
+            payload = message.model_dump(exclude_none=True)
+
+            logger.info(f"Enviando lista de productos del catálogo {used_catalog_id} a {numero}")
+            response = await self._make_request(payload)
+
+            return WhatsAppApiResponse(
+                success=response.get("success", False),
+                data=response.get("data"),
+                error=response.get("error"),
+                status_code=response.get("status_code")
+            )
+
+        except Exception as e:
+            error_msg = f"Error al crear mensaje de catálogo: {str(e)}"
+            logger.error(error_msg)
+            return WhatsAppApiResponse(
+                success=False,
+                error=error_msg
+            )
+
+    async def send_flow_message(
+        self,
+        numero: str,
+        flow_id: str,
+        flow_cta: str,
+        body_text: Optional[str] = None,
+        header_text: Optional[str] = None,
+        flow_token: Optional[str] = None,
+        flow_data: Optional[Dict[str, Any]] = None
+    ) -> WhatsAppApiResponse:
+        """
+        Envía un mensaje con WhatsApp Flow
+
+        Args:
+            numero: Número de teléfono del destinatario
+            flow_id: ID del Flow de WhatsApp
+            flow_cta: Texto del botón de acción (máx 20 caracteres)
+            body_text: Texto opcional del cuerpo
+            header_text: Texto opcional del header
+            flow_token: Token para pasar datos al flow
+            flow_data: Datos adicionales para el flow
+
+        Returns:
+            Respuesta estructurada de la API de WhatsApp
+        """
+        if not numero or not flow_id or not flow_cta:
+            return WhatsAppApiResponse(
+                success=False,
+                error="Número, flow_id y flow_cta son requeridos"
+            )
+
+        # Normalizar número de teléfono
+        test_mode = self.settings.is_development
+        numero_normalizado = get_normalized_number_only(numero, test_mode=test_mode)
+
+        if numero_normalizado:
+            numero = numero_normalizado
+        else:
+            logger.warning(f"No se pudo normalizar el número {numero}")
+
+        try:
+            # Crear mensaje usando el factory pattern
+            message = MessageFactory.create_flow_message(
+                to=numero,
+                flow_id=flow_id,
+                flow_cta=flow_cta,
+                body_text=body_text,
+                header_text=header_text,
+                flow_token=flow_token,
+                flow_action_payload=flow_data
+            )
+
+            # Convertir a diccionario para envío
+            payload = message.model_dump(exclude_none=True)
+
+            logger.info(f"Enviando Flow {flow_id} a {numero}")
+            response = await self._make_request(payload)
+
+            return WhatsAppApiResponse(
+                success=response.get("success", False),
+                data=response.get("data"),
+                error=response.get("error"),
+                status_code=response.get("status_code")
+            )
+
+        except Exception as e:
+            error_msg = f"Error al crear mensaje de Flow: {str(e)}"
+            logger.error(error_msg)
+            return WhatsAppApiResponse(
+                success=False,
+                error=error_msg
+            )
+
+    async def get_catalog_products(
+        self,
+        limit: int = 10,
+        after: Optional[str] = None,
+        catalog_id: Optional[str] = None
+    ) -> WhatsAppApiResponse:
+        """
+        Obtiene productos del catálogo de WhatsApp Business
+
+        Args:
+            limit: Número máximo de productos a obtener
+            after: Cursor para paginación
+            catalog_id: ID del catálogo (usa el configurado por defecto si no se especifica)
+
+        Returns:
+            Respuesta con lista de productos del catálogo
+        """
+        used_catalog_id = catalog_id or self.catalog_id
+
+        try:
+            url = f"{self.base_url}/{self.version}/{used_catalog_id}/products"
+            params = {"limit": limit}
+
+            if after:
+                params["after"] = after
+
+            headers = self._get_headers()
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url, headers=headers, params=params)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"Productos del catálogo obtenidos: {len(data.get('data', []))}")
+                    return WhatsAppApiResponse(
+                        success=True,
+                        data=data
+                    )
+                else:
+                    error_detail = response.text
+                    logger.error(f"Error {response.status_code} obteniendo productos: {error_detail}")
+                    return WhatsAppApiResponse(
+                        success=False,
+                        error=f"HTTP {response.status_code}: {error_detail}",
+                        status_code=response.status_code
+                    )
+
+        except Exception as e:
+            error_msg = f"Error obteniendo productos del catálogo: {str(e)}"
+            logger.error(error_msg)
+            return WhatsAppApiResponse(
+                success=False,
+                error=error_msg
+            )
+
+    async def get_business_catalogs(self, business_account_id: str) -> WhatsAppApiResponse:
+        """
+        Obtiene los catálogos disponibles para una cuenta business
+
+        Args:
+            business_account_id: ID de la cuenta business de Meta
+
+        Returns:
+            Respuesta con lista de catálogos disponibles
+        """
+        try:
+            url = f"{self.base_url}/{self.version}/{business_account_id}/owned_product_catalogs"
+            headers = self._get_headers()
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url, headers=headers)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"Catálogos obtenidos: {len(data.get('data', []))}")
+                    return WhatsAppApiResponse(
+                        success=True,
+                        data=data
+                    )
+                else:
+                    error_detail = response.text
+                    logger.error(f"Error {response.status_code} obteniendo catálogos: {error_detail}")
+                    return WhatsAppApiResponse(
+                        success=False,
+                        error=f"HTTP {response.status_code}: {error_detail}",
+                        status_code=response.status_code
+                    )
+
+        except Exception as e:
+            error_msg = f"Error obteniendo catálogos: {str(e)}"
+            logger.error(error_msg)
+            return WhatsAppApiResponse(
+                success=False,
+                error=error_msg
+            )
+
+    def get_catalog_configuration(self) -> CatalogConfiguration:
+        """
+        Obtiene la configuración del catálogo
+
+        Returns:
+            Configuración del catálogo validada
+        """
+        return CatalogConfiguration(
+            catalog_id=self.catalog_id,
+            phone_number_id=self.phone_number_id,
+            access_token=self.access_token
+        )
+
+    def create_flow_configuration(self, flow_id: str, flow_name: str) -> FlowConfiguration:
+        """
+        Crea configuración para un Flow específico
+
+        Args:
+            flow_id: ID del Flow
+            flow_name: Nombre del Flow
+
+        Returns:
+            Configuración del Flow validada
+        """
+        return FlowConfiguration(
+            flow_id=flow_id,
+            flow_name=flow_name,
+            phone_number_id=self.phone_number_id,
+            access_token=self.access_token
+        )
+
     async def verificar_configuracion(self) -> Dict[str, Any]:
         """
         Verifica la configuración de WhatsApp API
@@ -313,6 +593,11 @@ class WhatsAppService:
         if not self.base_url.startswith("https://"):
             issues.append("Base URL debe usar HTTPS")
 
+        if not self.catalog_id:
+            issues.append("Catalog ID no configurado")
+        elif not self.catalog_id.isdigit():
+            issues.append("Catalog ID debe ser numérico")
+
         return {
             "valid": len(issues) == 0,
             "issues": issues,
@@ -320,6 +605,12 @@ class WhatsAppService:
                 "base_url": self.base_url,
                 "version": self.version,
                 "phone_id": self.phone_number_id,
+                "catalog_id": self.catalog_id,
                 "token_length": len(self.access_token) if self.access_token else 0,
+            },
+            "catalog_configuration": {
+                "catalog_id": self.catalog_id,
+                "catalog_url": f"{self.base_url}/{self.version}/{self.catalog_id}",
+                "products_url": f"{self.base_url}/{self.version}/{self.catalog_id}/products",
             },
         }

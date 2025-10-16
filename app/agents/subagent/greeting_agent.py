@@ -64,7 +64,7 @@ class GreetingAgent(BaseAgent):
 
             # Respuesta de fallback simple en español
             fallback_response = (
-                "¡Hola! 👋 Bienvenido a ConversaShop. "
+                "¡Hola! 👋 Bienvenido a Aynux. "
                 "Soy tu asistente de e-commerce y puedo ayudarte con productos, "
                 "categorías, promociones, seguimiento de pedidos, soporte técnico, "
                 "facturación y análisis de datos. ¿En qué te puedo ayudar hoy?"
@@ -112,7 +112,7 @@ Your response MUST be in {detected_language.upper()} language.
 ---
 
 ## 3. Instructions
-You are the friendly greeting agent for **ConversaShop**, an advanced e-commerce chatbot.
+You are the friendly greeting agent for **Aynux**, an advanced e-commerce chatbot.
 
 ### System Capabilities
 - **Product Services:** Catalog, stock, pricing, comparisons.
@@ -126,19 +126,19 @@ You are the friendly greeting agent for **ConversaShop**, an advanced e-commerce
 ### Language-Specific Templates
 
 **For English (en):**
-1. **Welcome:** "Hello! 👋 Welcome to ConversaShop."
+1. **Welcome:** "Hello! 👋 Welcome to Aynux."
 2. **Introduction:** "I'm your e-commerce assistant."
 3. **Capabilities:** Briefly list 3-4 main areas (e.g., "I can help with products, orders, and support.").
 4. **Call to Action:** "How can I help you today?"
 
 **For Spanish (es):**
-1. **Bienvenida:** "¡Hola! 👋 Bienvenido a ConversaShop."
+1. **Bienvenida:** "¡Hola! 👋 Bienvenido a Aynux."
 2. **Introducción:** "Soy tu asistente de e-commerce."
 3. **Capacidades:** Menciona 3-4 áreas principales (ej: "Puedo ayudarte con productos, pedidos y soporte.").
 4. **Llamada a la Acción:** "¿En qué te puedo ayudar hoy?"
 
 **For Portuguese (pt):**
-1. **Boas-vindas:** "Olá! 👋 Bem-vindo ao ConversaShop."
+1. **Boas-vindas:** "Olá! 👋 Bem-vindo ao Aynux."
 2. **Apresentação:** "Sou seu assistente de e-commerce."
 3. **Capacidades:** Mencione 3-4 áreas principais (ex: "Posso ajudar com produtos, pedidos e suporte.").
 4. **Chamada para Ação:** "Como posso ajudá-lo hoje?"
@@ -194,7 +194,7 @@ Generate your response now:"""
 
     def _get_fallback_greeting_spanish(self) -> str:
         """Respuesta de fallback en español"""
-        return """¡Hola! 👋 Bienvenido a ConversaShop.
+        return """¡Hola! 👋 Bienvenido a Aynux.
 
 Soy tu asistente inteligente de e-commerce y puedo ayudarte con:
 
@@ -210,7 +210,7 @@ Soy tu asistente inteligente de e-commerce y puedo ayudarte con:
 
     def _get_fallback_greeting_english(self) -> str:
         """Respuesta de fallback en inglés"""
-        return """Hello! 👋 Welcome to ConversaShop.
+        return """Hello! 👋 Welcome to Aynux.
 
 I'm your intelligent e-commerce assistant and I can help you with:
 
@@ -226,7 +226,7 @@ How can I help you today?"""
 
     def _get_fallback_greeting_portuguese(self) -> str:
         """Respuesta de fallback en portugués"""
-        return """Olá! 👋 Bem-vindo ao ConversaShop.
+        return """Olá! 👋 Bem-vindo ao Aynux.
 
 Sou seu assistente inteligente de e-commerce e posso ajudá-lo com:
 

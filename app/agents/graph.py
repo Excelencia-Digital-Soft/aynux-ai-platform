@@ -24,8 +24,8 @@ from .utils.tracing import trace_async_method, trace_context
 logger = logging.getLogger(__name__)
 
 
-class EcommerceAssistantGraph:
-    """Graph principal del asistente e-commerce multi-agente (simplified)"""
+class AynuxGraph:
+    """Graph principal del asistente multi-dominio (simplified)"""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
@@ -42,7 +42,7 @@ class EcommerceAssistantGraph:
         self.persistent_checkpointer = None
         self.use_postgres_checkpointer = True
 
-        logger.info("EcommerceAssistantGraph initialized successfully")
+        logger.info("AynuxGraph initialized successfully")
 
     def _init_components(self):
         """Initialize all graph components"""

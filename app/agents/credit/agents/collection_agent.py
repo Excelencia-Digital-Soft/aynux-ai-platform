@@ -273,16 +273,16 @@ class CollectionAgent(BaseCreditAgent):
             ],
             "payment_promises": [
                 {"date": date.today() - timedelta(days=10), "amount": Decimal("1500.00"), "fulfilled": False}
-            ]
+            ],
         }
 
         message = f"""📋 **Detalle de Cuenta en Cobranza**
 
 🆔 **Cuenta:** {account_id}
-📅 **Días de atraso:** {account_detail['days_overdue']} días
-💰 **Monto vencido:** ${account_detail['overdue_amount']:,.2f}
-🏷️ **Etapa:** {account_detail['collection_stage']}
-📞 **Último contacto:** {account_detail['last_contact_date'].strftime('%d/%m/%Y')}
+📅 **Días de atraso:** {account_detail["days_overdue"]} días
+💰 **Monto vencido:** ${account_detail["overdue_amount"]:,.2f}
+🏷️ **Etapa:** {account_detail["collection_stage"]}
+📞 **Último contacto:** {account_detail["last_contact_date"].strftime("%d/%m/%Y")}
 
 📊 **Historial de contactos:**"""
 
@@ -290,4 +290,3 @@ class CollectionAgent(BaseCreditAgent):
             message += f"\n• {contact['date'].strftime('%d/%m/%Y')} - {contact['type']}: {contact['outcome']}"
 
         return {"message": message, "data": account_detail}
-

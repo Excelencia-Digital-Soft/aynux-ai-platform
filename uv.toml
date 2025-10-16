@@ -1,5 +1,5 @@
 # UV global configuration file for this project
-# This configures UV behavior for the ConversaShop project
+# This configures UV behavior for the Aynux project
 
 # Cache configuration
 cache-dir = ".uv-cache"

@@ -20,6 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, relationship
+from pgvector.sqlalchemy import Vector
 
 Base = declarative_base()
 
@@ -151,6 +152,12 @@ class Product(Base, TimestampMixin):
 
     # Campos para búsqueda full-text
     search_vector = Column(TSVECTOR)
+
+    # Campos para búsqueda semántica con pgvector
+    embedding = Column(Vector(1024))  # Vector embedding for semantic search (nomic-embed-text)
+    last_embedding_update = Column(DateTime)  # Timestamp of last embedding generation
+    embedding_model = Column(String(100), default="nomic-embed-text")  # Model used for embeddings
+    embedding_version = Column(Integer, default=1)  # Version for cache invalidation
 
     # Metadatos adicionales
     meta_data = Column(JSONB, default=dict)

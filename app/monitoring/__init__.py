@@ -1,5 +1,5 @@
 """
-Monitoring module for ConversaShop LangSmith integration.
+Monitoring module for Aynux LangSmith integration.
 
 This module provides comprehensive monitoring capabilities including:
 - Real-time dashboard data generation
@@ -8,7 +8,7 @@ This module provides comprehensive monitoring capabilities including:
 """
 
 from .langsmith_dashboard import (
-    ConversaShopMonitor,
+    AynuxMonitor,
     DashboardData,
     Alert,
     AlertSeverity,
@@ -17,7 +17,7 @@ from .langsmith_dashboard import (
 )
 
 from .alerts import (
-    ConversaShopAlertManager,
+    AynuxAlertManager,
     NotificationService,
     AlertCorrelationEngine,
     NotificationChannel,
@@ -29,7 +29,7 @@ from .alerts import (
 
 __all__ = [
     # Dashboard
-    "ConversaShopMonitor",
+    "AynuxMonitor",
     "DashboardData",
     "Alert",
     "AlertSeverity", 
@@ -37,7 +37,7 @@ __all__ = [
     "get_monitor",
     
     # Alerting
-    "ConversaShopAlertManager",
+    "AynuxAlertManager",
     "NotificationService",
     "AlertCorrelationEngine",
     "NotificationChannel",

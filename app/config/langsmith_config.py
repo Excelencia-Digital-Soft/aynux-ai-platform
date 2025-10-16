@@ -1,5 +1,5 @@
 """
-LangSmith configuration and integration for ConversaShop.
+LangSmith configuration and integration for Aynux.
 
 This module provides comprehensive tracing, monitoring, and evaluation
 capabilities for the LangGraph multi-agent system.
@@ -29,8 +29,8 @@ class LangSmithConfig(BaseModel):
     api_url: str = Field(default="https://api.smith.langchain.com", description="LangSmith API URL")
 
     # Project Configuration
-    project_name: str = Field(default="conversashop-production", description="LangSmith project name")
-    dataset_name: str = Field(default="conversashop-evals", description="Default dataset name")
+    project_name: str = Field(default="aynux-production", description="LangSmith project name")
+    dataset_name: str = Field(default="aynux-evals", description="Default dataset name")
 
     # Tracing Configuration
     tracing_enabled: bool = Field(default=True, description="Enable tracing")
@@ -63,7 +63,7 @@ class LangSmithConfig(BaseModel):
 
 class LangSmithTracer:
     """
-    Comprehensive LangSmith tracer for the ConversaShop system.
+    Comprehensive LangSmith tracer for the Aynux system.
     Handles initialization, tracing, and monitoring.
     """
 
@@ -83,7 +83,7 @@ class LangSmithTracer:
             return LangSmithConfig(
                 api_key=settings.LANGSMITH_API_KEY or os.getenv("LANGSMITH_API_KEY"),
                 api_url=settings.LANGSMITH_ENDPOINT or os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
-                project_name=settings.LANGSMITH_PROJECT or os.getenv("LANGSMITH_PROJECT", "conversashop-production"),
+                project_name=settings.LANGSMITH_PROJECT or os.getenv("LANGSMITH_PROJECT", "aynux-production"),
                 tracing_enabled=settings.LANGSMITH_TRACING if hasattr(settings, 'LANGSMITH_TRACING') else os.getenv("LANGSMITH_TRACING", "true").lower() == "true",
                 verbose_tracing=settings.LANGSMITH_VERBOSE if hasattr(settings, 'LANGSMITH_VERBOSE') else os.getenv("LANGSMITH_VERBOSE", "false").lower() == "true",
                 trace_sample_rate=float(os.getenv("LANGSMITH_SAMPLE_RATE", "1.0")),
@@ -94,7 +94,7 @@ class LangSmithTracer:
             # Fallback to environment variables if settings not available
             return LangSmithConfig(
                 api_key=os.getenv("LANGSMITH_API_KEY"),
-                project_name=os.getenv("LANGSMITH_PROJECT", "conversashop-production"),
+                project_name=os.getenv("LANGSMITH_PROJECT", "aynux-production"),
                 tracing_enabled=os.getenv("LANGSMITH_TRACING", "true").lower() == "true",
                 verbose_tracing=os.getenv("LANGSMITH_VERBOSE", "false").lower() == "true",
                 trace_sample_rate=float(os.getenv("LANGSMITH_SAMPLE_RATE", "1.0")),
@@ -407,7 +407,7 @@ def trace_integration(integration_name: str):
 
 class ConversationTracer:
     """
-    Specialized tracer for conversation flows in ConversaShop.
+    Specialized tracer for conversation flows in Aynux.
     Tracks entire conversation lifecycle.
     """
 

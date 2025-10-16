@@ -22,13 +22,14 @@ class Settings(BaseSettings):
     WHATSAPP_PHONE_NUMBER_ID: str = Field(..., description="ID del número de teléfono de WhatsApp")
     WHATSAPP_VERIFY_TOKEN: str = Field(..., description="Token de verificación para el webhook de WhatsApp")
     WHATSAPP_ACCESS_TOKEN: str = Field(..., description="Token de acceso permanente para la API de WhatsApp")
+    WHATSAPP_CATALOG_ID: str = Field(..., description="ID del catálogo de productos de WhatsApp Business")
     META_APP_ID: str = Field(..., description="ID de la aplicación de Facebook")
     META_APP_SECRET: str = Field(..., description="Secreto de la aplicación de Facebook")
 
     # PostgreSQL Database Settings
     DB_HOST: str = Field("localhost", description="Host de PostgreSQL")
     DB_PORT: int = Field(5432, description="Puerto de PostgreSQL")
-    DB_NAME: str = Field("conversashop", description="Nombre de la base de datos")
+    DB_NAME: str = Field("aynux", description="Nombre de la base de datos")
     DB_USER: str = Field("enzo", description="Usuario de PostgreSQL")
     DB_PASSWORD: Optional[str] = Field(None, description="Contraseña de PostgreSQL")
     DB_ECHO: bool = Field(False, description="Log SQL queries (solo para debug)")
@@ -56,7 +57,28 @@ class Settings(BaseSettings):
     OLLAMA_API_MODEL_FAST: str = Field("llama3.2:1b", description="Modelo rápido para respuestas al usuario")
     OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
     OLLAMA_API_CHROMADB: str = Field("./data/vector_db/", description="Ruta de la base de datos de ollama")
-    OLLAMA_API_MODEL_EMBEDDING: str = Field("mxbai-embed-large", description="Embedding del modelo de ollama")
+    OLLAMA_API_MODEL_EMBEDDING: str = Field("nomic-embed-text", description="Embedding del modelo de ollama")
+
+    # Vector Search Configuration
+    USE_PGVECTOR: bool = Field(True, description="Enable pgvector for native PostgreSQL vector search")
+    PRODUCT_SEARCH_STRATEGY: str = Field(
+        "pgvector_primary",
+        description="Search strategy: pgvector_primary | chroma_primary | hybrid",
+    )
+    PGVECTOR_SIMILARITY_THRESHOLD: float = Field(
+        0.7, description="Minimum similarity threshold for pgvector search (0.0-1.0)"
+    )
+    CHROMA_SIMILARITY_THRESHOLD: float = Field(
+        0.5, description="Minimum similarity threshold for ChromaDB search (0.0-1.0)"
+    )
+
+    # ProductAgent SOLID Refactoring Feature Flags
+    USE_REFACTORED_INTENT_ANALYZER: bool = Field(
+        False, description="Enable refactored IntentAnalyzer component (Phase 2)"
+    )
+    USE_REFACTORED_SEARCH_STRATEGIES: bool = Field(
+        False, description="Enable refactored search strategies with SearchStrategyManager (Phase 3)"
+    )
 
     # JWT Settings
     JWT_SECRET_KEY: str = Field(..., description="Clave secreta para JWT")
@@ -88,7 +110,7 @@ class Settings(BaseSettings):
     LANGSMITH_TRACING: bool = Field(True, description="Enable LangSmith tracing")
     LANGSMITH_ENDPOINT: str = Field("https://api.smith.langchain.com", description="LangSmith API endpoint")
     LANGSMITH_API_KEY: Optional[str] = Field(None, description="LangSmith API key")
-    LANGSMITH_PROJECT: str = Field("conversashop-production", description="LangSmith project name")
+    LANGSMITH_PROJECT: str = Field("aynux-production", description="LangSmith project name")
     LANGSMITH_VERBOSE: bool = Field(False, description="Enable verbose LangSmith logging")
 
     model_config = SettingsConfigDict(

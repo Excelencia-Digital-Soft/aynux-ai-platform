@@ -49,7 +49,7 @@ class DuxFacturasClient:
         return {
             "accept": "application/json",
             "authorization": self.auth_token,
-            "User-Agent": "ConversaShop-Bot/1.0",
+            "User-Agent": "Aynux-Bot/1.0",
         }
 
     @trace_integration("dux_get_facturas")

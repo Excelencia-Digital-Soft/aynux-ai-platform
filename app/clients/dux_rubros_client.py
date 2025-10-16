@@ -48,7 +48,7 @@ class DuxRubrosClient:
         return {
             "accept": "application/json",
             "authorization": self.auth_token,
-            "User-Agent": "ConversaShop-Bot/1.0",
+            "User-Agent": "Aynux-Bot/1.0",
         }
 
     async def get_rubros(self, timeout_override: Optional[int] = None) -> DuxRubrosResponse:

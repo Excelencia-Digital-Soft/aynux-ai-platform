@@ -178,7 +178,7 @@ class MemoryCacheBackend(CacheBackend):
 
 class MultiLayerCache:
     """
-    Sistema de caché multicapa optimizado para chatbot de e-commerce.
+    Sistema de caché multicapa optimizado para bot multi-dominio.
 
     L1 (Responses): Respuestas comunes frecuentes (TTL corto, alta velocidad)
     L2 (Embeddings): Embeddings de productos/categorías (TTL largo, alto costo computacional)
@@ -403,7 +403,7 @@ class MultiLayerCache:
 
 
 # Clase de conveniencia para respuestas comunes de e-commerce
-class EcommerceResponseCache:
+class AynuxResponseCache:
     """Cache especializado para respuestas comunes de e-commerce"""
 
     def __init__(self, multilayer_cache: MultiLayerCache):

@@ -1,5 +1,5 @@
 """
-Advanced alerting system for ConversaShop LangSmith monitoring.
+Advanced alerting system for Aynux LangSmith monitoring.
 
 This module provides intelligent alerting with multiple notification channels,
 alert correlation, escalation policies, and automated remediation suggestions.
@@ -238,8 +238,8 @@ This is for your awareness - no immediate action required.
             smtp_port = getattr(self.settings, "SMTP_PORT", 587)
             smtp_username = getattr(self.settings, "SMTP_USERNAME", "")
             smtp_password = getattr(self.settings, "SMTP_PASSWORD", "")
-            from_email = getattr(self.settings, "ALERT_FROM_EMAIL", "alerts@conversashop.com")
-            to_emails = getattr(self.settings, "ALERT_TO_EMAILS", ["admin@conversashop.com"])
+            from_email = getattr(self.settings, "ALERT_FROM_EMAIL", "alerts@aynux.com")
+            to_emails = getattr(self.settings, "ALERT_TO_EMAILS", ["admin@aynux.com"])
 
             if not smtp_username:
                 logger.warning("Email notifications not configured")
@@ -522,7 +522,7 @@ class AlertCorrelationEngine:
         return list(set(base_recs))[:6]
 
 
-class ConversaShopAlertManager:
+class AynuxAlertManager:
     """Main alert management system combining notifications, correlation, and escalation."""
 
     def __init__(self):
@@ -536,7 +536,7 @@ class ConversaShopAlertManager:
         # Escalation tracking
         self.escalated_alerts: Dict[str, Dict[str, Any]] = {}
 
-        logger.info("ConversaShopAlertManager initialized")
+        logger.info("AynuxAlertManager initialized")
 
     async def start_alert_processing(self):
         """Start the alert processing background task."""
@@ -676,13 +676,13 @@ class ConversaShopAlertManager:
 
 
 # Global singleton instance
-_alert_manager_instance: Optional[ConversaShopAlertManager] = None
+_alert_manager_instance: Optional[AynuxAlertManager] = None
 
 
-def get_alert_manager() -> ConversaShopAlertManager:
-    """Get a singleton instance of ConversaShopAlertManager."""
+def get_alert_manager() -> AynuxAlertManager:
+    """Get a singleton instance of AynuxAlertManager."""
     global _alert_manager_instance
     if _alert_manager_instance is None:
-        _alert_manager_instance = ConversaShopAlertManager()
+        _alert_manager_instance = AynuxAlertManager()
     return _alert_manager_instance
 

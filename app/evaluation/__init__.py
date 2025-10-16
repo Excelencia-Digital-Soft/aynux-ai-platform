@@ -1,5 +1,5 @@
 """
-Evaluation module for ConversaShop LangSmith integration.
+Evaluation module for Aynux LangSmith integration.
 
 This module provides comprehensive evaluation capabilities including:
 - Custom evaluators for agent performance
@@ -8,7 +8,7 @@ This module provides comprehensive evaluation capabilities including:
 """
 
 from .langsmith_evaluators import (
-    ConversaShopEvaluators,
+    AynuxEvaluators,
     EvaluationResult,
     create_langsmith_evaluators,
     get_evaluators_instance
@@ -21,7 +21,7 @@ from .datasets import (
 )
 
 from .metrics import (
-    ConversaShopMetrics,
+    AynuxMetrics,
     MetricsSummary,
     MetricType,
     MetricTrend,
@@ -30,7 +30,7 @@ from .metrics import (
 
 __all__ = [
     # Evaluators
-    "ConversaShopEvaluators",
+    "AynuxEvaluators",
     "EvaluationResult", 
     "create_langsmith_evaluators",
     "get_evaluators_instance",
@@ -41,7 +41,7 @@ __all__ = [
     "get_dataset_manager",
     
     # Metrics
-    "ConversaShopMetrics",
+    "AynuxMetrics",
     "MetricsSummary", 
     "MetricType",
     "MetricTrend",

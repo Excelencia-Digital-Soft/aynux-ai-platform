@@ -279,7 +279,7 @@ async def create_ticket_tool(
         ],
         "contact_options": [
             "WhatsApp: Responderemos por este mismo chat",
-            "Email: soporte@conversashop.com",
+            "Email: soporte@aynux.com",
             "Teléfono: 1-800-SUPPORT (solo prioridad alta)"
         ]
     }
@@ -305,7 +305,7 @@ async def get_warranty_info_tool(product_id: str, purchase_date: Optional[str] =
             "success": False,
             "error": f"Información de garantía no encontrada para el producto {product_id}",
             "product_id": product_id,
-            "support_contact": "soporte@conversashop.com"
+            "support_contact": "soporte@aynux.com"
         }
     
     warranty_info = warranty.copy()

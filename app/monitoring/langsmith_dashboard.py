@@ -1,5 +1,5 @@
 """
-LangSmith monitoring dashboard and alerting system for ConversaShop.
+LangSmith monitoring dashboard and alerting system for Aynux.
 
 This module provides real-time monitoring, alerting, and dashboard capabilities
 for the multi-agent conversation system.
@@ -91,8 +91,8 @@ class DashboardData(BaseModel):
     agent_usage_stats: Dict[str, int] = Field(default_factory=dict)
 
 
-class ConversaShopMonitor:
-    """Main monitoring and alerting system for ConversaShop."""
+class AynuxMonitor:
+    """Main monitoring and alerting system for Aynux."""
 
     def __init__(self):
         self.tracer = get_tracer()
@@ -116,7 +116,7 @@ class ConversaShopMonitor:
         # Alert thresholds (inherited from metrics collector)
         self.alert_thresholds = self.metrics_collector.thresholds
 
-        logger.info("ConversaShop monitoring system initialized")
+        logger.info("Aynux monitoring system initialized")
 
     async def generate_dashboard(
         self, time_period_hours: int = 24, include_trends: bool = True, include_recommendations: bool = True
@@ -593,13 +593,13 @@ class ConversaShopMonitor:
 
 
 # Global singleton instance
-_monitor_instance: Optional[ConversaShopMonitor] = None
+_monitor_instance: Optional[AynuxMonitor] = None
 
 
-def get_monitor() -> ConversaShopMonitor:
-    """Get a singleton instance of ConversaShopMonitor."""
+def get_monitor() -> AynuxMonitor:
+    """Get a singleton instance of AynuxMonitor."""
     global _monitor_instance
     if _monitor_instance is None:
-        _monitor_instance = ConversaShopMonitor()
+        _monitor_instance = AynuxMonitor()
     return _monitor_instance
 

@@ -1,14 +1,17 @@
 """
 Credit Agent Response Models
 """
-from typing import Optional, List, Dict, Any
-from datetime import datetime, date
+
+from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
 class CreditBalanceResponse(BaseModel):
     """Credit balance response"""
+
     account_id: str
     credit_limit: Decimal
     used_credit: Decimal
@@ -17,11 +20,12 @@ class CreditBalanceResponse(BaseModel):
     next_payment_amount: Optional[Decimal] = None
     interest_rate: Decimal
     status: str
-    last_update: datetime = Field(default_factory=datetime.utcnow)
+    last_update: datetime = Field(default_factory=datetime.now(UTC))
 
 
 class CreditApplicationResponse(BaseModel):
     """Credit application response"""
+
     application_id: str
     status: str  # pending, approved, rejected, under_review
     requested_amount: Decimal
@@ -31,11 +35,12 @@ class CreditApplicationResponse(BaseModel):
     risk_score: Optional[float] = None
     decision_reason: Optional[str] = None
     required_documents: Optional[List[str]] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(UTC))
 
 
 class PaymentResponse(BaseModel):
     """Payment processing response"""
+
     payment_id: str
     account_id: str
     amount: Decimal
@@ -49,6 +54,7 @@ class PaymentResponse(BaseModel):
 
 class StatementResponse(BaseModel):
     """Account statement response"""
+
     account_id: str
     statement_period: str
     opening_balance: Decimal
@@ -64,6 +70,7 @@ class StatementResponse(BaseModel):
 
 class RiskAssessmentResponse(BaseModel):
     """Risk assessment response"""
+
     assessment_id: str
     account_id: str
     risk_score: float
@@ -72,4 +79,5 @@ class RiskAssessmentResponse(BaseModel):
     factors: List[Dict[str, Any]]
     suggested_limit: Decimal
     suggested_interest_rate: Decimal
-    assessment_date: datetime = Field(default_factory=datetime.utcnow)
+    assessment_date: datetime = Field(default_factory=datetime.now(UTC))
+

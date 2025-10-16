@@ -1,5 +1,5 @@
 """
-Metrics collection and analysis for LangSmith evaluation in ConversaShop.
+Metrics collection and analysis for LangSmith evaluation in Aynux.
 
 This module provides comprehensive metrics collection, analysis, and reporting
 for the multi-agent conversation system performance.
@@ -67,8 +67,8 @@ class MetricsSummary(BaseModel):
     recommendations: List[str] = Field(default_factory=list, description="Improvement recommendations")
 
 
-class ConversaShopMetrics:
-    """Comprehensive metrics collection and analysis for ConversaShop."""
+class AynuxMetrics:
+    """Comprehensive metrics collection and analysis for Aynux."""
 
     def __init__(self):
         self.tracer = get_tracer()
@@ -94,7 +94,7 @@ class ConversaShopMetrics:
             "escalation_rate": {"warning": 0.15, "critical": 0.25, "target": 0.08},
         }
 
-        logger.info("ConversaShopMetrics initialized")
+        logger.info("AynuxMetrics initialized")
 
     async def collect_routing_metrics(
         self, time_period_hours: int = 24, project_name: Optional[str] = None
@@ -843,13 +843,13 @@ class ConversaShopMetrics:
 
 
 # Global singleton instance
-_metrics_instance: Optional[ConversaShopMetrics] = None
+_metrics_instance: Optional[AynuxMetrics] = None
 
 
-def get_metrics_collector() -> ConversaShopMetrics:
-    """Get a singleton instance of ConversaShopMetrics."""
+def get_metrics_collector() -> AynuxMetrics:
+    """Get a singleton instance of AynuxMetrics."""
     global _metrics_instance
     if _metrics_instance is None:
-        _metrics_instance = ConversaShopMetrics()
+        _metrics_instance = AynuxMetrics()
     return _metrics_instance
 

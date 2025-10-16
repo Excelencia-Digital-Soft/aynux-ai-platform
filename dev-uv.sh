@@ -49,7 +49,7 @@ fi
 
 # Menú con opciones
 show_menu() {
-  echo -e "${BLUE}==== Bot ConversaShop - Menú de Desarrollo (UV) ====${NC}"
+  echo -e "${BLUE}==== Bot Aynux - Menú de Desarrollo (UV) ====${NC}"
   echo "1. Instalar dependencias"
   echo "2. Iniciar servidor de desarrollo"
   echo "3. Ejecutar verificación de código (black, isort, ruff)"
@@ -108,17 +108,17 @@ update_dependencies() {
 # Crear entorno virtual
 create_venv() {
   show_status "Creando entorno virtual con UV..."
-  uv venv bot-conversashop --python 3.13
-  show_success "Entorno virtual creado con nombre 'bot-conversashop'"
+  uv venv aynux --python 3.13
+  show_success "Entorno virtual creado con nombre 'aynux'"
 }
 
 # Activar entorno virtual
 activate_venv() {
   show_status "Para activar el entorno virtual, ejecuta:"
-  echo "source ~/.local/share/uv/python/bot-conversashop/bin/activate"
+  echo "source ~/.local/share/uv/python/aynux/bin/activate"
   echo ""
   echo "O si usas fish shell:"
-  echo "source ~/.local/share/uv/python/bot-conversashop/bin/activate.fish"
+  echo "source ~/.local/share/uv/python/aynux/bin/activate.fish"
   echo ""
   echo "Nota: Con UV no es necesario activar el entorno virtual."
   echo "Puedes usar 'uv run' directamente para ejecutar comandos."

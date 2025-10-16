@@ -10,10 +10,13 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 from langchain_core.documents import Document
 
 from app.config.settings import get_settings
+from app.services.whatsapp_catalog_service import WhatsAppCatalogService
 from app.utils import extract_json_from_text
 
 from ..integrations.chroma_integration import ChromaDBIntegration
 from ..integrations.ollama_integration import OllamaIntegration
+from ..integrations.pgvector_integration import PgVectorIntegration
+from ..product.intent_analyzer import IntentAnalyzer
 from ..tools.product_tool import ProductTool
 from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
@@ -27,6 +30,8 @@ class ProductAgent(BaseAgent):
     def __init__(self, ollama=None, postgres=None, config: Optional[Dict[str, Any]] = None):
         super().__init__("product_agent", config or {}, ollama=ollama, postgres=postgres)
 
+        settings = get_settings()
+
         # Configuración específica del agente
         self.max_products_shown = self.config.get("max_products_shown", 10)
         self.show_stock = self.config.get("show_stock", True)
@@ -37,17 +42,43 @@ class ProductAgent(BaseAgent):
         self.product_tool = ProductTool()
         self.ollama = ollama or OllamaIntegration()
 
-        # Initialize ChromaDB integration for semantic search (all products)
-        all_products_path = os.path.join(get_settings().OLLAMA_API_CHROMADB, "products", "all_products")
+        # Initialize pgvector integration (primary search method)
+        self.pgvector = PgVectorIntegration(ollama=self.ollama)
+        self.use_pgvector = getattr(settings, "USE_PGVECTOR", True)  # Feature flag
+
+        # Initialize ChromaDB integration for fallback/legacy support
+        all_products_path = os.path.join(settings.OLLAMA_API_CHROMADB, "products", "all_products")
         self.chroma = ChromaDBIntegration(all_products_path)
         self.chroma_collection = "products_all_products"
 
-        # Configure search thresholds (lower threshold for better recall)
-        self.min_chroma_results = 2
-        self.similarity_threshold = 0.5  # Lowered from 0.7 for better semantic matching
+        # Configure search thresholds
+        self.min_results = 2
+        self.pgvector_similarity_threshold = 0.7  # Higher precision for pgvector
+        self.chroma_similarity_threshold = 0.5  # Lower recall for ChromaDB fallback
 
-        # Always use PostgreSQL database as fallback
+        # Search strategy: "pgvector_primary" | "chroma_primary" | "hybrid"
+        self.search_strategy = getattr(settings, "PRODUCT_SEARCH_STRATEGY", "pgvector_primary")
+
+        # Always use PostgreSQL database as ultimate fallback
         self.data_source = "database"
+
+        # Initialize WhatsApp Catalog Service for interactive product displays
+        self.enable_whatsapp_catalog = self.config.get("enable_whatsapp_catalog", True)
+        self.catalog_service = None
+        if self.enable_whatsapp_catalog:
+            try:
+                self.catalog_service = WhatsAppCatalogService()
+                self.logger.info("WhatsApp Catalog Service initialized")
+            except Exception as e:
+                self.logger.warning(f"WhatsApp Catalog Service not available: {str(e)}")
+                self.catalog_service = None
+
+        # SOLID Refactoring: Initialize IntentAnalyzer (Phase 2) behind feature flag
+        self.use_refactored_intent_analyzer = getattr(settings, "USE_REFACTORED_INTENT_ANALYZER", False)
+        self.intent_analyzer = None
+        if self.use_refactored_intent_analyzer:
+            self.intent_analyzer = IntentAnalyzer(ollama=self.ollama, temperature=0.3)
+            self.logger.info("Using refactored IntentAnalyzer (Phase 2)")
 
     @trace_async_method(
         name="product_agent_process",
@@ -67,34 +98,56 @@ class ProductAgent(BaseAgent):
             Diccionario con actualizaciones para el estado
         """
         try:
-            # Analyze user intent using AI
-            intent_analysis = await self._analyze_user_intent(message)
-
-            # Step 1: Try ChromaDB semantic search first
-            self.logger.debug("Attempting ChromaDB semantic search...")
-            chroma_data = await self._query_products_from_chroma(message, intent_analysis)
+            # Analyze user intent using AI (refactored or legacy)
+            if self.use_refactored_intent_analyzer and self.intent_analyzer:
+                # Use refactored IntentAnalyzer (Phase 2)
+                intent_obj = await self.intent_analyzer.analyze_intent(message)
+                intent_analysis = intent_obj.to_dict()
+                self.logger.debug(f"Using refactored IntentAnalyzer: {intent_analysis['intent']}")
+            else:
+                # Use legacy intent analysis
+                intent_analysis = await self._analyze_user_intent(message)
+                self.logger.debug(f"Using legacy intent analysis: {intent_analysis['intent']}")
 
             products = []
             response_text = ""
-            source = "chroma"
+            source = "unknown"
+            search_metadata = {}
 
-            # Check if ChromaDB returned sufficient relevant results
-            chroma_products = chroma_data.get("products", [])
-            chroma_success = chroma_data.get("success", False)
+            # Step 1: Try pgvector semantic search first (if enabled)
+            if self.use_pgvector and self.search_strategy in ["pgvector_primary", "hybrid"]:
+                self.logger.debug("Attempting pgvector semantic search...")
+                pgvector_data = await self._query_products_from_pgvector(message, intent_analysis)
 
-            if chroma_success and len(chroma_products) >= self.min_chroma_results:
-                # ChromaDB found sufficient results - use them
-                products = chroma_products
-                self.logger.info(f"Using ChromaDB results: {len(products)} products found")
+                pgvector_products = pgvector_data.get("products", [])
+                pgvector_success = pgvector_data.get("success", False)
 
-                # Generate response using ChromaDB-specific AI prompt
-                response_text = await self._generate_chroma_ai_response(products, message, intent_analysis, chroma_data)
+                if pgvector_success and len(pgvector_products) >= self.min_results:
+                    # pgvector found sufficient results - use them
+                    products = pgvector_products
+                    source = "pgvector"
+                    search_metadata = pgvector_data
+                    self.logger.info(f"Using pgvector results: {len(products)} products found")
 
-            else:
-                # Step 2: Fallback to database search
+            # Step 2: Fallback to ChromaDB if pgvector failed or not enough results
+            if not products and self.search_strategy in ["chroma_primary", "hybrid"]:
+                self.logger.debug("Attempting ChromaDB semantic search...")
+                chroma_data = await self._query_products_from_chroma(message, intent_analysis)
+
+                chroma_products = chroma_data.get("products", [])
+                chroma_success = chroma_data.get("success", False)
+
+                if chroma_success and len(chroma_products) >= self.min_results:
+                    # ChromaDB found sufficient results - use them
+                    products = chroma_products
+                    source = "chroma"
+                    search_metadata = chroma_data
+                    self.logger.info(f"Using ChromaDB results: {len(products)} products found")
+
+            # Step 3: Ultimate fallback to database search
+            if not products:
                 self.logger.info(
-                    f"ChromaDB insufficient results ({len(chroma_products)}),\
-                    falling back to database search..."
+                    f"Vector search insufficient results, falling back to database search..."
                 )
 
                 products_data = await self._get_products_from_db(intent_analysis)
@@ -104,12 +157,30 @@ class ProductAgent(BaseAgent):
 
                 products = products_data.get("products", [])
                 source = "database"
+                search_metadata = products_data
 
-                # Generate AI-powered response using traditional method
-                if not products:
-                    response_text = await self._generate_no_results_response(message, intent_analysis)
-                else:
-                    response_text = await self._generate_ai_response(products, message, intent_analysis)
+            # Generate response based on products found
+            if products:
+                # Try WhatsApp catalog first if available
+                response_text, catalog_sent = await self._try_catalog_response(
+                    message, intent_analysis, products, state_dict
+                )
+
+                # If catalog not sent, generate traditional AI response
+                if not catalog_sent:
+                    if source == "pgvector":
+                        response_text = await self._generate_pgvector_ai_response(
+                            products, message, intent_analysis, search_metadata
+                        )
+                    elif source == "chroma":
+                        response_text = await self._generate_chroma_ai_response(
+                            products, message, intent_analysis, search_metadata
+                        )
+                    else:
+                        response_text = await self._generate_ai_response(products, message, intent_analysis)
+            else:
+                # No products found
+                response_text = await self._generate_no_results_response(message, intent_analysis)
 
             return {
                 "messages": [{"role": "assistant", "content": response_text}],
@@ -119,7 +190,7 @@ class ProductAgent(BaseAgent):
                     "products": products,
                     "intent": intent_analysis,
                     "source": source,
-                    "chroma_metadata": chroma_data if source == "chroma" else None,
+                    "search_metadata": search_metadata,
                 },
                 "is_complete": True,
             }
@@ -181,29 +252,27 @@ For search_terms, only include meaningful product-related words, not filler word
             "wants_featured": False,
             "wants_sale": False,
         }
-        
+
         try:
             llm = self.ollama.get_llm(temperature=0.3)
             response = await llm.ainvoke(prompt)
-            
+
             # Extract JSON from response using the utility function
             required_keys = ["intent"]  # Minimum required key
             extracted_json = extract_json_from_text(
-                response.content, 
-                default=default_intent,
-                required_keys=required_keys
+                response.content, default=default_intent, required_keys=required_keys
             )
-            
+
             # Ensure all expected keys are present with defaults
             if extracted_json and isinstance(extracted_json, dict):
                 for key, value in default_intent.items():
                     if key not in extracted_json:
                         extracted_json[key] = value
-                        
+
                 return extracted_json
             else:
                 return default_intent
-                
+
         except Exception as e:
             logger.error(f"Error analyzing product intent: {str(e)}")
             return default_intent
@@ -283,6 +352,121 @@ For search_terms, only include meaningful product-related words, not filler word
             return await self.product_tool("featured", limit=self.max_products_shown)
 
         return await self.product_tool("advanced_search", **search_params)
+
+    async def _query_products_from_pgvector(self, user_query: str, intent_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Query products from PostgreSQL using pgvector semantic search.
+
+        Args:
+            user_query: Original user query
+            intent_analysis: AI-analyzed user intent
+
+        Returns:
+            Dict with success, products, and metadata
+        """
+        try:
+            # Construct semantic search query
+            search_terms = intent_analysis.get("search_terms", [])
+            category = intent_analysis.get("category")
+            brand = intent_analysis.get("brand")
+            specific_product = intent_analysis.get("specific_product")
+
+            # Build comprehensive search query
+            query_parts = []
+
+            if specific_product:
+                query_parts.append(f"product: {specific_product}")
+            elif search_terms:
+                query_parts.append(" ".join(search_terms))
+
+            if category:
+                query_parts.append(f"category: {category}")
+
+            if brand:
+                query_parts.append(f"brand: {brand}")
+
+            # Fallback to original user query if no specific terms
+            semantic_query = " ".join(query_parts) if query_parts else user_query
+
+            self.logger.debug(f"pgvector semantic search query: '{semantic_query}'")
+
+            # Generate query embedding
+            query_embedding = await self.pgvector.generate_embedding(semantic_query)
+
+            # Build metadata filters from intent
+            metadata_filters = {
+                "stock_required": intent_analysis.get("wants_stock_info", True),
+            }
+
+            # Add category filter if specified
+            if category:
+                # TODO: Look up category ID by name
+                pass
+
+            # Add brand filter if specified
+            if brand:
+                # TODO: Look up brand ID by name
+                pass
+
+            # Add price range filters if specified
+            if intent_analysis.get("price_min"):
+                metadata_filters["price_min"] = intent_analysis["price_min"]
+
+            if intent_analysis.get("price_max"):
+                metadata_filters["price_max"] = intent_analysis["price_max"]
+
+            # Perform semantic search with metadata filtering
+            results = await self.pgvector.search_similar_products(
+                query_embedding=query_embedding,
+                k=self.max_products_shown,
+                metadata_filters=metadata_filters,
+                min_similarity=self.pgvector_similarity_threshold,
+                query_text=semantic_query,  # Pass query text for metrics tracking
+            )
+
+            if not results:
+                self.logger.info("No results from pgvector semantic search")
+                return {"success": True, "products": [], "source": "pgvector", "query": semantic_query}
+
+            # Process results and extract product information
+            products = []
+            for product, similarity_score in results:
+                product_data = {
+                    "id": str(product.id),
+                    "name": product.name,
+                    "description": product.description or "",
+                    "price": float(product.price),
+                    "stock": int(product.stock),
+                    "sku": product.sku or "",
+                    "category": {
+                        "name": product.category.name if product.category else "",
+                        "display_name": product.category.display_name if product.category else "",
+                    },
+                    "brand": {"name": product.brand.name if product.brand else ""} if product.brand else None,
+                    "specs": product.specs or "",
+                    "similarity_score": float(similarity_score),
+                    "model": product.model or "",
+                }
+
+                products.append(product_data)
+
+            self.logger.info(
+                f"pgvector found {len(products)} relevant products (similarity >= {self.pgvector_similarity_threshold})"
+            )
+
+            return {
+                "success": True,
+                "products": products,
+                "source": "pgvector",
+                "query": semantic_query,
+                "total_results": len(results),
+                "filtered_results": len(products),
+                "avg_similarity": sum(p["similarity_score"] for p in products) / len(products) if products else 0,
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error querying pgvector: {str(e)}")
+            return {"success": False, "error": str(e), "products": [], "source": "pgvector"}
 
     async def _query_products_from_chroma(self, user_query: str, intent_analysis: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -398,6 +582,151 @@ For search_terms, only include meaningful product-related words, not filler word
         except Exception as e:
             self.logger.error(f"Error querying ChromaDB: {str(e)}")
             return {"success": False, "error": str(e), "products": [], "source": "chroma"}
+
+    async def _generate_pgvector_ai_response(
+        self,
+        products: List[Dict[str, Any]],
+        message: str,
+        _: Dict[str, Any],
+        pgvector_metadata: Dict[str, Any],
+    ) -> str:
+        """Generate AI-powered response specifically for pgvector semantic search results."""
+        # Prepare product information for AI in structured format
+        product_info = []
+        for product in products:
+            info = {
+                "name": product["name"],
+                "brand": product.get("brand", {}).get("name", "N/A") if product.get("brand") else "N/A",
+                "price": f"${product['price']:.2f}",
+                "stock": "Available" if product["stock"] > 0 else "Out of stock",
+                "stock_count": product["stock"],
+                "category": product.get("category", {}).get("display_name", "N/A"),
+                "description": product.get("description", "")[:150] + "..."
+                if len(product.get("description", "")) > 150
+                else product.get("description", ""),
+                "specs": product.get("specs", "")[:100] + "..."
+                if len(product.get("specs", "")) > 100
+                else product.get("specs", ""),
+                "similarity_score": product.get("similarity_score", 0),
+                "sku": product.get("sku", ""),
+            }
+            product_info.append(info)
+
+        # Create structured product data for the prompt
+        products_json = []
+        for info in product_info:
+            products_json.append(f"""{{
+    "name": "{info["name"]}",
+    "brand": "{info["brand"]}",
+    "price": "{info["price"]}",
+    "stock": "{info["stock"]} ({info["stock_count"]} units)",
+    "category": "{info["category"]}",
+    "description": "{info["description"]}",
+    "relevance": {info["similarity_score"]:.3f}
+}}""")
+
+        products_text = ",\n".join(products_json)
+
+        # Enhanced English prompt for better multilingual understanding
+        prompt = f"""# E-COMMERCE PRODUCT SEARCH ASSISTANT (pgvector)
+
+## USER QUERY
+"{message}"
+
+## LANGUAGE DETECTION & RESPONSE REQUIREMENT
+IMPORTANT: Detect the language of the user's query and respond in the SAME language.
+- If Spanish → Respond in Spanish
+- If English → Respond in English
+- If Portuguese → Respond in Portuguese
+- Default: Spanish
+
+## PGVECTOR SEMANTIC SEARCH RESULTS
+Found {len(products)} highly relevant products from PostgreSQL vector search:
+[
+{products_text}
+]
+
+## SEARCH METADATA
+- Source: PostgreSQL pgvector (native vector similarity)
+- Query processed: "{pgvector_metadata.get("query", message)}"
+- Total results found: {pgvector_metadata.get("total_results", 0)}
+- Average similarity: {pgvector_metadata.get("avg_similarity", 0):.3f}
+- Minimum threshold: {self.pgvector_similarity_threshold}
+
+## INSTRUCTIONS
+You are a helpful multilingual e-commerce assistant. Based on the high-quality semantic search results:
+
+1. **ANALYZE LANGUAGE**: Detect user's language and respond accordingly
+2. **ANALYZE RELEVANCE**: Review the similarity scores (>0.7 = excellent match)
+3. **PRIORITIZE RESULTS**: Focus on products with highest relevance scores
+4. **GENERATE RESPONSE**: Create a natural, conversational response that:
+   - Highlights the most relevant products (top 3-5)
+   - Includes key details: name, brand, price, stock status
+   - Uses natural language and friendly tone
+   - Includes relevant emojis moderately (1-3 max)
+   - Mentions category if helpful for context
+   - Suggests alternatives if needed
+
+## RESPONSE FORMAT
+- Maximum 6 lines
+- Start with products found confirmation
+- List top products with essential details
+- End with helpful offer for more information
+
+## QUALITY REQUIREMENTS
+- **Language Match**: Respond in user's detected language
+- **Accuracy**: All prices and product details must be exact
+- **Relevance**: Prioritize higher similarity scores
+- **Completeness**: Include stock status and key specifications
+- **Tone**: Professional but friendly and helpful
+- **Brevity**: Concise but informative
+
+Generate your response now:"""
+
+        try:
+            # Use fast model for user-facing responses
+            llm = self.ollama.get_llm(temperature=0.7, model="llama3.2:1b")
+            response = await llm.ainvoke(prompt)
+            return response.content.strip()  # type: ignore
+        except Exception as e:
+            self.logger.error(f"Error generating pgvector AI response: {str(e)}")
+            # Fallback to formatted response
+            return self._format_pgvector_fallback_response(products, pgvector_metadata)
+
+    def _format_pgvector_fallback_response(self, products: List[Dict[str, Any]], _: Dict[str, Any]) -> str:
+        """Fallback response formatting for pgvector results when AI fails."""
+        if not products:
+            return "🔍 Busqué en nuestro catálogo pero no encontré productos que coincidan con tu consulta.\
+                ¿Podrías ser más específico?"
+
+        count = len(products)
+        response = f"🎯 Encontré {count} producto{'s' if count > 1 else ''} muy relevante{'s' if count > 1 else ''}\
+            para tu búsqueda:\n\n"
+
+        for i, product in enumerate(products[:5], 1):
+            name = product["name"]
+            brand = product.get("brand", {}).get("name", "") if product.get("brand") else ""
+            price = product["price"]
+            stock = product["stock"]
+            similarity = product.get("similarity_score", 0)
+
+            response += f"{i}. **{name}**"
+            if brand:
+                response += f" ({brand})"
+            response += f" - ${price:,.2f}"
+
+            if stock > 0:
+                response += f" ✅ ({stock} disponibles)"
+            else:
+                response += " ❌ Sin stock"
+
+            if similarity >= 0.8:
+                response += " ⭐ Coincidencia exacta"
+
+            response += "\n"
+
+        response += "\n¿Te interesa alguno? Puedo darte más detalles. 🛒"
+        return response
 
     async def _generate_chroma_ai_response(
         self,
@@ -720,3 +1049,115 @@ No matching products found. Generate a helpful response that:
         response += "\n¿Te interesa alguno en particular? Puedo darte más detalles."
 
         return response
+
+    async def _try_catalog_response(
+        self, message: str, intent_analysis: Dict[str, Any], products: List[Dict[str, Any]], state_dict: Dict[str, Any]
+    ) -> Tuple[str, bool]:
+        """
+        Try to send WhatsApp catalog response if service is available and appropriate
+
+        Args:
+            message: User's message
+            intent_analysis: AI analysis of intent
+            products: Found products
+            state_dict: Current conversation state
+
+        Returns:
+            Tuple[str, bool]: (response_text, catalog_sent)
+        """
+        catalog_sent = False
+        response_text = ""
+
+        # Check if catalog service is available and user phone is available
+        if not self.catalog_service:
+            return "", False
+
+        # Get user phone from state
+        user_phone = state_dict.get("user_phone") or state_dict.get("from_phone")
+        if not user_phone:
+            self.logger.debug("No user phone available for catalog response")
+            return "", False
+
+        try:
+            # Attempt smart catalog response
+            catalog_response = await self.catalog_service.send_smart_product_response(
+                user_phone=user_phone, user_message=message, intent_analysis=intent_analysis, local_products=products
+            )
+
+            if catalog_response.success:
+                # Catalog sent successfully
+                catalog_sent = True
+                response_text = self._generate_catalog_confirmation_text(len(products), intent_analysis)
+                self.logger.info(f"WhatsApp catalog sent successfully to {user_phone}")
+
+            else:
+                # Catalog service decided not to send catalog or failed
+                fallback_data = (
+                    catalog_response.data if catalog_response.data and isinstance(catalog_response.data, dict) else {}
+                )
+
+                if fallback_data.get("fallback_to_text"):
+                    # Service recommends text fallback
+                    reason = fallback_data.get("reason", "Unknown reason")
+                    self.logger.debug(f"Catalog service fallback: {reason}")
+                    catalog_sent = False
+                    response_text = ""
+                else:
+                    # Actual error occurred
+                    self.logger.warning(f"Catalog service error: {catalog_response.error}")
+                    catalog_sent = False
+                    response_text = ""
+
+        except Exception as e:
+            self.logger.error(f"Error trying catalog response: {str(e)}")
+            catalog_sent = False
+            response_text = ""
+
+        return response_text, catalog_sent
+
+    def _generate_catalog_confirmation_text(self, product_count: int, intent_analysis: Dict[str, Any]) -> str:
+        """
+        Generate confirmation text when catalog is sent
+
+        Args:
+            product_count: Number of products in catalog
+            intent_analysis: User intent analysis
+
+        Returns:
+            Confirmation message text
+        """
+        intent_type = intent_analysis.get("intent", "").lower()
+        category = intent_analysis.get("category", "")
+
+        if "category" in intent_type and category:
+            return (
+                f"📱 Te envié nuestro catálogo interactivo con {product_count} productos "
+                f"de {category}. ¡Puedes ver detalles, precios y hacer tu pedido directamente!"
+            )
+
+        elif "search" in intent_type:
+            search_terms = intent_analysis.get("search_terms", [])
+            if search_terms:
+                terms_text = ", ".join(search_terms[:3])  # Limit to first 3 terms
+                return (
+                    f"🔍 Encontré {product_count} productos relacionados con '{terms_text}'. "
+                    f"Te envié el catálogo interactivo para que puedas explorar las opciones."
+                )
+
+        return (
+            f"🛍️ Te envié nuestro catálogo interactivo con {product_count} productos disponibles. "
+            f"Puedes ver detalles, comparar precios y elegir lo que más te guste."
+        )
+
+    def get_catalog_status(self) -> Dict[str, Any]:
+        """
+        Get status of WhatsApp catalog integration
+
+        Returns:
+            Dictionary with catalog status information
+        """
+        return {
+            "catalog_enabled": self.enable_whatsapp_catalog,
+            "catalog_service_available": self.catalog_service is not None,
+            "catalog_info": self.catalog_service.get_catalog_info() if self.catalog_service else None,
+        }

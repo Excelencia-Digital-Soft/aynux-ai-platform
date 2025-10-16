@@ -1,5 +1,5 @@
 """
-Dataset management for LangSmith evaluation in ConversaShop.
+Dataset management for LangSmith evaluation in Aynux.
 
 This module handles creation, management, and maintenance of evaluation datasets
 for testing the multi-agent conversation system.
@@ -52,7 +52,7 @@ class ConversationExample(BaseModel):
 
 
 class DatasetManager:
-    """Manages evaluation datasets for the ConversaShop multi-agent system."""
+    """Manages evaluation datasets for the Aynux multi-agent system."""
 
     def __init__(self):
         self.tracer = get_tracer()
@@ -60,23 +60,23 @@ class DatasetManager:
 
         # Dataset configurations
         self.dataset_configs = {
-            "conversashop_intent_routing": {
+            "aynux_intent_routing": {
                 "description": "Examples for testing intent detection and agent routing",
                 "focus": "routing_accuracy",
             },
-            "conversashop_response_quality": {
+            "aynux_response_quality": {
                 "description": "Examples for evaluating response quality and relevance",
                 "focus": "response_quality",
             },
-            "conversashop_business_scenarios": {
+            "aynux_business_scenarios": {
                 "description": "Real business scenarios for conversion and satisfaction testing",
                 "focus": "business_metrics",
             },
-            "conversashop_multilingual": {
+            "aynux_multilingual": {
                 "description": "Examples in different languages for localization testing",
                 "focus": "language_handling",
             },
-            "conversashop_edge_cases": {
+            "aynux_edge_cases": {
                 "description": "Edge cases and error scenarios for robustness testing",
                 "focus": "error_handling",
             },
@@ -109,7 +109,7 @@ class DatasetManager:
                 pass  # Dataset doesn't exist, create it
 
             dataset = self.client.create_dataset(
-                dataset_name=dataset_name, description=description or f"ConversaShop evaluation dataset: {dataset_name}"
+                dataset_name=dataset_name, description=description or f"Aynux evaluation dataset: {dataset_name}"
             )
 
             logger.info(f"Created dataset: {dataset_name}")
@@ -169,7 +169,7 @@ class DatasetManager:
         # INTENT ROUTING AND AGENT SELECTION EXAMPLES
         # =====================================================
 
-        golden_examples["conversashop_intent_routing"] = [
+        golden_examples["aynux_intent_routing"] = [
             # Product queries - should route to product_agent
             ConversationExample(
                 user_message="¿Qué productos tienen disponibles?",
@@ -276,7 +276,7 @@ class DatasetManager:
         # RESPONSE QUALITY EXAMPLES
         # =====================================================
 
-        golden_examples["conversashop_response_quality"] = [
+        golden_examples["aynux_response_quality"] = [
             ConversationExample(
                 user_message="¿Cuánto cuesta el iPhone 15?",
                 expected_agent="product_agent",
@@ -316,7 +316,7 @@ class DatasetManager:
         # BUSINESS SCENARIO EXAMPLES
         # =====================================================
 
-        golden_examples["conversashop_business_scenarios"] = [
+        golden_examples["aynux_business_scenarios"] = [
             ConversationExample(
                 user_message="¿Tienen laptops Dell en oferta?",
                 expected_agent="product_agent",
@@ -359,7 +359,7 @@ class DatasetManager:
         # MULTILINGUAL AND EDGE CASES
         # =====================================================
 
-        golden_examples["conversashop_multilingual"] = [
+        golden_examples["aynux_multilingual"] = [
             ConversationExample(
                 user_message="Hello, do you have any laptops?",
                 expected_agent="product_agent",
@@ -381,7 +381,7 @@ class DatasetManager:
             ),
         ]
 
-        golden_examples["conversashop_edge_cases"] = [
+        golden_examples["aynux_edge_cases"] = [
             ConversationExample(
                 user_message="",
                 expected_agent="fallback_agent",

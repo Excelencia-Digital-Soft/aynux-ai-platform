@@ -1,5 +1,5 @@
 """
-Custom evaluators for LangSmith integration in ConversaShop.
+Custom evaluators for LangSmith integration in Aynux.
 
 This module provides comprehensive evaluation capabilities for the multi-agent system:
 - Agent routing accuracy
@@ -42,8 +42,8 @@ class EvaluationResult(BaseModel):
     category: str = Field(..., description="Evaluation category (quality, accuracy, business, etc.)")
 
 
-class ConversaShopEvaluators:
-    """Collection of custom evaluators for the ConversaShop multi-agent system."""
+class AynuxEvaluators:
+    """Collection of custom evaluators for the Aynux multi-agent system."""
 
     def __init__(self):
         self.tracer = get_tracer()
@@ -57,7 +57,7 @@ class ConversaShopEvaluators:
             "business_conversion_threshold": 0.15,
         }
 
-        logger.info("ConversaShop evaluators initialized")
+        logger.info("Aynux evaluators initialized")
 
     def _create_evaluator_decorator(self, evaluator_name: str, category: str):
         """Creates a decorator that wraps evaluators with error handling and logging."""
@@ -708,7 +708,7 @@ def create_langsmith_evaluators() -> List[LangSmithRunEvaluator]:
     Returns:
         List of evaluators that can be used with LangSmith's evaluation framework
     """
-    evaluators_instance = ConversaShopEvaluators()
+    evaluators_instance = AynuxEvaluators()
 
     # Wrap evaluators for LangSmith compatibility
     langsmith_evaluators = []
@@ -739,13 +739,13 @@ def create_langsmith_evaluators() -> List[LangSmithRunEvaluator]:
 
 
 # Global singleton instance
-_evaluators_instance: Optional[ConversaShopEvaluators] = None
+_evaluators_instance: Optional[AynuxEvaluators] = None
 
 
-def get_evaluators_instance() -> ConversaShopEvaluators:
-    """Get a singleton instance of ConversaShopEvaluators."""
+def get_evaluators_instance() -> AynuxEvaluators:
+    """Get a singleton instance of AynuxEvaluators."""
     global _evaluators_instance
     if _evaluators_instance is None:
-        _evaluators_instance = ConversaShopEvaluators()
+        _evaluators_instance = AynuxEvaluators()
     return _evaluators_instance
 

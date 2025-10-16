@@ -84,7 +84,7 @@ INSERT INTO domain_configs (
 ) VALUES (
     'ecommerce',
     'true',
-    'E-commerce ConversaShop',
+    'E-commerce Aynux',
     'Tienda online de productos tecnológicos y componentes',
     'EcommerceDomainService',
     0.8,
