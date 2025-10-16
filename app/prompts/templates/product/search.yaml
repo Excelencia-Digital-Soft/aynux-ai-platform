@@ -1,0 +1,138 @@
+# Product Search Prompts
+# Purpose: Prompts for product search intent analysis and response generation
+
+prompts:
+  - key: product.search.intent_analysis
+    name: Product Search Intent Analysis
+    description: Analyzes user intention for product searches with semantic understanding
+    version: "1.0.0"
+    template: |
+      # ANÁLISIS DE INTENCIÓN DE PRODUCTO
+
+      ## MENSAJE DEL USUARIO:
+      "{message}"
+
+      ## CONTEXTO DEL USUARIO:
+      {user_context}
+
+      ## INSTRUCCIONES:
+      Analiza la intención del usuario y responde en JSON con la siguiente estructura:
+
+      {
+        "intent_type": "search_general|search_specific|comparison|availability_check|price_inquiry|category_browse|recommendation_request|specification_inquiry",
+
+        "search_params": {
+          "keywords": ["lista", "de", "palabras", "clave"],
+          "product_name": "nombre específico si lo hay|null",
+          "brand": "marca específica|null",
+          "category": "categoría|null",
+          "model": "modelo específico|null"
+        },
+
+        "filters": {
+          "price_range": {"min": float|null, "max": float|null},
+          "characteristics": ["característica1", "característica2"],
+          "availability_required": bool,
+          "color": "color|null",
+          "size": "tamaño|null"
+        },
+
+        "query_complexity": "simple|medium|complex",
+        "semantic_search_recommended": bool,
+        "sql_generation_needed": bool,
+        "user_emotion": "neutral|excited|frustrated|urgent|curious",
+        "response_style_preference": "brief|detailed|technical|conversational"
+      }
+
+      IMPORTANTE:
+      - No uses reglas fijas, interpreta el lenguaje naturalmente
+      - Considera sinónimos y variaciones del español
+      - Detecta características implícitas (ej: "para gaming" implica alta performance)
+      - Si hay ambigüedad, favorece la interpretación más probable
+    metadata:
+      temperature: 0.3
+      max_tokens: 800
+      model: "deepseek-r1:7b"
+
+  - key: product.search.response
+    name: Product Search Response Generation
+    description: Generates intelligent, contextual responses for product search results
+    version: "1.0.0"
+    template: |
+      # GENERACIÓN DE RESPUESTA INTELIGENTE
+
+      ## CONSULTA ORIGINAL:
+      "{user_message}"
+
+      ## ANÁLISIS DE INTENCIÓN:
+      - Tipo: {intent_type}
+      - Emoción del usuario: {user_emotion}
+      - Estilo preferido: {response_style}
+      - Complejidad: {query_complexity}
+
+      ## RESULTADOS ENCONTRADOS:
+      - Total de productos: {count}
+      - Método de búsqueda: {method}
+      - Productos principales:
+      {products_summary}
+
+      ## INSTRUCCIONES:
+      1. Responde de manera {response_style} y adaptada a la emoción {user_emotion}
+      2. Destaca los productos más relevantes para la consulta
+      3. Incluye información clave como precios, disponibilidad y características
+      4. Si hay muchos resultados, agrupa por categorías o características
+      5. Sugiere próximos pasos útiles para el usuario
+      6. Usa emojis apropiados para WhatsApp pero sin exceso
+      7. Máximo 6 líneas de respuesta, sé conciso pero informativo
+
+      TONO: Amigable, profesional, orientado a la acción.
+    metadata:
+      temperature: 0.7
+      max_tokens: 600
+
+  - key: product.search.no_results
+    name: Product Search No Results Handler
+    description: Generates empathetic responses when no products match the search
+    version: "1.0.0"
+    template: |
+      # NO HAY RESULTADOS
+
+      ## CONSULTA:
+      "{message}"
+
+      ## INTENCIÓN DETECTADA:
+      {intent_analysis}
+
+      ## INSTRUCCIONES:
+      El usuario no obtuvo resultados para su búsqueda. Genera una respuesta que:
+
+      1. Sea empática y comprensiva
+      2. Ofrezca 2-3 alternativas específicas y útiles
+      3. Sugiera ampliar o modificar la búsqueda
+      4. Mantenga un tono positivo y servicial
+      5. Use máximo 4 líneas
+
+      Ejemplos de alternativas:
+      - Sugerir categorías relacionadas
+      - Proponer marcas similares
+      - Ofrecer productos con características parecidas
+      - Preguntar por más detalles específicos
+    metadata:
+      temperature: 0.8
+      max_tokens: 400
+
+  - key: product.search.error
+    name: Product Search Error Handler
+    description: Generates friendly error messages for search failures
+    version: "1.0.0"
+    template: |
+      El usuario buscó: "{message}"
+
+      Hubo un error técnico. Genera una respuesta breve y amigable que:
+      - Pida disculpas sin dar detalles técnicos
+      - Ofrezca intentar de nuevo
+      - Mantenga un tono positivo
+      - Máximo 2 líneas
+    metadata:
+      temperature: 0.5
+      max_tokens: 200

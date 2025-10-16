@@ -29,9 +29,6 @@ class ChromaDBIntegration:
             self.persist_directory = config
         elif isinstance(config, dict):
             self.persist_directory = config.get("path", self.settings.OLLAMA_API_CHROMADB)
-        else:
-            # Default to settings value when config is None
-            self.persist_directory = self.settings.OLLAMA_API_CHROMADB
 
         # Asegurar que el directorio existe
         os.makedirs(self.persist_directory, exist_ok=True)

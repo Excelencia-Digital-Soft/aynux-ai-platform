@@ -44,11 +44,7 @@ class SearchResult:
         self.error = error
 
     def __repr__(self) -> str:
-        return (
-            f"SearchResult(source={self.source}, "
-            f"products={len(self.products)}, "
-            f"success={self.success})"
-        )
+        return f"SearchResult(source={self.source}, products={len(self.products)}, success={self.success})"
 
 
 class BaseSearchStrategy(ABC):
@@ -60,9 +56,7 @@ class BaseSearchStrategy(ABC):
     """
 
     @abstractmethod
-    async def search(
-        self, user_query: str, intent_analysis: Dict[str, Any], limit: int = 10
-    ) -> SearchResult:
+    async def search(self, user_query: str, intent_analysis: Dict[str, Any], limit: int = 10) -> SearchResult:
         """
         Execute product search based on query and intent.
 
@@ -113,7 +107,7 @@ class BaseSearchStrategy(ABC):
         """
         return 50
 
-    async def can_handle(self, intent_analysis: Dict[str, Any]) -> bool:
+    async def can_handle(self, _intent_analysis: Dict[str, Any]) -> bool:
         """
         Check if this strategy can handle the given intent.
 

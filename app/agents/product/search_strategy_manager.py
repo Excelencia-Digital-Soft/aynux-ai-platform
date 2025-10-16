@@ -5,8 +5,7 @@ Orchestrates multiple search strategies with intelligent fallback and result val
 """
 
 import logging
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from .models import SearchResult, SearchStrategyType, UserIntent
 from .strategies.base_strategy import BaseSearchStrategy
@@ -53,9 +52,7 @@ class SearchStrategyManager:
 
         if self.primary_strategy not in self.strategies:
             available = list(self.strategies.keys())
-            raise ValueError(
-                f"Primary strategy '{self.primary_strategy}' not in available strategies: {available}"
-            )
+            raise ValueError(f"Primary strategy '{self.primary_strategy}' not in available strategies: {available}")
 
     async def search(
         self,
@@ -76,9 +73,7 @@ class SearchStrategyManager:
         Returns:
             SearchResult from successful strategy or final fallback
         """
-        self.logger.info(
-            f"Starting search: query='{query[:50]}', intent={intent.intent}, max_results={max_results}"
-        )
+        self.logger.info(f"Starting search: query='{query[:50]}', intent={intent.intent}, max_results={max_results}")
 
         # Use override strategy if specified
         if strategy_override and strategy_override in self.strategies:
@@ -93,9 +88,7 @@ class SearchStrategyManager:
             return result
 
         # Try fallback strategies
-        self.logger.info(
-            f"Primary strategy insufficient (results={len(result.products)}), trying fallbacks"
-        )
+        self.logger.info(f"Primary strategy insufficient (results={len(result.products)}), trying fallbacks")
         result = await self._execute_fallback_chain(query, intent, max_results)
 
         return result
@@ -279,3 +272,4 @@ class SearchStrategyManager:
 
         self.min_results_threshold = threshold
         self.logger.info(f"Minimum results threshold updated to: {threshold}")
+

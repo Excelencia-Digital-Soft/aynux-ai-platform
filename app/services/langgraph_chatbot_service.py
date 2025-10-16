@@ -5,7 +5,7 @@ Servicio integrado de chatbot usando LangGraph multi-agente
 import logging
 from typing import Any, AsyncGenerator, Dict
 
-from app.agents.graph import EcommerceAssistantGraph
+from app.agents.graph import AynuxGraph
 from app.config.langgraph_config import get_langgraph_config
 from app.config.settings import get_settings
 from app.models.chat import ChatStreamEvent
@@ -65,7 +65,7 @@ class LangGraphChatbotService:
             self.logger.info("Initializing LangGraph chatbot service...")
 
             # Crear y configurar el sistema de graph
-            self.graph_system = EcommerceAssistantGraph(self.langgraph_config.model_dump())
+            self.graph_system = AynuxGraph(self.langgraph_config.model_dump())
 
             # Inicializar el graph de forma asíncrona
             self.graph_system.initialize()

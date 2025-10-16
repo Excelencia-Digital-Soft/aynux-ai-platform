@@ -1,10 +1,10 @@
 """
 Risk Assessment Agent - Evaluates credit risk and provides recommendations
 """
+
 import uuid
-from typing import Dict, Any, List, Optional
 from decimal import Decimal
-from datetime import datetime, date
+from typing import Any, Dict, List
 
 from app.agents.credit.base_credit_agent import BaseCreditAgent
 from app.agents.credit.schemas import CreditState, RiskAssessmentResponse, UserRole
@@ -23,10 +23,7 @@ class RiskAssessmentAgent(BaseCreditAgent):
 
         # Only analysts and above can perform risk assessments
         if user_role not in [UserRole.CREDIT_ANALYST, UserRole.MANAGER, UserRole.ADMIN]:
-            return {
-                "message": "No tienes permisos para realizar evaluaciones de riesgo.",
-                "data": None
-            }
+            return {"message": "No tienes permisos para realizar evaluaciones de riesgo.", "data": None}
 
         # Extract assessment target
         target = await self._extract_assessment_target(user_message, state)
@@ -38,26 +35,19 @@ class RiskAssessmentAgent(BaseCreditAgent):
 
             message = self._format_assessment_message(response)
 
-            return {
-                "message": message,
-                "data": response.model_dump(),
-                "risk_score": response.risk_score
-            }
+            return {"message": message, "data": response.model_dump(), "risk_score": response.risk_score}
 
         except Exception as e:
             self.logger.error(f"Error in risk assessment: {str(e)}")
-            return {
-                "message": "Error al realizar la evaluación de riesgo.",
-                "data": None
-            }
+            return {"message": "Error al realizar la evaluación de riesgo.", "data": None}
 
-    async def _extract_assessment_target(self, message: str, state: CreditState) -> Dict[str, Any]:
+    async def _extract_assessment_target(self, _message: str, state: CreditState) -> Dict[str, Any]:
         """Extract assessment target from message"""
-        # TODO: Implement NLP extraction
+        # TODO: Implement NLP extraction using message
         return {
             "account_id": state.get("credit_account_id", "default_account"),
             "assessment_type": "credit_review",
-            "requested_amount": Decimal("50000.00")
+            "requested_amount": Decimal("50000.00"),
         }
 
     async def _perform_risk_assessment(self, target: Dict[str, Any]) -> Dict[str, Any]:
@@ -88,48 +78,48 @@ class RiskAssessmentAgent(BaseCreditAgent):
             "credit_recommendation": recommendation,
             "factors": factors,
             "suggested_limit": suggested_limit,
-            "suggested_interest_rate": suggested_rate
+            "suggested_interest_rate": suggested_rate,
         }
 
-    async def _collect_risk_factors(self, account_id: str) -> List[Dict[str, Any]]:
+    async def _collect_risk_factors(self, _account_id: str) -> List[Dict[str, Any]]:
         """Collect and analyze risk factors"""
-        # TODO: Implement actual data collection
+        # TODO: Implement actual data collection using account_id
         return [
             {
                 "factor": "payment_history",
                 "score": 0.85,
                 "weight": 0.35,
                 "description": "Historial de pagos excelente",
-                "impact": "positive"
+                "impact": "positive",
             },
             {
                 "factor": "credit_utilization",
                 "score": 0.70,
                 "weight": 0.25,
                 "description": "Utilización de crédito moderada (30%)",
-                "impact": "positive"
+                "impact": "positive",
             },
             {
                 "factor": "income_stability",
                 "score": 0.75,
                 "weight": 0.20,
                 "description": "Ingresos estables por 2+ años",
-                "impact": "positive"
+                "impact": "positive",
             },
             {
                 "factor": "debt_to_income",
                 "score": 0.60,
                 "weight": 0.15,
                 "description": "Relación deuda/ingreso aceptable",
-                "impact": "neutral"
+                "impact": "neutral",
             },
             {
                 "factor": "credit_history_length",
                 "score": 0.50,
                 "weight": 0.05,
                 "description": "Historial crediticio de 1 año",
-                "impact": "neutral"
-            }
+                "impact": "neutral",
+            },
         ]
 
     def _calculate_comprehensive_risk_score(self, factors: List[Dict[str, Any]]) -> float:
@@ -156,8 +146,11 @@ class RiskAssessmentAgent(BaseCreditAgent):
         else:
             return "very_high"
 
-    def _generate_credit_recommendation(self, risk_score: float, factors: List[Dict[str, Any]], target: Dict[str, Any]) -> str:
+    def _generate_credit_recommendation(
+        self, risk_score: float, _factors: List[Dict[str, Any]], _target: Dict[str, Any]
+    ) -> str:
         """Generate credit recommendation based on assessment"""
+        # TODO: Use factors and target in recommendation logic
         if risk_score >= 0.8:
             return "Aprobar con condiciones preferenciales"
         elif risk_score >= 0.6:
@@ -167,8 +160,11 @@ class RiskAssessmentAgent(BaseCreditAgent):
         else:
             return "Rechazar o solicitar mayor documentación"
 
-    def _calculate_suggested_limit(self, risk_score: float, factors: List[Dict[str, Any]], target: Dict[str, Any]) -> Decimal:
+    def _calculate_suggested_limit(
+        self, risk_score: float, _factors: List[Dict[str, Any]], target: Dict[str, Any]
+    ) -> Decimal:
         """Calculate suggested credit limit"""
+        # TODO: Use factors in credit limit calculation
         base_limit = target.get("requested_amount", Decimal("50000.00"))
 
         if risk_score >= 0.8:
@@ -180,32 +176,28 @@ class RiskAssessmentAgent(BaseCreditAgent):
         else:
             return base_limit * Decimal("0.5")
 
-    def _calculate_suggested_interest_rate(self, risk_score: float, risk_category: str) -> Decimal:
+    def _calculate_suggested_interest_rate(self, _risk_score: float, risk_category: str) -> Decimal:
         """Calculate suggested interest rate based on risk"""
+        # TODO: Use risk_score for fine-grained rate calculation
         rates = {
             "low": Decimal("12.5"),
             "medium": Decimal("18.5"),
             "high": Decimal("24.5"),
-            "very_high": Decimal("29.9")
+            "very_high": Decimal("29.9"),
         }
         return rates.get(risk_category, Decimal("18.5"))
 
     def _format_assessment_message(self, assessment: RiskAssessmentResponse) -> str:
         """Format risk assessment message"""
         # Risk category icons
-        category_icons = {
-            "low": "🟢",
-            "medium": "🟡",
-            "high": "🟠",
-            "very_high": "🔴"
-        }
+        category_icons = {"low": "🟢", "medium": "🟡", "high": "🟠", "very_high": "🔴"}
 
         icon = category_icons.get(assessment.risk_category, "⚪")
 
         message = f"""📊 **Evaluación de Riesgo Crediticio**
 
 🆔 **ID de Evaluación:** {assessment.assessment_id[:8]}
-📅 **Fecha:** {assessment.assessment_date.strftime('%d/%m/%Y %H:%M')}
+📅 **Fecha:** {assessment.assessment_date.strftime("%d/%m/%Y %H:%M")}
 
 🎯 **Score de Riesgo:** {assessment.risk_score:.1%}
 {icon} **Categoría:** {self._translate_risk_category(assessment.risk_category)}
@@ -258,7 +250,7 @@ class RiskAssessmentAgent(BaseCreditAgent):
             "low": "Riesgo Bajo",
             "medium": "Riesgo Medio",
             "high": "Riesgo Alto",
-            "very_high": "Riesgo Muy Alto"
+            "very_high": "Riesgo Muy Alto",
         }
         return translations.get(category, category)
 
@@ -269,6 +261,7 @@ class RiskAssessmentAgent(BaseCreditAgent):
             "credit_utilization": "Utilización de Crédito",
             "income_stability": "Estabilidad de Ingresos",
             "debt_to_income": "Relación Deuda/Ingreso",
-            "credit_history_length": "Antigüedad Crediticia"
+            "credit_history_length": "Antigüedad Crediticia",
         }
         return translations.get(factor, factor)
+

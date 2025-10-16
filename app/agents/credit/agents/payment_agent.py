@@ -152,7 +152,7 @@ Escribe el número de la opción o el monto que deseas pagar."""
 
         return {"message": message, "data": {"balance": balance}}
 
-    async def _get_account_balance(self, account_id: str) -> Dict[str, Any]:
+    async def _get_account_balance(self, _account_id: str) -> Dict[str, Any]:
         """Get account balance information"""
         # TODO: Implement actual database query
         return {
@@ -178,7 +178,7 @@ Escribe el número de la opción o el monto que deseas pagar."""
 
         return {"valid": True}
 
-    async def _fetch_payment_schedule(self, account_id: str) -> List[Dict[str, Any]]:
+    async def _fetch_payment_schedule(self, _account_id: str) -> List[Dict[str, Any]]:
         """Fetch payment schedule from database"""
         # TODO: Implement actual database query
         schedule = []
@@ -195,7 +195,7 @@ Escribe el número de la opción o el monto que deseas pagar."""
             )
         return schedule
 
-    async def _fetch_payment_history(self, account_id: str) -> List[Dict[str, Any]]:
+    async def _fetch_payment_history(self, _account_id: str) -> List[Dict[str, Any]]:
         """Fetch payment history from database"""
         # TODO: Implement actual database query
         return [

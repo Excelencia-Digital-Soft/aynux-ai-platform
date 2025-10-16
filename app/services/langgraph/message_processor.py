@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict
 
-from app.agents.graph import EcommerceAssistantGraph
+from app.agents.graph import AynuxGraph
 from app.agents.schemas import ConversationContext, CustomerContext
 from app.models.chat import ChatStreamEvent, StreamEventType
 from app.models.message import WhatsAppMessage
@@ -59,7 +59,7 @@ class MessageProcessor:
 
     async def process_with_langgraph(
         self,
-        graph_system: EcommerceAssistantGraph,
+        graph_system: AynuxGraph,
         message_text: str,
         customer_context: CustomerContext,
         conversation_context: ConversationContext,
@@ -79,9 +79,6 @@ class MessageProcessor:
             Diccionario con respuesta del graph y metadatos
         """
         try:
-            if not graph_system:
-                raise RuntimeError("Graph system not initialized")
-
             # Procesar con el graph multi-agente
             result = await graph_system.invoke(
                 message=message_text,
@@ -124,7 +121,7 @@ class MessageProcessor:
 
     async def process_with_langgraph_stream(
         self,
-        graph_system: EcommerceAssistantGraph,
+        graph_system: AynuxGraph,
         message_text: str,
         customer_context: CustomerContext,
         conversation_context: ConversationContext,
@@ -144,9 +141,6 @@ class MessageProcessor:
             ChatStreamEvent: Eventos de streaming durante el procesamiento
         """
         try:
-            if not graph_system:
-                raise RuntimeError("Graph system not initialized")
-
             # Verify that the graph system has the astream method
             if not hasattr(graph_system, "astream"):
                 raise AttributeError("Graph system does not support streaming")
@@ -180,7 +174,7 @@ class MessageProcessor:
                     current_node = data.get("current_node", "unknown")
 
                     # Map node names to user-friendly agent names and messages
-                    agent_info = self._map_node_to_agent_info(current_node, step_count)
+                    agent_info = self._map_node_to_agent_info(current_node)
                     current_agent = agent_info["agent_name"]
 
                     # Calculate progress based on step count
@@ -268,7 +262,7 @@ class MessageProcessor:
                 timestamp=datetime.now().isoformat(),
             )
 
-    def _map_node_to_agent_info(self, node_name: str, step_count: int) -> Dict[str, Any]:
+    def _map_node_to_agent_info(self, node_name: str) -> Dict[str, Any]:
         """Map LangGraph node names to user-friendly agent information"""
 
         # Mapping of node names to user-friendly information

@@ -36,11 +36,13 @@ class CreditApplicationAgent(BaseCreditAgent):
         """Extract application details from user message"""
         # TODO: Use NLP to extract amount, term, purpose
         # For now, use simple extraction
+        print("state", state)
         return {
             "requested_amount": Decimal("25000.00"),
             "term_months": 12,
             "purpose": "personal",
             "monthly_income": Decimal("15000.00"),
+            "message": message,
         }
 
     async def _handle_customer_application(self, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -87,6 +89,8 @@ class CreditApplicationAgent(BaseCreditAgent):
     async def _handle_staff_review(self, state: CreditState, data: Dict[str, Any]) -> Dict[str, Any]:
         """Handle staff review of credit application"""
         # TODO: Implement staff review workflow
+        print("state", state)
+        print("data", data)
         return {"message": "Función de revisión de créditos en desarrollo.", "data": None}
 
     async def _validate_application(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -102,9 +106,9 @@ class CreditApplicationAgent(BaseCreditAgent):
 
         return {"valid": True}
 
-    async def _calculate_risk_score(self, user_id: str, data: Dict[str, Any]) -> float:
+    async def _calculate_risk_score(self, _user_id: str, data: Dict[str, Any]) -> float:
         """Calculate risk score for credit application"""
-        # TODO: Implement actual risk scoring model
+        # TODO: Implement actual risk scoring model using user_id
         # This is a simplified mock
         base_score = 0.7
 
@@ -196,4 +200,3 @@ Recibirás una respuesta en 24-48 horas hábiles."""
 Puedes volver a aplicar en 90 días."""
 
         return message
-

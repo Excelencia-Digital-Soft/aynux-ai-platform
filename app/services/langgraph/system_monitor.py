@@ -5,7 +5,7 @@ System monitoring and health checking for LangGraph chatbot service
 import logging
 from typing import Any, Dict
 
-from app.agents.graph import EcommerceAssistantGraph
+from app.agents.graph import AynuxGraph
 from app.agents.schemas import AgentType
 from app.services.langgraph.security_validator import SecurityValidator
 
@@ -20,7 +20,7 @@ class SystemMonitor:
         self.security_validator = SecurityValidator()
     
     async def get_conversation_history_langgraph(
-        self, graph_system: EcommerceAssistantGraph, user_number: str, limit: int = 50
+        self, graph_system: AynuxGraph, user_number: str, limit: int = 50
     ) -> Dict[str, Any]:
         """
         Obtiene el historial de conversación para un usuario usando LangGraph
@@ -101,7 +101,7 @@ class SystemMonitor:
                 "messages": [],
             }
     
-    async def get_conversation_stats(self, graph_system: EcommerceAssistantGraph, user_number: str) -> Dict[str, Any]:
+    async def get_conversation_stats(self, graph_system: AynuxGraph, user_number: str) -> Dict[str, Any]:
         """
         Obtiene estadísticas de conversación para un usuario
         
@@ -171,7 +171,7 @@ class SystemMonitor:
             return {"error": f"Error retrieving conversation stats: {str(e)}", "user_number": user_number}
     
     async def get_system_health(
-        self, initialized: bool, graph_system: EcommerceAssistantGraph
+        self, initialized: bool, graph_system: AynuxGraph
     ) -> Dict[str, Any]:
         """
         Obtiene el estado de salud del sistema LangGraph.

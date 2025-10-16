@@ -10,6 +10,7 @@ from .conversations import Conversation, Message
 from .customers import Customer
 from .inquiries import ProductInquiry
 from .orders import Order, OrderItem
+from .prompts import Prompt, PromptVersion
 from .promotions import Promotion
 from .reviews import ProductReview
 
@@ -45,5 +46,8 @@ __all__ = [
     "Promotion",
     # Inquiries
     "ProductInquiry",
+    # Prompts
+    "Prompt",
+    "PromptVersion",
 ]
 

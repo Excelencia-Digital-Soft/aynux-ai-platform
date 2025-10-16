@@ -287,9 +287,9 @@ class PgVectorIntegration:
                 return False
 
             # Update product with new embedding
-            product.embedding = embedding
-            product.last_embedding_update = func.now()
-            product.embedding_model = self.embedding_model
+            product.embedding = embedding  # type: ignore[assignment]
+            product.last_embedding_update = func.now()  # type: ignore[assignment]
+            product.embedding_model = self.embedding_model  # type: ignore[assignment]
 
             await db.commit()
             logger.info(f"Updated embedding for product {product_id}")
@@ -322,40 +322,40 @@ class PgVectorIntegration:
         parts = []
 
         # Product name (highest weight)
-        if product.name:
+        if product.name is not None:
             parts.append(f"Product: {product.name}")
 
         # Brand
-        if product.brand and hasattr(product.brand, "name"):
+        if product.brand is not None and hasattr(product.brand, "name"):
             parts.append(f"Brand: {product.brand.name}")
 
         # Category
-        if product.category and hasattr(product.category, "display_name"):
+        if product.category is not None and hasattr(product.category, "display_name"):
             parts.append(f"Category: {product.category.display_name}")
 
         # Model
-        if product.model:
+        if product.model is not None:
             parts.append(f"Model: {product.model}")
 
         # Description
-        if product.description:
+        if product.description is not None:
             # Limit description length
             desc = product.description[:500] if len(product.description) > 500 else product.description
             parts.append(f"Description: {desc}")
 
         # Specs
-        if product.specs:
+        if product.specs is not None:
             specs = product.specs[:300] if len(product.specs) > 300 else product.specs
             parts.append(f"Specifications: {specs}")
 
         # Technical specs (JSONB)
-        if product.technical_specs and isinstance(product.technical_specs, dict):
+        if product.technical_specs is not None and isinstance(product.technical_specs, dict):
             specs_text = ", ".join(f"{k}: {v}" for k, v in product.technical_specs.items() if v)
             if specs_text:
                 parts.append(f"Technical: {specs_text}")
 
         # Features (JSONB array)
-        if product.features and isinstance(product.features, list):
+        if product.features is not None and isinstance(product.features, list):
             features_text = ", ".join(str(f) for f in product.features if f)
             if features_text:
                 parts.append(f"Features: {features_text}")
@@ -458,13 +458,16 @@ class PgVectorIntegration:
                     select(func.count(Product.id)).where(and_(Product.active.is_(True), Product.embedding.isnot(None)))
                 )
 
-                missing_embeddings = total - with_embeddings
+                # Handle None values from database queries
+                total_count = total if total is not None else 0
+                with_embeddings_count = with_embeddings if with_embeddings is not None else 0
+                missing_embeddings = total_count - with_embeddings_count
 
                 return {
-                    "total_products": total or 0,
-                    "products_with_embeddings": with_embeddings or 0,
+                    "total_products": total_count,
+                    "products_with_embeddings": with_embeddings_count,
                     "missing_embeddings": missing_embeddings,
-                    "coverage_percentage": (with_embeddings / total * 100) if total > 0 else 0,
+                    "coverage_percentage": (with_embeddings_count / total_count * 100) if total_count > 0 else 0,
                 }
 
         except Exception as e:

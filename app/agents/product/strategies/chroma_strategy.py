@@ -4,7 +4,6 @@ ChromaDB search strategy using vector similarity.
 Implements semantic search using ChromaDB with embedding-based similarity.
 """
 
-import logging
 from typing import Any, Dict, List, Tuple, cast
 
 from langchain_core.documents import Document
@@ -122,10 +121,7 @@ class ChromaDBSearchStrategy(BaseSearchStrategy):
                     continue
 
             # Filter by similarity threshold
-            filtered_products = [
-                p for p in products
-                if p.get("similarity_score", 0.0) >= self.similarity_threshold
-            ]
+            filtered_products = [p for p in products if p.get("similarity_score", 0.0) >= self.similarity_threshold]
 
             # Build result metadata
             result_metadata = {
@@ -174,7 +170,7 @@ class ChromaDBSearchStrategy(BaseSearchStrategy):
             )
 
             # ChromaDB is healthy if no exception thrown
-            self.logger.debug("ChromaDB health check passed")
+            self.logger.debug(f"ChromaDB health check passed {results}")
             return True
 
         except Exception as e:
@@ -210,3 +206,4 @@ class ChromaDBSearchStrategy(BaseSearchStrategy):
 
         # Fallback to original query if no structured terms
         return " ".join(query_parts) if query_parts else query
+

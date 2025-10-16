@@ -81,9 +81,7 @@ class GeneratedResponse:
 
     def __repr__(self) -> str:
         return (
-            f"GeneratedResponse(type={self.response_type}, "
-            f"length={len(self.text)}, "
-            f"followup={self.requires_followup})"
+            f"GeneratedResponse(type={self.response_type}, length={len(self.text)}, followup={self.requires_followup})"
         )
 
 
@@ -135,7 +133,7 @@ class BaseResponseGenerator(ABC):
         """
         return 50
 
-    async def can_generate(self, context: ResponseContext) -> bool:
+    async def can_generate(self, _context: ResponseContext) -> bool:
         """
         Check if this generator can handle the given context.
 

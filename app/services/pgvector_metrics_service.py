@@ -10,16 +10,14 @@ Provides comprehensive monitoring and metrics collection for pgvector operations
 """
 
 import logging
-from datetime import datetime, timedelta
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, List, Optional
-from collections import defaultdict
-from dataclasses import dataclass, field, asdict
-from sqlalchemy import select, func, and_, text
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.async_db import get_async_db
 from app.models.database import Product
-
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SearchMetrics:
     """Metrics for a single search operation."""
+
     timestamp: datetime
     query: str
     duration_ms: float
@@ -41,6 +40,7 @@ class SearchMetrics:
 @dataclass
 class EmbeddingMetrics:
     """Metrics for embedding operations."""
+
     timestamp: datetime
     product_id: str
     operation: str  # "generate", "update", "batch"
@@ -52,6 +52,7 @@ class EmbeddingMetrics:
 @dataclass
 class AggregatedMetrics:
     """Aggregated metrics over a time period."""
+
     time_range: str
     start_time: datetime
     end_time: datetime
@@ -105,7 +106,7 @@ class PgVectorMetricsService:
         duration_ms: float,
         results: List[tuple],  # List of (product, similarity) tuples
         filters_applied: bool = False,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ):
         """
         Record a search operation.
@@ -120,7 +121,7 @@ class PgVectorMetricsService:
         similarities = [sim for _, sim in results] if results else []
 
         metric = SearchMetrics(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             query=query[:100],  # Truncate long queries
             duration_ms=duration_ms,
             results_count=len(results),
@@ -128,14 +129,14 @@ class PgVectorMetricsService:
             max_similarity=max(similarities) if similarities else 0.0,
             min_similarity=min(similarities) if similarities else None,
             filters_applied=filters_applied,
-            error=error
+            error=error,
         )
 
         self.search_metrics.append(metric)
 
         # Trim old metrics if needed
         if len(self.search_metrics) > self.max_stored_metrics:
-            self.search_metrics = self.search_metrics[-self.max_stored_metrics:]
+            self.search_metrics = self.search_metrics[-self.max_stored_metrics :]
 
         # Log warning for slow searches
         if duration_ms > 100:
@@ -144,17 +145,11 @@ class PgVectorMetricsService:
         # Log warning for low quality results
         if similarities and metric.avg_similarity < self.low_quality_threshold:
             logger.warning(
-                f"Low quality search results (avg similarity: {metric.avg_similarity:.2f}) "
-                f"for query: {query[:50]}"
+                f"Low quality search results (avg similarity: {metric.avg_similarity:.2f}) for query: {query[:50]}"
             )
 
     async def record_embedding_operation(
-        self,
-        product_id: str,
-        operation: str,
-        duration_ms: float,
-        success: bool,
-        error: Optional[str] = None
+        self, product_id: str, operation: str, duration_ms: float, success: bool, error: Optional[str] = None
     ):
         """
         Record an embedding generation/update operation.
@@ -167,19 +162,19 @@ class PgVectorMetricsService:
             error: Error message if operation failed
         """
         metric = EmbeddingMetrics(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             product_id=product_id,
             operation=operation,
             duration_ms=duration_ms,
             success=success,
-            error=error
+            error=error,
         )
 
         self.embedding_metrics.append(metric)
 
         # Trim old metrics if needed
         if len(self.embedding_metrics) > self.max_stored_metrics:
-            self.embedding_metrics = self.embedding_metrics[-self.max_stored_metrics:]
+            self.embedding_metrics = self.embedding_metrics[-self.max_stored_metrics :]
 
         # Log warnings
         if not success:
@@ -188,9 +183,7 @@ class PgVectorMetricsService:
             logger.warning(f"Slow embedding operation: {duration_ms:.2f}ms for product {product_id}")
 
     async def get_aggregated_metrics(
-        self,
-        time_range: str = "24h",
-        db: Optional[AsyncSession] = None
+        self, time_range: str = "24h", db: Optional[AsyncSession] = None
     ) -> AggregatedMetrics:
         """
         Get aggregated metrics for a time range.
@@ -204,18 +197,14 @@ class PgVectorMetricsService:
         """
         # Parse time range
         time_delta = self._parse_time_range(time_range)
-        cutoff_time = datetime.utcnow() - time_delta
+        cutoff_time = datetime.now(UTC) - time_delta
 
         # Filter metrics by time range
         search_metrics = [m for m in self.search_metrics if m.timestamp >= cutoff_time]
         embedding_metrics = [m for m in self.embedding_metrics if m.timestamp >= cutoff_time]
 
         # Create aggregated metrics object
-        metrics = AggregatedMetrics(
-            time_range=time_range,
-            start_time=cutoff_time,
-            end_time=datetime.utcnow()
-        )
+        metrics = AggregatedMetrics(time_range=time_range, start_time=cutoff_time, end_time=datetime.now(UTC))
 
         # Aggregate search metrics
         if search_metrics:
@@ -238,8 +227,7 @@ class PgVectorMetricsService:
                 metrics.avg_similarity_score = sum(m.avg_similarity for m in successful) / len(successful)
                 metrics.searches_with_no_results = sum(1 for m in successful if m.results_count == 0)
                 metrics.searches_with_low_quality = sum(
-                    1 for m in successful
-                    if m.avg_similarity > 0 and m.avg_similarity < self.low_quality_threshold
+                    1 for m in successful if m.avg_similarity > 0 and m.avg_similarity < self.low_quality_threshold
                 )
 
         # Aggregate embedding metrics
@@ -315,13 +303,10 @@ class PgVectorMetricsService:
             "issues": issues,
             "warnings": warnings,
             "metrics": recent_metrics.to_dict(),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
-    async def get_search_quality_report(
-        self,
-        time_range: str = "24h"
-    ) -> Dict[str, Any]:
+    async def get_search_quality_report(self, time_range: str = "24h") -> Dict[str, Any]:
         """
         Generate a search quality report.
 
@@ -332,7 +317,7 @@ class PgVectorMetricsService:
             Quality report dictionary
         """
         time_delta = self._parse_time_range(time_range)
-        cutoff_time = datetime.utcnow() - time_delta
+        cutoff_time = datetime.now(UTC) - time_delta
 
         recent_searches = [m for m in self.search_metrics if m.timestamp >= cutoff_time and m.error is None]
 
@@ -340,7 +325,7 @@ class PgVectorMetricsService:
             return {
                 "time_range": time_range,
                 "total_searches": 0,
-                "message": "No search data available for this time range"
+                "message": "No search data available for this time range",
             }
 
         # Categorize searches by quality
@@ -353,10 +338,9 @@ class PgVectorMetricsService:
         slowest_queries = sorted(recent_searches, key=lambda m: m.duration_ms, reverse=True)[:10]
 
         # Find queries with lowest quality
-        lowest_quality = sorted(
-            [m for m in recent_searches if m.avg_similarity > 0],
-            key=lambda m: m.avg_similarity
-        )[:10]
+        lowest_quality = sorted([m for m in recent_searches if m.avg_similarity > 0], key=lambda m: m.avg_similarity)[
+            :10
+        ]
 
         return {
             "time_range": time_range,
@@ -365,29 +349,32 @@ class PgVectorMetricsService:
                 "high_quality": {
                     "count": len(high_quality),
                     "percentage": len(high_quality) / len(recent_searches) * 100,
-                    "avg_similarity": sum(m.avg_similarity for m in high_quality) / len(high_quality) if high_quality else 0
+                    "avg_similarity": sum(m.avg_similarity for m in high_quality) / len(high_quality)
+                    if high_quality
+                    else 0,
                 },
                 "medium_quality": {
                     "count": len(medium_quality),
                     "percentage": len(medium_quality) / len(recent_searches) * 100,
-                    "avg_similarity": sum(m.avg_similarity for m in medium_quality) / len(medium_quality) if medium_quality else 0
+                    "avg_similarity": sum(m.avg_similarity for m in medium_quality) / len(medium_quality)
+                    if medium_quality
+                    else 0,
                 },
                 "low_quality": {
                     "count": len(low_quality),
                     "percentage": len(low_quality) / len(recent_searches) * 100,
-                    "avg_similarity": sum(m.avg_similarity for m in low_quality) / len(low_quality) if low_quality else 0
+                    "avg_similarity": sum(m.avg_similarity for m in low_quality) / len(low_quality)
+                    if low_quality
+                    else 0,
                 },
-                "no_results": {
-                    "count": len(no_results),
-                    "percentage": len(no_results) / len(recent_searches) * 100
-                }
+                "no_results": {"count": len(no_results), "percentage": len(no_results) / len(recent_searches) * 100},
             },
             "slowest_queries": [
                 {
                     "query": m.query,
                     "duration_ms": m.duration_ms,
                     "results_count": m.results_count,
-                    "avg_similarity": m.avg_similarity
+                    "avg_similarity": m.avg_similarity,
                 }
                 for m in slowest_queries
             ],
@@ -396,27 +383,22 @@ class PgVectorMetricsService:
                     "query": m.query,
                     "avg_similarity": m.avg_similarity,
                     "results_count": m.results_count,
-                    "duration_ms": m.duration_ms
+                    "duration_ms": m.duration_ms,
                 }
                 for m in lowest_quality
-            ]
+            ],
         }
 
     async def _get_coverage_stats(self, db: AsyncSession) -> Dict[str, Any]:
         """Get embedding coverage statistics from database."""
         try:
             # Total products
-            total_result = await db.execute(
-                select(func.count(Product.id))
-                .where(Product.active.is_(True))
-            )
+            total_result = await db.execute(select(func.count(Product.id)).where(Product.active.is_(True)))
             total_products = total_result.scalar() or 0
 
             # Products with embeddings
             with_embeddings_result = await db.execute(
-                select(func.count(Product.id))
-                .where(Product.active.is_(True))
-                .where(Product.embedding.isnot(None))
+                select(func.count(Product.id)).where(Product.active.is_(True)).where(Product.embedding.isnot(None))
             )
             with_embeddings = with_embeddings_result.scalar() or 0
 
@@ -424,7 +406,7 @@ class PgVectorMetricsService:
             coverage_pct = (with_embeddings / total_products * 100) if total_products > 0 else 0
 
             # Stale embeddings (>7 days old)
-            cutoff_date = datetime.utcnow() - timedelta(days=self.stale_threshold_days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=self.stale_threshold_days)
             stale_result = await db.execute(
                 select(func.count(Product.id))
                 .where(Product.active.is_(True))
@@ -435,9 +417,7 @@ class PgVectorMetricsService:
 
             # Average embedding age
             age_result = await db.execute(
-                select(func.avg(
-                    func.extract('epoch', datetime.utcnow() - Product.last_embedding_update) / 86400
-                ))
+                select(func.avg(func.extract("epoch", datetime.now(UTC) - Product.last_embedding_update) / 86400))
                 .where(Product.active.is_(True))
                 .where(Product.embedding.isnot(None))
                 .where(Product.last_embedding_update.isnot(None))
@@ -449,7 +429,7 @@ class PgVectorMetricsService:
                 "with_embeddings": with_embeddings,
                 "coverage_pct": coverage_pct,
                 "stale_count": stale_count,
-                "avg_age_days": float(avg_age_days)
+                "avg_age_days": float(avg_age_days),
             }
 
         except Exception as e:
@@ -459,7 +439,7 @@ class PgVectorMetricsService:
                 "with_embeddings": 0,
                 "coverage_pct": 0.0,
                 "stale_count": 0,
-                "avg_age_days": 0.0
+                "avg_age_days": 0.0,
             }
 
     def _parse_time_range(self, time_range: str) -> timedelta:
@@ -468,7 +448,7 @@ class PgVectorMetricsService:
             "1h": timedelta(hours=1),
             "24h": timedelta(hours=24),
             "7d": timedelta(days=7),
-            "30d": timedelta(days=30)
+            "30d": timedelta(days=30),
         }
 
         return mapping.get(time_range, timedelta(hours=24))
@@ -490,3 +470,4 @@ def get_metrics_service() -> PgVectorMetricsService:
     if _metrics_service is None:
         _metrics_service = PgVectorMetricsService()
     return _metrics_service
+

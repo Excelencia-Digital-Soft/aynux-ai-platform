@@ -84,7 +84,7 @@ class ConversationManager:
             self.logger.error(f"Error recording metrics: {e}")
     
     async def log_conversation_safely(
-        self, user_number: str, user_message: str, bot_response: str, agent_used: Optional[str], session_id: str
+        self, user_number: str, user_message: str, bot_response: str, agent_used: Optional[str]
     ):
         """Registra la conversación en la base de datos (placeholder)"""
         try:
@@ -113,7 +113,6 @@ class ConversationManager:
                         user_message=user_message,
                         bot_response=response_data["response"],
                         agent_used=response_data.get("agent_used"),
-                        session_id=session_id,
                     )
                 )
             

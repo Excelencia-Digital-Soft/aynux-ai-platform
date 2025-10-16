@@ -124,7 +124,7 @@ async def credit_chat(
 async def get_credit_balance(
     account_id: Optional[str] = Query(None),
     current_user: Dict = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _db: AsyncSession = Depends(get_db),  # noqa: B008
 ):
     """
     Get credit balance for user
@@ -154,8 +154,8 @@ async def get_credit_balance(
 @router.post("/apply")
 async def apply_for_credit(
     application: CreditApplicationRequest,
-    current_user: Dict = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _current_user: Dict = Depends(get_current_user),  # noqa: B008
+    _db: AsyncSession = Depends(get_db),  # noqa: B008
 ):
     """
     Submit a credit application
@@ -182,8 +182,8 @@ async def apply_for_credit(
 @router.post("/payment")
 async def make_payment(
     payment: PaymentRequest,
-    current_user: Dict = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _current_user: Dict = Depends(get_current_user),  # noqa: B008
+    _db: AsyncSession = Depends(get_db),  # noqa: B008
 ):
     """
     Process a credit payment
@@ -212,8 +212,8 @@ async def make_payment(
 async def get_statement(
     month: Optional[int] = Query(None),
     year: Optional[int] = Query(None),
-    current_user: Dict = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _current_user: Dict = Depends(get_current_user),  # noqa: B008
+    _db: AsyncSession = Depends(get_db),  # noqa: B008
 ):
     """
     Get credit account statement
@@ -249,9 +249,9 @@ async def get_statement(
 # Risk Assessment Endpoint (Staff only)
 @router.post("/risk-assessment")
 async def perform_risk_assessment(
-    assessment: RiskAssessmentRequest,
+    _assessment: RiskAssessmentRequest,
     current_user: Dict = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _db: AsyncSession = Depends(get_db),  # noqa: B008
 ):
     """
     Perform risk assessment (requires analyst role or higher)
@@ -287,7 +287,7 @@ async def perform_risk_assessment(
 async def get_collection_status(
     account_id: Optional[str] = Query(None),
     current_user: Dict = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _db: AsyncSession = Depends(get_db),  # noqa: B008
 ):
     """
     Get collection status for account
@@ -315,7 +315,7 @@ async def get_collection_status(
 @router.get("/admin/portfolio")
 async def get_credit_portfolio(
     current_user: Dict = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _db: AsyncSession = Depends(get_db),  # noqa: B008
 ):
     """
     Get credit portfolio overview (admin only)
@@ -358,4 +358,3 @@ async def health_check():
     Check credit system health
     """
     return {"status": "healthy", "timestamp": datetime.now(UTC).isoformat(), "service": "credit_system"}
-

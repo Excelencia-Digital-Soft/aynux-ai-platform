@@ -6,7 +6,7 @@ Single Responsibility: AI-powered response generation.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from app.agents.integrations.ollama_integration import OllamaIntegration
 
@@ -73,9 +73,7 @@ class AIResponseGenerator(BaseResponseGenerator):
                 return await self._generate_no_results_response(context)
 
             # Format products for AI
-            formatted_products = self.formatter.format_multiple_products(
-                context.products
-            )
+            formatted_products = self.formatter.format_multiple_products(context.products)
 
             # Generate AI response
             response_text = await self._generate_ai_text(context, formatted_products)
@@ -96,9 +94,7 @@ class AIResponseGenerator(BaseResponseGenerator):
             # Fallback to formatted products if AI fails
             return self._generate_fallback_response(context)
 
-    async def _generate_ai_text(
-        self, context: ResponseContext, formatted_products: str
-    ) -> str:
+    async def _generate_ai_text(self, context: ResponseContext, formatted_products: str) -> str:
         """
         Generate AI text using Ollama.
 
@@ -112,14 +108,21 @@ class AIResponseGenerator(BaseResponseGenerator):
         # Build AI prompt
         prompt = self._build_prompt(context, formatted_products)
 
-        # Generate response
-        response = await self.ollama.generate(
-            prompt=prompt,
+        # Get LLM and generate response
+        llm = self.ollama.get_llm(
             temperature=self.temperature,
-            max_tokens=self.max_tokens,
+            num_predict=self.max_tokens,
         )
+        response = await llm.ainvoke(prompt)
 
-        return response.strip()
+        # Handle response content (can be str or list)
+        content = response.content
+        if isinstance(content, str):
+            return content.strip()
+        elif isinstance(content, list):
+            return " ".join(str(item) for item in content).strip()
+        else:
+            return str(content).strip()
 
     def _build_prompt(self, context: ResponseContext, formatted_products: str) -> str:
         """
@@ -133,9 +136,6 @@ class AIResponseGenerator(BaseResponseGenerator):
             Complete prompt for AI
         """
         intent = context.intent_analysis.get("intent", "search_products")
-        search_terms = context.intent_analysis.get("search_terms", [])
-        category = context.intent_analysis.get("category")
-        brand = context.intent_analysis.get("brand")
 
         prompt = f"""# CONTEXTO
 Eres un asistente de e-commerce ayudando a un cliente con su búsqueda de productos.
@@ -162,9 +162,7 @@ Eres un asistente de e-commerce ayudando a un cliente con su búsqueda de produc
 
         return prompt
 
-    async def _generate_no_results_response(
-        self, context: ResponseContext
-    ) -> GeneratedResponse:
+    async def _generate_no_results_response(self, context: ResponseContext) -> GeneratedResponse:
         """
         Generate response when no products found.
 
@@ -190,12 +188,24 @@ Eres un asistente de e-commerce. El cliente buscó productos pero no se encontra
 # RESPUESTA"""
 
         try:
-            response_text = await self.ollama.generate(
-                prompt=prompt, temperature=self.temperature, max_tokens=300
+            # Get LLM and generate response
+            llm = self.ollama.get_llm(
+                temperature=self.temperature,
+                num_predict=300,
             )
+            response = await llm.ainvoke(prompt)
+
+            # Handle response content (can be str or list)
+            content = response.content
+            if isinstance(content, str):
+                response_text = content.strip()
+            elif isinstance(content, list):
+                response_text = " ".join(str(item) for item in content).strip()
+            else:
+                response_text = str(content).strip()
 
             return GeneratedResponse(
-                text=response_text.strip(),
+                text=response_text,
                 response_type="ai_no_results",
                 metadata={"reason": "no_products_found"},
                 requires_followup=True,
@@ -204,9 +214,7 @@ Eres un asistente de e-commerce. El cliente buscó productos pero no se encontra
         except Exception as e:
             logger.error(f"Error generating no-results response: {e}")
             # Use formatter as fallback
-            fallback_text = self.formatter.format_no_results_message(
-                context.intent_analysis
-            )
+            fallback_text = self.formatter.format_no_results_message(context.intent_analysis)
             return GeneratedResponse(
                 text=fallback_text,
                 response_type="fallback_no_results",

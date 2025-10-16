@@ -74,12 +74,14 @@ class CreditSupervisorAgent:
             # Add supervisor message
             messages = updated_state.get("messages", [])
             if isinstance(messages, list):
-                messages.append({
-                    "role": "system",
-                    "content": f"Routing to {next_agent} agent",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                    "metadata": {"agent": "supervisor", "intent": intent, "next_agent": next_agent},
-                })
+                messages.append(
+                    {
+                        "role": "system",
+                        "content": f"Routing to {next_agent} agent",
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "metadata": {"agent": "supervisor", "intent": intent, "next_agent": next_agent},
+                    }
+                )
                 updated_state["messages"] = messages
 
             return updated_state
@@ -88,7 +90,7 @@ class CreditSupervisorAgent:
             self.logger.error(f"Error in supervisor: {str(e)}")
             return self._create_error_response(state, str(e))
 
-    async def _analyze_intent(self, message: str, state: CreditState) -> str:
+    async def _analyze_intent(self, message: str, _state: CreditState) -> str:
         """Analyze user intent from message"""
         # First try pattern matching for faster response
         intent = self._pattern_match_intent(message)
@@ -194,12 +196,14 @@ Soy tu asistente virtual de crédito. Puedo ayudarte con:
 
         messages = updated_state.get("messages", [])
         if isinstance(messages, list):
-            messages.append({
-                "role": "assistant",
-                "content": welcome_message,
-                "timestamp": datetime.now(UTC).isoformat(),
-                "metadata": {"agent": "supervisor", "type": "welcome"},
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": welcome_message,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "metadata": {"agent": "supervisor", "type": "welcome"},
+                }
+            )
             updated_state["messages"] = messages
 
         return updated_state
@@ -216,13 +220,14 @@ Error: {error}"""
 
         messages = updated_state.get("messages", [])
         if isinstance(messages, list):
-            messages.append({
-                "role": "assistant",
-                "content": error_message,
-                "timestamp": datetime.now(UTC).isoformat(),
-                "metadata": {"agent": "supervisor", "type": "error", "error": error},
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": error_message,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "metadata": {"agent": "supervisor", "type": "error", "error": error},
+                }
+            )
             updated_state["messages"] = messages
 
         return updated_state
-

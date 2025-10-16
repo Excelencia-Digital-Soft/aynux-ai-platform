@@ -93,11 +93,15 @@ class BaseResponseGenerator(ABC):
         """
         # Default implementation - subclasses should override
         product_info = self._format_products_for_prompt(products)
+        intent_info = self._format_intent_for_prompt(intent)
 
         prompt = f"""# E-COMMERCE PRODUCT SEARCH ASSISTANT
 
 ## USER MESSAGE
 "{message}"
+
+## USER INTENT ANALYSIS
+{intent_info}
 
 ## LANGUAGE DETECTION & RESPONSE REQUIREMENT
 IMPORTANT: Detect the language of the user's query and respond in the SAME language.
@@ -119,6 +123,7 @@ Generate a natural, conversational response that:
 3. Uses natural language and friendly tone
 4. Maximum 6 lines, concise but informative
 5. Includes relevant emojis moderately (1-3 max)
+6. Consider user intent (category, brand, price range) when emphasizing products
 
 Generate your response now:"""
 
@@ -177,6 +182,52 @@ Generate your response now:"""
 
         return "\n".join(meta_lines) if meta_lines else "No additional metadata"
 
+    def _format_intent_for_prompt(self, intent: UserIntent) -> str:
+        """
+        Format user intent for inclusion in prompt.
+
+        Args:
+            intent: UserIntent object
+
+        Returns:
+            Formatted intent information string
+        """
+        intent_lines = [f"- Intent: {intent.intent}"]
+
+        if intent.search_terms:
+            intent_lines.append(f"- Search terms: {', '.join(intent.search_terms)}")
+
+        if intent.category:
+            intent_lines.append(f"- Category filter: {intent.category}")
+
+        if intent.brand:
+            intent_lines.append(f"- Brand preference: {intent.brand}")
+
+        if intent.price_min is not None or intent.price_max is not None:
+            price_range = []
+            if intent.price_min is not None:
+                price_range.append(f"min ${intent.price_min:,.2f}")
+            if intent.price_max is not None:
+                price_range.append(f"max ${intent.price_max:,.2f}")
+            intent_lines.append(f"- Price range: {' - '.join(price_range)}")
+
+        if intent.specific_product:
+            intent_lines.append(f"- Looking for: {intent.specific_product}")
+
+        # Boolean flags
+        flags = []
+        if intent.wants_stock_info:
+            flags.append("stock availability")
+        if intent.wants_featured:
+            flags.append("featured products")
+        if intent.wants_sale:
+            flags.append("sale/discounts")
+
+        if flags:
+            intent_lines.append(f"- Special interests: {', '.join(flags)}")
+
+        return "\n".join(intent_lines)
+
     async def _invoke_llm(self, prompt: str, temperature: float = 0.7, model: str = "llama3.2:1b") -> str:
         """
         Invoke LLM with prompt.
@@ -194,7 +245,17 @@ Generate your response now:"""
         """
         llm = self.ollama.get_llm(temperature=temperature, model=model)
         response = await llm.ainvoke(prompt)
-        return response.content.strip()
+
+        # Handle response.content which can be string or list
+        content = response.content
+        if isinstance(content, str):
+            return content.strip()
+        elif isinstance(content, list):
+            # Join list elements and strip
+            return " ".join(str(item) for item in content).strip()
+        else:
+            # Fallback: convert to string
+            return str(content).strip()
 
     def get_config(self) -> Dict[str, Any]:
         """

@@ -4,7 +4,7 @@ Following SOLID principles and Pydantic best practices
 """
 
 from typing import Dict, List, Optional, Any, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 
 
@@ -63,12 +63,13 @@ class ProductListMessage(WhatsAppRecipient):
     type: str = Field(default="interactive", description="Message type")
     interactive: ProductListInteractive = Field(..., description="Interactive configuration")
 
-    @validator('interactive')
-    def validate_interactive_type(cls, v):
+    @field_validator('interactive', mode='after')
+    @classmethod
+    def validate_interactive_type(cls, value):
         """Ensure interactive type is product_list"""
-        if v.type != InteractiveType.PRODUCT_LIST:
+        if value.type != InteractiveType.PRODUCT_LIST:
             raise ValueError("Interactive type must be product_list")
-        return v
+        return value
 
 
 # Flow Models
@@ -81,12 +82,13 @@ class FlowData(BaseModel):
     flow_action: FlowAction = Field(FlowAction.NAVIGATE, description="Flow action type")
     flow_action_payload: Optional[Dict[str, Any]] = Field(None, description="Additional flow data")
 
-    @validator('flow_cta')
-    def validate_flow_cta_length(cls, v):
+    @field_validator('flow_cta', mode='after')
+    @classmethod
+    def validate_flow_cta_length(cls, value):
         """Validate flow CTA length"""
-        if len(v) > 20:
+        if len(value) > 20:
             raise ValueError("Flow CTA must be 20 characters or less")
-        return v
+        return value
 
 
 class FlowInteractive(BaseModel):
@@ -103,12 +105,13 @@ class FlowMessage(WhatsAppRecipient):
     type: str = Field(default="interactive", description="Message type")
     interactive: FlowInteractive = Field(..., description="Interactive configuration")
 
-    @validator('interactive')
-    def validate_interactive_type(cls, v):
+    @field_validator('interactive', mode='after')
+    @classmethod
+    def validate_interactive_type(cls, value):
         """Ensure interactive type is flow"""
-        if v.type != InteractiveType.FLOW:
+        if value.type != InteractiveType.FLOW:
             raise ValueError("Interactive type must be flow")
-        return v
+        return value
 
 
 # Response Models

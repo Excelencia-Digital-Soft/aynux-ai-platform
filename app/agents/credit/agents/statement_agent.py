@@ -1,10 +1,11 @@
 """
 Statement Agent - Handles account statements and transaction history
 """
-from typing import Dict, Any, List, Optional
-from decimal import Decimal
-from datetime import datetime, date, timedelta
+
 import calendar
+from datetime import date, timedelta
+from decimal import Decimal
+from typing import Any, Dict, List
 
 from app.agents.credit.base_credit_agent import BaseCreditAgent
 from app.agents.credit.schemas import CreditState, StatementResponse
@@ -33,22 +34,13 @@ class StatementAgent(BaseCreditAgent):
                 response = StatementResponse(**statement)
                 message = self._format_statement_message(response)
 
-                return {
-                    "message": message,
-                    "data": response.model_dump()
-                }
+                return {"message": message, "data": response.model_dump()}
             else:
-                return {
-                    "message": "No se encontraron transacciones para el período solicitado.",
-                    "data": None
-                }
+                return {"message": "No se encontraron transacciones para el período solicitado.", "data": None}
 
         except Exception as e:
             self.logger.error(f"Error generating statement: {str(e)}")
-            return {
-                "message": "Error al generar el estado de cuenta. Por favor, intenta nuevamente.",
-                "data": None
-            }
+            return {"message": "Error al generar el estado de cuenta. Por favor, intenta nuevamente.", "data": None}
 
     async def _extract_statement_period(self, message: str) -> Dict[str, date]:
         """Extract statement period from message"""
@@ -56,9 +48,18 @@ class StatementAgent(BaseCreditAgent):
 
         # Check for specific months
         months = {
-            "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
-            "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
-            "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12
+            "enero": 1,
+            "febrero": 2,
+            "marzo": 3,
+            "abril": 4,
+            "mayo": 5,
+            "junio": 6,
+            "julio": 7,
+            "agosto": 8,
+            "septiembre": 9,
+            "octubre": 10,
+            "noviembre": 11,
+            "diciembre": 12,
         }
 
         for month_name, month_num in months.items():
@@ -105,10 +106,10 @@ class StatementAgent(BaseCreditAgent):
             "transactions": transactions,
             "minimum_payment": closing_balance * Decimal("0.05"),
             "due_date": period["end"] + timedelta(days=20),
-            "pdf_url": f"/statements/{account_id}/{period['start'].strftime('%Y%m')}.pdf"
+            "pdf_url": f"/statements/{account_id}/{period['start'].strftime('%Y%m')}.pdf",
         }
 
-    async def _get_transactions(self, account_id: str, period: Dict[str, date]) -> List[Dict[str, Any]]:
+    async def _get_transactions(self, _account_id: str, period: Dict[str, date]) -> List[Dict[str, Any]]:
         """Get transactions for the period"""
         # TODO: Implement actual database query
         # Mock transactions
@@ -118,29 +119,29 @@ class StatementAgent(BaseCreditAgent):
                 "description": "Compra - Tienda XYZ",
                 "type": "charge",
                 "amount": Decimal("1500.00"),
-                "balance": Decimal("13500.00")
+                "balance": Decimal("13500.00"),
             },
             {
                 "date": period["start"] + timedelta(days=10),
                 "description": "Compra - Restaurante ABC",
                 "type": "charge",
                 "amount": Decimal("800.00"),
-                "balance": Decimal("14300.00")
+                "balance": Decimal("14300.00"),
             },
             {
                 "date": period["start"] + timedelta(days=15),
                 "description": "Pago - Gracias",
                 "type": "payment",
                 "amount": Decimal("2500.00"),
-                "balance": Decimal("11800.00")
+                "balance": Decimal("11800.00"),
             },
             {
                 "date": period["start"] + timedelta(days=20),
                 "description": "Compra - Supermercado",
                 "type": "charge",
                 "amount": Decimal("3200.00"),
-                "balance": Decimal("15000.00")
-            }
+                "balance": Decimal("15000.00"),
+            },
         ]
 
     def _format_statement_message(self, statement: StatementResponse) -> str:
@@ -176,7 +177,7 @@ class StatementAgent(BaseCreditAgent):
 
         message += f"""
 💵 **Pago Mínimo:** ${statement.minimum_payment:,.2f}
-📅 **Fecha de Vencimiento:** {statement.due_date.strftime('%d/%m/%Y')}
+📅 **Fecha de Vencimiento:** {statement.due_date.strftime("%d/%m/%Y")}
 
 📥 **Descargar Estado de Cuenta Completo:**
 {statement.pdf_url}
@@ -187,3 +188,4 @@ class StatementAgent(BaseCreditAgent):
 • 🔍 Buscar una transacción específica"""
 
         return message
+

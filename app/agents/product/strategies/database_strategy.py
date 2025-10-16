@@ -4,7 +4,6 @@ Database search strategy using PostgreSQL direct queries.
 Implements traditional database search with filtering and text search.
 """
 
-import logging
 from typing import Any, Dict
 
 from app.agents.tools.product_tool import ProductTool
@@ -251,3 +250,4 @@ class DatabaseSearchStrategy(BaseSearchStrategy):
         params["limit"] = max_results
 
         return params if len(params) > 1 else {}  # Return only if has more than just limit
+
