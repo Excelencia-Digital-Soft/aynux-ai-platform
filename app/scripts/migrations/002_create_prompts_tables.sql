@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS prompts (
     version VARCHAR(50) NOT NULL DEFAULT '1.0.0',
     is_active BOOLEAN NOT NULL DEFAULT true,
     is_dynamic BOOLEAN NOT NULL DEFAULT false,
-    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    meta_data JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255)
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     notes TEXT,
-    metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+    meta_data JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
 -- Create indexes for prompts table
@@ -59,7 +59,7 @@ CREATE TRIGGER trigger_prompts_updated_at
     EXECUTE FUNCTION update_prompts_updated_at();
 
 -- Insert some initial prompts (examples)
-INSERT INTO prompts (key, name, description, template, is_dynamic, metadata) VALUES
+INSERT INTO prompts (key, name, description, template, is_dynamic, meta_data) VALUES
 (
     'intent.analyzer.system',
     'Intent Analyzer System Prompt',
@@ -105,5 +105,5 @@ COMMENT ON TABLE prompts IS 'Stores AI prompts for the system, both static and d
 COMMENT ON TABLE prompt_versions IS 'Stores historical versions of prompts for versioning and A/B testing';
 COMMENT ON COLUMN prompts.key IS 'Unique identifier for the prompt (e.g., "product.search.intent")';
 COMMENT ON COLUMN prompts.is_dynamic IS 'True if prompt can be edited at runtime, false if loaded from file';
-COMMENT ON COLUMN prompts.metadata IS 'Additional configuration like temperature, max_tokens, model';
+COMMENT ON COLUMN prompts.meta_data IS 'Additional configuration like temperature, max_tokens, model';
 COMMENT ON COLUMN prompt_versions.performance_metrics IS 'Performance metrics for this prompt version';

@@ -21,13 +21,12 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.integrations.chroma_integration import ChromaDBIntegration
 from app.agents.integrations.pgvector_integration import PgVectorIntegration
@@ -203,9 +202,7 @@ class ChromaToPgVectorMigration:
         logger.info(f"  Products with ChromaDB embeddings: {self.stats['products_with_chroma_embeddings']}")
         logger.info(f"  Products with pgvector embeddings: {self.stats['products_with_pgvector_embeddings']}")
 
-        missing_embeddings = (
-            self.stats["total_products"] - self.stats["products_with_pgvector_embeddings"]
-        )
+        missing_embeddings = self.stats["total_products"] - self.stats["products_with_pgvector_embeddings"]
         logger.info(f"  Products missing pgvector embeddings: {missing_embeddings}")
 
     async def _build_migration_plan(self) -> List[str]:
@@ -292,20 +289,20 @@ class ChromaToPgVectorMigration:
         final_embeddings = pgvector_stats.get("products_with_embeddings", 0)
 
         logger.info(f"  Products with pgvector embeddings after migration: {final_embeddings}")
-        logger.info(f"  Expected embeddings: {self.stats['successfully_migrated'] + self.stats['products_with_pgvector_embeddings']}")
+        logger.info(
+            f"  Expected embeddings: {
+                self.stats['successfully_migrated'] + self.stats['products_with_pgvector_embeddings']
+            }"
+        )
 
         # Spot check: Query a few products to verify embeddings
         logger.info("  Running spot checks on random products...")
 
         async with get_async_db_context() as db:
-            result = await db.execute(
-                select(Product.id, Product.name)
-                .where(Product.embedding.isnot(None))
-                .limit(5)
-            )
+            result = await db.execute(select(Product.id, Product.name).where(Product.embedding.isnot(None)).limit(5))
             products = result.all()
 
-            for product_id, product_name in products:
+            for _, product_name in products:
                 logger.info(f"  ✓ {product_name} has valid embedding")
 
     async def _generate_report(self) -> None:
@@ -397,3 +394,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

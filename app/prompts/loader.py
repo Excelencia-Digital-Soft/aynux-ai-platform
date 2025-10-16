@@ -221,7 +221,7 @@ class PromptLoader:
                     template=prompt.template,
                     description=prompt.description,
                     version=prompt.version,
-                    metadata=prompt.metadata,
+                    metadata=prompt.meta_data,
                 )
 
                 logger.info(f"Loaded prompt '{key}' from database")

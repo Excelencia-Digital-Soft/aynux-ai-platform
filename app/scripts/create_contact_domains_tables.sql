@@ -73,14 +73,14 @@ COMMENT ON COLUMN domain_configs.priority IS 'Prioridad en clasificación autom�
 
 -- Dominio E-commerce (existente)
 INSERT INTO domain_configs (
-    domain, 
-    enabled, 
-    display_name, 
-    description, 
+    domain,
+    enabled,
+    display_name,
+    description,
     service_class,
     priority,
     keyword_patterns,
-    metadata
+    config_metadata
 ) VALUES (
     'ecommerce',
     'true',
@@ -94,14 +94,14 @@ INSERT INTO domain_configs (
 
 -- Dominio Hospital
 INSERT INTO domain_configs (
-    domain, 
-    enabled, 
-    display_name, 
-    description, 
+    domain,
+    enabled,
+    display_name,
+    description,
     service_class,
     priority,
     keyword_patterns,
-    metadata
+    config_metadata
 ) VALUES (
     'hospital',
     'true',
@@ -115,14 +115,14 @@ INSERT INTO domain_configs (
 
 -- Dominio Créditos
 INSERT INTO domain_configs (
-    domain, 
-    enabled, 
-    display_name, 
-    description, 
+    domain,
+    enabled,
+    display_name,
+    description,
     service_class,
     priority,
     keyword_patterns,
-    metadata
+    config_metadata
 ) VALUES (
     'credit',
     'false',
@@ -136,14 +136,14 @@ INSERT INTO domain_configs (
 
 -- Dominio Excelencia (Software)
 INSERT INTO domain_configs (
-    domain, 
-    enabled, 
-    display_name, 
-    description, 
+    domain,
+    enabled,
+    display_name,
+    description,
     service_class,
     priority,
     keyword_patterns,
-    metadata
+    config_metadata
 ) VALUES (
     'excelencia',
     'true',

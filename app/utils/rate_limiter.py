@@ -45,11 +45,16 @@ class RateLimiter:
             if time_since_last < self.min_interval:
                 wait_time = self.min_interval - time_since_last
                 await asyncio.sleep(wait_time)
+                # Actualizar DESPUÉS de dormir para asegurar tiempo exacto
                 self.last_request_time = time.time()
                 return wait_time
             else:
                 self.last_request_time = current_time
                 return 0.0
+
+    def mark_request_completed(self):
+        """Marca el momento en que se completó un request"""
+        self.last_request_time = time.time()
 
     def get_time_until_next_allowed(self) -> float:
         """

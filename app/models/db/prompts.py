@@ -30,7 +30,7 @@ class Prompt(Base):
     version = Column(String(50), nullable=False, default="1.0.0")
     is_active = Column(Boolean, default=True, nullable=False)
     is_dynamic = Column(Boolean, default=False, nullable=False)
-    metadata = Column(JSON, nullable=False, default=dict)
+    meta_data = Column(JSON, nullable=False, default=dict)
 
     created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
     updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC), nullable=False)
@@ -56,7 +56,7 @@ class Prompt(Base):
             "version": self.version,
             "is_active": self.is_active,
             "is_dynamic": self.is_dynamic,
-            "metadata": self.metadata,
+            "metadata": self.meta_data,
             "created_at": self.created_at.isoformat() if self.created_at is not None else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at is not None else None,
             "created_by": self.created_by,
@@ -87,7 +87,7 @@ class PromptVersion(Base):
 
     # Metadata adicional
     notes = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=False, default=dict)
+    meta_data = Column(JSON, nullable=False, default=dict)
 
     # Relaciones
     prompt = relationship("Prompt", back_populates="versions")
@@ -111,7 +111,7 @@ class PromptVersion(Base):
             "created_at": self.created_at.isoformat() if self.created_at is not None else None,
             "created_by": self.created_by,
             "notes": self.notes,
-            "metadata": self.metadata,
+            "metadata": self.meta_data,
         }
 
     def __repr__(self) -> str:
