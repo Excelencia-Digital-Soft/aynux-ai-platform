@@ -87,10 +87,13 @@ class SupervisorAgent(BaseAgent):
 
             # Si debe proporcionar respuesta final o la conversación debe terminar, mejorar la respuesta
             enhanced_response = None
+            # No mejorar respuestas de alta calidad (>= 0.8) - ya son buenas
+            should_enhance = quality_evaluation.get("overall_score", 0.0) < 0.8
+
             if (flow_decision.get("should_end") or should_provide_final) and not flow_decision.get(
                 "needs_human_handoff"
             ):
-                if self.enable_response_enhancement and self.ollama:
+                if self.enable_response_enhancement and self.ollama and should_enhance:
                     # Detectar idioma del usuario
                     language_info = self.language_detector.detect_language(message)
                     detected_language = language_info.get("language", "es")
@@ -283,7 +286,8 @@ Now, provide the enhanced customer service response:"""
 
             # Llamar a Ollama para mejorar la respuesta
             if self.ollama:
-                llm = self.ollama.get_llm(temperature=0.7, model="llama3.2:1b")
+                # Usar modelo más capaz para mejorar respuestas
+                llm = self.ollama.get_llm(temperature=0.7, model="deepseek-r1:7b")
                 response = await llm.ainvoke(enhancement_prompt)
                 enhanced_response = response.content if response else None
 
@@ -547,12 +551,12 @@ Now, provide the enhanced customer service response:"""
         """Verifica si el agente es relevante para el mensaje del usuario."""
         # Mapeo simple de keywords a tipos de agente
         agent_keywords = {
-            "product_agent": ["producto", "precio", "stock", "disponible", "características"],
-            "category_agent": ["categoría", "tipo", "clase", "sección"],
+            "product_agent": ["producto", "precio", "stock", "disponible", "características", "categoría", "tipo"],
             "support_agent": ["problema", "ayuda", "soporte", "técnico", "falla"],
             "tracking_agent": ["pedido", "envío", "seguimiento", "entrega"],
             "invoice_agent": ["factura", "pago", "cobro", "recibo"],
             "promotions_agent": ["descuento", "oferta", "promoción", "cupón"],
+            "excelencia_agent": ["excelencia", "erp", "demo", "módulo", "capacitación", "historia clínica", "hospital", "turnos", "obras sociales", "hotel"],
         }
 
         keywords = agent_keywords.get(agent_name, [])

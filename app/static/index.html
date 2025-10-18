@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aynux Chat - Sistema Multi-Dominio</title>
+    <link rel="stylesheet" href="/static/css/chat.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="chat-header">
+            <div class="header-content">
+                <h1>🤖 Aynux Chat</h1>
+                <p class="subtitle">Sistema Multi-Dominio de IA</p>
+            </div>
+            <div class="header-controls">
+                <select id="domainSelector" class="domain-selector">
+                    <option value="auto">🔄 Auto-Detectar Dominio</option>
+                    <option value="ecommerce">🛒 E-commerce</option>
+                    <option value="hospital">🏥 Hospital</option>
+                    <option value="credit">💳 Crédito</option>
+                </select>
+                <button id="clearChat" class="btn-clear" title="Limpiar conversación">
+                    🗑️ Limpiar
+                </button>
+                <button id="toggleDebug" class="btn-debug" title="Mostrar/ocultar panel de debug">
+                    🐛 Debug
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Chat Area -->
+            <div class="chat-container">
+                <div id="messagesContainer" class="messages-container">
+                    <div class="welcome-message">
+                        <div class="welcome-icon">👋</div>
+                        <h2>¡Bienvenido a Aynux Chat!</h2>
+                        <p>Este chat se conecta al mismo sistema de IA que usa WhatsApp.</p>
+                        <div class="features">
+                            <div class="feature-item">
+                                <span class="feature-icon">🛒</span>
+                                <span>E-commerce: Productos, pedidos, promociones</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">🏥</span>
+                                <span>Hospital: Citas médicas, pacientes</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">💳</span>
+                                <span>Crédito: Cuentas, pagos, cobranzas</span>
+                            </div>
+                        </div>
+                        <p class="start-hint">Escribe un mensaje para comenzar...</p>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="input-container">
+                    <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span id="typingText">Procesando...</span>
+                    </div>
+                    <form id="messageForm" class="message-form">
+                        <input
+                            type="text"
+                            id="messageInput"
+                            class="message-input"
+                            placeholder="Escribe tu mensaje..."
+                            autocomplete="off"
+                            required
+                        />
+                        <button type="submit" id="sendButton" class="send-button">
+                            <span class="send-icon">📤</span>
+                            <span class="send-text">Enviar</span>
+                        </button>
+                    </form>
+                    <div class="quick-actions">
+                        <button class="quick-btn" data-message="¿Qué productos tienen disponibles?">
+                            🛍️ Productos
+                        </button>
+                        <button class="quick-btn" data-message="¿Dónde está mi pedido?">
+                            📦 Tracking
+                        </button>
+                        <button class="quick-btn" data-message="Necesito ayuda con mi compra">
+                            💬 Soporte
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Debug Panel -->
+            <aside id="debugPanel" class="debug-panel" style="display: none;">
+                <div class="debug-header">
+                    <h3>🐛 Panel de Debug</h3>
+                    <button id="closeDebug" class="btn-close">✕</button>
+                </div>
+                <div class="debug-content">
+                    <div class="debug-section">
+                        <h4>📊 Estado de Sesión</h4>
+                        <div class="debug-info">
+                            <div class="info-row">
+                                <span class="info-label">Session ID:</span>
+                                <span class="info-value" id="debugSessionId">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">User ID:</span>
+                                <span class="info-value" id="debugUserId">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Mensajes:</span>
+                                <span class="info-value" id="debugMessageCount">0</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Dominio:</span>
+                                <span class="info-value" id="debugDomain">Auto</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="debug-section">
+                        <h4>🤖 Último Agente</h4>
+                        <div class="debug-info">
+                            <div class="info-row">
+                                <span class="info-label">Agente:</span>
+                                <span class="info-value" id="debugAgent">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Tiempo:</span>
+                                <span class="info-value" id="debugTime">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Estado:</span>
+                                <span class="info-value" id="debugStatus">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="debug-section">
+                        <h4>🔍 Metadatos</h4>
+                        <div class="debug-metadata" id="debugMetadata">
+                            <pre>Sin datos</pre>
+                        </div>
+                    </div>
+
+                    <div class="debug-section">
+                        <h4>📡 Modo de Streaming</h4>
+                        <div class="debug-info">
+                            <label class="switch">
+                                <input type="checkbox" id="streamingToggle">
+                                <span class="slider"></span>
+                            </label>
+                            <span id="streamingStatus">Desactivado</span>
+                        </div>
+                    </div>
+
+                    <div class="debug-section">
+                        <h4>⚙️ Acciones</h4>
+                        <div class="debug-actions">
+                            <button id="exportChat" class="debug-btn">
+                                💾 Exportar Chat
+                            </button>
+                            <button id="clearHistory" class="debug-btn">
+                                🗑️ Limpiar Historial
+                            </button>
+                            <button id="refreshSession" class="debug-btn">
+                                🔄 Nueva Sesión
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Footer -->
+        <footer class="chat-footer">
+            <div class="footer-content">
+                <span>Aynux Multi-Domain AI System</span>
+                <span class="separator">•</span>
+                <span id="statusIndicator" class="status-indicator">
+                    <span class="status-dot status-online"></span>
+                    Conectado
+                </span>
+                <span class="separator">•</span>
+                <span>Powered by LangGraph</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="/static/js/chat.js"></script>
+</body>
+</html>

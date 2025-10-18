@@ -92,24 +92,25 @@ class ProductAgentOrchestrator:
         try:
             # Step 1: Analyze user intent
             intent_result = await self.intent_analyzer.analyze_intent(user_query)
-            intent_analysis = intent_result.to_dict()
 
             logger.info(
-                f"Intent analysis: {intent_analysis['intent']} (confidence: {intent_analysis['confidence']:.2f})"
+                f"Intent analysis: {intent_result.intent} "
+                f"(confidence: {intent_result.confidence:.2f}, "
+                f"action: {intent_result.action_needed})"
             )
 
             # Step 2: Execute search with fallback
-            search_result = await self._execute_search_with_fallback(user_query, intent_analysis, limit)
+            search_result = await self._execute_search_with_fallback(user_query, intent_result, limit)
 
             # Step 3: Generate response
-            response = await self._generate_response(search_result, user_query, intent_analysis, conversation_state)
+            response = await self._generate_response(search_result, user_query, intent_result, conversation_state)
 
             # Step 4: Build result
             return {
                 "response_text": response.text,
                 "products": search_result.products,
                 "source": search_result.source,
-                "intent": intent_analysis,
+                "intent": intent_result.to_dict(),
                 "response_type": response.response_type,
                 "metadata": {
                     "search": search_result.metadata,
@@ -124,7 +125,7 @@ class ProductAgentOrchestrator:
     async def _execute_search_with_fallback(
         self,
         user_query: str,
-        intent_analysis: Dict[str, Any],
+        intent_result: Any,
         limit: int,
     ) -> SearchResult:
         """
@@ -134,7 +135,7 @@ class ProductAgentOrchestrator:
 
         Args:
             user_query: User query
-            intent_analysis: Intent analysis result
+            intent_result: Intent analysis result (UserIntent object)
             limit: Result limit
 
         Returns:
@@ -145,7 +146,7 @@ class ProductAgentOrchestrator:
         for strategy in self.search_strategies:
             try:
                 # Check if strategy can handle this intent
-                if not await strategy.can_handle(intent_analysis):
+                if not await strategy.can_handle(intent_result):
                     logger.debug(f"Strategy {strategy.name} cannot handle intent, skipping")
                     continue
 
@@ -156,7 +157,7 @@ class ProductAgentOrchestrator:
 
                 # Execute search
                 logger.info(f"Attempting search with strategy: {strategy.name}")
-                result = await strategy.search(user_query, intent_analysis, limit)
+                result = await strategy.search(user_query, intent_result, limit)
 
                 # Check if results are sufficient
                 if result.success and len(result.products) >= self.min_results_threshold:
@@ -189,7 +190,7 @@ class ProductAgentOrchestrator:
         self,
         search_result: SearchResult,
         user_query: str,
-        intent_analysis: Dict[str, Any],
+        intent_result: Any,
         conversation_state: Optional[Dict[str, Any]],
     ) -> GeneratedResponse:
         """
@@ -200,7 +201,7 @@ class ProductAgentOrchestrator:
         Args:
             search_result: Search result
             user_query: User query
-            intent_analysis: Intent analysis
+            intent_result: Intent analysis (UserIntent object)
             conversation_state: Conversation state
 
         Returns:
@@ -210,7 +211,7 @@ class ProductAgentOrchestrator:
         context = ResponseContext(
             products=search_result.products,
             user_query=user_query,
-            intent_analysis=intent_analysis,
+            intent_analysis=intent_result.to_dict(),
             search_metadata=search_result.metadata,
             conversation_state=conversation_state or {},
         )

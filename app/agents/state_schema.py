@@ -48,6 +48,9 @@ class LangGraphState(TypedDict):
     customer: Optional[Dict[str, Any]]
     conversation: Optional[Dict[str, Any]]
 
+    # Dominio de negocio (ecommerce, hospital, credit, excelencia)
+    business_domain: Optional[str]
+
     # Información de intención y routing
     current_intent: Optional[Dict[str, Any]]
     intent_history: Annotated[List[Dict[str, Any]], add_intent_history]

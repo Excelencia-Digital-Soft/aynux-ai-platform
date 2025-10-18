@@ -77,13 +77,16 @@ class LangGraphChatbotService:
             self.logger.error(f"Error initializing LangGraph service: {str(e)}")
             raise
 
-    async def process_webhook_message(self, message: WhatsAppMessage, contact: Contact) -> BotResponse:
+    async def process_webhook_message(
+        self, message: WhatsAppMessage, contact: Contact, business_domain: str = "ecommerce"
+    ) -> BotResponse:
         """
         Procesa un mensaje de WhatsApp usando el sistema multi-agente refactorizado.
 
         Args:
             message: Mensaje de WhatsApp recibido
             contact: Información de contacto del usuario
+            business_domain: Dominio de negocio (ecommerce, hospital, credit, excelencia)
 
         Returns:
             Respuesta estructurada del bot
@@ -97,7 +100,7 @@ class LangGraphChatbotService:
         message_text = self.message_processor.extract_message_text(message)
         session_id = f"whatsapp_{user_number}"
 
-        self.logger.info(f"Processing message from {user_number}: {message_text[:100]}...")
+        self.logger.info(f"Processing message from {user_number} (domain: {business_domain}): {message_text[:100]}...")
 
         try:
             # 1. Verificar seguridad del mensaje
@@ -117,13 +120,14 @@ class LangGraphChatbotService:
                 session_id, message_text, {"channel": "whatsapp"}
             )
 
-            # 5. Procesar con el sistema LangGraph
+            # 5. Procesar con el sistema LangGraph (incluir business_domain)
             response_data = await self.message_processor.process_with_langgraph(
                 graph_system=self.graph_system,
                 message_text=message_text,
                 customer_context=customer_context,
                 conversation_context=conversation_context,
                 session_id=session_id,
+                business_domain=business_domain,
             )
 
             # Operaciones post-procesamiento

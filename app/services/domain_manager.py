@@ -123,8 +123,11 @@ class EcommerceDomainService(BaseDomainService):
         """Procesar mensaje usando el servicio LangGraph existente"""
         if not self._initialized:
             await self.initialize()
-        
-        return await self._langgraph_service.process_webhook_message(message, contact)
+
+        # Pasar el dominio al servicio de LangGraph
+        return await self._langgraph_service.process_webhook_message(
+            message, contact, business_domain=self.domain
+        )
 
     async def get_system_health(self) -> Dict[str, Any]:
         """Obtener salud del sistema e-commerce"""

@@ -228,7 +228,7 @@ Generate your response now:"""
 
         return "\n".join(intent_lines)
 
-    async def _invoke_llm(self, prompt: str, temperature: float = 0.7, model: str = "llama3.2:1b") -> str:
+    async def _invoke_llm(self, prompt: str, temperature: float = 0.7, model: str = "llama3.1") -> str:
         """
         Invoke LLM with prompt.
 
@@ -287,3 +287,4 @@ Generate your response now:"""
             "generator_class": self.__class__.__name__,
             "config": self.get_config(),
         }
+

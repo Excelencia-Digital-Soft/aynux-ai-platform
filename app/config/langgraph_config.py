@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 
 from .agents import (
     AgentConfig,
-    CategoryAgentConfig,
     IntegrationConfig,
     InvoiceAgentConfig,
     MonitoringConfig,
@@ -29,7 +28,6 @@ class LangGraphConfig(BaseModel):
     # Configuraciones de agentes
     agents: Dict[str, AgentConfig] = Field(
         default_factory=lambda: {
-            "category": CategoryAgentConfig(),
             "product": ProductAgentConfig(),
             "promotions": PromotionsAgentConfig(),
             "tracking": TrackingAgentConfig(),

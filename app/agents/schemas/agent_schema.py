@@ -16,12 +16,12 @@ class IntentType(str, Enum):
 
     SALUDO = "saludo"
     PRODUCTO = "producto"
-    CATEGORIA = "categoria"
     DATOS = "datos"
     PROMOCIONES = "promociones"
     SEGUIMIENTO = "seguimiento"
     SOPORTE = "soporte"
     FACTURACION = "facturacion"
+    EXCELENCIA = "excelencia"
     FALLBACK = "fallback"
     DESPEDIDA = "despedida"
 
@@ -33,12 +33,12 @@ class AgentType(str, Enum):
     SUPERVISOR = "supervisor"
     GREETING_AGENT = "greeting_agent"
     PRODUCT_AGENT = "product_agent"
-    CATEGORY_AGENT = "category_agent"
     DATA_INSIGHTS_AGENT = "data_insights_agent"
     PROMOTIONS_AGENT = "promotions_agent"
     TRACKING_AGENT = "tracking_agent"
     SUPPORT_AGENT = "support_agent"
     INVOICE_AGENT = "invoice_agent"
+    EXCELENCIA_AGENT = "excelencia_agent"
     FALLBACK_AGENT = "fallback_agent"
     FAREWELL_AGENT = "farewell_agent"
 
@@ -180,7 +180,7 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
         ),
         IntentType.PRODUCTO: IntentDefinition(
             intent=IntentType.PRODUCTO,
-            description="Questions about available products, general product searches, features, price, stock",
+            description="Questions about available products, general product searches, categories, features, price, stock",
             examples=[
                 "what products do you have?",
                 "show me the products",
@@ -189,6 +189,14 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
                 "what are the features of this product?",
                 "list of available products",
                 "what do you sell?",
+                "show me laptops",
+                "what categories do you have?",
+                "products in electronics category",
+                "list all product categories",
+                "show me sneakers",
+                "I'm looking for televisions",
+                "technology products",
+                "gaming laptops",
             ],
             target_agent=AgentType.PRODUCT_AGENT,
             confidence_threshold=0.8,
@@ -254,19 +262,27 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             target_agent=AgentType.PROMOTIONS_AGENT,
             confidence_threshold=0.75,
         ),
-        IntentType.CATEGORIA: IntentDefinition(
-            intent=IntentType.CATEGORIA,
-            description="Search by specific categories or product types",
+        IntentType.EXCELENCIA: IntentDefinition(
+            intent=IntentType.EXCELENCIA,
+            description="Queries about Excelencia ERP system: demos, modules, training, vertical products",
             examples=[
-                "show me sneakers",
-                "I'm looking for televisions",
-                "technology products",
-                "sportswear",
-                "cell phone accessories",
-                "gaming laptops",
+                "qué es excelencia?",
+                "demo de historia clínica",
+                "módulos de excelencia",
+                "capacitación ERP",
+                "sistema de turnos médicos",
+                "software para hoteles",
+                "gestión de obras sociales",
+                "productos de excelencia",
+                "what is excelencia?",
+                "hospital management system",
+                "ERP for healthcare",
+                "hotel software",
+                "clinic software",
+                "medical appointments system",
             ],
-            target_agent=AgentType.CATEGORY_AGENT,
-            confidence_threshold=0.7,
+            target_agent=AgentType.EXCELENCIA_AGENT,
+            confidence_threshold=0.75,
         ),
         IntentType.DESPEDIDA: IntentDefinition(
             intent=IntentType.DESPEDIDA,
@@ -315,19 +331,10 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             agent=AgentType.PRODUCT_AGENT,
             class_name="ProductAgent",
             display_name="Product Agent",
-            description="Handles product inquiries, stock, pricing, and specifications",
+            description="Handles product inquiries, category navigation, stock, pricing, and specifications",
             primary_intents=[IntentType.PRODUCTO],
             requires_postgres=True,
             config_key="product",
-        ),
-        AgentType.CATEGORY_AGENT: AgentDefinition(
-            agent=AgentType.CATEGORY_AGENT,
-            class_name="CategoryAgent",
-            display_name="Category Agent",
-            description="Manages category exploration and product browsing",
-            primary_intents=[IntentType.CATEGORIA],
-            requires_chroma=True,
-            config_key="category",
         ),
         AgentType.DATA_INSIGHTS_AGENT: AgentDefinition(
             agent=AgentType.DATA_INSIGHTS_AGENT,
@@ -376,13 +383,23 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             requires_external_apis=True,
             config_key="invoice",
         ),
+        AgentType.EXCELENCIA_AGENT: AgentDefinition(
+            agent=AgentType.EXCELENCIA_AGENT,
+            class_name="ExcelenciaAgent",
+            display_name="Excelencia ERP Agent",
+            description="Handles queries about Excelencia ERP system: demos, modules, training, and vertical products (healthcare, hotels, social security)",
+            primary_intents=[IntentType.EXCELENCIA],
+            requires_postgres=True,
+            requires_chroma=True,
+            config_key="excelencia",
+        ),
         AgentType.FALLBACK_AGENT: AgentDefinition(
             agent=AgentType.FALLBACK_AGENT,
             class_name="FallbackAgent",
             display_name="Fallback Agent",
             description="Handles general inquiries and provides fallback responses",
             primary_intents=[IntentType.FALLBACK],
-            fallback_intents=[IntentType.CATEGORIA, IntentType.PRODUCTO],
+            fallback_intents=[IntentType.PRODUCTO],
             requires_postgres=True,
             config_key="fallback",
         ),

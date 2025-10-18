@@ -3,8 +3,8 @@ Agentes especializados del sistema
 """
 
 # Explicit imports for better type checking and reliability
-from .category_agent import CategoryAgent
 from .data_insights_agent import DataInsightsAgent
+from .excelencia_agent import ExcelenciaAgent
 from .fallback_agent import FallbackAgent
 from .farewell_agent import FarewellAgent
 from .greeting_agent import GreetingAgent
@@ -20,8 +20,8 @@ from .refactored_product_agent import RefactoredProductAgent as ProductAgent
 
 # Export all agent classes
 __all__ = [
-    "CategoryAgent",
     "DataInsightsAgent",
+    "ExcelenciaAgent",
     "FallbackAgent",
     "FarewellAgent",
     "GreetingAgent",

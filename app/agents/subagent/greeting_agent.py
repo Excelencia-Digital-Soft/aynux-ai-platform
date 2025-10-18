@@ -1,10 +1,12 @@
 """
-Agente especializado en saludos y presentación de capacidades del sistema
+Agente especializado en saludos y presentación de capacidades del sistema (Multi-Dominio)
 """
 
 import logging
 from typing import Any, Dict, Optional
 
+from app.prompts.loader import PromptLoader
+from app.prompts.registry import PromptRegistry
 from app.utils.language_detector import LanguageDetector
 
 from ..integrations.ollama_integration import OllamaIntegration
@@ -14,15 +16,40 @@ from .base_agent import BaseAgent
 logger = logging.getLogger(__name__)
 
 
+# Mapeo de dominios a capacidades/servicios
+DOMAIN_CAPABILITIES = {
+    "ecommerce": {
+        "services": ["productos", "pedidos", "promociones", "soporte"],
+        "context": "consultas de tienda online",
+        "hint": "e-commerce",
+    },
+    "hospital": {
+        "services": ["citas", "especialistas", "emergencias", "información"],
+        "context": "servicios médicos",
+        "hint": "salud",
+    },
+    "credit": {
+        "services": ["préstamos", "créditos", "tasas", "consultoría"],
+        "context": "servicios financieros",
+        "hint": "finanzas",
+    },
+    "excelencia": {
+        "services": ["demos", "módulos", "soporte", "capacitación"],
+        "context": "software empresarial",
+        "hint": "ERP",
+    },
+}
+
+
 class GreetingAgent(BaseAgent):
-    """Agente especializado en saludos y presentación completa de capacidades del sistema"""
+    """Agente especializado en saludos multi-dominio con prompts desde YAML"""
 
     def __init__(self, ollama=None, postgres=None, config: Optional[Dict[str, Any]] = None):
         super().__init__("greeting_agent", config or {}, ollama=ollama, postgres=postgres)
         self.ollama = ollama or OllamaIntegration()
 
         # Configuración específica del agente
-        self.model = "llama3.2:1b"  # Modelo rápido para saludos
+        self.model = "llama3.1"  # Modelo rápido para saludos
         self.temperature = 0.7  # Un poco de creatividad para respuestas amigables
 
         # Inicializar detector de idioma
@@ -30,10 +57,13 @@ class GreetingAgent(BaseAgent):
             config={"default_language": "es", "supported_languages": ["es", "en", "pt"]}
         )
 
+        # Inicializar PromptLoader
+        self.prompt_loader = PromptLoader()
+
     @trace_async_method(
         name="greeting_agent_process",
         run_type="chain",
-        metadata={"agent_type": "greeting", "model": "llama3.2:1b"},
+        metadata={"agent_type": "greeting", "model": "llama3.1"},
         extract_state=True,
     )
     async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -48,8 +78,8 @@ class GreetingAgent(BaseAgent):
             Diccionario con actualizaciones para el estado
         """
         try:
-            # Detectar idioma y generar respuesta personalizada
-            response_text = await self._generate_greeting_response(message)
+            # Detectar idioma y generar respuesta personalizada (pasar state_dict)
+            response_text = await self._generate_greeting_response(message, state_dict)
 
             return {
                 "messages": [{"role": "assistant", "content": response_text}],
@@ -62,12 +92,11 @@ class GreetingAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Error in greeting agent: {str(e)}")
 
-            # Respuesta de fallback simple en español
+            # Respuesta de fallback genérica (sin mencionar dominio específico)
             fallback_response = (
                 "¡Hola! 👋 Bienvenido a Aynux. "
-                "Soy tu asistente de e-commerce y puedo ayudarte con productos, "
-                "categorías, promociones, seguimiento de pedidos, soporte técnico, "
-                "facturación y análisis de datos. ¿En qué te puedo ayudar hoy?"
+                "Soy tu asistente virtual y puedo ayudarte con tus consultas. "
+                "¿En qué te puedo ayudar hoy?"
             )
 
             return {
@@ -77,82 +106,65 @@ class GreetingAgent(BaseAgent):
                 "is_complete": True,
             }
 
-    async def _generate_greeting_response(self, message: str) -> str:
+    async def _generate_greeting_response(self, message: str, state_dict: Dict[str, Any]) -> str:
         """
-        Genera respuesta de saludo personalizada usando IA multilingüe.
+        Genera respuesta de saludo personalizada usando prompts YAML y contexto de dominio.
 
         Args:
             message: Mensaje del usuario
+            state_dict: Estado actual con información de dominio
 
         Returns:
-            Respuesta de saludo con información completa del sistema
+            Respuesta de saludo adaptada al dominio
         """
         # Detectar idioma usando LanguageDetector
         try:
             detection_result = self.language_detector.detect_language(message)
             detected_language = detection_result["language"]
             confidence = detection_result["confidence"]
-            
+
             logger.info(f"Language detected: {detected_language} (confidence: {confidence:.2f})")
-            
+
         except Exception as e:
             logger.warning(f"Error detecting language: {e}, using default")
             detected_language = "es"
             confidence = 0.5
 
-        # Prompt simplificado ya con idioma detectado
-        prompt = f"""# E-COMMERCE GREETING ASSISTANT
+        # Obtener el dominio del estado (default: ecommerce)
+        business_domain = state_dict.get("business_domain", "ecommerce")
+        logger.info(f"Generating greeting for domain: {business_domain}")
 
-## 1. User Message
-`"{message}"`
+        # Obtener capacidades del dominio
+        domain_config = DOMAIN_CAPABILITIES.get(business_domain, DOMAIN_CAPABILITIES["ecommerce"])
 
-## 2. Detected Language: {detected_language.upper()}
-Your response MUST be in {detected_language.upper()} language.
-
----
-
-## 3. Instructions
-You are the friendly greeting agent for **Aynux**, an advanced e-commerce chatbot.
-
-### System Capabilities
-- **Product Services:** Catalog, stock, pricing, comparisons.
-- **Category Management:** Browse and filter by category.
-- **Promotions & Offers:** Discounts, coupons, special deals.
-- **Order Tracking:** Shipment status and delivery updates.
-- **Technical Support:** Troubleshooting and assistance.
-- **Billing & Invoicing:** Invoices, payments, refunds.
-- **Data & Analytics:** Sales reports and business insights.
-
-### Language-Specific Templates
-
-**For English (en):**
-1. **Welcome:** "Hello! 👋 Welcome to Aynux."
-2. **Introduction:** "I'm your e-commerce assistant."
-3. **Capabilities:** Briefly list 3-4 main areas (e.g., "I can help with products, orders, and support.").
-4. **Call to Action:** "How can I help you today?"
-
-**For Spanish (es):**
-1. **Bienvenida:** "¡Hola! 👋 Bienvenido a Aynux."
-2. **Introducción:** "Soy tu asistente de e-commerce."
-3. **Capacidades:** Menciona 3-4 áreas principales (ej: "Puedo ayudarte con productos, pedidos y soporte.").
-4. **Llamada a la Acción:** "¿En qué te puedo ayudar hoy?"
-
-**For Portuguese (pt):**
-1. **Boas-vindas:** "Olá! 👋 Bem-vindo ao Aynux."
-2. **Apresentação:** "Sou seu assistente de e-commerce."
-3. **Capacidades:** Mencione 3-4 áreas principais (ex: "Posso ajudar com produtos, pedidos e suporte.").
-4. **Chamada para Ação:** "Como posso ajudá-lo hoje?"
-
----
-
-## 4. Generate Response
-Generate a warm, professional, and concise greeting using the template for the detected language ({detected_language.upper()}). Add 1-2 relevant emojis.
-
-Generate your response now:"""
-
+        # Cargar prompt desde YAML
         try:
+            prompt_template = await self.prompt_loader.load(
+                PromptRegistry.CONVERSATION_GREETING_SYSTEM, prefer_db=False
+            )
+
+            if not prompt_template:
+                logger.warning("Could not load greeting prompt from YAML, using fallback")
+                return self._get_fallback_greeting(detected_language, domain_config)
+
+            # Preparar variables para el prompt
+            prompt_variables = {
+                "domain_type": business_domain,
+                "primary_services": ", ".join(domain_config["services"]),
+                "language": detected_language,
+                "domain_hint": domain_config["hint"],
+                "domain_context": domain_config["context"],
+            }
+
+            # Renderizar el prompt con variables
+            rendered_prompt = prompt_template.template.format(**prompt_variables)
+
+            # Agregar el mensaje del usuario
+            full_prompt = f"{rendered_prompt}\n\n## User Message\n{message}\n\nGenerate your greeting response now:"
+
+            # Generar respuesta con LLM
             llm = self.ollama.get_llm(temperature=self.temperature, model=self.model)
-            response = await llm.ainvoke(prompt)
+            response = await llm.ainvoke(full_prompt)
 
             # Extraer el contenido de la respuesta
             if hasattr(response, "content"):
@@ -169,74 +181,41 @@ Generate your response now:"""
                 return str(response).strip()
 
         except Exception as e:
-            logger.error(f"Error generating greeting with AI: {str(e)}")
+            logger.error(f"Error generating greeting with YAML prompt: {str(e)}")
+            # Fallback genérico
+            return self._get_fallback_greeting(detected_language, domain_config)
 
-            # Usar fallback apropiado basado en idioma detectado o detección básica
-            try:
-                detection_result = self.language_detector.detect_language(message)
-                fallback_language = detection_result["language"]
-            except Exception:
-                # Detección básica como último recurso
-                fallback_language = "en" if self._is_english(message) else "es"
+    def _get_fallback_greeting(self, language: str, domain_config: Dict[str, Any]) -> str:
+        """
+        Genera un greeting fallback genérico basado en idioma y dominio.
 
-            if fallback_language == "en":
-                return self._get_fallback_greeting_english()
-            elif fallback_language == "pt":
-                return self._get_fallback_greeting_portuguese()
-            else:
-                return self._get_fallback_greeting_spanish()
+        Args:
+            language: Idioma detectado (es, en, pt)
+            domain_config: Configuración del dominio
 
-    def _is_english(self, message: str) -> bool:
-        """Detección básica de inglés basada en palabras clave"""
-        english_keywords = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening"]
-        message_lower = message.lower()
-        return any(keyword in message_lower for keyword in english_keywords)
+        Returns:
+            Greeting fallback apropiado
+        """
+        services_list = ", ".join(domain_config["services"])
 
-    def _get_fallback_greeting_spanish(self) -> str:
-        """Respuesta de fallback en español"""
-        return """¡Hola! 👋 Bienvenido a Aynux.
-
-Soy tu asistente inteligente de e-commerce y puedo ayudarte con:
-
-🛍️ **Productos**: Catálogo, stock, precios y especificaciones
-📂 **Categorías**: Exploración y navegación por tipos de productos  
-🎯 **Promociones**: Descuentos, cupones y ofertas especiales
-📦 **Seguimiento**: Estado de pedidos y envíos
-🛠️ **Soporte**: Asistencia técnica y resolución de problemas
-💰 **Facturación**: Facturas, pagos y reembolsos
-📊 **Datos**: Reportes, estadísticas y análisis
-
-¿En qué te puedo ayudar hoy?"""
-
-    def _get_fallback_greeting_english(self) -> str:
-        """Respuesta de fallback en inglés"""
-        return """Hello! 👋 Welcome to Aynux.
-
-I'm your intelligent e-commerce assistant and I can help you with:
-
-🛍️ **Products**: Catalog, stock, pricing and specifications
-📂 **Categories**: Product type exploration and navigation
-🎯 **Promotions**: Discounts, coupons and special offers  
-📦 **Tracking**: Order and shipment status
-🛠️ **Support**: Technical assistance and troubleshooting
-💰 **Billing**: Invoices, payments and refunds
-📊 **Data**: Reports, statistics and analytics
-
-How can I help you today?"""
-
-    def _get_fallback_greeting_portuguese(self) -> str:
-        """Respuesta de fallback en portugués"""
-        return """Olá! 👋 Bem-vindo ao Aynux.
-
-Sou seu assistente inteligente de e-commerce e posso ajudá-lo com:
-
-🛍️ **Produtos**: Catálogo, estoque, preços e especificações
-📂 **Categorias**: Exploração e navegação por tipos de produtos  
-🎯 **Promoções**: Descontos, cupons e ofertas especiais
-📦 **Rastreamento**: Status de pedidos e envios
-🛠️ **Suporte**: Assistência técnica e resolução de problemas
-💰 **Faturamento**: Faturas, pagamentos e reembolsos
-📊 **Dados**: Relatórios, estatísticas e análise
-
-Como posso ajudá-lo hoje?"""
-
+        if language == "en":
+            return (
+                f"Hello! 👋 Welcome to Aynux.\n\n"
+                f"I'm your virtual assistant for {domain_config['context']}. "
+                f"I can help you with: {services_list}.\n\n"
+                f"How can I help you today?"
+            )
+        elif language == "pt":
+            return (
+                f"Olá! 👋 Bem-vindo ao Aynux.\n\n"
+                f"Sou seu assistente virtual para {domain_config['context']}. "
+                f"Posso ajudá-lo com: {services_list}.\n\n"
+                f"Como posso ajudá-lo hoje?"
+            )
+        else:  # Spanish (default)
+            return (
+                f"¡Hola! 👋 Bienvenido a Aynux.\n\n"
+                f"Soy tu asistente virtual para {domain_config['context']}. "
+                f"Puedo ayudarte con: {services_list}.\n\n"
+                f"¿En qué te puedo ayudar hoy?"
+            )

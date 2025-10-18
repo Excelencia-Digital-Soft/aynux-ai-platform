@@ -100,7 +100,7 @@ class PgVectorMetricsService:
 
         logger.info("PgVectorMetricsService initialized")
 
-    async def record_search(
+    def record_search(
         self,
         query: str,
         duration_ms: float,
@@ -148,11 +148,13 @@ class PgVectorMetricsService:
                 f"Low quality search results (avg similarity: {metric.avg_similarity:.2f}) for query: {query[:50]}"
             )
 
-    async def record_embedding_operation(
+    def record_embedding_operation(
         self, product_id: str, operation: str, duration_ms: float, success: bool, error: Optional[str] = None
     ):
         """
         Record an embedding generation/update operation.
+
+        Note: This is a synchronous method as it only performs in-memory operations.
 
         Args:
             product_id: Product identifier

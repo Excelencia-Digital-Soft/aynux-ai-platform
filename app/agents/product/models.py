@@ -32,6 +32,7 @@ class UserIntent:
     wants_featured: bool = False
     wants_sale: bool = False
     action_needed: str = "search_products"
+    confidence: float = 0.8  # Default confidence score (0.0-1.0)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for state management."""
@@ -47,6 +48,7 @@ class UserIntent:
             "wants_featured": self.wants_featured,
             "wants_sale": self.wants_sale,
             "action_needed": self.action_needed,
+            "confidence": self.confidence,
         }
 
     @classmethod
@@ -64,6 +66,7 @@ class UserIntent:
             wants_featured=data.get("wants_featured", False),
             wants_sale=data.get("wants_sale", False),
             action_needed=data.get("action_needed", "search_products"),
+            confidence=data.get("confidence", 0.8),
         )
 
 

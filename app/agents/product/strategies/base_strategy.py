@@ -135,3 +135,18 @@ class BaseSearchStrategy(ABC):
             f"source={result.source}, "
             f"error={result.error or 'none'}"
         )
+
+    async def can_handle(self, _intent_analysis: Dict[str, Any]) -> bool:
+        """
+        Check if this strategy can handle the given intent.
+
+        Default implementation returns True (strategy can handle any intent).
+        Override for strategies with specific capabilities.
+
+        Args:
+            _intent_analysis: Analyzed user intent (dict or UserIntent object)
+
+        Returns:
+            True if strategy can handle this intent
+        """
+        return True

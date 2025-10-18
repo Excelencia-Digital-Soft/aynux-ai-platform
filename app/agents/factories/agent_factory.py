@@ -6,8 +6,8 @@ import logging
 from typing import Any, Dict
 
 from ..subagent import (
-    CategoryAgent,
     DataInsightsAgent,
+    ExcelenciaAgent,
     FallbackAgent,
     FarewellAgent,
     GreetingAgent,
@@ -56,13 +56,7 @@ class AgentFactory:
                 postgres=self.postgres,
                 config=self._extract_config(agent_configs, "product")
             )
-            
-            self.agents["category_agent"] = CategoryAgent(
-                ollama=self.ollama,
-                chroma=self.chroma,
-                config=self._extract_config(agent_configs, "category")
-            )
-            
+
             self.agents["data_insights_agent"] = DataInsightsAgent(
                 ollama=self.ollama,
                 postgres=self.postgres,
@@ -92,7 +86,14 @@ class AgentFactory:
                 chroma=self.chroma,
                 config=self._extract_config(agent_configs, "invoice")
             )
-            
+
+            self.agents["excelencia_agent"] = ExcelenciaAgent(
+                ollama=self.ollama,
+                postgres=self.postgres,
+                chroma=self.chroma,
+                config=self._extract_config(agent_configs, "excelencia")
+            )
+
             self.agents["fallback_agent"] = FallbackAgent(
                 ollama=self.ollama,
                 postgres=self.postgres,

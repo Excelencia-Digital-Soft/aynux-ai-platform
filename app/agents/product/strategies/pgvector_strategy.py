@@ -82,23 +82,40 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
             # Execute vector similarity search
             search_results = await self.pgvector.search_similar_products(
                 query_embedding=query_embedding,
-                limit=max_results,
-                similarity_threshold=self.similarity_threshold,
+                k=max_results,
+                min_similarity=self.similarity_threshold,
                 metadata_filters=metadata_filters,
+                query_text=query,
             )
 
             # Extract products and metadata
+            # search_results is List[Tuple[Product, float]]
             products = []
             similarities = []
 
-            for result in search_results:
-                product_data = result.get("product", {})
-                similarity = result.get("similarity", 0.0)
-
-                if product_data:
-                    product_data["similarity_score"] = similarity
-                    products.append(product_data)
-                    similarities.append(similarity)
+            for product, similarity in search_results:
+                # Convert Product ORM object to dictionary
+                product_data = {
+                    "id": str(product.id),
+                    "name": product.name,
+                    "price": float(product.price),
+                    "stock": product.stock,
+                    "description": product.description,
+                    "short_description": product.short_description,
+                    "specs": product.specs,
+                    "model": product.model,
+                    "sku": product.sku,
+                    "category": product.category.display_name if product.category else None,
+                    "category_id": str(product.category_id) if product.category_id else None,
+                    "brand": product.brand.name if product.brand else None,
+                    "brand_id": str(product.brand_id) if product.brand_id else None,
+                    "image_url": product.image_url,
+                    "featured": product.featured,
+                    "on_sale": product.on_sale,
+                    "similarity_score": float(similarity)
+                }
+                products.append(product_data)
+                similarities.append(similarity)
 
             # Build result metadata
             result_metadata = {

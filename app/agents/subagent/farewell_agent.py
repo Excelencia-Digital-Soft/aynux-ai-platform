@@ -85,7 +85,7 @@ Si ayudamos, agradece su confianza. Invita a volver en el futuro.
 
         try:
             # Use fast model for user-facing responses
-            llm = self.ollama.get_llm(temperature=0.8, model="llama3.2:1b")
+            llm = self.ollama.get_llm(temperature=0.8, model="llama3.1")
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:
@@ -112,4 +112,3 @@ Estamos aquí cuando nos necesites. ¡Hasta pronto! 👋"""
             return f"""¡Hasta luego! 👋
 {time_greeting}
 No dudes en contactarnos si necesitas algo. 😊"""
-

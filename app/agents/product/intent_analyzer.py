@@ -35,6 +35,7 @@ class IntentAnalyzer:
         "wants_featured": False,
         "wants_sale": False,
         "action_needed": "search_products",
+        "confidence": 0.5,  # Low confidence for default fallback
     }
 
     INTENT_ANALYSIS_PROMPT = """# USER MESSAGE
@@ -54,7 +55,8 @@ You are analyzing a user's product inquiry for an e-commerce system. Extract the
   "wants_stock_info": boolean,
   "wants_featured": boolean,
   "wants_sale": boolean,
-  "action_needed": "show_featured|search_products|search_category|search_brand|search_price"
+  "action_needed": "show_featured|search_products|search_category|search_brand|search_price",
+  "confidence": float_0_to_1
 }}
 
 INTENT ANALYSIS:
@@ -65,7 +67,14 @@ INTENT ANALYSIS:
 - search_by_price: User mentions price range
 - get_product_details: User asks about a specific product
 
-For search_terms, only include meaningful product-related words, not filler words."""
+For search_terms, only include meaningful product-related words, not filler words.
+
+CONFIDENCE SCORE (0.0-1.0):
+- 0.9-1.0: Very clear intent with specific details (brand, model, exact product name)
+- 0.7-0.9: Clear intent with some details (category, general product type)
+- 0.5-0.7: Moderate clarity, general inquiry
+- 0.3-0.5: Ambiguous intent, unclear what user wants
+- 0.0-0.3: Very unclear or off-topic message"""
 
     def __init__(
         self,
@@ -125,9 +134,14 @@ For search_terms, only include meaningful product-related words, not filler word
                     if key not in extracted_json:
                         extracted_json[key] = value
 
+                # Calculate confidence as fallback if not provided by LLM
+                if "confidence" not in extracted_json or extracted_json["confidence"] is None:
+                    extracted_json["confidence"] = self._calculate_confidence(extracted_json)
+                    self.logger.debug(f"Calculated fallback confidence: {extracted_json['confidence']:.2f}")
+
                 # Convert to UserIntent dataclass
                 intent = UserIntent.from_dict(extracted_json)
-                self.logger.info(f"Intent analysis successful: {intent.intent}")
+                self.logger.info(f"Intent analysis successful: {intent.intent} (confidence: {intent.confidence:.2f})")
                 return intent
             else:
                 self.logger.warning("Failed to extract JSON from LLM response, using default intent")
@@ -150,6 +164,50 @@ For search_terms, only include meaningful product-related words, not filler word
         default_dict = self.DEFAULT_INTENT_VALUES.copy()
         default_dict["search_terms"] = message.split()
         return UserIntent.from_dict(default_dict)
+
+    def _calculate_confidence(self, intent_data: dict) -> float:
+        """
+        Calculate confidence score based on intent analysis completeness.
+
+        This is a fallback method when LLM doesn't provide confidence.
+        Scores based on:
+        - Presence of specific details (brand, category, specific_product)
+        - Number of search terms
+        - Clarity of action needed
+
+        Args:
+            intent_data: Extracted intent data
+
+        Returns:
+            Confidence score (0.0-1.0)
+        """
+        confidence = 0.5  # Base confidence
+
+        # Boost for specific details
+        if intent_data.get("specific_product"):
+            confidence += 0.3  # Very specific
+        elif intent_data.get("brand"):
+            confidence += 0.2  # Brand specified
+        elif intent_data.get("category"):
+            confidence += 0.15  # Category specified
+
+        # Boost for price range (indicates specific intent)
+        if intent_data.get("price_min") or intent_data.get("price_max"):
+            confidence += 0.1
+
+        # Boost for number of search terms (more terms = clearer intent)
+        search_terms = intent_data.get("search_terms", [])
+        if len(search_terms) >= 3:
+            confidence += 0.1
+        elif len(search_terms) >= 1:
+            confidence += 0.05
+
+        # Boost for specific flags (indicates clear user intent)
+        if intent_data.get("wants_stock_info") or intent_data.get("wants_featured") or intent_data.get("wants_sale"):
+            confidence += 0.05
+
+        # Cap at 1.0
+        return min(confidence, 1.0)
 
     def update_temperature(self, temperature: float) -> None:
         """

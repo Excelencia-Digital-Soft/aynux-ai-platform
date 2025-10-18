@@ -1,5 +1,4 @@
 from .agent_config import AgentConfig
-from .category_config import CategoryAgentConfig
 from .integration_config import IntegrationConfig
 from .invoice_config import InvoiceAgentConfig
 from .monitoring_config import MonitoringConfig
@@ -13,7 +12,6 @@ from .tracking_config import TrackingAgentConfig
 
 __all__ = [
     "AgentConfig",
-    "CategoryAgentConfig",
     "IntegrationConfig",
     "InvoiceAgentConfig",
     "MonitoringConfig",

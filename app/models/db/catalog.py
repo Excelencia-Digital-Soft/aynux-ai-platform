@@ -20,6 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, relationship
 
@@ -158,6 +159,10 @@ class Product(Base, TimestampMixin):
     # Campos para búsqueda full-text
     search_vector = Column(TSVECTOR)
 
+    # Vector embedding for semantic search (pgvector)
+    # nomic-embed-text:v1.5 generates 768-dimensional vectors
+    embedding = Column(Vector(768), nullable=True)
+
     # Metadatos adicionales
     meta_data = Column(JSONB, default=dict)
 
@@ -189,6 +194,14 @@ class Product(Base, TimestampMixin):
             description,
             postgresql_using="gin",
             postgresql_ops={"description": "gin_trgm_ops"},
+        ),
+        # HNSW index for vector similarity search with pgvector
+        Index(
+            "idx_products_embedding_hnsw",
+            embedding,
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
         CheckConstraint("price >= 0", name="check_price_positive"),
         CheckConstraint("stock >= 0", name="check_stock_non_negative"),

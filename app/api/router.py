@@ -4,6 +4,7 @@ from app.api.routes import auth, chat, domain_admin, dux_sync_admin, embeddings,
 
 api_router = APIRouter()
 
+# API routes (all have /api/v1 prefix from main.py)
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(webhook.router, tags=["webhook"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])

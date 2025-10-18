@@ -81,7 +81,7 @@ Responde de forma amable y útil:
 
         try:
             # Use fast model for user-facing responses
-            llm = self.ollama.get_llm(temperature=0.7, model="llama3.2:1b")
+            llm = self.ollama.get_llm(temperature=0.7, model="llama3.1")
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:
@@ -99,4 +99,3 @@ Puedo asistirte con:
 • 🔧 Soporte técnico
 
 ¿Qué te gustaría hacer?"""
-

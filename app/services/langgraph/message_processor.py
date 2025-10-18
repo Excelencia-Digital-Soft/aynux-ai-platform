@@ -64,6 +64,7 @@ class MessageProcessor:
         customer_context: CustomerContext,
         conversation_context: ConversationContext,
         session_id: str,
+        business_domain: str = "ecommerce",
     ) -> Dict[str, Any]:
         """
         Procesa el mensaje usando el sistema LangGraph multi-agente.
@@ -74,17 +75,19 @@ class MessageProcessor:
             customer_context: Contexto del cliente
             conversation_context: Contexto de la conversación
             session_id: ID de la sesión
+            business_domain: Dominio de negocio (ecommerce, hospital, credit, excelencia)
 
         Returns:
             Diccionario con respuesta del graph y metadatos
         """
         try:
-            # Procesar con el graph multi-agente
+            # Procesar con el graph multi-agente (incluir business_domain)
             result = await graph_system.invoke(
                 message=message_text,
                 conversation_id=session_id,
                 customer_data=customer_context.model_dump(),
                 conversation_data=conversation_context.model_dump(),
+                business_domain=business_domain,
             )
 
             # Extraer la respuesta del último mensaje AI

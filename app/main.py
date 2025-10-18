@@ -1,13 +1,16 @@
 import asyncio
 import logging
+from pathlib import Path
 
 import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.middleware.auth_middleware import authenticate_request
 from app.api.router import api_router
+from app.api.routes import frontend
 from app.config.langsmith_init import get_langsmith_status, initialize_langsmith
 from app.config.settings import get_settings
 
@@ -70,7 +73,19 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=500, content={"message": "Internal Server Error"})
 
     # Registro de routers
+    # Frontend routes (no prefix - serve at root)
+    app.include_router(frontend.router, tags=["frontend"])
+
+    # API routes (with /api/v1 prefix)
     app.include_router(api_router, prefix=settings.API_V1_STR)
+
+    # Montar archivos estáticos para la interfaz web de chat
+    static_dir = Path(__file__).parent / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+        logger.info(f"✅ Static files mounted from: {static_dir}")
+    else:
+        logger.warning(f"⚠️ Static directory not found: {static_dir}")
 
     # Ruta de health check
     @app.get("/health", tags=["health"])
@@ -79,14 +94,6 @@ def create_app() -> FastAPI:
         Verifica el estado de la aplicación
         """
         return {"status": "ok", "environment": settings.ENVIRONMENT}
-
-    @app.get("/")
-    async def root():  # pyright: ignore
-        return {
-            "message": "Bienvenido a la API",
-            "version": settings.VERSION,
-            "documentation_urls": {"swagger": app.docs_url, "redoc": app.redoc_url},
-        }
 
     # Background task management
     _background_tasks = set()

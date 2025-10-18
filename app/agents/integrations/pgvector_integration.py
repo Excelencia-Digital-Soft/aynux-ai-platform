@@ -14,6 +14,7 @@ Features:
 
 import logging
 import time
+from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -49,12 +50,24 @@ class PgVectorIntegration:
 
         # Configuration
         self.embedding_model = "nomic-embed-text:v1.5"
-        self.embedding_dimensions = 1024
+        self.embedding_dimensions = 768
         self.default_similarity_threshold = 0.7  # Higher than ChromaDB for better precision
         self.default_k = 10
 
         # Metrics service
         self.metrics = get_metrics_service()
+
+    def _format_vector_for_query(self, vector: List[float]) -> str:
+        """
+        Convert vector list to pgvector-compatible string format.
+
+        Args:
+            vector: List of floats representing the embedding
+
+        Returns:
+            String in format '[val1,val2,val3,...]' for pgvector
+        """
+        return f"[{','.join(str(v) for v in vector)}]"
 
     @trace_integration("pgvector_search_products")
     async def search_similar_products(
@@ -69,7 +82,7 @@ class PgVectorIntegration:
         Search for similar products using vector similarity.
 
         Args:
-            query_embedding: Query vector (1024 dimensions)
+            query_embedding: Query vector (768 dimensions)
             k: Number of results to return
             metadata_filters: Optional filters (category_id, brand_id, price_range, stock_required)
             min_similarity: Minimum similarity threshold (0.0-1.0)
@@ -84,14 +97,18 @@ class PgVectorIntegration:
 
         try:
             async with get_async_db_context() as db:
+                # Convert embedding to pgvector-compatible string format
+                query_vector_str = self._format_vector_for_query(query_embedding)
+
                 # Build base query with vector similarity
+                # Using raw SQL with text() for vector operations to ensure proper formatting
                 query = (
                     select(
                         Product,
                         Category,
                         Brand,
                         # Cosine similarity: 1 - cosine_distance
-                        (1 - func.cosine_distance(Product.embedding, query_embedding)).label("similarity"),
+                        text(f"1 - (embedding <=> '{query_vector_str}'::vector) AS similarity")
                     )
                     .join(Category, Product.category_id == Category.id, isouter=True)
                     .join(Brand, Product.brand_id == Brand.id, isouter=True)
@@ -99,8 +116,8 @@ class PgVectorIntegration:
                         and_(
                             Product.embedding.isnot(None),
                             Product.active.is_(True),
-                            # Similarity filter
-                            (1 - func.cosine_distance(Product.embedding, query_embedding)) >= min_similarity,
+                            # Similarity filter using raw SQL for proper vector comparison
+                            text(f"1 - (embedding <=> '{query_vector_str}'::vector) >= {min_similarity}")
                         )
                     )
                 )
@@ -144,7 +161,7 @@ class PgVectorIntegration:
         finally:
             # Record metrics
             duration_ms = (time.perf_counter() - start_time) * 1000
-            await self.metrics.record_search(
+            self.metrics.record_search(
                 query=query_text or "unknown",
                 duration_ms=duration_ms,
                 results=results,
@@ -271,7 +288,7 @@ class PgVectorIntegration:
                 return False
 
             # Skip if embedding exists and not forcing update
-            if product.embedding and not force_update:
+            if product.embedding is not None and not force_update:
                 logger.debug(f"Product {product_id} already has embedding, skipping")
                 return True
 
@@ -288,7 +305,7 @@ class PgVectorIntegration:
 
             # Update product with new embedding
             product.embedding = embedding  # type: ignore[assignment]
-            product.last_embedding_update = func.now()  # type: ignore[assignment]
+            product.last_embedding_update = datetime.now(UTC)
             product.embedding_model = self.embedding_model  # type: ignore[assignment]
 
             await db.commit()
@@ -303,7 +320,7 @@ class PgVectorIntegration:
         finally:
             # Record metrics
             duration_ms = (time.perf_counter() - start_time) * 1000
-            await self.metrics.record_embedding_operation(
+            self.metrics.record_embedding_operation(
                 product_id=str(product_id), operation="update", duration_ms=duration_ms, success=success, error=error
             )
 
@@ -508,15 +525,18 @@ class PgVectorIntegration:
                     return False
 
                 # Check if we can perform vector operations
-                test_vector = [0.1] * self.embedding_dimensions
-                result = await db.execute(
-                    select(func.count(Product.id)).where(
-                        and_(
-                            Product.embedding.isnot(None),
-                            (1 - func.cosine_distance(Product.embedding, test_vector)) > 0,
-                        )
+                # Use raw SQL for health check since asyncpg needs proper vector format
+                test_result = await db.execute(
+                    text(
+                        """
+                    SELECT COUNT(*)
+                    FROM products
+                    WHERE embedding IS NOT NULL
+                    LIMIT 1
+                    """
                     )
                 )
+                test_result.scalar()
 
                 logger.info("pgvector health check passed")
                 return True
