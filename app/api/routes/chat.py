@@ -74,18 +74,23 @@ async def process_chat_message(request: ChatMessageRequest) -> ChatMessageRespon
         )
 
         # Construir respuesta
+        # Combinar metadata del resultado con metadata del request
+        combined_metadata = {
+            "requires_human": result.get("requires_human", False),
+            "is_complete": result.get("is_complete", False),
+            "processing_time_ms": result.get("processing_time_ms", 0),
+            "conversation_id": session_id,
+            **(request.metadata or {}),
+            # IMPORTANTE: Incluir metadata del resultado (productos, display_type, etc.)
+            **(result.get("metadata", {})),
+        }
+
         return ChatMessageResponse(
             response=result.get("response", "Lo siento, no pude procesar tu mensaje."),
             agent_used=result.get("agent_used", "unknown"),
             session_id=session_id,
             status="success",
-            metadata={
-                "requires_human": result.get("requires_human", False),
-                "is_complete": result.get("is_complete", False),
-                "processing_time_ms": result.get("processing_time_ms", 0),
-                "conversation_id": session_id,
-                **(request.metadata or {}),
-            },
+            metadata=combined_metadata,
         )
 
     except HTTPException:

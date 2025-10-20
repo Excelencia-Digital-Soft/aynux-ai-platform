@@ -38,7 +38,7 @@ class DatabaseSearchStrategy(BaseSearchStrategy):
 
         # Configuration with defaults
         self.max_results = config.get("max_results", 10)
-        self.require_stock = config.get("require_stock", True)
+        self.require_stock = config.get("require_stock", False)  # Changed to False to show all products
         self.priority = 50  # Lowest priority for SQL fallback
 
     @property
@@ -150,16 +150,32 @@ class DatabaseSearchStrategy(BaseSearchStrategy):
             result["method"] = "featured"
             return result
 
-        # Priority 2: Category search
+        # Priority 2: Category search with fallback to text search
         if (action == "search_category" or intent.intent == "search_by_category") and intent.category:
             result = await self.product_tool("by_category", category=intent.category, limit=max_results)
-            result["method"] = "by_category"
+
+            # If category search found no results, fallback to text search
+            if not result.get("success") or len(result.get("products", [])) == 0:
+                self.logger.info(f"Category '{intent.category}' not found, falling back to text search")
+                result = await self.product_tool("search", search_term=intent.category, limit=max_results)
+                result["method"] = "by_category_fallback_text"
+            else:
+                result["method"] = "by_category"
+
             return result
 
-        # Priority 3: Brand search
+        # Priority 3: Brand search with fallback to text search
         if (action == "search_brand" or intent.intent == "search_by_brand") and intent.brand:
             result = await self.product_tool("by_brand", brand=intent.brand, limit=max_results)
-            result["method"] = "by_brand"
+
+            # If brand search found no results, fallback to text search
+            if not result.get("success") or len(result.get("products", [])) == 0:
+                self.logger.info(f"Brand '{intent.brand}' not found, falling back to text search")
+                result = await self.product_tool("search", search_term=intent.brand, limit=max_results)
+                result["method"] = "by_brand_fallback_text"
+            else:
+                result["method"] = "by_brand"
+
             return result
 
         # Priority 4: Price range search
@@ -175,17 +191,25 @@ class DatabaseSearchStrategy(BaseSearchStrategy):
 
         # Priority 5: Specific product or text search
         if action == "search_products" or intent.intent in ["search_specific_products", "get_product_details"]:
-            # Use specific product name if available
-            if intent.specific_product:
-                result = await self.product_tool("search", search_term=intent.specific_product, limit=max_results)
-                result["method"] = "search_specific"
-                return result
+            # Build comprehensive search term
+            search_terms_list = []
 
-            # Otherwise use search terms
+            if intent.specific_product:
+                search_terms_list.append(intent.specific_product)
+
             if intent.search_terms:
-                search_term = " ".join(intent.search_terms)
+                search_terms_list.extend(intent.search_terms)
+
+            if intent.category:
+                search_terms_list.append(intent.category)
+
+            if intent.brand:
+                search_terms_list.append(intent.brand)
+
+            if search_terms_list:
+                search_term = " ".join(search_terms_list)
                 result = await self.product_tool("search", search_term=search_term, limit=max_results)
-                result["method"] = "search_terms"
+                result["method"] = "search_combined_terms"
                 return result
 
         # Special preferences

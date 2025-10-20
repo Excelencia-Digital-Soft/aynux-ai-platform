@@ -9,6 +9,10 @@ import logging
 from typing import Any, Dict, Optional
 
 from app.agents.integrations.ollama_integration import OllamaIntegration
+from app.agents.prompts.product_response import (
+    build_no_results_prompt,
+    build_product_response_prompt,
+)
 
 from .base_response_generator import (
     BaseResponseGenerator,
@@ -72,8 +76,11 @@ class AIResponseGenerator(BaseResponseGenerator):
             if not context.has_products:
                 return await self._generate_no_results_response(context)
 
-            # Format products for AI
-            formatted_products = self.formatter.format_multiple_products(context.products)
+            # Format products as cards for frontend
+            product_cards = self.formatter.format_products_as_cards(context.products)
+
+            # Format products as markdown for AI context
+            formatted_products = self.formatter.format_products_as_markdown(context.products)
 
             # Generate AI response
             response_text = await self._generate_ai_text(context, formatted_products)
@@ -85,6 +92,8 @@ class AIResponseGenerator(BaseResponseGenerator):
                     "product_count": context.product_count,
                     "source": context.search_metadata.get("source", "unknown"),
                     "temperature": self.temperature,
+                    "display_type": "product_cards",
+                    "products": product_cards,
                 },
                 requires_followup=False,
             )
@@ -137,30 +146,19 @@ class AIResponseGenerator(BaseResponseGenerator):
         """
         intent = context.intent_analysis.get("intent", "search_products")
 
-        prompt = f"""# CONTEXTO
-Eres un asistente de e-commerce ayudando a un cliente con su búsqueda de productos.
+        # Analyze stock availability
+        products_with_stock = sum(1 for p in context.products if p.get("stock", 0) > 0)
+        products_without_stock = context.product_count - products_with_stock
 
-# CONSULTA DEL USUARIO
-"{context.user_query}"
-
-# INTENCIÓN DETECTADA
-{intent}
-
-# PRODUCTOS ENCONTRADOS ({context.product_count})
-{formatted_products}
-
-# INSTRUCCIONES
-1. Genera una respuesta natural y útil
-2. Destaca los productos más relevantes
-3. Menciona características clave (precio, stock, marca)
-4. Usa un tono amigable y profesional
-5. Ofrece ayuda adicional si es necesario
-6. Mantén la respuesta concisa (máximo 3-4 párrafos)
-7. Usa emojis cuando sea apropiado
-
-# RESPUESTA"""
-
-        return prompt
+        # Use external prompt builder (SRP: prompts separated from logic)
+        return build_product_response_prompt(
+            user_query=context.user_query,
+            intent=intent,
+            product_count=context.product_count,
+            formatted_products=formatted_products,
+            products_with_stock=products_with_stock,
+            products_without_stock=products_without_stock,
+        )
 
     async def _generate_no_results_response(self, context: ResponseContext) -> GeneratedResponse:
         """
@@ -172,20 +170,8 @@ Eres un asistente de e-commerce ayudando a un cliente con su búsqueda de produc
         Returns:
             Generated response
         """
-        prompt = f"""# CONTEXTO
-Eres un asistente de e-commerce. El cliente buscó productos pero no se encontraron resultados.
-
-# CONSULTA DEL USUARIO
-"{context.user_query}"
-
-# INSTRUCCIONES
-1. Expresa empatía por no encontrar resultados
-2. Sugiere alternativas o búsquedas similares
-3. Ofrece ayuda para refinar la búsqueda
-4. Mantén un tono positivo y servicial
-5. Pregunta si hay algo más en lo que puedas ayudar
-
-# RESPUESTA"""
+        # Use external prompt builder (SRP: prompts separated from logic)
+        prompt = build_no_results_prompt(context.user_query)
 
         try:
             # Get LLM and generate response

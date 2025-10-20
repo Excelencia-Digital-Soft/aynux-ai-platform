@@ -1,5 +1,5 @@
 """
-Agente especializado en consultas sobre ERP Excelencia
+Agente especializado en consultas sobre ERP Excelencia con RAG (Retrieval-Augmented Generation)
 
 Este agente maneja:
 - Información sobre demos del sistema Excelencia
@@ -7,17 +7,23 @@ Este agente maneja:
 - Soporte técnico del ERP
 - Capacitación y training
 - Catálogo de productos verticales Excelencia
+- Consultas corporativas (misión, visión, valores, casos de éxito, etc.) mediante RAG
 """
 
 import json
 import logging
 from typing import Any, Dict, List, Optional
 
+from app.config.settings import get_settings
+from app.database.async_db import get_async_db_context
+from app.services.knowledge_service import KnowledgeService
+
 from ..integrations.ollama_integration import OllamaIntegration
 from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 # Información sobre los módulos y productos de Excelencia
@@ -81,6 +87,10 @@ class ExcelenciaAgent(BaseAgent):
         self.temperature = self.config.get("temperature", 0.7)
         self.max_response_length = self.config.get("max_response_length", 500)
 
+        # RAG configuration
+        self.use_rag = getattr(settings, "KNOWLEDGE_BASE_ENABLED", True)
+        self.rag_max_results = 3  # Number of knowledge base results to retrieve
+
         # Tipos de consultas que puede manejar
         self.query_types = {
             "demo": ["demo", "demostración", "prueba", "presentación", "mostrar"],
@@ -88,10 +98,12 @@ class ExcelenciaAgent(BaseAgent):
             "training": ["capacitación", "curso", "entrenamiento", "aprender", "formación"],
             "support": ["soporte", "ayuda", "problema", "error", "consulta técnica"],
             "products": ["producto", "sistema", "software", "solución", "vertical"],
+            "corporate": ["misión", "visión", "valores", "empresa", "quiénes somos", "contacto", "redes"],
+            "clients": ["cliente", "caso", "éxito", "referencia", "implementación"],
             "general": ["excelencia", "erp", "información", "qué es"],
         }
 
-        logger.info("ExcelenciaAgent initialized successfully")
+        logger.info(f"ExcelenciaAgent initialized successfully (RAG enabled: {self.use_rag})")
 
     @trace_async_method(
         name="excelencia_agent_process",
@@ -219,6 +231,51 @@ Responde solo con el JSON, sin texto adicional."""
             "urgency": "medium",
         }
 
+    async def _search_knowledge_base(self, query: str) -> str:
+        """
+        Search the knowledge base using RAG for relevant corporate information.
+
+        Args:
+            query: User's query
+
+        Returns:
+            Formatted context from knowledge base or empty string if no results
+        """
+        if not self.use_rag:
+            return ""
+
+        try:
+            # Search knowledge base using async context manager
+            async with get_async_db_context() as db:
+                service = KnowledgeService(db)
+                results = await service.search_knowledge(
+                    query=query,
+                    max_results=self.rag_max_results,
+                    search_strategy="hybrid",
+                )
+
+                if not results:
+                    return ""
+
+                # Format results as context
+                context_parts = ["\n## INFORMACIÓN CORPORATIVA RELEVANTE (Knowledge Base):"]
+                for i, result in enumerate(results, 1):
+                    context_parts.append(f"\n### {i}. {result.get('title', 'Sin título')}")
+                    content = result.get("content", "")
+                    # Limit content to 200 characters to avoid token overflow
+                    content_preview = content[:200] + "..." if len(content) > 200 else content
+                    context_parts.append(f"{content_preview}")
+                    # Add metadata if available
+                    doc_type = result.get("document_type", "")
+                    if doc_type:
+                        context_parts.append(f"*Tipo: {doc_type}*")
+
+                return "\n".join(context_parts)
+
+        except Exception as e:
+            logger.error(f"Error searching knowledge base: {e}")
+            return ""
+
     async def _generate_response(
         self, user_message: str, query_analysis: Dict[str, Any], _state_dict: Dict[str, Any]
     ) -> str:
@@ -235,6 +292,9 @@ Responde solo con el JSON, sin texto adicional."""
         """
         query_type = query_analysis.get("query_type", "general")
         mentioned_modules = query_analysis.get("modules", [])
+
+        # Search knowledge base for relevant information (RAG)
+        rag_context = await self._search_knowledge_base(user_message)
 
         # Preparar contexto sobre módulos mencionados
         modules_context = ""
@@ -259,6 +319,7 @@ Responde solo con el JSON, sin texto adicional."""
 - Intención: {query_analysis.get('user_intent', 'N/A')}
 - Requiere demo: {query_analysis.get('requires_demo', False)}
 {modules_context}
+{rag_context}
 
 ## INFORMACIÓN GENERAL SOBRE EXCELENCIA:
 Excelencia es un ERP modular especializado en diferentes verticales de negocio, con especial
@@ -274,13 +335,16 @@ Principales módulos:
 
 ## INSTRUCCIONES:
 1. Responde de manera amigable y profesional
-2. Si pregunta sobre demos: Menciona que pueden solicitar una demo personalizada
-3. Si pregunta sobre capacitación: Indica que ofrecen capacitación completa y soporte
-4. Si pregunta sobre un módulo específico: Detalla sus características principales
-5. Si pregunta sobre productos: Enumera los módulos relevantes
-6. Usa máximo 6-7 líneas
-7. Usa 1-2 emojis apropiados
-8. Si es una consulta general, haz un overview breve
+2. **IMPORTANTE**: Si hay información en la Knowledge Base (sección "INFORMACIÓN CORPORATIVA RELEVANTE"), úsala como fuente principal y prioritaria
+3. Si pregunta sobre demos: Menciona que pueden solicitar una demo personalizada
+4. Si pregunta sobre capacitación: Indica que ofrecen capacitación completa y soporte
+5. Si pregunta sobre un módulo específico: Detalla sus características principales
+6. Si pregunta sobre productos: Enumera los módulos relevantes
+7. Si pregunta sobre misión, visión, valores, contacto, casos de éxito: Usa la información de Knowledge Base
+8. Usa máximo 6-7 líneas
+9. Usa 1-2 emojis apropiados
+10. Si es una consulta general, haz un overview breve
+11. NO inventes información, usa solo lo que está en el contexto proporcionado
 
 Genera tu respuesta ahora:"""
 

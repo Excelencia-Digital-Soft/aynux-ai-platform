@@ -358,9 +358,24 @@ class AynuxChat {
         const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
         const agentBadge = agent && role === 'bot' ? `<span class="agent-badge">${agent}</span>` : '';
 
+        // Process content based on metadata
+        let processedContent = content;
+        let productCardsHTML = '';
+
+        if (metadata && metadata.display_type === 'product_cards' && metadata.products) {
+            // Render product cards
+            productCardsHTML = this.renderProductCards(metadata.products);
+            // Render intro text as markdown
+            processedContent = this.renderMarkdown(content);
+        } else if (role === 'bot') {
+            // Render bot messages as markdown
+            processedContent = this.renderMarkdown(content);
+        }
+
         messageDiv.innerHTML = `
             <div class="message-bubble">
-                <div class="message-content">${content}</div>
+                <div class="message-content">${processedContent}</div>
+                ${productCardsHTML}
                 <div class="message-info">
                     ${agentBadge}
                     <span class="timestamp">${time}</span>
@@ -375,6 +390,97 @@ class AynuxChat {
         if (metadata) {
             messageDiv.dataset.metadata = JSON.stringify(metadata);
         }
+    }
+
+    renderMarkdown(text) {
+        /**
+         * Render markdown text to HTML with security sanitization
+         */
+        if (!text) return '';
+
+        try {
+            // Check if marked library is available
+            if (typeof marked !== 'undefined') {
+                // Configure marked options
+                marked.setOptions({
+                    breaks: true, // Convert \n to <br>
+                    gfm: true,    // GitHub flavored markdown
+                });
+
+                const rawHTML = marked.parse(text);
+
+                // Sanitize HTML with DOMPurify if available
+                if (typeof DOMPurify !== 'undefined') {
+                    return DOMPurify.sanitize(rawHTML);
+                }
+                return rawHTML;
+            }
+        } catch (error) {
+            console.error('Error rendering markdown:', error);
+        }
+
+        // Fallback: convert newlines to <br> tags
+        return text.replace(/\n/g, '<br>');
+    }
+
+    renderProductCards(products) {
+        /**
+         * Render product cards from structured data
+         */
+        if (!products || products.length === 0) return '';
+
+        const cardsHTML = products.map(product => {
+            const stockClass = product.stock_available ? 'stock-available' : 'stock-unavailable';
+            const stockIcon = product.stock_available ? '✅' : '❌';
+            const stockText = product.stock_available
+                ? `${product.stock} unidades`
+                : 'Sin stock';
+
+            const priceHTML = product.price !== null
+                ? `<div class="product-price">$${product.price.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`
+                : '';
+
+            const brandHTML = product.brand
+                ? `<div class="product-meta">🏷️ ${product.brand}</div>`
+                : '';
+
+            const categoryHTML = product.category
+                ? `<div class="product-meta">📂 ${product.category}</div>`
+                : '';
+
+            const modelHTML = product.model
+                ? `<div class="product-meta">Modelo: ${product.model}</div>`
+                : '';
+
+            const descriptionHTML = product.description
+                ? `<div class="product-description">${product.description}</div>`
+                : '';
+
+            const similarityHTML = product.similarity_score
+                ? `<div class="product-similarity">🎯 ${Math.round(product.similarity_score * 100)}% relevancia</div>`
+                : '';
+
+            return `
+                <div class="product-card">
+                    <div class="product-card-header">
+                        <div class="product-name">📦 ${product.name}</div>
+                        ${priceHTML}
+                    </div>
+                    ${brandHTML}
+                    ${categoryHTML}
+                    ${modelHTML}
+                    ${descriptionHTML}
+                    <div class="product-card-footer">
+                        <span class="product-stock ${stockClass}">
+                            ${stockIcon} ${stockText}
+                        </span>
+                        ${similarityHTML}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `<div class="product-cards-container">${cardsHTML}</div>`;
     }
 
     showTypingIndicator(text = 'Procesando tu mensaje...') {

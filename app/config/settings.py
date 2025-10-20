@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     OLLAMA_API_MODEL_FAST: str = Field("llama3.2:1b", description="Modelo rápido para respuestas al usuario")
     OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
     OLLAMA_API_CHROMADB: str = Field("./data/vector_db/", description="Ruta de la base de datos de ollama")
-    OLLAMA_API_MODEL_EMBEDDING: str = Field("nomic-embed-text", description="Embedding del modelo de ollama")
+    OLLAMA_API_MODEL_EMBEDDING: str = Field("nomic-embed-text:v1.5", description="Embedding del modelo de ollama (768 dimensions)")
 
     # Vector Search Configuration
     USE_PGVECTOR: bool = Field(True, description="Enable pgvector for native PostgreSQL vector search")
@@ -66,10 +66,24 @@ class Settings(BaseSettings):
         description="Search strategy: pgvector_primary | chroma_primary | hybrid",
     )
     PGVECTOR_SIMILARITY_THRESHOLD: float = Field(
-        0.7, description="Minimum similarity threshold for pgvector search (0.0-1.0)"
+        0.6, description="Minimum similarity threshold for pgvector search (0.0-1.0)"
     )
     CHROMA_SIMILARITY_THRESHOLD: float = Field(
         0.5, description="Minimum similarity threshold for ChromaDB search (0.0-1.0)"
+    )
+
+    # Knowledge Base Configuration
+    KNOWLEDGE_BASE_ENABLED: bool = Field(True, description="Enable company knowledge base with RAG")
+    KNOWLEDGE_EMBEDDING_MODEL: str = Field(
+        "nomic-embed-text",
+        description="Embedding model for knowledge base (must match OLLAMA_API_MODEL_EMBEDDING)",
+    )
+    KNOWLEDGE_SEARCH_STRATEGY: str = Field(
+        "hybrid",
+        description="Knowledge base search strategy: pgvector_primary | chroma_primary | hybrid",
+    )
+    KNOWLEDGE_SIMILARITY_THRESHOLD: float = Field(
+        0.7, description="Minimum similarity threshold for knowledge base search (0.0-1.0)"
     )
 
     # ProductAgent SOLID Refactoring Feature Flags

@@ -1,6 +1,19 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, chat, domain_admin, dux_sync_admin, embeddings, langsmith_status, phone_normalization, products, sync_status, webhook, whatsapp_catalog
+from app.api.routes import (
+    auth,
+    chat,
+    domain_admin,
+    dux_sync_admin,
+    embeddings,
+    knowledge_admin,
+    langsmith_status,
+    phone_normalization,
+    products,
+    sync_status,
+    webhook,
+    whatsapp_catalog,
+)
 
 api_router = APIRouter()
 
@@ -15,4 +28,5 @@ api_router.include_router(sync_status.router, prefix="/dux", tags=["sync"])
 api_router.include_router(dux_sync_admin.router, prefix="/admin/dux", tags=["dux-admin"])
 api_router.include_router(domain_admin.router, tags=["domain-admin"])
 api_router.include_router(langsmith_status.router, prefix="/admin", tags=["monitoring"])
+api_router.include_router(knowledge_admin.router, tags=["Knowledge Base"])
 api_router.include_router(whatsapp_catalog.router, tags=["WhatsApp Catalog & Flows"])

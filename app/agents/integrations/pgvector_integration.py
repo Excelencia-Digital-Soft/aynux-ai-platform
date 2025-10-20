@@ -51,7 +51,7 @@ class PgVectorIntegration:
         # Configuration
         self.embedding_model = "nomic-embed-text:v1.5"
         self.embedding_dimensions = 768
-        self.default_similarity_threshold = 0.7  # Higher than ChromaDB for better precision
+        self.default_similarity_threshold = 0.6  # Optimized for nomic-embed-text:v1.5 with product catalog
         self.default_k = 10
 
         # Metrics service
@@ -108,7 +108,7 @@ class PgVectorIntegration:
                         Category,
                         Brand,
                         # Cosine similarity: 1 - cosine_distance
-                        text(f"1 - (embedding <=> '{query_vector_str}'::vector) AS similarity")
+                        text(f"1 - (embedding <=> '{query_vector_str}'::vector) AS similarity"),
                     )
                     .join(Category, Product.category_id == Category.id, isouter=True)
                     .join(Brand, Product.brand_id == Brand.id, isouter=True)
@@ -117,7 +117,7 @@ class PgVectorIntegration:
                             Product.embedding.isnot(None),
                             Product.active.is_(True),
                             # Similarity filter using raw SQL for proper vector comparison
-                            text(f"1 - (embedding <=> '{query_vector_str}'::vector) >= {min_similarity}")
+                            text(f"1 - (embedding <=> '{query_vector_str}'::vector) >= {min_similarity}"),
                         )
                     )
                 )
@@ -229,8 +229,12 @@ class PgVectorIntegration:
             List of floats representing the embedding vector
         """
         try:
+            import asyncio
+
             embeddings = self.ollama.get_embeddings(model=self.embedding_model)
-            embedding_result = await embeddings.aembed_query(text)
+
+            # Use synchronous version in thread to avoid SQLAlchemy greenlet issues
+            embedding_result = await asyncio.to_thread(embeddings.embed_query, text)
 
             if len(embedding_result) != self.embedding_dimensions:
                 logger.warning(
@@ -329,6 +333,7 @@ class PgVectorIntegration:
         Create comprehensive text representation for embedding generation.
 
         Combines multiple product fields into single text for better semantic search.
+        Expands abbreviations and adds context to prevent ambiguous matches.
 
         Args:
             product: Product model instance
@@ -338,13 +343,20 @@ class PgVectorIntegration:
         """
         parts = []
 
-        # Product name (highest weight)
-        if product.name is not None:
-            parts.append(f"Product: {product.name}")
-
-        # Brand
+        # Get brand name for context
+        brand_name = ""
         if product.brand is not None and hasattr(product.brand, "name"):
-            parts.append(f"Brand: {product.brand.name}")
+            brand_name = product.brand.name
+
+        # Product name (highest weight) with abbreviation expansion
+        if product.name is not None:
+            expanded_name = self._expand_product_name_abbreviations(product.name, brand_name)
+            parts.append(f"Product: {expanded_name}")
+
+        # Brand with additional context
+        if brand_name is not None:  # brand_name is guaranteed to be str, empty or non-empty
+            brand_context = self._get_brand_context(brand_name)
+            parts.append(f"Brand: {brand_name} {brand_context}")
 
         # Category
         if product.category is not None and hasattr(product.category, "display_name"):
@@ -378,6 +390,112 @@ class PgVectorIntegration:
                 parts.append(f"Features: {features_text}")
 
         return ". ".join(parts)
+
+    def _expand_product_name_abbreviations(self, name: str, brand_name: str) -> str:
+        """
+        Expand common abbreviations in product names to improve semantic understanding.
+
+        Args:
+            name: Product name
+            brand_name: Brand name for context
+
+        Returns:
+            Expanded product name with disambiguating context
+        """
+        expanded_name = name
+
+        # Common abbreviations mapping
+        abbreviations = {
+            # Power tools (motosierras, motoguadañas)
+            "MOTOS.": "motosierra chainsaw power-tool garden-equipment",
+            "MOTOG.": "motoguadaña brush-cutter power-tool garden-equipment",
+            # Motorcycle parts (use brand context to identify)
+            # Only expand if NOT a power tool brand
+        }
+
+        # Apply abbreviation expansions
+        for abbrev, expansion in abbreviations.items():
+            if abbrev in expanded_name:
+                # Check if this is a power tool based on brand
+                if self._is_power_tool_brand(brand_name):
+                    expanded_name = expanded_name.replace(abbrev, expansion)
+                else:
+                    # For non-power-tool brands, just expand the abbreviation minimally
+                    if abbrev == "MOTOS.":
+                        expanded_name = expanded_name.replace(abbrev, "motosierra")
+                    elif abbrev == "MOTOG.":
+                        expanded_name = expanded_name.replace(abbrev, "motoguadaña")
+
+        # Add motorcycle context if name contains motorcycle-related terms
+        motorcycle_indicators = ["WAVE", "HONDA", "YAMAHA", "ZANELLA", "MOTOMEL", "BAJAJ"]
+        if any(indicator in name.upper() for indicator in motorcycle_indicators):
+            if "motorcycle" not in expanded_name.lower() and "moto " not in expanded_name.lower():
+                expanded_name += " motorcycle-part motorcycle-component"
+
+        return expanded_name
+
+    def _get_brand_context(self, brand_name: str) -> str:
+        """
+        Get semantic context for brand to improve disambiguation.
+
+        Args:
+            brand_name: Brand name
+
+        Returns:
+            Additional context string for brand
+        """
+        if not brand_name:
+            return ""
+
+        brand_upper = brand_name.upper()
+
+        # Power tool brands
+        power_tool_brands = {
+            "SHINDAIWA": "power-tools garden-equipment chainsaw manufacturer",
+            "STIHL": "power-tools garden-equipment chainsaw manufacturer",
+            "HUSQVARNA": "power-tools garden-equipment chainsaw manufacturer",
+        }
+
+        # Motorcycle brands/suppliers
+        motorcycle_brands = {
+            "CATI-MOTO": "motorcycle-parts motorcycle-components",
+            "MOTOMEL": "motorcycle manufacturer motorcycle-parts",
+            "ZANELLA": "motorcycle manufacturer motorcycle-parts",
+            "HONDA": "motorcycle manufacturer automotive",
+            "YAMAHA": "motorcycle manufacturer automotive",
+            "BAJAJ": "motorcycle manufacturer automotive",
+            "HADA": "motorcycle-parts accessories",
+            "THE-ORANGE": "motorcycle-parts accessories",
+        }
+
+        # Check brand mappings
+        for brand_key, context in power_tool_brands.items():
+            if brand_key in brand_upper:
+                return f"({context})"
+
+        for brand_key, context in motorcycle_brands.items():
+            if brand_key in brand_upper:
+                return f"({context})"
+
+        return ""
+
+    def _is_power_tool_brand(self, brand_name: str) -> bool:
+        """
+        Identify if brand is primarily a power tool manufacturer.
+
+        Args:
+            brand_name: Brand name
+
+        Returns:
+            True if power tool brand, False otherwise
+        """
+        if not brand_name:
+            return False
+
+        power_tool_brands = ["SHINDAIWA", "STIHL", "HUSQVARNA", "MAKITA", "DEWALT", "BLACK+DECKER"]
+        brand_upper = brand_name.upper()
+
+        return any(pt_brand in brand_upper for pt_brand in power_tool_brands)
 
     @trace_integration("pgvector_batch_update_embeddings")
     async def batch_update_embeddings(

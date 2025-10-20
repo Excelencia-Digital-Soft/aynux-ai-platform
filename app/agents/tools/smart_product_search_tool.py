@@ -38,8 +38,8 @@ class SmartProductSearchTool:
         self.postgres = postgres
 
         # Configuración de búsqueda
-        self.embedding_dimensions = 384  # Ajustar según el modelo usado
-        self.semantic_threshold = 0.7
+        self.embedding_dimensions = 768  # nomic-embed-text:v1.5 generates 768-dimensional vectors
+        self.semantic_threshold = 0.6  # Optimized for product catalog with nomic-embed-text:v1.5
         self.max_semantic_results = 50
 
         # Mapeos para normalización

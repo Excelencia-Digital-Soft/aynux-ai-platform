@@ -9,6 +9,7 @@ from .contact_domains import ContactDomain, DomainConfig
 from .conversations import Conversation, Message
 from .customers import Customer
 from .inquiries import ProductInquiry
+from .knowledge_base import CompanyKnowledge
 from .orders import Order, OrderItem
 from .prompts import Prompt, PromptVersion
 from .promotions import Promotion
@@ -49,5 +50,7 @@ __all__ = [
     # Prompts
     "Prompt",
     "PromptVersion",
+    # Knowledge Base
+    "CompanyKnowledge",
 ]
 

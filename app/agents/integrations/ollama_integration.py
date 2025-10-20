@@ -33,7 +33,7 @@ class OllamaIntegration:
 
         # Cache de modelos
         self._llm_cache = {}
-        self._embedding_cache = None
+        self._embedding_caches = {}  # Cache por modelo de embedding
 
         # LangSmith tracing will be handled by decorators
 
@@ -78,13 +78,17 @@ class OllamaIntegration:
         Args:
             model: Modelo de embeddings a usar
         """
-        if self._embedding_cache is None:
-            embedding_model = model or self.embedding_model
+        embedding_model = model or self.embedding_model
 
-            self._embedding_cache = OllamaEmbeddings(model=embedding_model, base_url=self.base_url)
+        # Use model-specific cache to avoid conflicts between different embedding models
+        if embedding_model not in self._embedding_caches:
+            self._embedding_caches[embedding_model] = OllamaEmbeddings(
+                model=embedding_model,
+                base_url=self.base_url
+            )
             logger.debug(f"Created new OllamaEmbeddings instance for {embedding_model}")
 
-        return self._embedding_cache
+        return self._embedding_caches[embedding_model]
 
     @trace_integration("ollama_health_check")
     async def health_check(self) -> bool:

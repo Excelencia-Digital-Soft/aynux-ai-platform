@@ -556,7 +556,18 @@ Now, provide the enhanced customer service response:"""
             "tracking_agent": ["pedido", "envío", "seguimiento", "entrega"],
             "invoice_agent": ["factura", "pago", "cobro", "recibo"],
             "promotions_agent": ["descuento", "oferta", "promoción", "cupón"],
-            "excelencia_agent": ["excelencia", "erp", "demo", "módulo", "capacitación", "historia clínica", "hospital", "turnos", "obras sociales", "hotel"],
+            "excelencia_agent": [
+                "excelencia",
+                "erp",
+                "demo",
+                "módulo",
+                "capacitación",
+                "historia clínica",
+                "hospital",
+                "turnos",
+                "obras sociales",
+                "hotel",
+            ],
         }
 
         keywords = agent_keywords.get(agent_name, [])

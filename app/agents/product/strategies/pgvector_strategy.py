@@ -4,7 +4,6 @@ PgVector search strategy using PostgreSQL vector similarity.
 Implements semantic search using pgvector extension with embedding-based similarity.
 """
 
-import logging
 from typing import Any, Dict
 
 from app.agents.integrations.pgvector_integration import PgVectorIntegration
@@ -41,7 +40,7 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
         # Configuration with defaults
         self.similarity_threshold = config.get("similarity_threshold", 0.7)
         self.max_results = config.get("max_results", 10)
-        self.stock_required = config.get("stock_required", True)
+        self.stock_required = config.get("stock_required", False)  # Changed to False to show all products
         self.priority = 10  # Highest priority for semantic search
 
     @property
@@ -79,11 +78,15 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
             # Build metadata filters
             metadata_filters = self._build_metadata_filters(intent)
 
+            # Calculate dynamic similarity threshold based on query specificity
+            dynamic_threshold = self._calculate_dynamic_threshold(intent)
+            self.logger.debug(f"Dynamic similarity threshold: {dynamic_threshold:.2f} (base: {self.similarity_threshold:.2f})")
+
             # Execute vector similarity search
             search_results = await self.pgvector.search_similar_products(
                 query_embedding=query_embedding,
                 k=max_results,
-                min_similarity=self.similarity_threshold,
+                min_similarity=dynamic_threshold,
                 metadata_filters=metadata_filters,
                 query_text=query,
             )
@@ -106,9 +109,9 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
                     "model": product.model,
                     "sku": product.sku,
                     "category": product.category.display_name if product.category else None,
-                    "category_id": str(product.category_id) if product.category_id else None,
+                    "category_id": str(product.category_id) if product.category_id is not None else None,
                     "brand": product.brand.name if product.brand else None,
-                    "brand_id": str(product.brand_id) if product.brand_id else None,
+                    "brand_id": str(product.brand_id) if product.brand_id is not None else None,
                     "image_url": product.image_url,
                     "featured": product.featured,
                     "on_sale": product.on_sale,
@@ -124,7 +127,8 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
                 "avg_similarity": sum(similarities) / len(similarities) if similarities else 0.0,
                 "min_similarity": min(similarities) if similarities else 0.0,
                 "max_similarity": max(similarities) if similarities else 0.0,
-                "similarity_threshold": self.similarity_threshold,
+                "similarity_threshold": dynamic_threshold,
+                "base_threshold": self.similarity_threshold,
             }
 
             result = SearchResult(
@@ -209,8 +213,9 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
         """
         filters = {}
 
-        # Stock filter
-        if intent.wants_stock_info or self.stock_required:
+        # Stock filter - only apply if explicitly required by intent or config
+        # Changed to not default to True, allowing products with zero stock to be shown
+        if intent.wants_stock_info and self.stock_required:
             filters["stock_required"] = True
 
         # Featured products filter
@@ -222,3 +227,48 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
             filters["on_sale"] = True
 
         return filters
+
+    def _calculate_dynamic_threshold(self, intent: UserIntent) -> float:
+        """
+        Calculate dynamic similarity threshold based on query specificity.
+
+        More specific queries (with brand, model, category) use higher thresholds.
+        Generic queries use moderate thresholds to balance precision and recall.
+
+        Args:
+            intent: User intent with query analysis
+
+        Returns:
+            Dynamic similarity threshold (0.0-1.0)
+        """
+        # Increased base threshold for better precision (reduced false positives)
+        # Changed from 0.5 to 0.6 to reduce ambiguous matches like "MOTOS." (chainsaw) for "moto" (motorcycle)
+        base_threshold = 0.6
+
+        # Increase threshold for specific queries
+        specificity_boost = 0.0
+
+        # Boost for specific product mention
+        if intent.specific_product:
+            specificity_boost += 0.20  # Reduced from 0.25 to prevent over-filtering
+
+        # Boost for brand
+        if intent.brand:
+            specificity_boost += 0.08  # Reduced from 0.1
+
+        # Boost for category
+        if intent.category:
+            specificity_boost += 0.08  # Reduced from 0.1
+
+        # Boost for price filters (indicates specific intent)
+        if intent.price_min or intent.price_max:
+            specificity_boost += 0.04  # Reduced from 0.05
+
+        # Calculate final threshold
+        dynamic_threshold = min(base_threshold + specificity_boost, 0.85)  # Cap at 0.85
+
+        # If intent confidence is low, reduce threshold slightly (but maintain higher minimum)
+        if intent.confidence < 0.5:
+            dynamic_threshold = max(dynamic_threshold - 0.1, 0.5)  # Floor increased from 0.4 to 0.5
+
+        return dynamic_threshold

@@ -74,16 +74,18 @@ class ProductFormatter:
         # Price
         if self.show_prices:
             price = product.get("price")
-            if price is not None:
+            if price is not None and price > 0:
                 parts.append(f"\n💰 Precio: ${price:,.2f}")
+            else:
+                parts.append("\n💰 Precio: Consultar")
 
         # Stock
         if self.show_stock:
             stock = product.get("stock", 0)
             if stock > 0:
-                parts.append(f"✅ Stock: {stock} unidades")
+                parts.append(f"✅ Stock: {stock} unidades disponibles")
             else:
-                parts.append("❌ Sin stock")
+                parts.append("⏰ Disponible por pedido (puede tener demoras)")
 
         # Similarity score (if available)
         similarity = product.get("similarity_score")
@@ -232,3 +234,139 @@ class ProductFormatter:
         message += "¿Qué más puedo ayudarte a buscar?"
 
         return message
+
+    def format_products_as_cards(
+        self, products: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Format products as card-ready data structures for frontend rendering.
+
+        Args:
+            products: List of product dictionaries
+
+        Returns:
+            List of card-ready product data
+        """
+        if not products:
+            return []
+
+        # Limit products shown
+        products_to_show = products[: self.max_products_shown]
+        cards = []
+
+        for product in products_to_show:
+            # Extract product data
+            name = product.get("name", "Producto sin nombre")
+            brand = product.get("brand", {})
+            category = product.get("category", {})
+            price = product.get("price")
+            stock = product.get("stock", 0)
+            description = product.get("description", "")
+            similarity = product.get("similarity_score")
+            model = product.get("model", "")
+
+            # Format brand
+            if isinstance(brand, dict):
+                brand_name = brand.get("name", "")
+            elif isinstance(brand, str):
+                brand_name = brand
+            else:
+                brand_name = ""
+
+            # Format category
+            if isinstance(category, dict):
+                category_name = category.get("display_name", "")
+            elif isinstance(category, str):
+                category_name = category
+            else:
+                category_name = ""
+
+            # Truncate description for cards
+            if description and len(description) > 100:
+                description = description[:97] + "..."
+
+            # Build card data
+            card = {
+                "name": name,
+                "brand": brand_name,
+                "category": category_name,
+                "model": model,
+                "price": float(price) if price is not None else None,
+                "stock": stock,
+                "stock_available": stock > 0,
+                "description": description,
+                "similarity_score": float(similarity) if similarity else None,
+            }
+
+            cards.append(card)
+
+        return cards
+
+    def format_products_as_markdown(self, products: List[Dict[str, Any]]) -> str:
+        """
+        Format products as markdown text (fallback for text-only display).
+
+        Args:
+            products: List of product dictionaries
+
+        Returns:
+            Formatted markdown string
+        """
+        if not products:
+            return "No se encontraron productos."
+
+        # Limit products shown
+        products_to_show = products[: self.max_products_shown]
+        total_count = len(products)
+
+        formatted_products = []
+
+        for i, product in enumerate(products_to_show, 1):
+            parts = []
+
+            # Product name
+            name = product.get("name", "Producto sin nombre")
+            parts.append(f"**{i}. {name}**")
+
+            # Brand and category
+            brand = product.get("brand", {})
+            category = product.get("category", {})
+
+            if isinstance(brand, dict) and brand.get("name"):
+                parts.append(f"🏷️ {brand['name']}")
+            elif isinstance(brand, str) and brand:
+                parts.append(f"🏷️ {brand}")
+
+            if isinstance(category, dict) and category.get("display_name"):
+                parts.append(f"📂 {category['display_name']}")
+
+            # Model
+            model = product.get("model")
+            if model:
+                parts.append(f"Modelo: {model}")
+
+            # Price and stock
+            if self.show_prices:
+                price = product.get("price")
+                if price is not None and price > 0:
+                    parts.append(f"💰 ${price:,.2f}")
+                else:
+                    parts.append("💰 Precio: Consultar")
+
+            if self.show_stock:
+                stock = product.get("stock", 0)
+                if stock > 0:
+                    parts.append(f"✅ {stock} unidades disponibles")
+                else:
+                    parts.append("⏰ Disponible por pedido (puede tener demoras)")
+
+            formatted_products.append("\n".join(parts))
+
+        result = "\n\n".join(formatted_products)
+
+        # Add truncation message if needed
+        if total_count > self.max_products_shown:
+            remaining = total_count - self.max_products_shown
+            result += f"\n\n_... y {remaining} productos más disponibles_"
+
+        return result
