@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+import bcrypt
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.config.settings import get_settings
 from app.models.auth import TokenMetadata
@@ -18,7 +18,6 @@ class TokenService:
 
     def __init__(self):
         self.settings = get_settings()
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{self.settings.API_V1_STR}/auth/token")
         self.token_repo = RedisRepository[TokenMetadata](TokenMetadata, prefix="token")
 
@@ -30,11 +29,20 @@ class TokenService:
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Verifica si la contraseña coincide con el hash"""
-        return self.pwd_context.verify(plain_password, hashed_password)
+        # Convertir contraseña y hash a bytes
+        password_bytes = plain_password.encode("utf-8")
+        hash_bytes = hashed_password.encode("utf-8")
+        return bcrypt.checkpw(password_bytes, hash_bytes)
 
     def get_password_hash(self, password: str) -> str:
         """Genera un hash para la contraseña"""
-        return self.pwd_context.hash(password)
+        # Convertir contraseña a bytes
+        password_bytes = password.encode("utf-8")
+        # Generar salt y hash
+        salt = bcrypt.gensalt()
+        hash_bytes = bcrypt.hashpw(password_bytes, salt)
+        # Convertir hash de bytes a string
+        return hash_bytes.decode("utf-8")
 
     def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         """
@@ -148,6 +156,11 @@ class TokenService:
         """
         Verifica si un token es válido y no ha sido revocado
 
+        Estrategia de validación:
+        1. Verifica validez del JWT (firma y expiración)
+        2. Intenta verificar en Redis (estado de revocación)
+        3. Si Redis no tiene el token pero JWT es válido → acepta con advertencia (fallback)
+
         Args:
             token: Token JWT a verificar
 
@@ -161,23 +174,37 @@ class TokenService:
             if username is None:
                 return False
 
-            # Verificar si el token está revocado en Redis
+            # Verificar expiración del JWT
+            exp = payload.get("exp")
+            if exp and datetime.now(timezone.utc) > datetime.fromtimestamp(exp, tz=timezone.utc):
+                return False  # Token expirado según JWT
+
+            # Intentar verificar en Redis
             token_metadata = self.token_repo.get(f"tokens:{username}:{token}")
 
-            if not token_metadata:
-                return False  # Token no encontrado en Redis
+            if token_metadata:
+                # Token encontrado en Redis → verificar si fue revocado
+                if token_metadata.revoked:
+                    return False  # Token revocado explícitamente
+                return True  # Token válido en Redis
 
-            if token_metadata.revoked:
-                return False  # Token revocado
+            # Token no encontrado en Redis pero JWT es válido
+            # Esto puede ocurrir si:
+            # - Redis se reinició (datos perdidos)
+            # - Token generado antes de implementar persistencia en Redis
+            # - Ambiente de desarrollo sin persistencia Redis
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Token válido pero no encontrado en Redis (usuario: {username}). "
+                "Aceptando por fallback. Considera habilitar persistencia Redis en producción."
+            )
+            return True  # Fallback: aceptar si JWT es válido
 
-            # Verificar expiración adicional (por si acaso)
-            exp = payload.get("exp")
-            if exp and datetime.now(timezone.utc) > datetime.fromtimestamp(exp):
-                return False
-
-            return True
-
-        except Exception:
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error al verificar token: {str(e)}")
             return False
 
     def revoke_token(self, token: str) -> bool:

@@ -20,7 +20,6 @@ dependencies = [
     "google-generativeai>=0.8.5",
     "python-multipart>=0.0.20",
     "python-jose>=3.4.0",
-    "passlib>=1.7.4",
     "email-validator>=2.2.0",
     "bcrypt>=4.3.0",
     "bson>=0.5.10",

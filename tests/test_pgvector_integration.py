@@ -18,7 +18,7 @@ from sqlalchemy import select
 
 from app.agents.integrations.pgvector_integration import PgVectorIntegration
 from app.database.async_db import get_async_db_context
-from app.models.database import Product
+from app.models.db import Product
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.database import Product
+from app.models.db import Product
 
 logger = logging.getLogger(__name__)
 

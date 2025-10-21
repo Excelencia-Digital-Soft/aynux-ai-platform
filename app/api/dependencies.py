@@ -7,7 +7,9 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 
 from app.config.settings import Settings, get_settings
+from app.models.auth import User
 from app.services.token_service import TokenService
+from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 
@@ -15,11 +17,28 @@ token_service = TokenService()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> str:
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     """
-    Dependencia para obtener el usuario actual
+    Dependencia para obtener el usuario actual completo
+
+    Returns:
+        User: Objeto User completo con todos sus datos
     """
-    return token_service.get_current_user(token)
+    # 1. Validar token y obtener username
+    username = token_service.get_current_user(token)
+
+    # 2. Obtener objeto User completo desde UserService
+    user_service = UserService()
+    user = await user_service.get_user_by_username(username)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario no encontrado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user
 
 
 def require_scopes(required_scopes: List[str]):
