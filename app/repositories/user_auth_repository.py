@@ -134,7 +134,7 @@ class UserAuthRepository:
         try:
             user = self.get_by_username(username)
             if user:
-                user.scopes = scopes
+                user.scopes = scopes  # type: ignore[assignment]
                 self.db.commit()
                 self.db.refresh(user)
                 logger.info(f"Scopes actualizados para usuario {username}: {scopes}")
@@ -170,11 +170,11 @@ class UserAuthRepository:
                 return None
 
             if email is not None:
-                user.email = email
+                user.email = email  # type: ignore[assignment]
             if full_name is not None:
-                user.full_name = full_name
+                user.full_name = full_name  # type: ignore[assignment]
             if disabled is not None:
-                user.disabled = disabled
+                user.disabled = disabled  # type: ignore[assignment]
 
             self.db.commit()
             self.db.refresh(user)

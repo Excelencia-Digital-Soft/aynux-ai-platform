@@ -197,7 +197,7 @@ class UserService:
             self.redis_repo.set(f"user:{user_db.id}", user_in_db, expiration=USER_CACHE_TTL)
             self.redis_repo.hash_set("usernames", username, str(user_db.id))
 
-            return user_db.scopes or []
+            return user_db.scopes or []  # type: ignore[return-value]
 
     async def update_user_scopes(self, username: str, scopes: List[str]) -> bool:
         """
