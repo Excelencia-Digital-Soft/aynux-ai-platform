@@ -9,8 +9,8 @@ from typing import Any, Dict, Optional
 
 from app.clients.dux_api_client import DuxApiClientFactory
 from app.clients.dux_facturas_client import DuxFacturasClientFactory
+from app.domains.ecommerce.infrastructure.services import DuxSyncService
 from app.models.dux import DuxSyncResult
-from app.services.dux_sync_service import DuxSyncService
 from app.services.embedding_update_service import EmbeddingUpdateService
 from app.services.vector_store_ingestion_service import create_vector_ingestion_service
 
