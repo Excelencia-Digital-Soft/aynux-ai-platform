@@ -52,20 +52,62 @@ All major architectural decisions, patterns, and implementation details are docu
 
 ## Architecture Overview
 
-### Core System Architecture
-The application follows a multi-layer architecture:
-- **API Layer**: FastAPI with route handlers in `app/api/routes/`
-- **Service Layer**: Business logic in `app/services/`
-- **Agent Layer**: LangGraph multi-agent system in `app/agents/`
-- **Data Layer**: SQLAlchemy models, PostgreSQL database, and Redis cache
-- **Integration Layer**: External APIs (WhatsApp, DUX ERP, Ollama AI)
+### Clean Architecture with Domain-Driven Design (DDD)
+
+**Aynux** follows **Clean Architecture** principles with **Domain-Driven Design** (DDD), ensuring SOLID compliance, testability, and scalability.
+
+### Core System Architecture (Clean Architecture Layers)
+
+The application is organized into **4 main layers** following the Dependency Rule (dependencies point inward):
+
+#### 1. **Domain Layer** (`app/domains/*/domain/`)
+The innermost layer containing core business logic, completely independent of frameworks and external systems.
+
+- **Bounded Contexts**: `ecommerce/`, `healthcare/`, `credit/`, `shared/`
+- **Entities**: Business objects with identity and lifecycle (`Product`, `Customer`, `Order`, `Patient`)
+- **Value Objects**: Immutable objects without identity (`Price`, `Email`, `PhoneNumber`)
+- **Domain Services**: Complex business logic that doesn't belong to entities
+- **Domain Events**: Business events for cross-domain communication (planned)
+
+#### 2. **Application Layer** (`app/domains/*/application/`)
+Orchestrates domain logic through **Use Cases** and defines interfaces for external dependencies.
+
+- **Use Cases**: Single-responsibility business operations (`SearchProductsUseCase`, `CreateOrderUseCase`, `GetOrCreateCustomerUseCase`)
+- **DTOs (Data Transfer Objects)**: Input/output data structures for Use Cases
+- **Ports (Interfaces)**: Abstract interfaces using Python `Protocol` (`IProductRepository`, `ILLM`, `IVectorStore`)
+- **Dependency Injection**: All dependencies injected via `DependencyContainer`
+
+#### 3. **Infrastructure Layer** (`app/domains/*/infrastructure/`, `app/integrations/`, `app/core/`)
+Concrete implementations of interfaces, external systems integration, and persistence.
+
+**Domain-Specific Infrastructure** (`app/domains/*/infrastructure/`):
+- **Repositories**: Data access implementations (`ProductRepository`, `CustomerRepository`)
+- **Persistence**: SQLAlchemy models, Redis cache
+- **External Services**: Domain-specific external integrations (`DuxSyncService`, `ScheduledSyncService`)
+- **Vector Stores**: Domain-specific semantic search collections
+
+**Shared Infrastructure** (`app/integrations/`, `app/core/`):
+- **LLM Integration** (`app/integrations/llm/`): `OllamaLLM`, `AiDataPipelineService`
+- **Vector Stores** (`app/integrations/vector_stores/`): `PgVectorService`, `KnowledgeEmbeddingService`, `EmbeddingUpdateService`
+- **WhatsApp Integration** (`app/integrations/whatsapp/`): `WhatsAppService`, `WhatsAppFlowsService`, `WhatsAppCatalogService`
+- **Databases** (`app/integrations/databases/`): Database connectors
+- **Monitoring** (`app/integrations/monitoring/`): LangSmith, Sentry
+- **Core Shared** (`app/core/`): `DependencyContainer`, interfaces (`IRepository`, `ILLM`), utilities
+
+#### 4. **Presentation Layer** (`app/api/`)
+User interfaces, API endpoints, and webhooks.
+
+- **REST API**: FastAPI endpoints with dependency injection
+- **Webhooks**: WhatsApp Business API webhook handlers
+- **Middleware**: Authentication, logging, CORS
+- **Dependencies**: FastAPI dependency injection integration with `DependencyContainer`
 
 ### Multi-Agent System (LangGraph)
-The core intelligence is built around a multi-domain orchestration pattern:
+The core intelligence is built around a **multi-domain orchestration pattern**:
 
-1. **Super Orchestrator** (`app/services/super_orchestrator_service.py`):
+1. **Super Orchestrator** (`app/orchestration/super_orchestrator.py`):
    - Analyzes incoming messages to identify business domain
-   - Routes conversations to appropriate domain services
+   - Routes conversations to appropriate domain Use Cases
    - Manages cross-domain context and state transitions
    - Supports dynamic domain configuration
 
@@ -74,7 +116,7 @@ The core intelligence is built around a multi-domain orchestration pattern:
    - **HospitalDomainService**: Patient management, appointments, medical records
    - **CreditDomainService**: Account management, collections, payments
 
-3. **Specialized Agents** (examples from `app/agents/subagent/`):
+3. **Specialized Agents** (`app/agents/subagent/`):
    - `product_agent.py`: Product queries and catalog search (e-commerce)
    - `category_agent.py`: Product category management (e-commerce)
    - `promotions_agent.py`: Deals and offers (e-commerce)
@@ -90,9 +132,43 @@ The core intelligence is built around a multi-domain orchestration pattern:
    - PostgreSQL checkpointing for conversation persistence
    - Conditional routing between agents and domains
 
-5. **Documentation** (docs/*.md):
+5. **Documentation** (`docs/*.md`):
    - **docs/LangGraph.md**: Complete LangGraph implementation guide
    - **docs/9_agent_supervisor.md**: Supervisor-agent architecture patterns
+   - **docs/FINAL_MIGRATION_SUMMARY.md**: Clean Architecture migration summary
+
+### Dependency Injection (DI)
+
+**DependencyContainer** (`app/core/container.py`) is the central DI container that wires all dependencies:
+
+```python
+from app.core.container import DependencyContainer
+
+container = DependencyContainer()
+
+# Create Use Cases with all dependencies injected
+search_products_uc = container.create_search_products_use_case()
+get_customer_uc = container.create_get_or_create_customer_use_case()
+
+# Use Cases automatically receive repositories, services, and integrations
+result = await search_products_uc.execute(query="laptop gaming")
+```
+
+**FastAPI Integration** (`app/api/dependencies.py`):
+
+```python
+from fastapi import Depends
+from app.api.dependencies import get_search_products_use_case
+
+@router.get("/products/search")
+async def search_products(
+    query: str,
+    use_case: SearchProductsUseCase = Depends(get_search_products_use_case)
+):
+    """Dependencies automatically injected via DependencyContainer"""
+    result = await use_case.execute(query=query)
+    return result
+```
 
 ### State Management
 - **LangGraphState** (`app/agents/state_schema.py`): TypedDict for maximum performance
@@ -101,7 +177,7 @@ The core intelligence is built around a multi-domain orchestration pattern:
 
 ### Key Integrations
 - **AI Models**: Ollama local LLM (typically `deepseek-r1:7b`)
-- **Vector Store**: ChromaDB for semantic search with automatic embeddings
+- **Vector Store**: pgvector (primary) + ChromaDB (legacy) for semantic search
 - **Database**: PostgreSQL for persistent data, Redis for caching
 - **External APIs**: WhatsApp Business API, DUX ERP system
 - **Background Sync**: Automated DUX → PostgreSQL → RAG pipeline
@@ -114,12 +190,13 @@ The e-commerce domain automatically synchronizes data from DUX ERP to PostgreSQL
 
 > **Note**: This integration is specific to the e-commerce domain. Other domains can implement similar RAG integrations with their respective data sources. Future versions will support user-configurable RAG data uploads.
 
-**Pipeline Flow**: `DUX API → PostgreSQL → Vector Embeddings → ChromaDB`
+**Pipeline Flow**: `DUX API → PostgreSQL → Vector Embeddings → pgvector/ChromaDB`
 
-**Key Services**:
-- **DuxRagSyncService** (`app/services/dux_rag_sync_service.py`): Integrated sync DB + RAG
-- **ScheduledSyncService** (`app/services/scheduled_sync_service.py`): Background automation
-- **EmbeddingUpdateService** (`app/services/embedding_update_service.py`): Vector processing
+**Key Services** (New Architecture Locations):
+- **DuxRagSyncService** (`app/domains/ecommerce/infrastructure/services/dux_rag_sync_service.py`): Integrated sync DB + RAG
+- **ScheduledSyncService** (`app/domains/ecommerce/infrastructure/services/scheduled_sync_service.py`): Background automation
+- **EmbeddingUpdateService** (`app/integrations/vector_stores/embedding_update_service.py`): Vector processing
+- **KnowledgeEmbeddingService** (`app/integrations/vector_stores/knowledge_embedding_service.py`): Knowledge base embeddings
 
 **Synchronization Schedule**:
 - **Automatic**: Every 12 hours (2:00 AM, 2:00 PM)
@@ -315,16 +392,73 @@ class ProductService:
 
 ### Code Organization Standards
 
-**File Structure**:
+**File Structure** (Clean Architecture with DDD):
 ```
 app/
-  api/          # API routes (thin controllers)
-  services/     # Business logic (SRP: one service per domain)
-  repositories/ # Data access (SRP: one repo per model)
-  models/       # Database models (SRP: one model per table)
-  schemas/      # Pydantic schemas (SRP: one schema per use case)
-  agents/       # LangGraph agents (SRP: one agent per intent)
-  utils/        # Utility functions (SRP: grouped by purpose)
+  domains/                    # Domain Layer - Bounded Contexts (DDD)
+    ecommerce/               # E-commerce bounded context
+      domain/                # Core business logic (framework-independent)
+        entities/            # Business objects with identity (Product, Order)
+        value_objects/       # Immutable objects (Price, SKU, Discount)
+        services/            # Domain services (business logic)
+        events/              # Domain events (future)
+      application/           # Application Layer - Use Cases
+        use_cases/           # Single-responsibility operations (SearchProductsUseCase)
+        dto/                 # Data Transfer Objects (input/output)
+        ports/               # Interfaces using Protocol (IProductRepository)
+      infrastructure/        # Infrastructure implementations
+        repositories/        # Data access (ProductRepository)
+        persistence/         # SQLAlchemy models, Redis
+        services/            # External services (DuxSyncService)
+        vector/              # Vector store implementations
+      agents/                # LangGraph agents for this domain
+      api/                   # Domain-specific API routes (optional)
+
+    healthcare/              # Healthcare bounded context (same structure)
+    credit/                  # Credit bounded context (same structure)
+    shared/                  # Shared domain (Customer, Knowledge)
+      application/use_cases/ # GetOrCreateCustomerUseCase, SearchKnowledgeUseCase
+
+  integrations/              # Infrastructure - External Systems
+    llm/                     # Ollama LLM, AI Data Pipeline
+    vector_stores/           # PgVector, ChromaDB, Embeddings
+    whatsapp/                # WhatsApp Business API
+    databases/               # Database connectors
+    monitoring/              # LangSmith, Sentry
+
+  core/                      # Core shared infrastructure
+    interfaces/              # Abstract interfaces (IRepository, ILLM, IVectorStore)
+    container.py             # DependencyContainer (DI)
+    shared/                  # Shared utilities
+      deprecation.py         # @deprecated decorator
+      prompt_service.py      # Prompt management
+      utils/                 # Phone normalizer, data extraction
+    config/                  # Settings, environment variables
+
+  orchestration/             # Super Orchestrator (multi-domain routing)
+    super_orchestrator.py    # Routes to domain Use Cases
+
+  api/                       # Presentation Layer (FastAPI)
+    routes/                  # REST endpoints (thin controllers)
+    dependencies.py          # FastAPI DI → DependencyContainer
+    middleware/              # Auth, logging, CORS
+
+  agents/                    # LangGraph multi-agent system
+    subagent/                # Specialized agents (ProductAgent, SupportAgent)
+    routing/                 # Agent routing logic
+    schemas/                 # Agent state schemas (TypedDict)
+
+  services/                  # Legacy services (deprecated)
+    [9 deprecated services]  # Marked with @deprecated decorator
+    langgraph/               # LangGraph infrastructure services (kept)
+```
+
+**Key Principles**:
+- **Dependency Rule**: Dependencies point inward (Presentation → Application → Domain)
+- **One Responsibility**: Each file/class has a single, clear responsibility (SRP)
+- **Domain Independence**: Domain layer has NO dependencies on infrastructure or frameworks
+- **Explicit Interfaces**: Use `Protocol` for all abstractions (ports)
+- **Dependency Injection**: All dependencies injected via `DependencyContainer`
 ```
 
 **Naming Conventions**:
@@ -356,8 +490,138 @@ Before committing new code, verify:
 
 ## Development Patterns
 
-### Agent Development
+### Use Case Development (Clean Architecture)
+
+When adding new business operations:
+
+1. **Create Use Case** in `app/domains/{domain}/application/use_cases/`:
+```python
+from app.domains.ecommerce.application.ports import IProductRepository
+
+class CreateOrderUseCase:
+    """
+    Use Case: Create a new order
+
+    Follows SRP - single responsibility for order creation logic.
+    """
+
+    def __init__(self, repository: IProductRepository):
+        """Dependencies injected via DependencyContainer"""
+        self.repository = repository
+
+    async def execute(self, user_id: str, items: List[OrderItem]) -> OrderResult:
+        """Business logic for creating an order"""
+        # Validation
+        # Domain logic
+        # Persistence via repository
+        return OrderResult(...)
+```
+
+2. **Define Interface (Port)** in `app/domains/{domain}/application/ports/`:
+```python
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class IProductRepository(Protocol):
+    """Interface for product data access"""
+    async def get_by_id(self, product_id: int) -> Optional[Product]: ...
+    async def search(self, query: str) -> List[Product]: ...
+```
+
+3. **Implement Repository** in `app/domains/{domain}/infrastructure/repositories/`:
+```python
+from app.domains.ecommerce.application.ports import IProductRepository
+
+class ProductRepository(IProductRepository):
+    """SQLAlchemy implementation of IProductRepository"""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def get_by_id(self, product_id: int) -> Optional[Product]:
+        # SQLAlchemy implementation
+        pass
+```
+
+4. **Register in DependencyContainer** (`app/core/container.py`):
+```python
+def create_create_order_use_case(self) -> CreateOrderUseCase:
+    """Factory method for CreateOrderUseCase"""
+    repository = self.create_product_repository()
+    return CreateOrderUseCase(repository=repository)
+```
+
+5. **Add FastAPI Dependency** (`app/api/dependencies.py`):
+```python
+def get_create_order_use_case() -> CreateOrderUseCase:
+    """FastAPI dependency for CreateOrderUseCase"""
+    container = DependencyContainer()
+    return container.create_create_order_use_case()
+```
+
+6. **Use in API Endpoint** (`app/api/routes/`):
+```python
+@router.post("/orders")
+async def create_order(
+    request: CreateOrderRequest,
+    use_case: CreateOrderUseCase = Depends(get_create_order_use_case)
+):
+    """Endpoint uses Use Case via dependency injection"""
+    result = await use_case.execute(
+        user_id=request.user_id,
+        items=request.items
+    )
+    return result
+```
+
+### Domain Development (DDD)
+
+When adding new business domains:
+
+1. **Create Domain Structure**:
+```bash
+app/domains/my_domain/
+├── domain/
+│   ├── entities/          # Business objects (MyEntity)
+│   ├── value_objects/     # Immutable values
+│   ├── services/          # Domain services
+│   └── events/            # Domain events
+├── application/
+│   ├── use_cases/         # Business operations
+│   ├── dto/               # Data Transfer Objects
+│   └── ports/             # Interfaces (IMyRepository)
+├── infrastructure/
+│   ├── repositories/      # Data access implementations
+│   ├── persistence/       # SQLAlchemy models
+│   └── services/          # External services
+└── agents/                # LangGraph agents
+```
+
+2. **Define Entities** (`domain/entities/`):
+```python
+from dataclasses import dataclass
+from datetime import datetime
+
+@dataclass
+class MyEntity:
+    """Domain entity with business logic"""
+    id: int
+    name: str
+    created_at: datetime
+
+    def business_method(self) -> bool:
+        """Business logic lives in entity"""
+        return True
+```
+
+3. **Create Use Cases** for each operation
+4. **Register in SuperOrchestrator** for multi-domain routing
+5. **Configure domain settings** in `.env` and `settings.py`
+
+### Agent Development (LangGraph)
+
 When creating new agents:
+
 1. Extend `BaseAgent` from `app/agents/subagent/base_agent.py`
 2. Implement `_process_internal()` method
 3. Add agent to `AgentType` enum in `app/agents/schemas/`
@@ -365,26 +629,61 @@ When creating new agents:
 5. Add routing logic to supervisor or super orchestrator
 6. Configure domain-specific behavior in settings
 
-### Domain Development
-When adding new business domains:
-1. Create domain service class (e.g., `MyDomainService`) extending base service
-2. Define domain-specific agents and their routing logic
-3. Register domain in `SuperOrchestratorService`
-4. Configure domain settings in `.env` and `settings.py`
-5. Add domain-specific RAG data and vector collections
-6. Update API routes and webhooks for domain routing
-
 ### API Endpoint Development
-- Use FastAPI dependency injection via `app/api/dependencies.py`
-- Follow existing patterns in `app/api/routes/`
-- Pydantic models for request/response validation in `app/models/`
-- Repository pattern for data access in `app/repositories/`
 
-### Service Layer Patterns
-- Async/await throughout
-- Error handling with structured logging
-- Redis caching for frequently accessed data
-- Database transactions via SQLAlchemy async sessions
+**Use Dependency Injection** (not direct instantiation):
+
+```python
+# ✅ GOOD: Dependency Injection
+from fastapi import Depends
+from app.api.dependencies import get_search_products_use_case
+
+@router.get("/products/search")
+async def search_products(
+    query: str,
+    use_case: SearchProductsUseCase = Depends(get_search_products_use_case)
+):
+    result = await use_case.execute(query=query)
+    return result
+
+# ❌ BAD: Direct instantiation
+@router.get("/products/search")
+async def search_products(query: str):
+    use_case = SearchProductsUseCase()  # Don't do this!
+    result = await use_case.execute(query=query)
+    return result
+```
+
+**Follow Clean Architecture Layers**:
+- **Controller (API)**: Thin layer, delegates to Use Cases
+- **Use Case**: Business logic orchestration
+- **Repository**: Data access only
+- **Entity**: Domain business rules
+
+### Migration from Legacy Services
+
+When migrating from deprecated services to new architecture:
+
+1. **Identify the deprecated service** (has `@deprecated` decorator)
+2. **Read migration guide** in deprecation message
+3. **Find/Create corresponding Use Case**
+4. **Update imports**:
+   ```python
+   # Before (deprecated):
+   from app.services.product_service import ProductService
+   service = ProductService()
+   result = await service.search_products(query)
+
+   # After (new architecture):
+   from app.domains.ecommerce.application.use_cases import SearchProductsUseCase
+   from app.core.container import DependencyContainer
+
+   container = DependencyContainer()
+   use_case = container.create_search_products_use_case()
+   result = await use_case.execute(query=query)
+   ```
+5. **Use dependency injection** in FastAPI endpoints
+6. **Remove deprecated service** imports once migration complete
 
 ## Testing Strategy
 

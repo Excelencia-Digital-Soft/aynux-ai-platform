@@ -163,12 +163,72 @@ WHATSAPP_VERIFY_TOKEN=your_verify_token
 # → Routes to CreditDomainService → Account balance query
 ```
 
+### Using the New Clean Architecture
+
+#### Use Cases (Business Operations)
+
+```python
+from app.core.container import DependencyContainer
+from app.domains.ecommerce.application.use_cases import SearchProductsUseCase
+
+# Get Use Case from DependencyContainer
+container = DependencyContainer()
+search_products_uc = container.create_search_products_use_case()
+
+# Execute Use Case
+result = await search_products_uc.execute(
+    query="laptop gaming",
+    limit=5
+)
+
+# result = SearchProductsResult(
+#     products=[...],
+#     total_count=42,
+#     search_type="vector_similarity"
+# )
+```
+
+#### Dependency Injection
+
+```python
+from fastapi import Depends
+from app.api.dependencies import get_search_products_use_case
+from app.domains.ecommerce.application.use_cases import SearchProductsUseCase
+
+@router.get("/products/search")
+async def search_products(
+    query: str,
+    use_case: SearchProductsUseCase = Depends(get_search_products_use_case)
+):
+    """FastAPI automatically injects Use Case via DependencyContainer"""
+    result = await use_case.execute(query=query)
+    return result
+```
+
+#### Repository Pattern
+
+```python
+from app.domains.ecommerce.application.ports import IProductRepository
+from app.domains.ecommerce.infrastructure.repositories import ProductRepository
+
+# Depend on abstraction (IProductRepository), not concrete implementation
+class SearchProductsUseCase:
+    def __init__(self, repository: IProductRepository):
+        self.repository = repository  # Protocol (interface)
+
+    async def execute(self, query: str):
+        # Business logic uses abstract interface
+        products = await self.repository.search_by_query(query)
+        return products
+```
+
 ---
 
 ## 📚 Documentation
 
 ### Core Documentation
-- **[CLAUDE.md](CLAUDE.md)**: Development guide for Claude Code AI
+- **[CLAUDE.md](CLAUDE.md)**: Development guide for Claude Code AI with Clean Architecture principles
+- **[docs/FINAL_MIGRATION_SUMMARY.md](docs/FINAL_MIGRATION_SUMMARY.md)**: ⭐ Clean Architecture migration complete guide
 - **[docs/LangGraph.md](docs/LangGraph.md)**: Complete LangGraph architecture guide
 - **[docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md)**: Testing strategy and best practices
 - **[docs/PGVECTOR_MIGRATION.md](docs/PGVECTOR_MIGRATION.md)**: Vector search implementation
@@ -182,63 +242,175 @@ WHATSAPP_VERIFY_TOKEN=your_verify_token
 
 ## 🏗️ Architecture Overview
 
+### Clean Architecture with DDD
+
+Aynux follows **Clean Architecture** principles with **Domain-Driven Design** (DDD), ensuring scalability, testability, and maintainability.
+
 ```mermaid
 graph TB
-    subgraph "WhatsApp Integration"
+    subgraph "Presentation Layer"
         WA[WhatsApp User] --> Webhook[Webhook Handler]
+        API[API Client] --> REST[REST Endpoints]
     end
 
-    subgraph "API Integration"
-        API[API Client] --> Chat[Chat Endpoint]
-    end
-
-    subgraph "Super Orchestrator"
+    subgraph "Application Layer"
         Webhook --> SO[Super Orchestrator]
-        SO --> DD[Domain Detector]
-        DD --> DM[Domain Manager]
+        REST --> UC[Use Cases]
+        SO --> UC
     end
 
-    subgraph "Domain Services"
-        DM --> EC[E-commerce Service]
-        DM --> HC[Healthcare Service]
-        DM --> FC[Finance Service]
+    subgraph "Domain Layer - Bounded Contexts"
+        UC --> ECOM[E-commerce Domain]
+        UC --> HEALTH[Healthcare Domain]
+        UC --> CREDIT[Credit Domain]
+        UC --> SHARED[Shared Domain]
+
+        ECOM --> ECOM_ENT[Entities: Product, Order]
+        HEALTH --> HEALTH_ENT[Entities: Patient, Appointment]
+        CREDIT --> CREDIT_ENT[Entities: Account, Collection]
+        SHARED --> SHARED_ENT[Entities: Customer, Knowledge]
     end
 
-    subgraph "LangGraph Engine"
-        Chat --> LG[LangGraph Service]
-        EC --> LG
-        LG --> AG[Multi-Agent Graph]
-        AG --> PA[Product Agent]
-        AG --> CA[Category Agent]
-        AG --> SA[Support Agent]
-        AG --> TA[Tracking Agent]
+    subgraph "Infrastructure Layer"
+        ECOM_ENT --> REPO[Repositories]
+        HEALTH_ENT --> REPO
+        CREDIT_ENT --> REPO
+        SHARED_ENT --> REPO
+
+        REPO --> PG[(PostgreSQL + pgvector)]
+        REPO --> RD[(Redis Cache)]
+
+        UC --> INT[Integrations]
+        INT --> DUX[DUX ERP]
+        INT --> OL[Ollama LLM]
+        INT --> WS[WhatsApp API]
+        INT --> VEC[Vector Stores]
     end
 
-    subgraph "Data Layer"
-        LG --> PG[(PostgreSQL + pgvector)]
-        LG --> RD[(Redis Cache)]
-        LG --> CH[(ChromaDB)]
-    end
-
-    subgraph "External Integrations"
-        LG --> DUX[DUX ERP API]
-        LG --> OL[Ollama AI]
-        LG --> LS[LangSmith]
+    subgraph "LangGraph Multi-Agent System"
+        ECOM --> AGENTS[Domain Agents]
+        AGENTS --> PA[Product Agent]
+        AGENTS --> CA[Category Agent]
+        AGENTS --> SA[Support Agent]
+        AGENTS --> TA[Tracking Agent]
     end
 
     style SO fill:#e1f5fe
-    style LG fill:#fff3e0
-    style PG fill:#f3e5f5
+    style UC fill:#fff3e0
+    style ECOM fill:#c8e6c9
+    style HEALTH fill:#f8bbd0
+    style CREDIT fill:#ffe0b2
+    style SHARED fill:#e1bee7
 ```
 
-### Key Components
+### Clean Architecture Layers
 
-- **Super Orchestrator**: Routes incoming WhatsApp messages to appropriate business domains
-- **Domain Services**: Specialized services for e-commerce, healthcare, and finance
-- **LangGraph Engine**: Multi-agent conversation flow orchestration
-- **Specialized Agents**: Domain-specific AI agents for different intents
-- **Data Layer**: PostgreSQL (structured data), pgvector (semantic search), Redis (cache)
-- **External Integrations**: DUX ERP, Ollama LLM, WhatsApp Business API
+#### 1. **Domain Layer** (`app/domains/`)
+Core business logic independent of frameworks and external systems.
+
+- **Bounded Contexts**: `ecommerce/`, `healthcare/`, `credit/`, `shared/`
+- **Entities**: Business objects with identity (`Product`, `Customer`, `Order`)
+- **Value Objects**: Immutable objects without identity (`Price`, `Email`)
+- **Domain Services**: Domain-specific business logic
+- **Domain Events**: Business events for cross-domain communication
+
+#### 2. **Application Layer** (`app/domains/*/application/`)
+Use Cases that orchestrate domain logic.
+
+- **Use Cases**: Business operations (`SearchProductsUseCase`, `CreateOrderUseCase`)
+- **DTOs**: Data Transfer Objects for input/output
+- **Ports (Interfaces)**: Abstract interfaces using Python `Protocol`
+
+#### 3. **Infrastructure Layer** (`app/domains/*/infrastructure/`, `app/integrations/`)
+External systems, databases, and integrations.
+
+- **Repositories**: Data access implementations (`ProductRepository`)
+- **External Services**: API clients (`DuxApiClient`, `WhatsAppService`)
+- **Vector Stores**: Semantic search (`PgVectorService`, `ChromaDBService`)
+- **LLM Integration**: AI models (`OllamaLLM`)
+
+#### 4. **Presentation Layer** (`app/api/`)
+User interfaces and API endpoints.
+
+- **REST API**: FastAPI endpoints with dependency injection
+- **Webhooks**: WhatsApp Business API integration
+- **GraphQL** (planned): Alternative API interface
+
+### Key Architectural Patterns
+
+- **SOLID Principles**: All code follows Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion
+- **Dependency Injection**: `DependencyContainer` wires all dependencies
+- **Repository Pattern**: Abstracts data access with `IRepository` protocol
+- **Use Case Pattern**: Each business operation is a separate Use Case
+- **Protocol (Interfaces)**: Runtime-checkable interfaces for loose coupling
+- **Multi-Agent System**: LangGraph orchestrates specialized AI agents
+- **Event-Driven**: Domain events for cross-domain communication (planned)
+
+### Directory Structure
+
+```
+app/
+├── domains/                    # Domain Layer (DDD Bounded Contexts)
+│   ├── ecommerce/             # E-commerce domain
+│   │   ├── domain/            # Entities, Value Objects, Domain Services
+│   │   │   ├── entities/      # Product, Order, Category
+│   │   │   ├── value_objects/ # Price, Discount, SKU
+│   │   │   └── services/      # Domain business logic
+│   │   ├── application/       # Use Cases and DTOs
+│   │   │   ├── use_cases/     # SearchProductsUseCase, CreateOrderUseCase
+│   │   │   ├── dto/           # Request/Response DTOs
+│   │   │   └── ports/         # Interfaces (IProductRepository)
+│   │   └── infrastructure/    # Repositories, External Services
+│   │       ├── repositories/  # ProductRepository, OrderRepository
+│   │       ├── persistence/   # SQLAlchemy, Redis implementations
+│   │       └── services/      # DuxSyncService, ScheduledSyncService
+│   ├── healthcare/            # Healthcare domain (same structure)
+│   ├── credit/                # Credit domain (same structure)
+│   └── shared/                # Shared domain (Customer, Knowledge)
+│       └── application/use_cases/  # GetOrCreateCustomerUseCase
+│
+├── integrations/              # Infrastructure - External Systems
+│   ├── llm/                   # Ollama LLM, AI Data Pipeline
+│   ├── vector_stores/         # PgVector, ChromaDB, Embeddings
+│   ├── whatsapp/              # WhatsApp Business API
+│   ├── databases/             # Database connectors
+│   └── monitoring/            # LangSmith, Sentry
+│
+├── core/                      # Core shared infrastructure
+│   ├── interfaces/            # IRepository, ILLM, IVectorStore (Protocols)
+│   ├── container.py           # DependencyContainer (DI)
+│   ├── shared/                # Shared utilities
+│   │   ├── deprecation.py     # @deprecated decorator
+│   │   ├── prompt_service.py  # Prompt management
+│   │   └── utils/             # Phone normalizer, data extraction
+│   └── config/                # Settings, environment variables
+│
+├── orchestration/             # Super Orchestrator (multi-domain routing)
+│   └── super_orchestrator.py  # Routes to domain Use Cases
+│
+├── api/                       # Presentation Layer (FastAPI)
+│   ├── routes/                # REST endpoints
+│   ├── dependencies.py        # FastAPI dependency injection
+│   └── middleware/            # Auth, logging, CORS
+│
+├── agents/                    # LangGraph multi-agent system
+│   ├── subagent/              # Specialized agents (ProductAgent, etc.)
+│   ├── routing/               # Agent routing logic
+│   └── schemas/               # Agent state schemas
+│
+└── services/                  # Legacy services (deprecated)
+    ├── [9 deprecated services with @deprecated decorator]
+    └── langgraph/             # LangGraph infrastructure services
+```
+
+### Benefits of This Architecture
+
+✅ **Testability**: Each layer can be tested independently
+✅ **Maintainability**: Clear separation of concerns (SOLID principles)
+✅ **Scalability**: Easy to add new domains or features
+✅ **Flexibility**: Swap implementations without changing business logic
+✅ **Domain Focus**: Business logic is framework-independent
+✅ **Team Collaboration**: Different teams can work on different domains
 
 ---
 
