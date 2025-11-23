@@ -1,14 +1,20 @@
 """
-Endpoint de chat para procesamiento de mensajes con LangGraph multi-agente
+Endpoint de chat para procesamiento de mensajes con nueva arquitectura Clean Architecture.
+
+Este módulo maneja el procesamiento de mensajes usando SuperOrchestrator que rutea
+a los agentes especializados de cada dominio (e-commerce, credit, healthcare, etc.).
+
+NOTE: Mantiene compatibilidad con LangGraphChatbotService para transición gradual.
 """
 
 import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
+from app.api.dependencies import get_super_orchestrator
 from app.models.chat import (
     ChatErrorResponse,
     ChatMessageRequest,
@@ -17,17 +23,23 @@ from app.models.chat import (
     ChatStreamRequest,
     ConversationHistoryResponse,
 )
+from app.orchestration import SuperOrchestrator
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
 
-# Servicio LangGraph (inicializado de forma lazy)
+# Legacy service (para transición gradual)
 _langgraph_service: Optional[LangGraphChatbotService] = None
 
 
 async def _get_langgraph_service() -> LangGraphChatbotService:
-    """Obtiene o inicializa el servicio LangGraph"""
+    """
+    Obtiene o inicializa el servicio LangGraph legacy.
+
+    DEPRECATED: Este servicio será eliminado en versión futura.
+    Usar SuperOrchestrator (nueva arquitectura) en su lugar.
+    """
     global _langgraph_service
 
     if _langgraph_service is None:
@@ -48,10 +60,10 @@ async def _get_langgraph_service() -> LangGraphChatbotService:
 @router.post("/message", response_model=ChatMessageResponse, responses={503: {"model": ChatErrorResponse}})
 async def process_chat_message(request: ChatMessageRequest) -> ChatMessageResponse:
     """
-    Procesa un mensaje de chat usando el sistema multi-agente LangGraph.
+    Procesa un mensaje de chat usando el sistema multi-agente LangGraph (LEGACY).
 
-    Este endpoint permite enviar mensajes de texto para ser procesados por el sistema
-    de agentes especializados (productos, soporte, tracking, etc.) sin necesidad de WhatsApp.
+    DEPRECATED: Este endpoint usa la arquitectura legacy.
+    Se recomienda usar /v2/message que usa Clean Architecture.
 
     Args:
         request: Datos del mensaje a procesar
@@ -97,6 +109,97 @@ async def process_chat_message(request: ChatMessageRequest) -> ChatMessageRespon
         raise
     except Exception as e:
         logger.error(f"Error processing chat message: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error processing message: {str(e)}"
+        ) from e
+
+
+@router.post("/v2/message", response_model=ChatMessageResponse, responses={503: {"model": ChatErrorResponse}})
+async def process_chat_message_v2(
+    request: ChatMessageRequest,
+    orchestrator: SuperOrchestrator = Depends(get_super_orchestrator),
+) -> ChatMessageResponse:
+    """
+    Procesa un mensaje de chat usando Clean Architecture + DDD.
+
+    Este endpoint usa SuperOrchestrator que rutea mensajes a agentes especializados
+    por dominio (e-commerce, credit, healthcare, etc.) siguiendo principios SOLID.
+
+    Ventajas sobre /message:
+    - Clean Architecture con separación de capas
+    - SOLID principles aplicados
+    - Dependency Injection
+    - Testeable con mocks
+    - Extensible para nuevos dominios
+
+    Args:
+        request: Datos del mensaje a procesar
+        orchestrator: SuperOrchestrator (inyectado automáticamente)
+
+    Returns:
+        Respuesta del bot con metadatos del procesamiento
+    """
+    try:
+        # Generar session_id si no se proporciona
+        session_id = request.session_id or f"chat_{request.user_id}"
+
+        logger.info(
+            f"[V2] Processing chat message from user {request.user_id} in session {session_id}: {request.message[:50]}..."
+        )
+
+        # Crear state para SuperOrchestrator
+        state = {
+            "messages": [{"role": "user", "content": request.message}],
+            "user_id": request.user_id,
+            "session_id": session_id,
+            "metadata": request.metadata or {},
+        }
+
+        # Rutear mensaje al dominio apropiado
+        result = await orchestrator.route_message(state)
+
+        # Extraer respuesta del asistente
+        messages = result.get("messages", [])
+        assistant_message = ""
+        for msg in reversed(messages):
+            if msg.get("role") == "assistant":
+                assistant_message = msg.get("content", "")
+                break
+
+        if not assistant_message:
+            assistant_message = "Lo siento, no pude procesar tu mensaje."
+
+        # Extraer metadata de routing
+        routing = result.get("routing", {})
+        detected_domain = routing.get("detected_domain", "unknown")
+        agent_used = routing.get("agent_used", "unknown")
+
+        # Combinar metadata
+        combined_metadata = {
+            "domain": detected_domain,
+            "agent": agent_used,
+            "orchestrator": "super_orchestrator_v2",
+            "architecture": "clean_architecture",
+            "session_id": session_id,
+            **(request.metadata or {}),
+            # Incluir datos recuperados (productos, crédito, etc.)
+            **(result.get("retrieved_data", {})),
+        }
+
+        logger.info(f"[V2] Message routed to domain '{detected_domain}', agent '{agent_used}'")
+
+        return ChatMessageResponse(
+            response=assistant_message,
+            agent_used=agent_used,
+            session_id=session_id,
+            status="success",
+            metadata=combined_metadata,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[V2] Error processing chat message: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error processing message: {str(e)}"
         ) from e
@@ -247,7 +350,9 @@ async def get_conversation_history(
 @router.get("/health")
 async def chat_health_check():
     """
-    Verifica el estado del servicio de chat LangGraph.
+    Verifica el estado del servicio de chat LangGraph (LEGACY).
+
+    DEPRECATED: Usar /v2/health para nueva arquitectura.
 
     Returns:
         Estado del servicio con información de componentes
@@ -268,6 +373,45 @@ async def chat_health_check():
         return {"service": "langgraph_chat", "status": "unhealthy", "error": e.detail}
     except Exception as e:
         return {"service": "langgraph_chat", "status": "unhealthy", "error": str(e)}
+
+
+@router.get("/v2/health")
+async def chat_health_check_v2(orchestrator: SuperOrchestrator = Depends(get_super_orchestrator)):
+    """
+    Verifica el estado del servicio de chat con Clean Architecture.
+
+    Revisa la salud de SuperOrchestrator y todos los agentes de dominio registrados.
+
+    Args:
+        orchestrator: SuperOrchestrator (inyectado automáticamente)
+
+    Returns:
+        Estado del servicio con información de todos los dominios
+    """
+    try:
+        # Obtener health check del orchestrator
+        health = await orchestrator.health_check()
+
+        # Obtener dominios disponibles
+        available_domains = await orchestrator.get_available_domains()
+
+        return {
+            "service": "super_orchestrator_v2",
+            "status": "healthy" if health.get("orchestrator") == "healthy" else "unhealthy",
+            "architecture": "clean_architecture",
+            "orchestrator": health.get("orchestrator"),
+            "domains": health.get("domains", {}),
+            "available_domains": available_domains,
+            "total_domains": len(available_domains),
+        }
+
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}", exc_info=True)
+        return {
+            "service": "super_orchestrator_v2",
+            "status": "unhealthy",
+            "error": str(e),
+        }
 
 
 @router.delete("/session/{session_id}")

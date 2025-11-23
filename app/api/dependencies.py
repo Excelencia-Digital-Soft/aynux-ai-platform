@@ -7,7 +7,9 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 
 from app.config.settings import Settings, get_settings
+from app.core.container import DependencyContainer, get_container
 from app.models.auth import User
+from app.orchestration import SuperOrchestrator
 from app.services.token_service import TokenService
 from app.services.user_service import UserService
 
@@ -15,6 +17,47 @@ logger = logging.getLogger(__name__)
 
 token_service = TokenService()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
+
+
+# ============================================================
+# NEW ARCHITECTURE DEPENDENCIES
+# ============================================================
+
+
+def get_di_container() -> DependencyContainer:
+    """
+    Get Dependency Injection Container.
+
+    This provides access to all domain services, agents, and dependencies
+    following Clean Architecture and SOLID principles.
+
+    Returns:
+        DependencyContainer instance
+    """
+    return get_container()
+
+
+def get_super_orchestrator(
+    container: DependencyContainer = Depends(get_di_container),
+) -> SuperOrchestrator:
+    """
+    Get Super Orchestrator instance.
+
+    The SuperOrchestrator routes messages to appropriate domain agents
+    based on detected intent and business domain.
+
+    Args:
+        container: Dependency injection container
+
+    Returns:
+        SuperOrchestrator instance configured with all domain agents
+    """
+    return container.create_super_orchestrator()
+
+
+# ============================================================
+# AUTHENTICATION DEPENDENCIES
+# ============================================================
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
