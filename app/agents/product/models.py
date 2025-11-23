@@ -33,6 +33,7 @@ class UserIntent:
     wants_sale: bool = False
     action_needed: str = "search_products"
     confidence: float = 0.8  # Default confidence score (0.0-1.0)
+    user_emotion: str = "neutral"  # User emotion: neutral, excited, frustrated, urgent, curious
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for state management."""
@@ -49,6 +50,7 @@ class UserIntent:
             "wants_sale": self.wants_sale,
             "action_needed": self.action_needed,
             "confidence": self.confidence,
+            "user_emotion": self.user_emotion,
         }
 
     @classmethod
@@ -67,6 +69,7 @@ class UserIntent:
             wants_sale=data.get("wants_sale", False),
             action_needed=data.get("action_needed", "search_products"),
             confidence=data.get("confidence", 0.8),
+            user_emotion=data.get("user_emotion", "neutral"),
         )
 
 

@@ -23,6 +23,7 @@ from ..product.strategies import (
     PgVectorSearchStrategy,
     ChromaDBSearchStrategy,
     DatabaseSearchStrategy,
+    SQLGenerationSearchStrategy,
 )
 from ..integrations.pgvector_integration import PgVectorIntegration
 from ..integrations.chroma_integration import ChromaDBIntegration
@@ -127,6 +128,18 @@ class RefactoredProductAgent(BaseAgent):
             )
         )
         logger.info("ChromaDB search strategy enabled (priority: 30)")
+
+        # SQL Generation strategy (medium-low priority, for complex queries)
+        use_sql_generation = getattr(settings, "USE_SQL_GENERATION", True)
+        if use_sql_generation:
+            strategies.append(
+                SQLGenerationSearchStrategy(
+                    ollama=self.ollama,
+                    postgres=self.postgres,
+                    config=config,
+                )
+            )
+            logger.info("SQL generation search strategy enabled (priority: 40)")
 
         # Database strategy (lowest priority, ultimate fallback)
         product_tool = ProductTool()
