@@ -8,7 +8,7 @@ user-specific data through the AI Data Pipeline Service.
 import logging
 from typing import Any, Dict, List, Optional
 
-from app.services.ai_data_pipeline_service import (
+from app.integrations.llm import (
     PipelineExecutionContext,
     create_ai_data_pipeline_service,
     get_user_context_for_agent,

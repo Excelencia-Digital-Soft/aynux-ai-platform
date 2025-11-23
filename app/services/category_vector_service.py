@@ -1,9 +1,22 @@
+"""
+DEPRECATED: CategoryVectorService
+
+Este servicio maneja información vectorial de categorías por APP.
+Ha sido reemplazado por funcionalidad en SearchProductsUseCase y GetProductsByCategoryUseCase.
+
+Use instead:
+  - SearchProductsUseCase para búsquedas semánticas
+  - GetProductsByCategoryUseCase para obtener productos por categoría
+  - Domain agents para detección de categorías basada en contexto
+"""
+
 import asyncio
 import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.core.shared.deprecation import deprecated
 from app.integrations.vector_stores import VectorService as VectorDatabaseService
 from app.models.message import Message
 from app.models.vectorial import VectorDBConfig, VectorDocument, VectorQueryResult
@@ -12,6 +25,11 @@ from app.services.ai_service import AIService
 logger = logging.getLogger(__name__)
 
 
+@deprecated(
+    reason="Category vector operations integrated into domain Use Cases",
+    replacement="Use SearchProductsUseCase + GetProductsByCategoryUseCase",
+    removal_version="2.0.0"
+)
 class CategoryVectorService:
     """
     Servicio para manejar información vectorial de categorías por APP.
