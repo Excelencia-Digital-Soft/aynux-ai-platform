@@ -12,9 +12,11 @@ from sqlalchemy import func, select
 
 from app.config.settings import get_settings
 from app.database.async_db import get_async_db_context
-from app.domains.ecommerce.infrastructure.services import DuxSyncService
+from app.domains.ecommerce.infrastructure.services import (
+    DuxSyncService,
+    create_dux_rag_sync_service,
+)
 from app.models.db import Product
-from app.services.dux_rag_sync_service import create_dux_rag_sync_service
 
 logger = logging.getLogger(__name__)
 
