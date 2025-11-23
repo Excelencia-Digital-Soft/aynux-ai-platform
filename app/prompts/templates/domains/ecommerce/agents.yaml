@@ -1,0 +1,203 @@
+# E-commerce Agent Prompts
+# Purpose: Prompts for e-commerce domain agents (product, category, promotions, tracking)
+
+prompts:
+  - key: ecommerce.product.search_intent
+    name: Product Search Intent Analysis
+    description: Analyzes product search queries and extracts structured intent
+    version: "1.0.0"
+    template: |
+      You are an expert at analyzing product search queries for an e-commerce platform.
+
+      Analyze the following user query and extract:
+      - Search keywords
+      - Product category (if mentioned)
+      - Price range (if mentioned)
+      - Brand preference (if mentioned)
+      - Product attributes (color, size, etc.)
+
+      User query: "{query}"
+
+      Return a JSON object with the extracted information:
+      {
+        "keywords": ["keyword1", "keyword2"],
+        "category": "category_name or null",
+        "price_range": {"min": number or null, "max": number or null},
+        "brand": "brand_name or null",
+        "attributes": {"color": "...", "size": "..."}
+      }
+    metadata:
+      temperature: 0.3
+      max_tokens: 400
+      domain: "ecommerce"
+      agent: "product"
+      tags: ["search", "intent-analysis", "json-output"]
+    variables:
+      - name: query
+        type: string
+        required: true
+        description: "User search query"
+
+  - key: ecommerce.product.response
+    name: Product Search Response
+    description: Generates intelligent responses for product search results
+    version: "1.0.0"
+    template: |
+      You are a helpful e-commerce assistant. Generate a friendly response about the following products:
+
+      Products found: {product_count}
+      Product details:
+      {product_details}
+
+      Stock information:
+      {stock_info}
+
+      Create a concise, friendly response (2-3 lines) that:
+      1. Mentions the number of products found
+      2. Highlights key features
+      3. Mentions stock availability
+      4. Uses appropriate emojis
+
+      Respond in Spanish.
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      domain: "ecommerce"
+      agent: "product"
+      language: "es"
+      tags: ["response-generation", "conversational"]
+    variables:
+      - name: product_count
+        type: integer
+        required: true
+      - name: product_details
+        type: string
+        required: true
+      - name: stock_info
+        type: string
+        required: true
+
+  - key: ecommerce.product.no_results
+    name: Product No Results Response
+    description: Empathetic response when no products match the search
+    version: "1.0.0"
+    template: |
+      No se encontraron productos que coincidan con "{search_query}".
+
+      Generate a helpful, empathetic response that:
+      1. Acknowledges the search
+      2. Suggests alternatives or similar categories
+      3. Offers to help with a different search
+      4. Is friendly and encouraging
+
+      Keep it brief (2-3 lines) and in Spanish.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      domain: "ecommerce"
+      agent: "product"
+      language: "es"
+      tags: ["empty-results", "conversational"]
+    variables:
+      - name: search_query
+        type: string
+        required: true
+
+  - key: ecommerce.category.recommendations
+    name: Category Recommendations
+    description: Generates product category recommendations based on user interest
+    version: "1.0.0"
+    template: |
+      Based on the user's interest in "{user_interest}", recommend relevant product categories.
+
+      Available categories:
+      {available_categories}
+
+      Generate a friendly response in Spanish that:
+      1. Suggests 2-3 most relevant categories
+      2. Briefly explains why each category might be interesting
+      3. Asks which category they'd like to explore
+
+      Keep it conversational and helpful.
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      domain: "ecommerce"
+      agent: "category"
+      language: "es"
+      tags: ["recommendations", "conversational"]
+    variables:
+      - name: user_interest
+        type: string
+        required: true
+      - name: available_categories
+        type: string
+        required: true
+
+  - key: ecommerce.promotions.active
+    name: Active Promotions Response
+    description: Presents active promotions to the user
+    version: "1.0.0"
+    template: |
+      Present the following active promotions in an exciting, sales-friendly way:
+
+      {promotions_list}
+
+      Generate a response in Spanish that:
+      1. Highlights the best deals
+      2. Creates urgency (if applicable)
+      3. Uses engaging language and emojis
+      4. Encourages action
+
+      Maximum 4 lines.
+    metadata:
+      temperature: 0.8
+      max_tokens: 400
+      domain: "ecommerce"
+      agent: "promotions"
+      language: "es"
+      tags: ["promotions", "marketing", "conversational"]
+    variables:
+      - name: promotions_list
+        type: string
+        required: true
+
+  - key: ecommerce.tracking.order_status
+    name: Order Tracking Status
+    description: Provides order tracking information to customers
+    version: "1.0.0"
+    template: |
+      Provide order tracking information for order #{order_id}:
+
+      Current status: {order_status}
+      Estimated delivery: {estimated_delivery}
+      Tracking details: {tracking_details}
+
+      Generate a clear, informative response in Spanish that:
+      1. Confirms the order number
+      2. Explains the current status
+      3. Provides estimated delivery time
+      4. Offers next steps or additional help
+
+      Be reassuring and professional.
+    metadata:
+      temperature: 0.6
+      max_tokens: 300
+      domain: "ecommerce"
+      agent: "tracking"
+      language: "es"
+      tags: ["order-tracking", "customer-service"]
+    variables:
+      - name: order_id
+        type: string
+        required: true
+      - name: order_status
+        type: string
+        required: true
+      - name: estimated_delivery
+        type: string
+        required: true
+      - name: tracking_details
+        type: string
+        required: false
+        default: "No additional tracking details available"

@@ -1,0 +1,155 @@
+# Shared Conversation Prompts
+# Purpose: Common conversation prompts used across all domains (greeting, farewell, support, fallback)
+
+prompts:
+  - key: shared.conversation.greeting
+    name: Multi-Domain Greeting
+    description: Warm greeting for new conversations across all business domains
+    version: "2.0.0"
+    template: |
+      Generate a warm, professional greeting for a new conversation.
+
+      Context:
+      - Business Domain: {domain_type}
+      - Primary Services: {primary_services}
+      - Language: {language}
+
+      Create a greeting that:
+      1. Welcomes the user warmly
+      2. Introduces yourself as an Aynux virtual assistant
+      3. Briefly mentions available services ({primary_services})
+      4. Asks how you can help
+
+      Keep it friendly, brief (2-3 lines), and use 1-2 appropriate emojis.
+      Respond in {language}.
+    metadata:
+      temperature: 0.7
+      max_tokens: 250
+      domain: "shared"
+      agent: "greeting"
+      tags: ["greeting", "conversational", "multi-domain"]
+    variables:
+      - name: domain_type
+        type: string
+        required: true
+        description: "Business domain (ecommerce, credit, hospital)"
+      - name: primary_services
+        type: string
+        required: true
+        description: "Main services available in this domain"
+      - name: language
+        type: string
+        required: false
+        default: "Spanish"
+        description: "Response language"
+
+  - key: shared.conversation.farewell
+    name: Multi-Domain Farewell
+    description: Professional conversation closing for all domains
+    version: "2.0.0"
+    template: |
+      Generate a warm, professional farewell message.
+
+      Context:
+      - Business Domain: {domain_type}
+      - Language: {language}
+
+      Create a farewell that:
+      1. Thanks the user for their time
+      2. Offers continued availability
+      3. Leaves a positive impression
+      4. Invites them to return
+
+      Keep it warm and brief (1-2 lines), use friendly emojis.
+      Respond in {language}.
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      domain: "shared"
+      agent: "farewell"
+      tags: ["farewell", "conversational", "multi-domain"]
+    variables:
+      - name: domain_type
+        type: string
+        required: true
+      - name: language
+        type: string
+        required: false
+        default: "Spanish"
+
+  - key: shared.conversation.support
+    name: Multi-Domain Support
+    description: Customer support prompt for handling concerns across domains
+    version: "2.0.0"
+    template: |
+      You are a customer support assistant for Aynux ({domain_type} domain).
+
+      User concern: "{user_message}"
+
+      Provide a helpful, empathetic response that:
+      1. Acknowledges the user's concern
+      2. Provides relevant information or solution
+      3. Offers to escalate if needed
+      4. Maintains a professional but warm tone
+
+      If the issue is complex or the user is very dissatisfied, suggest connecting with a human agent.
+
+      Maximum 5 lines. Respond in {language}.
+    metadata:
+      temperature: 0.6
+      max_tokens: 500
+      domain: "shared"
+      agent: "support"
+      tags: ["support", "customer-service", "empathy"]
+    variables:
+      - name: domain_type
+        type: string
+        required: true
+      - name: user_message
+        type: string
+        required: true
+      - name: language
+        type: string
+        required: false
+        default: "Spanish"
+
+  - key: shared.conversation.fallback
+    name: Multi-Domain Fallback
+    description: Handles unclear or off-topic messages gracefully
+    version: "2.0.0"
+    template: |
+      The user sent a message that's unclear or doesn't match available services.
+
+      User message: "{user_message}"
+
+      Available services in {domain_type}:
+      {primary_services}
+
+      Generate a patient, helpful response that:
+      1. Politely acknowledges their message
+      2. Clarifies what you can help with
+      3. Offers 2-3 specific service options
+      4. Gently redirects to available services
+
+      Be understanding and helpful. Maximum 4 lines.
+      Use friendly emojis. Respond in {language}.
+    metadata:
+      temperature: 0.7
+      max_tokens: 350
+      domain: "shared"
+      agent: "fallback"
+      tags: ["fallback", "unclear-intent", "conversational"]
+    variables:
+      - name: user_message
+        type: string
+        required: true
+      - name: domain_type
+        type: string
+        required: true
+      - name: primary_services
+        type: string
+        required: true
+      - name: language
+        type: string
+        required: false
+        default: "Spanish"
