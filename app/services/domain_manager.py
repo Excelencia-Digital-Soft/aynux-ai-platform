@@ -1,5 +1,7 @@
 """
 Domain Manager - Factory pattern para servicios de dominio
+
+DEPRECATED: Reemplazado por SuperOrchestrator con domain-specific agents
 """
 
 import logging
@@ -7,17 +9,62 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Type
 
 from app.config.settings import get_settings
+from app.core.shared.deprecation import deprecated
 from app.models.message import BotResponse, Contact, WhatsAppMessage
 
 logger = logging.getLogger(__name__)
 
 
+@deprecated(
+    reason="Legacy domain service factory replaced by SuperOrchestrator with domain agents",
+    replacement="Use SuperOrchestrator (app/orchestration/) + Domain Agents (app/domains/*/agents/)",
+    removal_version="2.0.0",
+)
 class BaseDomainService(ABC):
     """
-    Clase base abstracta para todos los servicios de dominio
-    
+    Clase base abstracta para todos los servicios de dominio.
+
+    DEPRECATED: Este patrón de factory con herencia ha sido reemplazado
+    por SuperOrchestrator con domain-specific agents siguiendo Clean Architecture.
+
+    Problemas del enfoque legacy:
+    - Tight coupling a WhatsApp models (Contact, WhatsAppMessage)
+    - Factory pattern complejo para agregar dominios
+    - Herencia forzada (todos extienden BaseDomainService)
+    - Difícil testear (requiere objetos WhatsApp reales)
+    - No usa interfaces (ABC vs Protocol)
+
+    Ventajas de nueva arquitectura:
+    - Domain Agents independientes (IAgent interface)
+    - SuperOrchestrator maneja routing automáticamente
+    - No coupling a WhatsApp (state-based, platform-agnostic)
+    - Testeable con mocks simples
+    - Composition over inheritance
+
     Define la interfaz común que deben implementar todos los
     servicios especializados por dominio.
+
+    Migración recomendada:
+        # ❌ Antes (legacy)
+        from app.services.domain_manager import get_domain_manager
+
+        domain_manager = get_domain_manager()
+        service = domain_manager.get_service("ecommerce")
+        response = await service.process_webhook_message(message, contact)
+
+        # ✅ Después (Clean Architecture)
+        from app.core.container import get_container
+
+        container = get_container()
+        orchestrator = container.create_super_orchestrator()
+
+        state = {
+            "messages": [{"role": "user", "content": message.text}],
+            "user_id": contact.phone,
+        }
+
+        result = await orchestrator.route_message(state)
+        # result["messages"][-1]["content"] contiene la respuesta
     """
 
     def __init__(self, domain: str, config: Optional[Dict[str, Any]] = None):

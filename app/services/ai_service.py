@@ -9,14 +9,54 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 
 from app.config.settings import get_settings
+from app.core.shared.deprecation import deprecated
 from app.models.chatbot import ChatbotResponse
 
 logger = logging.getLogger(__name__)
 
 
+@deprecated(
+    reason="Legacy AI service replaced by ILLM interface with Clean Architecture",
+    replacement="Use ILLM interface (app/core/interfaces/llm.py) and OllamaLLM implementation (app/integrations/llm/ollama.py)",
+    removal_version="2.0.0",
+)
 class AIService:
     """
-    Servicio para interactuar con modelos de IA generativa
+    Servicio para interactuar con modelos de IA generativa.
+
+    DEPRECATED: Este servicio usa LangChain directamente sin abstracción.
+    Ha sido reemplazado por ILLM interface que implementa Clean Architecture:
+
+    Ventajas de ILLM:
+    - Interface clara y consistente (Protocol)
+    - Dependency Injection (inyectable en Use Cases y Agents)
+    - Testeable con mocks (no requiere Ollama real)
+    - Soporte para múltiples proveedores (Ollama, OpenAI, etc.)
+    - Type-safe con type hints completos
+
+    Migración recomendada:
+        # ❌ Antes (legacy)
+        from app.services.ai_service import AIService
+
+        ai_service = AIService()
+        response = await ai_service._generate_content(prompt="...")
+
+        # ✅ Después (Clean Architecture)
+        from app.core.container import get_container
+
+        container = get_container()
+        llm = container.get_llm()  # Returns ILLM instance (OllamaLLM)
+        response = await llm.generate(prompt="...")
+
+    Para uso en Use Cases o Agents:
+        # Use Case con Dependency Injection
+        class MyUseCase:
+            def __init__(self, llm: ILLM):
+                self.llm = llm
+
+            async def execute(self, request):
+                response = await self.llm.generate(prompt="...")
+                return response
     """
 
     def __init__(self):
