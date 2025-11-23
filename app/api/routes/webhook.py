@@ -1,4 +1,18 @@
+"""
+DEPRECATION NOTICE:
+This webhook module uses LEGACY architecture patterns with deprecated services.
+These endpoints should be migrated to use the new Clean Architecture with SuperOrchestrator.
+
+TODO: Refactor to use:
+  - app.api.dependencies.get_super_orchestrator (new architecture)
+  - SuperOrchestrator.route_message() instead of manual domain detection
+  - Remove domain_detector and domain_manager (handled internally by orchestrator)
+
+For now, these endpoints remain functional but marked as LEGACY.
+"""
+
 import logging
+import warnings
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
@@ -7,20 +21,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.settings import Settings, get_settings
 from app.database.async_db import get_async_db
 from app.models.message import BotResponse, WhatsAppWebhookRequest
+from app.services.langgraph_chatbot_service import LangGraphChatbotService
+from app.integrations.whatsapp import WhatsAppService
+
+# LEGACY IMPORTS - These services are deprecated, kept for backward compatibility
+# TODO: Remove when endpoints are refactored to new architecture
 from app.services.domain_detector import get_domain_detector
 from app.services.domain_manager import get_domain_manager
-from app.services.langgraph_chatbot_service import LangGraphChatbotService
 from app.services.super_orchestrator_service import get_super_orchestrator
-from app.integrations.whatsapp import WhatsAppService
 
 router = APIRouter(tags=["webhook"])
 logger = logging.getLogger(__name__)
+
+# Emit deprecation warning for this module
+warnings.warn(
+    "webhook.py uses legacy architecture. Migrate to new Clean Architecture patterns.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 # Services (initialized lazily)
 _langgraph_service = None
 whatsapp_service = WhatsAppService()
 
-# Multi-domain system components
+# LEGACY: Multi-domain system components (deprecated pattern)
+# TODO: Replace with SuperOrchestrator from app.orchestration
 domain_detector = get_domain_detector()
 domain_manager = get_domain_manager()
 super_orchestrator = get_super_orchestrator()
