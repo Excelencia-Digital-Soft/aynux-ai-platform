@@ -139,7 +139,8 @@ def create_app() -> FastAPI:
             
             # Iniciar sincronización programada DUX si está habilitada
             if settings.DUX_SYNC_ENABLED and settings.DUX_API_KEY:
-                from app.services.scheduled_sync_service import get_scheduled_sync_service
+                from app.domains.ecommerce.infrastructure.services import ScheduledSyncService
+                from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import get_scheduled_sync_service
 
                 # Usar sincronización RAG integrada por defecto
                 sync_service = get_scheduled_sync_service(use_rag_sync=True)
@@ -182,7 +183,7 @@ def create_app() -> FastAPI:
         try:
             # Detener sincronización programada DUX
             if settings.DUX_SYNC_ENABLED:
-                from app.services.scheduled_sync_service import get_scheduled_sync_service
+                from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import get_scheduled_sync_service
 
                 sync_service = get_scheduled_sync_service()
                 await sync_service.stop()

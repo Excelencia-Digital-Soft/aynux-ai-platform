@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.config.settings import get_settings
-from app.services.scheduled_sync_service import get_scheduled_sync_service
+from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import get_scheduled_sync_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

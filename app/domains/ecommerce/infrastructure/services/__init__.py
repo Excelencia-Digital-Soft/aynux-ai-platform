@@ -17,6 +17,9 @@ from app.domains.ecommerce.infrastructure.services.dux_sync_service import (
     DuxProductMapper,
     DuxSyncService,
 )
+from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import (
+    ScheduledSyncService,
+)
 
 __all__ = [
     # DUX Sync Services
@@ -26,4 +29,6 @@ __all__ = [
     "DuxRagSyncService",
     "DuxRagSyncResult",
     "create_dux_rag_sync_service",
+    # Scheduled Sync
+    "ScheduledSyncService",
 ]
