@@ -36,6 +36,7 @@ class IntentAnalyzer:
         "wants_sale": False,
         "action_needed": "search_products",
         "confidence": 0.5,  # Low confidence for default fallback
+        "user_emotion": "neutral",  # Default emotion
     }
 
     INTENT_ANALYSIS_PROMPT = """# USER MESSAGE
@@ -56,7 +57,8 @@ You are analyzing a user's product inquiry for an e-commerce system. Extract the
   "wants_featured": boolean,
   "wants_sale": boolean,
   "action_needed": "show_featured|search_products|search_category|search_brand|search_price",
-  "confidence": float_0_to_1
+  "confidence": float_0_to_1,
+  "user_emotion": "neutral|excited|frustrated|urgent|curious|disappointed"
 }}
 
 INTENT ANALYSIS:
@@ -74,7 +76,16 @@ CONFIDENCE SCORE (0.0-1.0):
 - 0.7-0.9: Clear intent with some details (category, general product type)
 - 0.5-0.7: Moderate clarity, general inquiry
 - 0.3-0.5: Ambiguous intent, unclear what user wants
-- 0.0-0.3: Very unclear or off-topic message"""
+- 0.0-0.3: Very unclear or off-topic message
+
+EMOTION ANALYSIS:
+Detect the user's emotional state from their message tone:
+- neutral: Calm, matter-of-fact inquiry ("show me laptops")
+- excited: Enthusiastic, eager to buy ("I need this now!", "wow!")
+- frustrated: Annoyed, having trouble finding what they need ("I can't find anything", "this is difficult")
+- urgent: Time-sensitive need ("I need it today", "ASAP", "quickly")
+- curious: Exploring options, browsing ("what do you have?", "just looking")
+- disappointed: Previous negative experience or unmet expectations ("still not what I want")"""
 
     def __init__(
         self,
