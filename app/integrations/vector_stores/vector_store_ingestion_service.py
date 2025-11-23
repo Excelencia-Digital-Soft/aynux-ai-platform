@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from app.services.data_extraction_service import ExtractedData
+from app.core.shared.utils import ExtractedData
 
 logger = logging.getLogger(__name__)
 
