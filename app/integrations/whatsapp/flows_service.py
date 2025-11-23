@@ -14,7 +14,7 @@ from app.models.whatsapp_advanced import (
     FlowDataResponse,
     WhatsAppApiResponse,
 )
-from app.services.whatsapp_service import WhatsAppService
+from app.integrations.whatsapp.service import WhatsAppService
 
 logger = logging.getLogger(__name__)
 

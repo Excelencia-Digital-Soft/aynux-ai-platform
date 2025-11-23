@@ -11,7 +11,7 @@ from app.config.settings import get_settings
 from app.models.whatsapp_advanced import (
     WhatsAppApiResponse,
 )
-from app.services.whatsapp_service import WhatsAppService
+from app.integrations.whatsapp.service import WhatsAppService
 
 logger = logging.getLogger(__name__)
 

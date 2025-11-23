@@ -10,7 +10,7 @@ from fastapi import status
 
 from app.main import create_app
 from app.models.whatsapp_advanced import WhatsAppApiResponse
-from app.services.whatsapp_flows_service import FlowType
+from app.integrations.whatsapp import FlowType
 
 
 @pytest.fixture

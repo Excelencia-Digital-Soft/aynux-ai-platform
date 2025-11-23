@@ -11,7 +11,7 @@ from app.services.domain_detector import get_domain_detector
 from app.services.domain_manager import get_domain_manager
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
 from app.services.super_orchestrator_service import get_super_orchestrator
-from app.services.whatsapp_service import WhatsAppService
+from app.integrations.whatsapp import WhatsAppService
 
 router = APIRouter(tags=["webhook"])
 logger = logging.getLogger(__name__)
