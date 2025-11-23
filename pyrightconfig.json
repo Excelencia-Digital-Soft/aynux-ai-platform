@@ -1,0 +1,29 @@
+{
+  "include": [
+    "app/**"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/alembic/**",
+    "**/.venv/**",
+    "**/node_modules/**",
+    "**/dist/**"
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": false,
+  "reportMissingTypeStubs": false,
+  "reportMissingModuleSource": false,
+  "reportUnnecessaryTypeIgnoreComment": false,
+  "reportOptionalMemberAccess": "warning",
+  "reportCallIssue": "warning",
+  "reportArgumentType": "warning",
+  "reportGeneralTypeIssues": "warning",
+  "strictListInference": true,
+  "strictDictionaryInference": true,
+  "strictSetInference": true,
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Linux",
+  "venvPath": ".",
+  "venv": ".venv",
+  "stubPath": "typings"
+}

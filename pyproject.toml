@@ -89,11 +89,21 @@ line-length = 120
 target-version = "py312"
 
 [tool.pyright]
-reportUnnecessaryTypeIgnoreComment = false
-reportOptionalMemberAccess = false
-reportCallIssue = false
-reportArgumentType = false
-reportGeneralTypeIssues = "warning"  # Cambiar a warning en lugar de error
-# Ignorar solo en archivos específicos
+# Enable basic type checking mode (step towards standard)
+typeCheckingMode = "basic"
+
+# Progressive type checking - enable checks gradually
+reportUnnecessaryTypeIgnoreComment = false  # Keep disabled for now
+reportOptionalMemberAccess = "warning"  # Upgraded from false to warning
+reportCallIssue = "warning"  # Upgraded from false to warning
+reportArgumentType = "warning"  # Upgraded from false to warning
+reportGeneralTypeIssues = "warning"
+
+# Type inference settings
+strictListInference = true
+strictDictionaryInference = true
+strictSetInference = true
+
+# Include and exclude patterns
 include = ["app/**"]
-exclude = ["**/__pycache__", "**/alembic/**"]
+exclude = ["**/__pycache__", "**/alembic/**", "**/node_modules/**", "**/.venv/**"]
