@@ -41,6 +41,12 @@ from app.domains.credit.application.use_cases import (
 # Orchestration
 from app.orchestration import SuperOrchestrator
 
+# Shared Domain Use Cases
+from app.domains.shared.application.use_cases import (
+    GetOrCreateCustomerUseCase,
+    SearchKnowledgeUseCase,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -191,6 +197,29 @@ class DependencyContainer:
         return GetPaymentScheduleUseCase(
             credit_account_repository=self.create_credit_account_repository()
         )
+
+    # Shared Use Cases
+
+    def create_get_or_create_customer_use_case(self) -> GetOrCreateCustomerUseCase:
+        """
+        Create GetOrCreateCustomerUseCase.
+
+        Returns:
+            GetOrCreateCustomerUseCase instance
+        """
+        return GetOrCreateCustomerUseCase()
+
+    def create_search_knowledge_use_case(self, db) -> SearchKnowledgeUseCase:
+        """
+        Create SearchKnowledgeUseCase with dependencies.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SearchKnowledgeUseCase instance
+        """
+        return SearchKnowledgeUseCase(db=db)
 
     # ============================================================
     # AGENTS (Domain Coordinators)
