@@ -6,6 +6,7 @@ from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import joinedload
 
 from app.config.settings import get_settings
+from app.core.shared.deprecation import deprecated
 from app.database import get_db_context
 from app.models.db import (
     Brand,
@@ -22,8 +23,35 @@ from app.models.db import (
 logger = logging.getLogger(__name__)
 
 
+@deprecated(
+    reason="Legacy service replaced by Clean Architecture components",
+    replacement="Use ProductRepository (app/domains/ecommerce/infrastructure/repositories/product_repository.py) + Use Cases (app/domains/ecommerce/application/use_cases/)",
+    removal_version="2.0.0",
+)
 class ProductService:
-    """Servicio para gestionar productos desde PostgreSQL"""
+    """
+    Servicio para gestionar productos desde PostgreSQL.
+
+    DEPRECATED: Este servicio mezcla responsabilidades de data access y business logic.
+    Ha sido reemplazado por componentes Clean Architecture:
+
+    - ProductRepository: Data access layer (solo queries de DB)
+    - SearchProductsUseCase: Business logic para búsquedas
+    - GetProductsByCategoryUseCase: Business logic para categorías
+    - GetFeaturedProductsUseCase: Business logic para productos destacados
+
+    Migración recomendada:
+        # Antes (legacy)
+        service = ProductService()
+        products = await service.search_products("laptop")
+
+        # Después (Clean Architecture)
+        from app.core.container import get_container
+        container = get_container()
+        use_case = container.create_search_products_use_case()
+        response = await use_case.execute(SearchProductsRequest(query="laptop"))
+        products = response.products
+    """
 
     def __init__(self):
         self.settings = get_settings()
