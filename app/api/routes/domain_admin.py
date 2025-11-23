@@ -15,9 +15,19 @@ from app.models.db.contact_domains import ContactDomain, DomainConfig
 from app.services.domain_detector import get_domain_detector
 from app.services.domain_manager import get_domain_manager
 from app.services.super_orchestrator_service import get_super_orchestrator
+from app.services.super_orchestrator_service_refactored import get_super_orchestrator_refactored
+from app.config.settings import get_settings
 
 router = APIRouter(prefix="/api/v1/admin/domains", tags=["domain-admin"])
 logger = logging.getLogger(__name__)
+
+
+# Helper to get orchestrator based on feature flag
+def _get_orchestrator():
+    """Get super orchestrator based on configuration."""
+    settings = get_settings()
+    use_refactored = getattr(settings, "USE_REFACTORED_ORCHESTRATOR", True)
+    return get_super_orchestrator_refactored() if use_refactored else get_super_orchestrator()
 
 
 # Pydantic models para API
@@ -288,7 +298,7 @@ async def get_domain_stats(db_session: AsyncSession = Depends(get_async_db)):  #
         # Estadísticas de los servicios
         domain_detector = get_domain_detector()
         domain_manager = get_domain_manager()
-        super_orchestrator = get_super_orchestrator()
+        super_orchestrator = _get_orchestrator()
 
         return {
             "contacts": {
@@ -311,7 +321,7 @@ async def get_domain_stats(db_session: AsyncSession = Depends(get_async_db)):  #
 async def test_message_classification(test_request: DomainTestRequest):
     """Probar clasificación de un mensaje sin persistir"""
     try:
-        super_orchestrator = get_super_orchestrator()
+        super_orchestrator = _get_orchestrator()
         result = await super_orchestrator.test_classification(test_request.message)
 
         # Agregar evaluación si se proporcionó dominio esperado
@@ -345,7 +355,7 @@ async def domain_system_health():
 
         # Estadísticas adicionales
         domain_detector = get_domain_detector()
-        super_orchestrator = get_super_orchestrator()
+        super_orchestrator = _get_orchestrator()
 
         overall_status = "healthy"
         for _, status in health_status.items():
