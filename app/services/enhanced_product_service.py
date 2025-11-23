@@ -3,10 +3,10 @@ from typing import Any, Dict, List, Optional
 
 from app.core.shared.deprecation import deprecated
 from app.database import get_db_context
+from app.integrations.vector_stores import EmbeddingUpdateService
 from app.models.db import Product, Brand
 from app.models.message import Message
 from app.services.category_vector_service import CategoryVectorService
-from app.services.embedding_update_service import EmbeddingUpdateService
 from app.services.product_service import ProductService
 
 logger = logging.getLogger(__name__)

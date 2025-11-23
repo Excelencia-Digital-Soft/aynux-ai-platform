@@ -4,8 +4,8 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.api.dependencies import get_current_user
+from app.integrations.vector_stores import EmbeddingUpdateService
 from app.models.auth import User
-from app.services.embedding_update_service import EmbeddingUpdateService
 from app.services.enhanced_product_service import EnhancedProductService
 
 logger = logging.getLogger(__name__)

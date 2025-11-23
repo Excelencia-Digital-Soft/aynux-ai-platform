@@ -4,10 +4,10 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.integrations.vector_stores import VectorService as VectorDatabaseService
 from app.models.message import Message
 from app.models.vectorial import VectorDBConfig, VectorDocument, VectorQueryResult
 from app.services.ai_service import AIService
-from app.services.vector_service import VectorDatabaseService
 
 logger = logging.getLogger(__name__)
 
