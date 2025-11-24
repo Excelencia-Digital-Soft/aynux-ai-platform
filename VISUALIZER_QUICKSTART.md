@@ -91,7 +91,7 @@ Se abrirá automáticamente en tu navegador: **http://localhost:8501**
 
 ## Características Principales
 
-### Visualización del Grafo
+### Visualización del Grafo con Indicadores Enriquecidos
 
 ```
     ┌─────────────┐
@@ -121,6 +121,32 @@ Los nodos se resaltan según el estado:
 - ⚪ Gris = Ya visitado
 - ⚪ Gris claro = No visitado
 
+**Nuevo: Indicadores de Progreso en Tiempo Real**
+
+Cada paso muestra un indicador visual enriquecido con:
+- 🎯 **Emoji distintivo** del agente
+- 📝 **Descripción clara** de la actividad
+- 🔄 **Spinner animado** durante ejecución
+- ⏱️ **Timestamp** de inicio
+
+Ejemplo durante ejecución:
+```
+┌─────────────────────────────────────────┐
+│ 🛍️  Paso 2: Buscando productos         │
+│ Consultando catálogo y generando       │
+│ recomendaciones de productos            │
+│ 🔧 Agente: product_agent          🔄   │
+└─────────────────────────────────────────┘
+```
+
+**Timeline Visual Mejorado**
+
+Después de la ejecución, el timeline muestra:
+- 📌 **Paso resaltado** (último paso con gradiente)
+- 🏷️ **Etiquetas de color** por tipo de agente
+- ⏰ **Timestamps precisos**
+- 🔍 **Detalles expandibles** por paso
+
 ### Panel de Razonamiento
 
 Muestra el "pensamiento" interno:
@@ -137,6 +163,13 @@ Muestra el "pensamiento" interno:
   - Completitud: ✅ Sí
   - Decisión: Finalizar conversación
 ```
+
+### Resumen de Ejecución
+
+Al finalizar, muestra un resumen visual con:
+- ✅ **Indicador de éxito/error** con gradiente
+- 📊 **Métricas de ejecución** (pasos, tiempo)
+- 🛤️ **Ruta completa** del flujo ejecutado
 
 ### Inspector de Estado
 

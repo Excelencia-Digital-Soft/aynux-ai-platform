@@ -236,15 +236,80 @@ class AgentVisualizerApp:
 
         try:
             # Process message with streaming
-            status_container.info("🔄 Procesando mensaje...")
+            status_container.markdown("""
+                <div style="
+                    padding: 15px;
+                    border-radius: 10px;
+                    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+                    color: white;
+                    text-align: center;
+                    font-weight: bold;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                ">
+                    🔄 Procesando mensaje...
+                </div>
+            """, unsafe_allow_html=True)
 
             # Run async streaming
             asyncio.run(self._stream_graph_execution(message, progress_container))
 
-            status_container.success("✅ Mensaje procesado exitosamente")
+            # Show completion summary
+            metrics = self.metrics_tracker.get_metrics()
+            execution_path = " → ".join(metrics.get('execution_path', []))
+
+            status_container.markdown(f"""
+                <div style="
+                    padding: 20px;
+                    border-radius: 10px;
+                    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+                    color: white;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                ">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="font-size: 40px;">✅</div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">
+                                Mensaje procesado exitosamente
+                            </div>
+                            <div style="font-size: 14px; opacity: 0.9;">
+                                📊 {metrics.get('total_steps', 0)} pasos ejecutados en {metrics.get('total_time', 0):.2f}s
+                            </div>
+                            <div style="
+                                font-size: 12px;
+                                margin-top: 8px;
+                                padding: 8px;
+                                background: rgba(255,255,255,0.2);
+                                border-radius: 5px;
+                            ">
+                                🛤️ Ruta: {execution_path}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
         except Exception as e:
-            status_container.error(f"❌ Error: {e}")
+            status_container.markdown(f"""
+                <div style="
+                    padding: 20px;
+                    border-radius: 10px;
+                    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+                    color: white;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                ">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="font-size: 40px;">❌</div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">
+                                Error en el procesamiento
+                            </div>
+                            <div style="font-size: 14px; opacity: 0.9;">
+                                {str(e)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
             st.exception(e)
 
         finally:
@@ -252,8 +317,96 @@ class AgentVisualizerApp:
             self.metrics_tracker.end_conversation()
             st.session_state.metrics = self.metrics_tracker.get_metrics()
 
+    def _get_agent_activity_info(self, agent_name: str) -> Dict[str, str]:
+        """
+        Get rich visual information for an agent's activity.
+
+        Returns dict with emoji, action, and description.
+        """
+        agent_info = {
+            "orchestrator": {
+                "emoji": "🎯",
+                "action": "Analizando intención",
+                "description": "Detectando qué necesita el usuario y decidiendo qué agente debe responder",
+                "color": "blue"
+            },
+            "supervisor": {
+                "emoji": "👁️",
+                "action": "Evaluando respuesta",
+                "description": "Verificando calidad y completitud de la respuesta generada",
+                "color": "green"
+            },
+            "greeting_agent": {
+                "emoji": "👋",
+                "action": "Generando saludo",
+                "description": "Preparando respuesta de bienvenida y presentación del sistema",
+                "color": "orange"
+            },
+            "product_agent": {
+                "emoji": "🛍️",
+                "action": "Buscando productos",
+                "description": "Consultando catálogo y generando recomendaciones de productos",
+                "color": "purple"
+            },
+            "data_insights_agent": {
+                "emoji": "📊",
+                "action": "Analizando datos",
+                "description": "Generando reportes y análisis de business intelligence",
+                "color": "cyan"
+            },
+            "promotions_agent": {
+                "emoji": "🎁",
+                "action": "Buscando ofertas",
+                "description": "Consultando promociones activas y descuentos disponibles",
+                "color": "pink"
+            },
+            "tracking_agent": {
+                "emoji": "📦",
+                "action": "Rastreando pedido",
+                "description": "Consultando estado y ubicación del envío",
+                "color": "teal"
+            },
+            "support_agent": {
+                "emoji": "🆘",
+                "action": "Asistencia técnica",
+                "description": "Proporcionando soporte y resolviendo problemas técnicos",
+                "color": "red"
+            },
+            "invoice_agent": {
+                "emoji": "💰",
+                "action": "Procesando factura",
+                "description": "Consultando información de facturación y pagos",
+                "color": "yellow"
+            },
+            "excelencia_agent": {
+                "emoji": "🏢",
+                "action": "Consulta ERP",
+                "description": "Accediendo a datos del sistema Excelencia",
+                "color": "indigo"
+            },
+            "fallback_agent": {
+                "emoji": "❓",
+                "action": "Respuesta genérica",
+                "description": "Proporcionando respuesta de respaldo cuando no hay coincidencia",
+                "color": "gray"
+            },
+            "farewell_agent": {
+                "emoji": "👋",
+                "action": "Despedida",
+                "description": "Finalizando conversación y agradeciendo al usuario",
+                "color": "orange"
+            }
+        }
+
+        return agent_info.get(agent_name, {
+            "emoji": "🤖",
+            "action": "Procesando",
+            "description": f"Ejecutando {agent_name}",
+            "color": "blue"
+        })
+
     async def _stream_graph_execution(self, message: str, progress_container):
-        """Stream graph execution with real-time updates"""
+        """Stream graph execution with real-time updates and rich visual feedback"""
         conversation_id = f"viz_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         step_count = 0
@@ -266,10 +419,11 @@ class AgentVisualizerApp:
                 if event_type == "stream_event":
                     data = event.get("data", {})
                     step_count += 1
+                    current_node = data.get("current_node")
 
                     # Track metrics
                     self.metrics_tracker.record_step(
-                        node=data.get("current_node"),
+                        node=current_node,
                         timestamp=data.get("timestamp"),
                     )
 
@@ -277,16 +431,61 @@ class AgentVisualizerApp:
                     st.session_state.execution_steps.append(
                         {
                             "step": step_count,
-                            "node": data.get("current_node"),
+                            "node": current_node,
                             "timestamp": data.get("timestamp"),
                             "state_preview": data.get("state_preview"),
                         }
                     )
 
-                    # Update progress
-                    progress_container.info(
-                        f"Paso {step_count}: Ejecutando **{data.get('current_node')}**"
-                    )
+                    # Get rich agent information
+                    agent_info = self._get_agent_activity_info(current_node)
+
+                    # Create rich progress display with animation
+                    progress_html = f"""
+                    <div style="
+                        padding: 15px;
+                        border-radius: 10px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border-left: 5px solid #{agent_info.get('color', 'blue')};
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        animation: pulse 2s infinite;
+                    ">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 32px;">{agent_info['emoji']}</span>
+                            <div style="flex: 1;">
+                                <div style="color: white; font-weight: bold; font-size: 18px; margin-bottom: 5px;">
+                                    Paso {step_count}: {agent_info['action']}
+                                </div>
+                                <div style="color: rgba(255,255,255,0.9); font-size: 14px;">
+                                    {agent_info['description']}
+                                </div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 5px;">
+                                    🔧 Agente: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">{current_node}</code>
+                                </div>
+                            </div>
+                            <div style="
+                                width: 40px;
+                                height: 40px;
+                                border: 3px solid white;
+                                border-top: 3px solid transparent;
+                                border-radius: 50%;
+                                animation: spin 1s linear infinite;
+                            "></div>
+                        </div>
+                    </div>
+                    <style>
+                        @keyframes spin {{
+                            0% {{ transform: rotate(0deg); }}
+                            100% {{ transform: rotate(360deg); }}
+                        }}
+                        @keyframes pulse {{
+                            0%, 100% {{ opacity: 1; }}
+                            50% {{ opacity: 0.85; }}
+                        }}
+                    </style>
+                    """
+
+                    progress_container.markdown(progress_html, unsafe_allow_html=True)
 
                 elif event_type == "final_result":
                     final_response = event.get("data")
@@ -340,14 +539,76 @@ class AgentVisualizerApp:
 
         st.graphviz_chart(graph_viz)
 
-        # Show execution timeline
+        # Show execution timeline with rich visualization
         st.subheader("🕐 Timeline de Ejecución")
-        for step in st.session_state.execution_steps:
-            with st.expander(f"Paso {step['step']}: {step['node']}", expanded=(step == st.session_state.execution_steps[-1])):
-                col1, col2 = st.columns([1, 3])
+
+        # Create a visual timeline
+        for idx, step in enumerate(st.session_state.execution_steps):
+            agent_info = self._get_agent_activity_info(step['node'])
+            is_last = (idx == len(st.session_state.execution_steps) - 1)
+
+            # Create timeline entry with visual styling
+            timeline_html = f"""
+            <div style="
+                margin: 10px 0;
+                padding: 12px;
+                border-radius: 8px;
+                background: {'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' if is_last else '#f8f9fa'};
+                border-left: 4px solid {agent_info.get('color', 'blue')};
+                box-shadow: {'0 3px 10px rgba(0,0,0,0.2)' if is_last else '0 2px 4px rgba(0,0,0,0.1)'};
+            ">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="
+                        font-size: 28px;
+                        background: {'rgba(255,255,255,0.2)' if is_last else 'white'};
+                        padding: 8px;
+                        border-radius: 50%;
+                        min-width: 50px;
+                        min-height: 50px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">
+                        {agent_info['emoji']}
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="
+                            color: {'white' if is_last else '#333'};
+                            font-weight: bold;
+                            font-size: 16px;
+                            margin-bottom: 4px;
+                        ">
+                            Paso {step['step']}: {agent_info['action']}
+                        </div>
+                        <div style="
+                            color: {'rgba(255,255,255,0.9)' if is_last else '#666'};
+                            font-size: 13px;
+                        ">
+                            {agent_info['description']}
+                        </div>
+                    </div>
+                    <div style="
+                        color: {'rgba(255,255,255,0.8)' if is_last else '#999'};
+                        font-size: 11px;
+                        text-align: right;
+                    ">
+                        {step.get('timestamp', '')[:19] if step.get('timestamp') else 'N/A'}
+                    </div>
+                </div>
+            </div>
+            """
+            st.markdown(timeline_html, unsafe_allow_html=True)
+
+            # Show state preview in expander
+            with st.expander(f"🔍 Ver detalles del paso {step['step']}", expanded=False):
+                col1, col2 = st.columns([1, 2])
                 with col1:
-                    st.metric("Nodo", step['node'])
+                    st.metric("🏷️ Agente", step['node'])
+                    state_preview = step.get('state_preview', {})
+                    if state_preview.get('message_count'):
+                        st.metric("💬 Mensajes", state_preview['message_count'])
                 with col2:
+                    st.markdown("**Estado:**")
                     st.json(step.get('state_preview', {}))
 
     def render_reasoning_display(self):
