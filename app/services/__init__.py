@@ -4,12 +4,24 @@ Services Module
 This module exports active services. Many legacy services have been deprecated
 and migrated to Clean Architecture (Use Cases in app/domains/).
 
-DEPRECATED SERVICES (removed):
+DEPRECATED SERVICES (removed in Phase 1):
 - AIService → Use ILLM interface (app/core/interfaces/llm.py)
 - CustomerService → Use GetOrCreateCustomerUseCase
 - ProductService → Use SearchProductsUseCase, GetProductsByCategoryUseCase
 - EnhancedProductService → Use SearchProductsUseCase
 - CategoryVectorService → Use product Use Cases with vector search
+
+DEPRECATED SERVICES (removed in Phase 2 - Part 4):
+- domain_detector → Use GetContactDomainUseCase (Admin Use Cases)
+- domain_manager → Use LangGraphChatbotService + domain Use Cases directly
+- super_orchestrator_service → Use app/orchestration/super_orchestrator.py
+- super_orchestrator_service_refactored → Use app/orchestration/super_orchestrator.py
+
+DEPRECATED SERVICES (removed in Phase 3):
+- knowledge_service → Use Knowledge Use Cases (CreateKnowledgeUseCase,
+  GetKnowledgeUseCase, UpdateKnowledgeUseCase, DeleteKnowledgeUseCase,
+  ListKnowledgeUseCase, SearchKnowledgeUseCase, GetKnowledgeStatisticsUseCase,
+  RegenerateKnowledgeEmbeddingsUseCase)
 
 MOVED SERVICES (now in integrations):
 - DuxSyncService → app/domains/ecommerce/infrastructure/services/

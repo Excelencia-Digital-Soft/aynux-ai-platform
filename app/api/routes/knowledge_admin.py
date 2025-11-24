@@ -1,8 +1,14 @@
 """
-Knowledge Base Administration API Endpoints.
+✅ CLEAN ARCHITECTURE - Knowledge Base Administration API Endpoints
 
 RESTful API for managing the company knowledge base with full CRUD operations,
 search capabilities, and embedding management.
+
+MIGRATION STATUS:
+  ✅ Uses Knowledge Use Cases via DependencyContainer
+  ✅ Follows Clean Architecture and SOLID principles
+  ✅ Proper dependency injection
+  ✅ Maintains API contract compatibility
 
 All endpoints require proper authentication and authorization (to be added).
 """
@@ -14,7 +20,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.settings import get_settings
+from app.core.container import DependencyContainer
 from app.database.async_db import get_async_db
+from app.integrations.vector_stores import KnowledgeEmbeddingService
 from app.models.knowledge_schemas import (
     ErrorResponse,
     KnowledgeCreate,
@@ -26,9 +35,10 @@ from app.models.knowledge_schemas import (
     KnowledgeUpdate,
     MessageResponse,
 )
-from app.services.knowledge_service import KnowledgeService
+from app.repositories.knowledge_repository import KnowledgeRepository
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 # Create router
 router = APIRouter(
@@ -73,8 +83,9 @@ async def create_knowledge(
     Returns the created document with its UUID.
     """
     try:
-        service = KnowledgeService(db)
-        result = await service.create_knowledge(
+        container = DependencyContainer()
+        use_case = container.create_create_knowledge_use_case(db)
+        result = await use_case.execute(
             knowledge_data=knowledge.model_dump(),
             auto_embed=auto_embed,
         )
@@ -105,8 +116,9 @@ async def get_knowledge(
     Returns the complete document including all metadata and content.
     """
     try:
-        service = KnowledgeService(db)
-        result = await service.get_knowledge(knowledge_id)
+        container = DependencyContainer()
+        use_case = container.create_get_knowledge_use_case(db)
+        result = await use_case.execute(knowledge_id)
 
         if not result:
             raise HTTPException(
@@ -153,8 +165,9 @@ async def list_knowledge(
     Returns paginated list with metadata.
     """
     try:
-        service = KnowledgeService(db)
-        result = await service.list_knowledge(
+        container = DependencyContainer()
+        use_case = container.create_list_knowledge_use_case(db)
+        result = await use_case.execute(
             document_type=document_type,
             category=category,
             tags=tags,
@@ -195,8 +208,6 @@ async def update_knowledge(
     Returns the updated document.
     """
     try:
-        service = KnowledgeService(db)
-
         # Only include fields that were provided
         update_data = knowledge.model_dump(exclude_unset=True)
 
@@ -206,7 +217,9 @@ async def update_knowledge(
                 detail="No fields provided for update",
             )
 
-        result = await service.update_knowledge(
+        container = DependencyContainer()
+        use_case = container.create_update_knowledge_use_case(db)
+        result = await use_case.execute(
             knowledge_id=knowledge_id,
             update_data=update_data,
             regenerate_embedding=regenerate_embedding,
@@ -251,8 +264,9 @@ async def delete_knowledge(
     Soft delete is recommended to preserve history.
     """
     try:
-        service = KnowledgeService(db)
-        success = await service.delete_knowledge(
+        container = DependencyContainer()
+        use_case = container.create_delete_knowledge_use_case(db)
+        success = await use_case.execute(
             knowledge_id=knowledge_id,
             soft_delete=not hard_delete,
         )
@@ -306,8 +320,9 @@ async def search_knowledge(
     Returns ranked results with similarity scores.
     """
     try:
-        service = KnowledgeService(db)
-        results = await service.search_knowledge(
+        container = DependencyContainer()
+        use_case = container.create_search_knowledge_use_case(db)
+        results = await use_case.execute(
             query=search.query,
             max_results=search.max_results,
             document_type=search.document_type,
@@ -359,17 +374,11 @@ async def regenerate_embedding(
     - **update_chroma**: Update ChromaDB embeddings
     """
     try:
-        service = KnowledgeService(db)
+        container = DependencyContainer()
+        use_case = container.create_regenerate_knowledge_embeddings_use_case(db)
 
-        # Verify document exists first
-        knowledge = await service.get_knowledge(knowledge_id)
-        if not knowledge:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Knowledge document {knowledge_id} not found",
-            )
-
-        await service.regenerate_embeddings(
+        # Regenerate embeddings (will verify document exists)
+        await use_case.execute(
             knowledge_id=knowledge_id,
             update_pgvector=update_pgvector,
             update_chroma=update_chroma,
@@ -383,6 +392,12 @@ async def regenerate_embedding(
                 "pgvector_updated": update_pgvector,
                 "chroma_updated": update_chroma,
             },
+        )
+    except ValueError as e:
+        # Document not found
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
         )
     except HTTPException:
         raise
@@ -420,14 +435,16 @@ async def sync_all_embeddings(
     - Migrating to a new embedding model
     """
     try:
-        service = KnowledgeService(db)
-
         logger.info(
             f"Starting full embedding sync (pgvector={update_pgvector}, chroma={update_chroma})"
         )
 
-        await service.regenerate_embeddings(
-            knowledge_id=None,  # None means all documents
+        container = DependencyContainer()
+        use_case = container.create_regenerate_knowledge_embeddings_use_case(db)
+
+        # Regenerate all embeddings (knowledge_id=None means all documents)
+        processed_count = await use_case.execute(
+            knowledge_id=None,
             update_pgvector=update_pgvector,
             update_chroma=update_chroma,
         )
@@ -438,6 +455,7 @@ async def sync_all_embeddings(
             details={
                 "pgvector_updated": update_pgvector,
                 "chroma_updated": update_chroma,
+                "processed_documents": processed_count,
             },
         )
     except Exception as e:
@@ -466,8 +484,9 @@ async def get_stats(
     - Embedding model information
     """
     try:
-        service = KnowledgeService(db)
-        stats = await service.get_statistics()
+        container = DependencyContainer()
+        use_case = container.create_get_knowledge_statistics_use_case(db)
+        stats = await use_case.execute()
         return stats
     except Exception as e:
         logger.error(f"Error getting knowledge base statistics: {e}")
@@ -497,9 +516,10 @@ async def health_check(
     Returns success message if all systems are operational.
     """
     try:
-        service = KnowledgeService(db)
+        container = DependencyContainer()
+        use_case = container.create_get_knowledge_statistics_use_case(db)
         # Quick check: count active documents
-        stats = await service.get_statistics()
+        stats = await use_case.execute()
 
         return MessageResponse(
             message="Knowledge Base API is operational",

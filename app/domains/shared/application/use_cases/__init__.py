@@ -22,7 +22,14 @@ from app.domains.shared.application.use_cases.customer_use_cases import (
     GetOrCreateCustomerUseCase,
 )
 from app.domains.shared.application.use_cases.knowledge_use_cases import (
+    CreateKnowledgeUseCase,
+    DeleteKnowledgeUseCase,
+    GetKnowledgeStatisticsUseCase,
+    GetKnowledgeUseCase,
+    ListKnowledgeUseCase,
+    RegenerateKnowledgeEmbeddingsUseCase,
     SearchKnowledgeUseCase,
+    UpdateKnowledgeUseCase,
 )
 
 __all__ = [
@@ -30,6 +37,13 @@ __all__ = [
     "GetOrCreateCustomerUseCase",
     # Knowledge Use Cases
     "SearchKnowledgeUseCase",
+    "CreateKnowledgeUseCase",
+    "GetKnowledgeUseCase",
+    "UpdateKnowledgeUseCase",
+    "DeleteKnowledgeUseCase",
+    "ListKnowledgeUseCase",
+    "GetKnowledgeStatisticsUseCase",
+    "RegenerateKnowledgeEmbeddingsUseCase",
     # Admin Use Cases
     "ListDomainsUseCase",
     "EnableDomainUseCase",
