@@ -14,10 +14,8 @@ Usage:
 or from project root:
     uv run python app/scripts/seed_knowledge_base.py
 
-NOTE: This script uses KnowledgeService (deprecated) because the Clean Architecture
-Use Cases for knowledge creation (CreateKnowledgeUseCase, GetKnowledgeStatisticsUseCase)
-are not yet implemented. This script should be migrated once those Use Cases are available.
-See: app/domains/shared/application/use_cases/ for current implementation status.
+✅ MIGRATED TO CLEAN ARCHITECTURE: This script now uses Clean Architecture Use Cases
+(CreateKnowledgeUseCase, GetKnowledgeStatisticsUseCase) via DependencyContainer.
 """
 
 import asyncio
@@ -25,9 +23,8 @@ import logging
 from datetime import datetime
 
 from app.config.settings import get_settings
+from app.core.container import DependencyContainer
 from app.database.async_db import get_async_db_context
-# FIXME: Replace with CreateKnowledgeUseCase when implemented
-from app.services.knowledge_service import KnowledgeService  # deprecated - awaiting Use Case implementation
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -368,17 +365,26 @@ El Hospital Central operaba con historias clínicas en papel, generando:
 
 
 async def seed_knowledge_base():
-    """Seed the knowledge base with initial Excelencia ERP information."""
+    """
+    Seed the knowledge base with initial Excelencia ERP information.
+
+    Uses Clean Architecture Use Cases:
+    - CreateKnowledgeUseCase for document creation
+    - GetKnowledgeStatisticsUseCase for statistics
+    """
     logger.info("=" * 80)
     logger.info("Starting knowledge base seeding process")
     logger.info("=" * 80)
 
     try:
         async with get_async_db_context() as db:
-            service = KnowledgeService(db)
+            # Create Use Cases via DependencyContainer
+            container = DependencyContainer()
+            create_uc = container.create_create_knowledge_use_case(db)
+            stats_uc = container.create_get_knowledge_statistics_use_case(db)
 
             # Get current statistics
-            stats_before = await service.get_statistics()
+            stats_before = await stats_uc.execute()
             logger.info("\nCurrent statistics:")
             logger.info(f"  Total active documents: {stats_before['database']['total_active']}")
             logger.info(f"  Embedding coverage: {stats_before['database']['embedding_coverage']:.1f}%")
@@ -391,8 +397,8 @@ async def seed_knowledge_base():
                 try:
                     logger.info(f"\n[{i}/{len(INITIAL_KNOWLEDGE)}] Creating: {knowledge_data['title']}")
 
-                    # Create document with automatic embedding generation
-                    result = await service.create_knowledge(
+                    # Create document with automatic embedding generation using Use Case
+                    result = await create_uc.execute(
                         knowledge_data=knowledge_data,
                         auto_embed=True,  # Generate embeddings automatically
                     )
@@ -406,7 +412,7 @@ async def seed_knowledge_base():
                     error_count += 1
 
             # Get final statistics
-            stats_after = await service.get_statistics()
+            stats_after = await stats_uc.execute()
 
             logger.info("\n" + "=" * 80)
             logger.info("Seeding process completed")
