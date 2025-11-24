@@ -1,0 +1,369 @@
+"""
+Credit Agent for Credit Domain
+
+Clean architecture agent that delegates to use cases.
+Follows SOLID principles and implements IAgent interface.
+"""
+
+import logging
+from decimal import Decimal
+from typing import Any, Dict, Optional
+
+from app.core.interfaces.agent import IAgent, AgentType
+from app.core.interfaces.llm import ILLM
+from app.core.interfaces.repository import IRepository
+from app.domains.credit.application.use_cases import (
+    GetCreditBalanceUseCase,
+    GetCreditBalanceRequest,
+    ProcessPaymentUseCase,
+    ProcessPaymentRequest,
+    GetPaymentScheduleUseCase,
+    GetPaymentScheduleRequest,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class CreditAgent(IAgent):
+    """
+    Credit Agent following Clean Architecture.
+
+    Single Responsibility: Coordinate credit-related requests
+    Dependency Inversion: Depends on use cases and interfaces
+    """
+
+    def __init__(
+        self,
+        credit_account_repository: IRepository,
+        payment_repository: IRepository,
+        llm: ILLM,
+        config: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Initialize agent with dependencies.
+
+        Args:
+            credit_account_repository: Repository for credit accounts
+            payment_repository: Repository for payments
+            llm: Language model for intent analysis
+            config: Optional configuration
+        """
+        self._config = config or {}
+        self._account_repo = credit_account_repository
+        self._payment_repo = payment_repository
+        self._llm = llm
+
+        # Initialize use cases
+        self._balance_use_case = GetCreditBalanceUseCase(
+            credit_account_repository=credit_account_repository
+        )
+        self._payment_use_case = ProcessPaymentUseCase(
+            credit_account_repository=credit_account_repository,
+            payment_repository=payment_repository,
+        )
+        self._schedule_use_case = GetPaymentScheduleUseCase(
+            credit_account_repository=credit_account_repository
+        )
+
+        logger.info("CreditAgent initialized with use cases")
+
+    @property
+    def agent_type(self) -> AgentType:
+        """Agent type identifier"""
+        return AgentType.CREDIT
+
+    @property
+    def agent_name(self) -> str:
+        """Agent name"""
+        return "credit_agent"
+
+    async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute agent logic.
+
+        Args:
+            state: Current conversation state
+
+        Returns:
+            Updated state
+        """
+        try:
+            # Extract message and account info
+            messages = state.get("messages", [])
+            if not messages:
+                return self._error_response("No message provided", state)
+
+            user_message = messages[-1].get("content", "")
+            account_id = self._extract_account_id(state)
+
+            if not account_id:
+                return self._error_response("No credit account found", state)
+
+            # Analyze intent
+            intent = await self._analyze_intent(user_message)
+            logger.info(f"Detected credit intent: {intent}")
+
+            # Route to appropriate use case
+            if intent == "balance":
+                response = await self._handle_balance(account_id, state)
+            elif intent == "payment":
+                response = await self._handle_payment(user_message, account_id, state)
+            elif intent == "schedule":
+                response = await self._handle_schedule(account_id, state)
+            else:
+                response = await self._handle_balance(account_id, state)  # Default
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Error in CreditAgent.execute: {e}", exc_info=True)
+            return self._error_response(str(e), state)
+
+    async def validate_input(self, state: Dict[str, Any]) -> bool:
+        """
+        Validate input state.
+
+        Args:
+            state: State to validate
+
+        Returns:
+            True if valid, False otherwise
+        """
+        messages = state.get("messages", [])
+        if not messages:
+            return False
+
+        last_message = messages[-1]
+        if not last_message.get("content"):
+            return False
+
+        return True
+
+    async def _analyze_intent(self, message: str) -> str:
+        """
+        Analyze user intent using LLM.
+
+        Args:
+            message: User message
+
+        Returns:
+            Intent string ('balance', 'payment', 'schedule')
+        """
+        try:
+            prompt = f"""Analyze this credit account query and return ONLY the intent type:
+
+Query: "{message}"
+
+Intent types:
+- balance: Asking for credit balance or account status
+- payment: Making a payment or asking about payment options
+- schedule: Asking for payment schedule or calendar
+
+Return ONLY one word: balance, payment, or schedule"""
+
+            response = await self._llm.generate(prompt, temperature=0.2, max_tokens=10)
+            intent = response.strip().lower()
+
+            if intent in ["balance", "payment", "schedule"]:
+                return intent
+
+            return "balance"  # Default
+
+        except Exception as e:
+            logger.warning(f"Error analyzing intent: {e}")
+            return "balance"
+
+    async def _handle_balance(
+        self, account_id: str, state: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Handle balance inquiry"""
+        try:
+            request = GetCreditBalanceRequest(account_id=account_id)
+            response = await self._balance_use_case.execute(request)
+
+            if not response.success:
+                return self._error_response(response.error or "Failed to get balance", state)
+
+            # Generate AI response
+            ai_response = await self._generate_balance_response(response)
+
+            return {
+                "messages": [{"role": "assistant", "content": ai_response}],
+                "current_agent": self.agent_name,
+                "agent_history": state.get("agent_history", []) + [self.agent_name],
+                "retrieved_data": {
+                    "credit_limit": float(response.credit_limit),
+                    "used_credit": float(response.used_credit),
+                    "available_credit": float(response.available_credit),
+                    "status": response.status,
+                },
+                "is_complete": True,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in balance handler: {e}", exc_info=True)
+            return self._error_response(str(e), state)
+
+    async def _handle_payment(
+        self, message: str, account_id: str, state: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Handle payment processing"""
+        try:
+            # Extract payment amount (simplified - should use NLP)
+            amount = await self._extract_amount(message)
+
+            if not amount or amount <= 0:
+                return self._error_response("Invalid payment amount", state)
+
+            request = ProcessPaymentRequest(
+                account_id=account_id,
+                amount=amount,
+                payment_type="regular",
+            )
+
+            response = await self._payment_use_case.execute(request)
+
+            if not response.success:
+                return self._error_response(response.error or "Payment failed", state)
+
+            # Generate AI response
+            ai_response = await self._generate_payment_response(response)
+
+            return {
+                "messages": [{"role": "assistant", "content": ai_response}],
+                "current_agent": self.agent_name,
+                "agent_history": state.get("agent_history", []) + [self.agent_name],
+                "retrieved_data": {
+                    "payment_id": response.payment_id,
+                    "amount": float(response.amount),
+                    "remaining_balance": float(response.remaining_balance),
+                },
+                "is_complete": True,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in payment handler: {e}", exc_info=True)
+            return self._error_response(str(e), state)
+
+    async def _handle_schedule(
+        self, account_id: str, state: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Handle payment schedule request"""
+        try:
+            request = GetPaymentScheduleRequest(account_id=account_id, months_ahead=6)
+            response = await self._schedule_use_case.execute(request)
+
+            if not response.success:
+                return self._error_response(response.error or "Failed to get schedule", state)
+
+            # Generate AI response
+            ai_response = await self._generate_schedule_response(response)
+
+            return {
+                "messages": [{"role": "assistant", "content": ai_response}],
+                "current_agent": self.agent_name,
+                "agent_history": state.get("agent_history", []) + [self.agent_name],
+                "retrieved_data": {
+                    "schedule": [
+                        {
+                            "payment_number": item.payment_number,
+                            "due_date": item.due_date.isoformat(),
+                            "amount": float(item.amount),
+                            "status": item.status,
+                        }
+                        for item in response.schedule
+                    ],
+                },
+                "is_complete": True,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in schedule handler: {e}", exc_info=True)
+            return self._error_response(str(e), state)
+
+    async def _generate_balance_response(self, balance) -> str:
+        """Generate AI response for balance inquiry"""
+        try:
+            prompt = f"""Generate a friendly response for credit balance:
+
+Credit Limit: ${balance.credit_limit:,.2f}
+Used Credit: ${balance.used_credit:,.2f}
+Available Credit: ${balance.available_credit:,.2f}
+Next Payment: ${balance.next_payment_amount:,.2f} on {balance.next_payment_date}
+Status: {balance.status}
+
+Generate brief, professional response (max 5 lines) with emojis"""
+
+            response = await self._llm.generate(prompt, temperature=0.7, max_tokens=200)
+            return response.strip()
+
+        except Exception as e:
+            logger.error(f"Error generating balance response: {e}")
+            return f"Tu saldo disponible es ${balance.available_credit:,.2f}"
+
+    async def _generate_payment_response(self, payment) -> str:
+        """Generate AI response for payment confirmation"""
+        try:
+            prompt = f"""Generate payment confirmation message:
+
+Amount Paid: ${payment.amount:,.2f}
+Remaining Balance: ${payment.remaining_balance:,.2f}
+Available Credit: ${payment.available_credit:,.2f}
+Payment ID: {payment.payment_id}
+
+Generate brief, friendly confirmation (max 4 lines)"""
+
+            response = await self._llm.generate(prompt, temperature=0.7, max_tokens=150)
+            return response.strip()
+
+        except Exception as e:
+            logger.error(f"Error generating payment response: {e}")
+            return f"¡Pago procesado! Monto: ${payment.amount:,.2f}"
+
+    async def _generate_schedule_response(self, schedule) -> str:
+        """Generate AI response for payment schedule"""
+        try:
+            schedule_text = "\n".join(
+                [
+                    f"{item.payment_number}. {item.due_date} - ${item.amount:,.2f}"
+                    for item in schedule.schedule[:3]
+                ]
+            )
+
+            prompt = f"""Generate payment schedule message:
+
+Next {len(schedule.schedule)} payments:
+{schedule_text}
+
+Generate brief summary (max 4 lines)"""
+
+            response = await self._llm.generate(prompt, temperature=0.7, max_tokens=150)
+            return response.strip()
+
+        except Exception as e:
+            logger.error(f"Error generating schedule response: {e}")
+            return f"Tienes {schedule.total_payments} pagos programados"
+
+    async def _extract_amount(self, message: str) -> Decimal:
+        """Extract payment amount from message (simplified)"""
+        # TODO: Use NLP for better extraction
+        # For now, return default amount
+        return Decimal("2500.00")
+
+    def _extract_account_id(self, state: Dict[str, Any]) -> Optional[str]:
+        """Extract credit account ID from state"""
+        return state.get("credit_account_id") or state.get("user_id")
+
+    def _error_response(self, error: str, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate error response"""
+        return {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "Disculpa, tuve un problema. ¿Podrías reformular tu pregunta?",
+                }
+            ],
+            "current_agent": self.agent_name,
+            "error_count": state.get("error_count", 0) + 1,
+            "error": error,
+        }

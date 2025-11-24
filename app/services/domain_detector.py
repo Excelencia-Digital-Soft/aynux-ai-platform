@@ -1,5 +1,7 @@
 """
 Domain Detector - Detección rápida de dominio por contacto WhatsApp
+
+DEPRECATED: Reemplazado por SuperOrchestrator con LLM-based detection
 """
 
 import logging
@@ -11,19 +13,65 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import get_settings
+from app.core.shared.deprecation import deprecated
 from app.models.db.contact_domains import ContactDomain, DomainConfig
 
 logger = logging.getLogger(__name__)
 
 
+@deprecated(
+    reason="Legacy domain detection with hardcoded patterns replaced by LLM-based detection",
+    replacement="Use SuperOrchestrator (app/orchestration/super_orchestrator.py) with intelligent LLM routing",
+    removal_version="2.0.0",
+)
 class DomainDetector:
     """
-    Detector de dominio usando PostgreSQL directo
+    Detector de dominio usando PostgreSQL directo.
+
+    DEPRECATED: Este detector usa patrones hardcoded y database lookup.
+    Ha sido reemplazado por SuperOrchestrator que usa LLM para detectar dominio:
+
+    Problemas del enfoque legacy:
+    - Patrones hardcoded (no extensible sin modificar código)
+    - Database access directo (tight coupling)
+    - No aprende de nuevos casos
+    - Requiere mantenimiento manual de patrones
+
+    Ventajas de SuperOrchestrator:
+    - LLM-based detection (intelligent, no patterns needed)
+    - Aprende del contexto del mensaje completo
+    - Extensible (agregar dominio = registrar agente)
+    - No requiere DB para detection (stateless)
+    - Confidence scoring automático
 
     Estrategia de detección (por orden de velocidad):
-    1. Base de datos con índices (milisegundos)
-    2. Patrones configurables (milisegundos)
-    3. Fallback al SuperOrquestador (segundos)
+    1. Base de datos con índices (milisegundos)  ← Deprecated
+    2. Patrones configurables (milisegundos)     ← Deprecated
+    3. Fallback al SuperOrquestador (segundos)   ← Ahora es primary
+
+    Migración recomendada:
+        # ❌ Antes (legacy)
+        from app.services.domain_detector import get_domain_detector
+
+        detector = get_domain_detector()
+        domain = await detector.detect_domain(
+            phone="+1234567890",
+            message="Quiero comprar"
+        )
+
+        # ✅ Después (Clean Architecture)
+        from app.core.container import get_container
+
+        container = get_container()
+        orchestrator = container.create_super_orchestrator()
+
+        state = {
+            "messages": [{"role": "user", "content": "Quiero comprar"}],
+            "user_id": "+1234567890",
+        }
+
+        result = await orchestrator.route_message(state)
+        domain = result["routing"]["detected_domain"]  # "ecommerce", "credit", etc.
     """
 
     def __init__(self, db_session: Optional[AsyncSession] = None):

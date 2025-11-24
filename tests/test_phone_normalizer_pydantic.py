@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.services.phone_normalizer_pydantic import (
+from app.core.shared.utils.phone_normalizer import (
     PhoneNumberRequest,
     PydanticPhoneNumberNormalizer,
 )

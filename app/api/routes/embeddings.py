@@ -1,12 +1,19 @@
+"""
+Embeddings API - Product embedding management endpoints
+
+Updated to use new architecture:
+- EmbeddingUpdateService from app.integrations.vector_stores
+- Removed EnhancedProductService (deprecated)
+"""
+
 import logging
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.api.dependencies import get_current_user
+from app.integrations.vector_stores import EmbeddingUpdateService
 from app.models.auth import User
-from app.services.embedding_update_service import EmbeddingUpdateService
-from app.services.enhanced_product_service import EnhancedProductService
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +53,12 @@ async def get_embedding_stats(
 ):
     """
     Get statistics about product embeddings
+
+    Updated: Uses EmbeddingUpdateService instead of deprecated EnhancedProductService
     """
     logging.info(f"User {current_user.email} is retrieving embedding statistics")
     try:
-        service = EnhancedProductService()
+        service = EmbeddingUpdateService()
         stats = await service.get_embedding_stats()
 
         return {"status": "success", "stats": stats}

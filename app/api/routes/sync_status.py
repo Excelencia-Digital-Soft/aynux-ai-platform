@@ -7,7 +7,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException
 
 from app.config.settings import get_settings
-from app.services.scheduled_sync_service import get_scheduled_sync_service
+from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import get_scheduled_sync_service
 
 router = APIRouter()
 

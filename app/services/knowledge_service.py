@@ -1,18 +1,27 @@
 """
-Knowledge Service - Business Logic Layer (SRP + DIP)
+DEPRECATED: Knowledge Service - Business Logic Layer
 
-This service contains business logic for knowledge base operations.
-It coordinates between the repository (data access) and embedding service
-(vector generation).
+Este servicio ya sigue buenas prácticas (SRP + DIP) pero debe convertirse en Use Cases
+para seguir completamente Clean Architecture.
 
-Responsibilities:
-- Business logic validation
-- Orchestration between repository and embedding service
-- Hybrid search strategy implementation
-- Caching of frequent searches
-- Error handling and logging
+Migration Guide:
+  - Use SearchKnowledgeUseCase para búsquedas
+  - Use CreateKnowledgeUseCase para crear documentos
+  - Use UpdateKnowledgeUseCase para actualizaciones
+  - Use DeleteKnowledgeUseCase para eliminaciones
+  - KnowledgeRepository ya existe y está listo
 
-Dependencies are injected (DIP) rather than instantiated directly.
+Example:
+  # Before (deprecated):
+  knowledge_service = KnowledgeService(db)
+  results = await knowledge_service.search_knowledge("query", limit=10)
+
+  # After (new architecture):
+  from app.domains.shared.application.use_cases import SearchKnowledgeUseCase
+  use_case = container.create_search_knowledge_use_case()
+  results = await use_case.execute("query", limit=10)
+
+Dependencies are injected (DIP) - Already follows good architecture, just needs Use Case pattern.
 """
 
 import logging
@@ -21,14 +30,20 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.shared.deprecation import deprecated
 from app.config.settings import get_settings
 from app.repositories.knowledge_repository import KnowledgeRepository
-from app.services.knowledge_embedding_service import KnowledgeEmbeddingService
+from app.integrations.vector_stores import KnowledgeEmbeddingService
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+@deprecated(
+    reason="Convert to Use Cases pattern for complete Clean Architecture compliance",
+    replacement="Use SearchKnowledgeUseCase, CreateKnowledgeUseCase, etc.",
+    removal_version="2.0.0"
+)
 class KnowledgeService:
     """
     Business logic service for knowledge base operations.

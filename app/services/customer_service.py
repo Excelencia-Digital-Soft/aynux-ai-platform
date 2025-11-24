@@ -1,7 +1,31 @@
+"""
+DEPRECATED: CustomerService
+
+Este servicio mezcla data access y business logic para gestión de clientes.
+Debe ser reemplazado por Clean Architecture con Use Cases y Repository pattern.
+
+Migration Guide:
+  - Use CreateCustomerUseCase para crear clientes
+  - Use GetCustomerUseCase para obtener clientes
+  - Use UpdateCustomerUseCase para actualizar información
+  - Use CustomerRepository para data access
+
+Example:
+  # Before (deprecated):
+  customer_service = CustomerService()
+  customer = await customer_service.get_or_create_customer(phone, name)
+
+  # After (new architecture):
+  from app.domains.shared.application.use_cases import GetOrCreateCustomerUseCase
+  use_case = container.create_get_or_create_customer_use_case()
+  customer = await use_case.execute(phone, name)
+"""
+
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.core.shared.deprecation import deprecated
 from app.agents.schemas import CustomerContext
 from app.database import get_db_context
 from app.models.db import (
@@ -12,6 +36,11 @@ from app.models.db import (
 logger = logging.getLogger(__name__)
 
 
+@deprecated(
+    reason="Service mixes data access and business logic, violates SRP",
+    replacement="Use CustomerRepository + Use Cases (GetOrCreateCustomerUseCase, etc.)",
+    removal_version="2.0.0"
+)
 class CustomerService:
     """Servicio para gestionar clientes"""
 

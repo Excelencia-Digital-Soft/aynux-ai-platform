@@ -1,0 +1,3 @@
+"""
+Credit module
+"""

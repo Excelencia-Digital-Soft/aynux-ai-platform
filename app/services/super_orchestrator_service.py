@@ -1,5 +1,8 @@
 """
 Super Orchestrator Service - Clasificación inteligente de dominio usando IA
+
+DEPRECATED: Este servicio legacy ha sido reemplazado por SuperOrchestrator
+con Clean Architecture en app/orchestration/
 """
 
 import logging
@@ -9,6 +12,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import get_settings
+from app.core.shared.deprecation import deprecated
 from app.models.message import BotResponse, Contact, WhatsAppMessage
 from app.services.domain_detector import get_domain_detector
 from app.services.domain_manager import get_domain_manager
@@ -16,10 +20,54 @@ from app.services.domain_manager import get_domain_manager
 logger = logging.getLogger(__name__)
 
 
+@deprecated(
+    reason="Legacy orchestrator service replaced by Clean Architecture SuperOrchestrator",
+    replacement="Use SuperOrchestrator (app/orchestration/super_orchestrator.py) via DependencyContainer",
+    removal_version="2.0.0",
+)
 class SuperOrchestratorService:
     """
     Super Orquestador que usa IA para clasificar mensajes cuando
     el dominio del contacto no está determinado.
+
+    DEPRECATED: Este servicio legacy mezcla múltiples responsabilidades:
+    - Domain detection (hardcoded patterns)
+    - Contact management (database access)
+    - Domain routing (tightly coupled)
+
+    Ha sido reemplazado por SuperOrchestrator que implementa Clean Architecture:
+
+    Ventajas del nuevo SuperOrchestrator:
+    - Dependency Injection: LLM y agents inyectados via interfaces
+    - Open/Closed Principle: Agregar dominios sin modificar código
+    - Single Responsibility: Solo routing, no DB access
+    - Testeable: Mocks fáciles sin base de datos
+    - Domain-Agnostic: No conoce detalles de cada dominio
+
+    Migración recomendada:
+        # Antes (legacy)
+        orchestrator = SuperOrchestratorService()
+        response = await orchestrator.process_message(message, contact, db)
+
+        # Después (Clean Architecture)
+        from app.core.container import get_container
+
+        container = get_container()
+        orchestrator = container.create_super_orchestrator()
+
+        state = {
+            "messages": [{"role": "user", "content": message.text}],
+            "user_id": contact.phone,
+            "session_id": f"whatsapp_{contact.phone}",
+        }
+
+        result = await orchestrator.route_message(state)
+        # result contains routing info, messages, and retrieved data
+
+    Componentes de reemplazo:
+    - SuperOrchestrator: Multi-domain router (app/orchestration/)
+    - DependencyContainer: Crea y conecta todos los agentes (app/core/container.py)
+    - Domain Agents: ProductAgent, CreditAgent, etc. (app/domains/*/agents/)
 
     Solo se activa para contactos nuevos o sin dominio asignado.
     """

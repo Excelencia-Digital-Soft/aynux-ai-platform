@@ -1,18 +1,56 @@
 import logging
 from typing import Any, Dict, List, Optional
 
+from app.core.shared.deprecation import deprecated
 from app.database import get_db_context
+from app.integrations.vector_stores import EmbeddingUpdateService
 from app.models.db import Product, Brand
 from app.models.message import Message
 from app.services.category_vector_service import CategoryVectorService
-from app.services.embedding_update_service import EmbeddingUpdateService
 from app.services.product_service import ProductService
 
 logger = logging.getLogger(__name__)
 
 
+@deprecated(
+    reason="Legacy hybrid search service replaced by SearchProductsUseCase with Clean Architecture",
+    replacement="Use SearchProductsUseCase (app/domains/ecommerce/application/use_cases/search_products.py)",
+    removal_version="2.0.0",
+)
 class EnhancedProductService(ProductService):
-    """Enhanced product service with vector search capabilities"""
+    """
+    Enhanced product service with vector search capabilities.
+
+    DEPRECATED: Este servicio mezcla vector search, SQL filtering y business logic.
+    Ha sido reemplazado por SearchProductsUseCase que implementa Clean Architecture:
+
+    - Separación clara de responsabilidades (SRP)
+    - Dependency Injection de repositories y vector store
+    - Testeable con mocks (no requiere DB real)
+    - Estrategia dual: semantic search + database fallback
+
+    Migración recomendada:
+        # Antes (legacy)
+        service = EnhancedProductService()
+        results = await service.hybrid_search_products(
+            query="laptop gaming",
+            conversation_history=messages,
+            limit=10
+        )
+
+        # Después (Clean Architecture)
+        from app.core.container import get_container
+        from app.domains.ecommerce.application.use_cases.search_products import SearchProductsRequest
+
+        container = get_container()
+        use_case = container.create_search_products_use_case()
+        response = await use_case.execute(SearchProductsRequest(
+            query="laptop gaming",
+            limit=10,
+            use_semantic_search=True
+        ))
+        products = response.products  # List of Product entities
+    """
 
     def __init__(self):
         super().__init__()

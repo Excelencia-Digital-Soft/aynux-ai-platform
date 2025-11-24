@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.langsmith_config import trace_integration
 from app.database.async_db import get_async_db_context
 from app.models.db import Brand, Category, Product
-from app.services.pgvector_metrics_service import get_metrics_service
+from app.integrations.vector_stores.pgvector_metrics_service import get_metrics_service
 
 from .ollama_integration import OllamaIntegration
 

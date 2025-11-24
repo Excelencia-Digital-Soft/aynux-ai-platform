@@ -15,7 +15,7 @@ from app.models.whatsapp_advanced import (
     WhatsAppApiResponse,
     FlowConfiguration,
 )
-from app.services.whatsapp_flows_service import (
+from app.integrations.whatsapp import (
     WhatsAppFlowsService,
     FlowType,
     InMemoryFlowRepository,

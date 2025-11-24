@@ -14,8 +14,8 @@ from app.models.whatsapp_advanced import (
     WhatsAppApiResponse,
     CatalogConfiguration,
 )
-from app.services.whatsapp_service import WhatsAppService
-from app.services.whatsapp_catalog_service import (
+from app.integrations.whatsapp import (
+    WhatsAppService,
     WhatsAppCatalogService,
     DefaultCatalogDecisionEngine,
 )
