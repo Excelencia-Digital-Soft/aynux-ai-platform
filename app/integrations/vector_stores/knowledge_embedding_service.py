@@ -12,7 +12,7 @@ Responsibilities:
 - Maintain embedding consistency across both stores
 - Provide search interfaces for both vector stores
 
-Does NOT contain business logic validation (that's in KnowledgeService).
+Does NOT contain business logic validation (that's in Knowledge Use Cases).
 """
 
 import logging

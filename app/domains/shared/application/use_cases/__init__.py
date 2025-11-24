@@ -27,6 +27,7 @@ from app.domains.shared.application.use_cases.knowledge_use_cases import (
     GetKnowledgeStatisticsUseCase,
     GetKnowledgeUseCase,
     ListKnowledgeUseCase,
+    RegenerateKnowledgeEmbeddingsUseCase,
     SearchKnowledgeUseCase,
     UpdateKnowledgeUseCase,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "DeleteKnowledgeUseCase",
     "ListKnowledgeUseCase",
     "GetKnowledgeStatisticsUseCase",
+    "RegenerateKnowledgeEmbeddingsUseCase",
     # Admin Use Cases
     "ListDomainsUseCase",
     "EnableDomainUseCase",

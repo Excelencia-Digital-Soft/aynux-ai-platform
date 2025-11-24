@@ -751,3 +751,126 @@ class GetKnowledgeStatisticsUseCase:
         except Exception as e:
             logger.error(f"Error getting statistics: {e}")
             raise
+
+
+class RegenerateKnowledgeEmbeddingsUseCase:
+    """
+    Use Case: Regenerate embeddings for knowledge documents.
+
+    This Use Case handles regenerating vector embeddings for one or all knowledge documents.
+    Used when changing embedding models, fixing corrupted embeddings, or re-syncing after
+    manual content edits.
+
+    Follows Clean Architecture:
+    - Single Responsibility: Handles only embedding regeneration logic
+    - Dependency Injection: Repository and EmbeddingService injected
+    - Framework Independent: No framework-specific code
+    """
+
+    def __init__(
+        self,
+        db: AsyncSession,
+        repository: Optional[KnowledgeRepository] = None,
+        embedding_service: Optional[KnowledgeEmbeddingService] = None,
+    ):
+        """
+        Initialize the use case with dependencies.
+
+        Args:
+            db: Database session
+            repository: Knowledge repository (optional, created if not provided)
+            embedding_service: Embedding service (optional, created if not provided)
+        """
+        self.db = db
+        self.repository = repository or KnowledgeRepository(db)
+        self.embedding_service = embedding_service or KnowledgeEmbeddingService(
+            collection_name=settings.CHROMA_COLLECTION_NAME,
+            embedding_model=settings.OLLAMA_EMBEDDING_MODEL,
+            ollama_base_url=settings.OLLAMA_API_URL,
+        )
+
+    async def execute(
+        self,
+        knowledge_id: Optional[UUID] = None,
+        update_pgvector: bool = True,
+        update_chroma: bool = True,
+    ) -> int:
+        """
+        Regenerate embeddings for one or all knowledge documents.
+
+        Args:
+            knowledge_id: UUID of document to regenerate (None = all documents)
+            update_pgvector: Whether to update pgvector embeddings
+            update_chroma: Whether to update ChromaDB embeddings
+
+        Returns:
+            Number of documents processed
+
+        Raises:
+            ValueError: If document not found (when knowledge_id provided)
+            Exception: For other errors
+        """
+        try:
+            if knowledge_id is not None:
+                # Regenerate single document
+                logger.info(f"Regenerating embeddings for document: {knowledge_id}")
+
+                # Verify document exists
+                knowledge = await self.repository.get_by_id(knowledge_id)
+                if not knowledge:
+                    raise ValueError(f"Knowledge document {knowledge_id} not found")
+
+                # Regenerate embeddings
+                await self.embedding_service.update_knowledge_embeddings(
+                    knowledge_id=knowledge_id,
+                    title=knowledge.title,
+                    content=knowledge.content,
+                    metadata={
+                        "document_type": knowledge.document_type,
+                        "category": knowledge.category or "",
+                        "tags": knowledge.tags or [],
+                    },
+                    update_pgvector=update_pgvector,
+                    update_chroma=update_chroma,
+                )
+
+                logger.info(f"Successfully regenerated embeddings for document: {knowledge_id}")
+                return 1
+
+            else:
+                # Regenerate all documents
+                logger.info("Regenerating embeddings for ALL knowledge documents")
+
+                # Get all active documents
+                all_knowledge = await self.repository.get_all()
+                processed_count = 0
+
+                for knowledge in all_knowledge:
+                    try:
+                        await self.embedding_service.update_knowledge_embeddings(
+                            knowledge_id=knowledge.id,
+                            title=knowledge.title,
+                            content=knowledge.content,
+                            metadata={
+                                "document_type": knowledge.document_type,
+                                "category": knowledge.category or "",
+                                "tags": knowledge.tags or [],
+                            },
+                            update_pgvector=update_pgvector,
+                            update_chroma=update_chroma,
+                        )
+                        processed_count += 1
+
+                    except Exception as e:
+                        logger.error(f"Error regenerating embeddings for {knowledge.id}: {e}")
+                        # Continue with next document
+
+                logger.info(f"Successfully regenerated embeddings for {processed_count} documents")
+                return processed_count
+
+        except ValueError:
+            # Re-raise validation errors
+            raise
+        except Exception as e:
+            logger.error(f"Error regenerating embeddings: {e}")
+            raise

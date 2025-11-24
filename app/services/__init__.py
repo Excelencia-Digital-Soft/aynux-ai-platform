@@ -17,6 +17,12 @@ DEPRECATED SERVICES (removed in Phase 2 - Part 4):
 - super_orchestrator_service → Use app/orchestration/super_orchestrator.py
 - super_orchestrator_service_refactored → Use app/orchestration/super_orchestrator.py
 
+DEPRECATED SERVICES (removed in Phase 3):
+- knowledge_service → Use Knowledge Use Cases (CreateKnowledgeUseCase,
+  GetKnowledgeUseCase, UpdateKnowledgeUseCase, DeleteKnowledgeUseCase,
+  ListKnowledgeUseCase, SearchKnowledgeUseCase, GetKnowledgeStatisticsUseCase,
+  RegenerateKnowledgeEmbeddingsUseCase)
+
 MOVED SERVICES (now in integrations):
 - DuxSyncService → app/domains/ecommerce/infrastructure/services/
 - WhatsAppService → app/integrations/whatsapp/

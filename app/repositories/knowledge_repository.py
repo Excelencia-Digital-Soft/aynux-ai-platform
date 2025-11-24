@@ -11,7 +11,7 @@ Responsibilities:
 - Hybrid search (vector + text)
 - Filtering and pagination
 
-Does NOT contain business logic (that's in KnowledgeService).
+Does NOT contain business logic (that's in Knowledge Use Cases).
 """
 
 import logging

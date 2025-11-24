@@ -251,6 +251,11 @@ class DependencyContainer:
         from app.domains.shared.application.use_cases import GetKnowledgeStatisticsUseCase
         return GetKnowledgeStatisticsUseCase(db=db)
 
+    def create_regenerate_knowledge_embeddings_use_case(self, db):
+        """Create RegenerateKnowledgeEmbeddingsUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import RegenerateKnowledgeEmbeddingsUseCase
+        return RegenerateKnowledgeEmbeddingsUseCase(db=db)
+
     # Admin Use Cases
 
     def create_list_domains_use_case(self, db):
