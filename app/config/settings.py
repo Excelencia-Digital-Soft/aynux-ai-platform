@@ -119,7 +119,24 @@ class Settings(BaseSettings):
     
     # ProductAgent Configuration (always uses PostgreSQL only)
     PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")
-    
+
+    # Agent Enablement Configuration
+    ENABLED_AGENTS: list[str] = Field(
+        default=[
+            "greeting_agent",
+            "product_agent",
+            "data_insights_agent",
+            "promotions_agent",
+            "tracking_agent",
+            "support_agent",
+            "invoice_agent",
+            "excelencia_agent",
+            "fallback_agent",
+            "farewell_agent",
+        ],
+        description="List of enabled agent names (from AgentType enum). Orchestrator and Supervisor are always enabled.",
+    )
+
     # LangSmith Configuration
     LANGSMITH_TRACING: bool = Field(True, description="Enable LangSmith tracing")
     LANGSMITH_ENDPOINT: str = Field("https://api.smith.langchain.com", description="LangSmith API endpoint")
@@ -142,6 +159,14 @@ class Settings(BaseSettings):
     def parse_allowed_extensions(cls, value):
         if isinstance(value, str):
             return [ext.strip() for ext in value.split(",")]
+        return value
+
+    @field_validator("ENABLED_AGENTS", mode="before")
+    @classmethod
+    def parse_enabled_agents(cls, value):
+        """Parse ENABLED_AGENTS from .env file (comma-separated string) or list"""
+        if isinstance(value, str):
+            return [agent.strip() for agent in value.split(",") if agent.strip()]
         return value
 
     @field_validator("PRODUCT_AGENT_DATA_SOURCE")

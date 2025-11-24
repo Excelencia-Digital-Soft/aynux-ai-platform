@@ -14,24 +14,35 @@ logger = logging.getLogger(__name__)
 
 class GraphRouter:
     """Handles routing decisions and flow control in the graph"""
-    
-    def __init__(self):
+
+    def __init__(self, enabled_agents: list[str] = None):
+        """
+        Initialize router with enabled agents configuration.
+
+        Args:
+            enabled_agents: List of enabled agent names (excluding orchestrator/supervisor)
+        """
         self.max_errors = 3
         self.max_routing_attempts = 3
         self.max_supervisor_retries = 3
+        self.enabled_agents = enabled_agents or []
+        logger.info(f"GraphRouter initialized with {len(self.enabled_agents)} enabled agents")
         
     @trace_sync_method(
-        name="route_to_agent", 
-        run_type="chain", 
+        name="route_to_agent",
+        run_type="chain",
         metadata={"operation": "agent_selection", "component": "router"}
     )
     def route_to_agent(self, state: LangGraphState) -> str:
         """
         Determine which agent to route to based on orchestrator analysis.
-        
+
+        Validates that the target agent is both valid and enabled. If the agent
+        is disabled, routes to fallback_agent instead.
+
         Args:
             state: Current graph state
-            
+
         Returns:
             Name of next node or "__end__"
         """
@@ -39,21 +50,30 @@ class GraphRouter:
         if state.get("is_complete") or state.get("human_handoff_requested"):
             logger.info("[ROUTING] Ending due to completion or human handoff")
             return "__end__"
-        
+
         # Get next agent from state
         next_agent = state.get("next_agent")
-        
+
         if not next_agent:
             logger.warning("[ROUTING] No next_agent in state, routing to fallback")
             return AgentType.FALLBACK_AGENT.value
-        
-        # Validate agent exists
+
+        # Validate agent exists in enum
         valid_agents = get_agent_routing_literal()
         if next_agent not in valid_agents:
             logger.warning(f"[ROUTING] Invalid agent '{next_agent}', routing to fallback")
             return AgentType.FALLBACK_AGENT.value
-        
-        logger.info(f"[ROUTING] Routing to agent: {next_agent}")
+
+        # Check if agent is enabled (orchestrator and supervisor always pass)
+        if next_agent not in [AgentType.ORCHESTRATOR.value, AgentType.SUPERVISOR.value]:
+            if next_agent not in self.enabled_agents:
+                logger.warning(
+                    f"[ROUTING] Agent '{next_agent}' is disabled, routing to fallback. "
+                    f"Enabled agents: {self.enabled_agents}"
+                )
+                return AgentType.FALLBACK_AGENT.value
+
+        logger.info(f"[ROUTING] Routing to enabled agent: {next_agent}")
         return next_agent
     
     @trace_sync_method(

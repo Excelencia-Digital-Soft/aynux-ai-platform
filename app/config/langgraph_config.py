@@ -49,13 +49,35 @@ class LangGraphConfig(BaseModel):
     use_checkpointing: bool = Field(default=True)
     max_conversation_length: int = Field(default=50)
 
+    # Agent enablement configuration
+    enabled_agents: list[str] = Field(
+        default_factory=lambda: [
+            "greeting_agent",
+            "product_agent",
+            "data_insights_agent",
+            "promotions_agent",
+            "tracking_agent",
+            "support_agent",
+            "invoice_agent",
+            "excelencia_agent",
+            "fallback_agent",
+            "farewell_agent",
+        ],
+        description="List of enabled agent names. Orchestrator and Supervisor always enabled.",
+    )
+
     @classmethod
     def from_env(cls) -> "LangGraphConfig":
         """Crea configuración desde variables de entorno"""
+        from .settings import get_settings
+
+        settings = get_settings()
+
         return cls(
             environment=os.getenv("ENVIRONMENT", "development"),
             debug_mode=os.getenv("DEBUG", "false").lower() == "true",
             use_checkpointing=os.getenv("USE_CHECKPOINTING", "true").lower() == "true",
+            enabled_agents=settings.ENABLED_AGENTS,  # Load from Settings
             integrations=IntegrationConfig(
                 ollama_url=os.getenv("OLLAMA_API_URL", "http://localhost:11434"),
                 ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1:8b"),
