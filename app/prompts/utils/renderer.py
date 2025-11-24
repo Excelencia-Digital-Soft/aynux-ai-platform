@@ -4,7 +4,6 @@ PromptRenderer - Renderizador de templates de prompts con soporte para variables
 
 import logging
 import re
-from string import Template
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)

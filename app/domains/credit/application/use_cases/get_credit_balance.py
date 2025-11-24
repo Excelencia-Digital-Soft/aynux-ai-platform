@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from app.core.interfaces.repository import IRepository
 

@@ -4,10 +4,9 @@ Agent Configuration Use Cases
 Use cases for managing agent configuration (Excelencia agent modules).
 """
 
-import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -280,7 +279,7 @@ class UpdateAgentModulesUseCase:
                 except Exception as restore_error:
                     logger.error(f"Failed to restore from backup: {restore_error}")
 
-            raise ValueError(f"Failed to update agent modules: {str(e)}")
+            raise ValueError(f"Failed to update agent modules: {str(e)}") from e
 
 
 class UpdateAgentSettingsUseCase:
@@ -338,4 +337,4 @@ class UpdateAgentSettingsUseCase:
             raise
         except Exception as e:
             logger.error(f"Error updating agent settings: {e}")
-            raise ValueError(f"Failed to update settings: {str(e)}")
+            raise ValueError(f"Failed to update settings: {str(e)}") from e

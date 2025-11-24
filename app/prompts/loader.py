@@ -3,13 +3,11 @@ PromptLoader - Cargador de prompts desde archivos YAML y base de datos.
 """
 
 import logging
-import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import yaml
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.async_db import get_async_db_context
 from app.models.db.prompts import Prompt
@@ -206,7 +204,7 @@ class PromptLoader:
         try:
             async with get_async_db_context() as db:
                 # Buscar prompt activo
-                stmt = select(Prompt).where(Prompt.key == key, Prompt.is_active == True)
+                stmt = select(Prompt).where(Prompt.key == key, Prompt.is_active)
                 result = await db.execute(stmt)
                 prompt = result.scalar_one_or_none()
 
@@ -269,7 +267,7 @@ class PromptLoader:
             # Consultar BD
             try:
                 async with get_async_db_context() as db:
-                    stmt = select(Prompt.key).where(Prompt.is_active == True)
+                    stmt = select(Prompt.key).where(Prompt.is_active)
                     result = await db.execute(stmt)
                     db_keys = [row[0] for row in result.fetchall()]
                     available.extend(db_keys)

@@ -8,7 +8,7 @@ Follows SRP: Single responsibility for PDF text extraction.
 import io
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 try:
     from pypdf import PdfReader
@@ -100,7 +100,7 @@ class PDFExtractor:
 
         except Exception as e:
             logger.error(f"Error extracting text from PDF: {e}")
-            raise ValueError(f"Could not extract text from PDF: {str(e)}")
+            raise ValueError(f"Could not extract text from PDF: {str(e)}") from e
 
     def extract_text_from_file(self, file_path: str, extract_metadata: bool = True) -> Dict[str, any]:
         """
@@ -131,7 +131,7 @@ class PDFExtractor:
             raise
         except Exception as e:
             logger.error(f"Error reading PDF file {file_path}: {e}")
-            raise ValueError(f"Could not read PDF file: {str(e)}")
+            raise ValueError(f"Could not read PDF file: {str(e)}") from e
 
     def validate_pdf(self, pdf_bytes: bytes) -> bool:
         """
@@ -188,4 +188,4 @@ class PDFExtractor:
             raise
         except Exception as e:
             logger.error(f"Error extracting page range: {e}")
-            raise ValueError(f"Could not extract pages: {str(e)}")
+            raise ValueError(f"Could not extract pages: {str(e)}") from e

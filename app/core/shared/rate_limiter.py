@@ -230,7 +230,8 @@ async def retry_with_rate_limit(
                 wait_time = backoff_factor**attempt
                 if logger:
                     logger.info(
-                        f"Possible rate limit error, retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries + 1})"
+                        f"Possible rate limit error, retrying in {wait_time:.1f}s "
+                        f"(attempt {attempt + 1}/{max_retries + 1})"
                     )
                 await asyncio.sleep(wait_time)
                 continue

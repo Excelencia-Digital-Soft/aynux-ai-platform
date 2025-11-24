@@ -16,7 +16,6 @@ from app.core.shared.utils.data_extraction import (
     UserDataContext,
     create_extraction_service_from_config,
 )
-from app.integrations.vector_stores import create_vector_ingestion_service
 from app.integrations.vector_stores.vector_store_ingestion_service import (
     VectorStoreDocument,
     VectorStoreIngestionService,

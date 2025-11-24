@@ -42,13 +42,6 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.async_db import get_async_db
-from app.domains.shared.application.use_cases import (
-    AssignContactDomainUseCase,
-    DisableDomainUseCase,
-    EnableDomainUseCase,
-    GetContactDomainUseCase,
-    ListDomainsUseCase,
-)
 
 router = APIRouter(prefix="/api/v1/admin/domains", tags=["domain-admin"])
 logger = logging.getLogger(__name__)

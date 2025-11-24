@@ -11,7 +11,7 @@ ENABLED_AGENTS en .env y reiniciar el servicio. No se soporta hot-reload de agen
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -78,7 +78,7 @@ async def get_chatbot_service() -> LangGraphChatbotService:
 
 
 @router.get("/status", response_model=AgentStatusResponse)
-async def get_agent_status(service: LangGraphChatbotService = Depends(get_chatbot_service)):
+async def get_agent_status(service: LangGraphChatbotService = Depends(get_chatbot_service)):  # noqa: B008
     """
     Get complete agent status information.
 
@@ -101,11 +101,11 @@ async def get_agent_status(service: LangGraphChatbotService = Depends(get_chatbo
 
     except Exception as e:
         logger.error(f"Error getting agent status: {e}")
-        raise HTTPException(status_code=500, detail=f"Error getting agent status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting agent status: {str(e)}") from e
 
 
 @router.get("/enabled", response_model=AgentListResponse)
-async def get_enabled_agents(service: LangGraphChatbotService = Depends(get_chatbot_service)):
+async def get_enabled_agents(service: LangGraphChatbotService = Depends(get_chatbot_service)):  # noqa: B008
     """
     Get list of all enabled agents.
 
@@ -122,11 +122,11 @@ async def get_enabled_agents(service: LangGraphChatbotService = Depends(get_chat
 
     except Exception as e:
         logger.error(f"Error getting enabled agents: {e}")
-        raise HTTPException(status_code=500, detail=f"Error getting enabled agents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting enabled agents: {str(e)}") from e
 
 
 @router.get("/disabled", response_model=AgentListResponse)
-async def get_disabled_agents(service: LangGraphChatbotService = Depends(get_chatbot_service)):
+async def get_disabled_agents(service: LangGraphChatbotService = Depends(get_chatbot_service)):  # noqa: B008
     """
     Get list of all disabled agents.
 
@@ -143,11 +143,11 @@ async def get_disabled_agents(service: LangGraphChatbotService = Depends(get_cha
 
     except Exception as e:
         logger.error(f"Error getting disabled agents: {e}")
-        raise HTTPException(status_code=500, detail=f"Error getting disabled agents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting disabled agents: {str(e)}") from e
 
 
 @router.get("/config", response_model=SystemConfigResponse)
-async def get_agent_config(service: LangGraphChatbotService = Depends(get_chatbot_service)):
+async def get_agent_config(service: LangGraphChatbotService = Depends(get_chatbot_service)):  # noqa: B008
     """
     Get current agent configuration.
 
@@ -164,11 +164,11 @@ async def get_agent_config(service: LangGraphChatbotService = Depends(get_chatbo
 
     except Exception as e:
         logger.error(f"Error getting agent config: {e}")
-        raise HTTPException(status_code=500, detail=f"Error getting agent config: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting agent config: {str(e)}") from e
 
 
 @router.get("/check/{agent_name}")
-async def check_agent_enabled(agent_name: str, service: LangGraphChatbotService = Depends(get_chatbot_service)):
+async def check_agent_enabled(agent_name: str, service: LangGraphChatbotService = Depends(get_chatbot_service)):  # noqa: B008
     """
     Check if a specific agent is enabled.
 
@@ -188,4 +188,4 @@ async def check_agent_enabled(agent_name: str, service: LangGraphChatbotService 
 
     except Exception as e:
         logger.error(f"Error checking agent {agent_name}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error checking agent: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error checking agent: {str(e)}") from e

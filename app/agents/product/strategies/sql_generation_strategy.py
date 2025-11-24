@@ -216,15 +216,6 @@ class SQLGenerationSearchStrategy(BaseSearchStrategy):
                 self.logger.warning("Ollama integration not available")
                 return False
 
-            # Test simple SQL generation (without execution)
-            test_intent = {
-                "intent_type": "search_general",
-                "search_params": {"keywords": ["test"]},
-                "filters": {},
-                "query_complexity": "simple",
-                "sql_generation_needed": False,
-            }
-
             # Quick validation - just check if generator is initialized
             if not self.sql_generator:
                 return False

@@ -117,7 +117,7 @@ async def process_chat_message(request: ChatMessageRequest) -> ChatMessageRespon
 @router.post("/v2/message", response_model=ChatMessageResponse, responses={503: {"model": ChatErrorResponse}})
 async def process_chat_message_v2(
     request: ChatMessageRequest,
-    orchestrator: SuperOrchestrator = Depends(get_super_orchestrator),
+    orchestrator: SuperOrchestrator = Depends(get_super_orchestrator),  # noqa: B008
 ) -> ChatMessageResponse:
     """
     Procesa un mensaje de chat usando Clean Architecture + DDD.
@@ -144,7 +144,8 @@ async def process_chat_message_v2(
         session_id = request.session_id or f"chat_{request.user_id}"
 
         logger.info(
-            f"[V2] Processing chat message from user {request.user_id} in session {session_id}: {request.message[:50]}..."
+            f"[V2] Processing chat message from user {request.user_id} "
+            f"in session {session_id}: {request.message[:50]}..."
         )
 
         # Crear state para SuperOrchestrator
@@ -375,7 +376,7 @@ async def chat_health_check():
 
 
 @router.get("/v2/health")
-async def chat_health_check_v2(orchestrator: SuperOrchestrator = Depends(get_super_orchestrator)):
+async def chat_health_check_v2(orchestrator: SuperOrchestrator = Depends(get_super_orchestrator)):  # noqa: B008
     """
     Verifica el estado del servicio de chat con Clean Architecture.
 

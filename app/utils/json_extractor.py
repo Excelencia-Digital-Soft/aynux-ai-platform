@@ -119,7 +119,7 @@ def extract_json_from_text(
                         elif value.startswith("["):
                             try:
                                 extracted_data[key] = json.loads(value)
-                            except:
+                            except Exception:
                                 extracted_data[key] = []
                         else:
                             # Try to convert to number if possible
@@ -128,7 +128,7 @@ def extract_json_from_text(
                                     extracted_data[key] = float(value)
                                 else:
                                     extracted_data[key] = int(value)
-                            except:
+                            except Exception:
                                 extracted_data[key] = value
                         break
 

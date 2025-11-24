@@ -100,11 +100,15 @@ class DuxRagSyncService:
                 rate_limit_errors = [error for error in db_result.errors if "RATE_LIMIT" in str(error)]
                 if rate_limit_errors:
                     self.logger.warning(
-                        f"PostgreSQL sync hit rate limits ({len(rate_limit_errors)} errors), skipping RAG update. Consider increasing DUX_API_RATE_LIMIT_SECONDS or reducing sync frequency."
+                        f"PostgreSQL sync hit rate limits ({len(rate_limit_errors)} errors), "
+                        f"skipping RAG update. Consider increasing DUX_API_RATE_LIMIT_SECONDS "
+                        f"or reducing sync frequency."
                     )
                 else:
                     self.logger.error(
-                        f"PostgreSQL sync failed with {db_result.total_errors} errors, skipping RAG update. First error: {db_result.errors[0] if db_result.errors else 'Unknown'}"
+                        f"PostgreSQL sync failed with {db_result.total_errors} errors, "
+                        f"skipping RAG update. First error: "
+                        f"{db_result.errors[0] if db_result.errors else 'Unknown'}"
                     )
 
                 rag_result.mark_completed()
@@ -192,7 +196,8 @@ class DuxRagSyncService:
                 # Probar conexión con manejo mejorado de rate limits
                 if not await client.test_connection():
                     rag_result.add_error(
-                        "Failed to connect to DUX Facturas API - likely due to rate limiting or network issues. Check logs for details."
+                        "Failed to connect to DUX Facturas API - likely due to rate limiting "
+                        "or network issues. Check logs for details."
                     )
                     rag_result.mark_completed()
                     return rag_result

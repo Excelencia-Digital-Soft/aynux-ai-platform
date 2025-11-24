@@ -134,7 +134,10 @@ class Settings(BaseSettings):
             "fallback_agent",
             "farewell_agent",
         ],
-        description="List of enabled agent names (from AgentType enum). Orchestrator and Supervisor are always enabled.",
+        description=(
+            "List of enabled agent names (from AgentType enum). "
+            "Orchestrator and Supervisor are always enabled."
+        ),
     )
 
     # LangSmith Configuration

@@ -12,9 +12,7 @@ Following Pydantic best practices:
 - Provide example values for OpenAPI docs
 """
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 

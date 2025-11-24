@@ -91,12 +91,12 @@ class BatchUploadResponse(BaseModel):
     description="Upload a PDF file and extract text to knowledge base",
 )
 async def upload_pdf(
-    file: UploadFile = File(..., description="PDF file to upload"),
-    title: Optional[str] = Form(None, description="Document title (optional)"),
-    document_type: str = Form("general", description="Document type"),
-    category: Optional[str] = Form(None, description="Category"),
-    tags: Optional[str] = Form(None, description="Comma-separated tags"),
-    db: AsyncSession = Depends(get_async_db),
+    file: UploadFile = File(..., description="PDF file to upload"),  # noqa: B008
+    title: Optional[str] = Form(None, description="Document title (optional)"),  # noqa: B008
+    document_type: str = Form("general", description="Document type"),  # noqa: B008
+    category: Optional[str] = Form(None, description="Category"),  # noqa: B008
+    tags: Optional[str] = Form(None, description="Comma-separated tags"),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Upload a PDF document to the knowledge base.
@@ -167,13 +167,13 @@ async def upload_pdf(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Error uploading PDF: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload PDF: {str(e)}",
-        )
+        ) from e
 
 
 @router.post(
@@ -185,7 +185,7 @@ async def upload_pdf(
 )
 async def upload_text(
     request: TextUploadRequest,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Upload text content to the knowledge base.
@@ -236,13 +236,13 @@ async def upload_text(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Error uploading text: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload text: {str(e)}",
-        )
+        ) from e
 
 
 @router.post(
@@ -252,10 +252,10 @@ async def upload_text(
     description="Upload multiple documents (PDFs or text) in a single request",
 )
 async def batch_upload_documents(
-    files: List[UploadFile] = File(..., description="List of files to upload"),
-    document_type: str = Form("general", description="Document type for all files"),
-    category: Optional[str] = Form(None, description="Category for all files"),
-    db: AsyncSession = Depends(get_async_db),
+    files: List[UploadFile] = File(..., description="List of files to upload"),  # noqa: B008
+    document_type: str = Form("general", description="Document type for all files"),  # noqa: B008
+    category: Optional[str] = Form(None, description="Category for all files"),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Upload multiple documents in batch.
@@ -309,7 +309,7 @@ async def batch_upload_documents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to batch upload documents: {str(e)}",
-        )
+        ) from e
 
 
 @router.get(

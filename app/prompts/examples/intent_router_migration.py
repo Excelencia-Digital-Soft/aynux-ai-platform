@@ -67,7 +67,7 @@ class IntentRouterRefactored:
             user_prompt = await self.prompt_manager.get_prompt(PromptRegistry.INTENT_ANALYZER_USER, variables=variables)
 
             # 4. Llamar a Ollama (sin cambios)
-            response_text = await self.ollama.generate_response(
+            await self.ollama.generate_response(
                 system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.5
             )
 
@@ -114,11 +114,6 @@ async def compare_approaches():
     print("=" * 70)
 
     # Setup
-    message = "Quiero comprar una laptop gamer"
-    state_dict = {
-        "customer_data": {"name": "Juan", "tier": "VIP"},
-        "conversation_data": {"channel": "whatsapp", "language": "es"},
-    }
 
     print("\n📋 ANTES - Prompt Hardcodeado:")
     print("-" * 70)

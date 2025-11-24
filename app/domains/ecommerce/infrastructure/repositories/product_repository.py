@@ -8,7 +8,7 @@ Implements ISearchableRepository interface for dependency inversion.
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.interfaces.repository import ISearchableRepository

@@ -18,10 +18,10 @@ import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, delete, func, or_, select, text, update
+from sqlalchemy import and_, delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.db.knowledge_base import DOCUMENT_TYPES, CompanyKnowledge
+from app.models.db.knowledge_base import CompanyKnowledge
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ class KnowledgeRepository:
             # Build filters
             filters = []
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
             if category:
@@ -242,7 +242,7 @@ class KnowledgeRepository:
             filters = [CompanyKnowledge.embedding.isnot(None)]
 
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
             if category:
@@ -323,7 +323,7 @@ class KnowledgeRepository:
             filters = [CompanyKnowledge.search_vector.op("@@")(func.plainto_tsquery("spanish", query_text))]
 
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
 
@@ -409,7 +409,7 @@ class KnowledgeRepository:
             ]
 
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
 
@@ -473,7 +473,7 @@ class KnowledgeRepository:
 
             filters = []
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
 
@@ -500,7 +500,7 @@ class KnowledgeRepository:
             stmt = select(CompanyKnowledge).where(CompanyKnowledge.embedding.is_(None))
 
             if active_only:
-                stmt = stmt.where(CompanyKnowledge.active == True)
+                stmt = stmt.where(CompanyKnowledge.active)
 
             result = await self.db.execute(stmt)
             return list(result.scalars().all())

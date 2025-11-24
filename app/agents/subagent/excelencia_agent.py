@@ -340,7 +340,8 @@ Principales módulos:
 
 ## INSTRUCCIONES:
 1. Responde de manera amigable y profesional
-2. **IMPORTANTE**: Si hay información en la Knowledge Base (sección "INFORMACIÓN CORPORATIVA RELEVANTE"), úsala como fuente principal y prioritaria
+2. **IMPORTANTE**: Si hay información en la Knowledge Base (sección "INFORMACIÓN CORPORATIVA RELEVANTE"),
+   úsala como fuente principal y prioritaria
 3. Si pregunta sobre demos: Menciona que pueden solicitar una demo personalizada
 4. Si pregunta sobre capacitación: Indica que ofrecen capacitación completa y soporte
 5. Si pregunta sobre un módulo específico: Detalla sus características principales

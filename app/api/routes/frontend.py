@@ -5,7 +5,7 @@ Rutas para servir la interfaz web de testing del chatbot
 from pathlib import Path
 
 from fastapi import APIRouter
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 
 router = APIRouter(tags=["frontend"])
 

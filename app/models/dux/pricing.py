@@ -36,7 +36,7 @@ class DuxPrecio(BaseModel):
             return "0.0"
         try:
             return str(Decimal(v))
-        except:
+        except Exception:
             return "0.0"
 
 
@@ -73,5 +73,5 @@ class DuxStock(BaseModel):
             return None
         try:
             return str(Decimal(v))
-        except:
+        except Exception:
             return "0.0"

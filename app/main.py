@@ -139,7 +139,6 @@ def create_app() -> FastAPI:
 
             # Iniciar sincronización programada DUX si está habilitada
             if settings.DUX_SYNC_ENABLED and settings.DUX_API_KEY:
-                from app.domains.ecommerce.infrastructure.services import ScheduledSyncService
                 from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import (
                     get_scheduled_sync_service,
                 )

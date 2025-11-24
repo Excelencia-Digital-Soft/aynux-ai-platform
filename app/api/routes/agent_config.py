@@ -110,7 +110,7 @@ async def get_excelencia_config():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get agent configuration: {str(e)}",
-        )
+        ) from e
 
 
 @router.put(
@@ -172,13 +172,13 @@ async def update_excelencia_modules(request: UpdateModulesRequest):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Error updating agent modules: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update agent modules: {str(e)}",
-        )
+        ) from e
 
 
 @router.patch(
@@ -230,13 +230,13 @@ async def update_excelencia_settings(request: AgentSettingsUpdate):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Error updating agent settings: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update agent settings: {str(e)}",
-        )
+        ) from e
 
 
 @router.get(
@@ -264,7 +264,7 @@ async def get_excelencia_modules():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get modules: {str(e)}",
-        )
+        ) from e
 
 
 @router.get(
@@ -291,4 +291,4 @@ async def get_excelencia_settings():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get settings: {str(e)}",
-        )
+        ) from e

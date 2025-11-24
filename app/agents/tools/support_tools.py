@@ -43,7 +43,10 @@ FAQ_DB = [
         "id": "faq_001",
         "category": "envios",
         "question": "¿Cuánto tiempo tarda el envío?",
-        "answer": "Los envíos estándar tardan 5-7 días hábiles. El envío express tarda 2-3 días y el overnight 1 día hábil.",
+        "answer": (
+            "Los envíos estándar tardan 5-7 días hábiles. "
+            "El envío express tarda 2-3 días y el overnight 1 día hábil."
+        ),
         "keywords": ["envío", "tiempo", "entrega", "días", "estándar", "express"],
         "popularity": 95,
     },
@@ -51,7 +54,10 @@ FAQ_DB = [
         "id": "faq_002",
         "category": "devoluciones",
         "question": "¿Cómo puedo devolver un producto?",
-        "answer": "Tienes 30 días para devolver productos. Contacta soporte para generar una etiqueta de devolución gratuita.",
+        "answer": (
+            "Tienes 30 días para devolver productos. "
+            "Contacta soporte para generar una etiqueta de devolución gratuita."
+        ),
         "keywords": ["devolver", "devolución", "retorno", "30 días", "etiqueta"],
         "popularity": 88,
     },
@@ -59,7 +65,10 @@ FAQ_DB = [
         "id": "faq_003",
         "category": "pagos",
         "question": "¿Qué métodos de pago aceptan?",
-        "answer": "Aceptamos tarjetas de crédito/débito, PayPal y transferencia bancaria. Puedes pagar en cuotas con tarjeta de crédito.",
+        "answer": (
+            "Aceptamos tarjetas de crédito/débito, PayPal y transferencia bancaria. "
+            "Puedes pagar en cuotas con tarjeta de crédito."
+        ),
         "keywords": ["pago", "tarjeta", "crédito", "débito", "paypal", "transferencia", "cuotas"],
         "popularity": 82,
     },
@@ -75,7 +84,10 @@ FAQ_DB = [
         "id": "faq_005",
         "category": "cuenta",
         "question": "¿Cómo cambio mi contraseña?",
-        "answer": "Ve a 'Mi Cuenta' > 'Configuración' > 'Cambiar Contraseña'. También puedes usar 'Olvidé mi contraseña'.",
+        "answer": (
+            "Ve a 'Mi Cuenta' > 'Configuración' > 'Cambiar Contraseña'. "
+            "También puedes usar 'Olvidé mi contraseña'."
+        ),
         "keywords": ["contraseña", "cambiar", "olvidé", "cuenta", "configuración"],
         "popularity": 71,
     },
@@ -83,7 +95,10 @@ FAQ_DB = [
         "id": "faq_006",
         "category": "stock",
         "question": "¿Cuándo estará disponible un producto agotado?",
-        "answer": "Recibimos stock nuevo semanalmente. Puedes suscribirte a notificaciones para ser informado cuando llegue.",
+        "answer": (
+            "Recibimos stock nuevo semanalmente. "
+            "Puedes suscribirte a notificaciones para ser informado cuando llegue."
+        ),
         "keywords": ["stock", "agotado", "disponible", "semanal", "notificaciones"],
         "popularity": 68,
     },
@@ -91,7 +106,10 @@ FAQ_DB = [
         "id": "faq_007",
         "category": "envios",
         "question": "¿Hacen envíos internacionales?",
-        "answer": "Sí, enviamos a varios países. Los costos y tiempos varían por destino. Consulta al momento de la compra.",
+        "answer": (
+            "Sí, enviamos a varios países. Los costos y tiempos varían por destino. "
+            "Consulta al momento de la compra."
+        ),
         "keywords": ["internacional", "países", "costos", "destino", "compra"],
         "popularity": 65,
     },
@@ -99,7 +117,10 @@ FAQ_DB = [
         "id": "faq_008",
         "category": "promociones",
         "question": "¿Cómo uso un código de descuento?",
-        "answer": "Ingresa el código en 'Código de descuento' durante el checkout. El descuento se aplicará automáticamente.",
+        "answer": (
+            "Ingresa el código en 'Código de descuento' durante el checkout. "
+            "El descuento se aplicará automáticamente."
+        ),
         "keywords": ["código", "descuento", "checkout", "aplicar", "automático"],
         "popularity": 63,
     },

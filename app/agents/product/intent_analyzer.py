@@ -46,7 +46,8 @@ class IntentAnalyzer:
 You are analyzing a user's product inquiry for an e-commerce system. Extract the user's intent and respond with JSON:
 
 {{
-  "intent": "show_general_catalog|search_specific_products|search_by_category|search_by_brand|search_by_price|get_product_details",
+  "intent": "show_general_catalog|search_specific_products|search_by_category|"
+            "search_by_brand|search_by_price|get_product_details",
   "search_terms": ["specific", "product", "terms"],
   "category": "category_name_or_null",
   "brand": "brand_name_or_null",
@@ -62,8 +63,10 @@ You are analyzing a user's product inquiry for an e-commerce system. Extract the
 }}
 
 INTENT ANALYSIS:
-- show_general_catalog: User asks what products are available, general catalog inquiry ("what products do you have", "show me your products")
-- search_specific_products: User wants specific products ("show me laptops", "I need a phone")
+- show_general_catalog: User asks what products are available, general catalog inquiry
+                        ("what products do you have", "show me your products")
+- search_specific_products: User wants specific products
+                             ("show me laptops", "I need a phone")
 - search_by_category: User mentions a specific category
 - search_by_brand: User mentions a specific brand
 - search_by_price: User mentions price range

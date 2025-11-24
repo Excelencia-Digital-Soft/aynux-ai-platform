@@ -2,7 +2,6 @@
 State Inspector - Displays detailed state information for debugging and analysis
 """
 
-import json
 from typing import Any, Dict
 
 import streamlit as st

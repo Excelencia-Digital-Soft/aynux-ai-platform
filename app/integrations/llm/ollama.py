@@ -6,7 +6,7 @@ Implements standard interfaces for maximum flexibility and testability.
 """
 
 import logging
-from typing import AsyncGenerator, AsyncIterator, Dict, List, Optional
+from typing import AsyncIterator, Dict, List, Optional
 
 import httpx
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -140,10 +140,10 @@ class OllamaLLM(ILLM, IChatLLM):
 
         except httpx.ConnectError as e:
             logger.error(f"Connection error to Ollama: {e}")
-            raise LLMConnectionError(f"Could not connect to Ollama at {self._base_url}")
+            raise LLMConnectionError(f"Could not connect to Ollama at {self._base_url}") from e
         except Exception as e:
             logger.error(f"Error generating text: {e}")
-            raise LLMGenerationError(f"Failed to generate text: {e}")
+            raise LLMGenerationError(f"Failed to generate text: {e}") from e
 
     async def generate_chat(
         self, messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 500, **kwargs
@@ -199,7 +199,7 @@ class OllamaLLM(ILLM, IChatLLM):
 
         except Exception as e:
             logger.error(f"Error in chat generation: {e}")
-            raise LLMGenerationError(f"Failed to generate chat response: {e}")
+            raise LLMGenerationError(f"Failed to generate chat response: {e}") from e
 
     async def generate_stream(  # type: ignore[override]
         self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs
@@ -243,7 +243,7 @@ class OllamaLLM(ILLM, IChatLLM):
 
         except Exception as e:
             logger.error(f"Error in streaming generation: {e}")
-            raise LLMGenerationError(f"Failed to stream text: {e}")
+            raise LLMGenerationError(f"Failed to stream text: {e}") from e
 
     # IChatLLM implementation
     async def chat(self, message: str, conversation_id: str, system_prompt: Optional[str] = None, **kwargs) -> str:
@@ -363,7 +363,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
 
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")
-            raise LLMError(f"Failed to generate embedding: {e}")
+            raise LLMError(f"Failed to generate embedding: {e}") from e
 
     async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
@@ -385,7 +385,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
 
         except Exception as e:
             logger.error(f"Error in batch embedding: {e}")
-            raise LLMError(f"Failed to generate batch embeddings: {e}")
+            raise LLMError(f"Failed to generate batch embeddings: {e}") from e
 
 
 # Factory function for convenience

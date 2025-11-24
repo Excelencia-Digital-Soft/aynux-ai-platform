@@ -6,7 +6,6 @@ Use cases for uploading documents (PDF/text) to the knowledge base.
 
 import logging
 from typing import Any, Dict, Optional
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -151,7 +150,7 @@ class UploadPDFUseCase:
             raise
         except Exception as e:
             logger.error(f"Error uploading PDF: {e}")
-            raise ValueError(f"Failed to upload PDF: {str(e)}")
+            raise ValueError(f"Failed to upload PDF: {str(e)}") from e
 
 
 class UploadTextUseCase:
@@ -256,7 +255,7 @@ class UploadTextUseCase:
             raise
         except Exception as e:
             logger.error(f"Error uploading text: {e}")
-            raise ValueError(f"Failed to upload text: {str(e)}")
+            raise ValueError(f"Failed to upload text: {str(e)}") from e
 
 
 class BatchUploadDocumentsUseCase:

@@ -6,9 +6,8 @@ Define contratos para almacenamiento en caché (Redis, Memcached, in-memory, etc
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from datetime import timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Protocol, Set, runtime_checkable
+from typing import Any, Callable, Dict, List, Optional, Protocol, runtime_checkable
 
 
 class CacheBackend(str, Enum):
@@ -360,7 +359,7 @@ class IMultiLayerCache(Protocol):
     """
 
     @abstractmethod
-    async def get_with_fallback(self, key: str, layers: List[str] = ["memory", "redis"]) -> Optional[Any]:
+    async def get_with_fallback(self, key: str, layers: List[str] = None) -> Optional[Any]:
         """
         Obtiene valor probando múltiples capas.
 

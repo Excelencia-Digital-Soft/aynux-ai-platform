@@ -5,7 +5,6 @@ Clean architecture agent that delegates to use cases.
 Follows SOLID principles and implements IAgent interface.
 """
 
-import json
 import logging
 from typing import Any, Dict, Optional
 

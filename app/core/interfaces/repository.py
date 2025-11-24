@@ -6,7 +6,7 @@ del sistema, siguiendo el patrón Repository y Dependency Inversion Principle.
 """
 
 from abc import abstractmethod
-from typing import Any, Generic, List, Optional, Protocol, TypeVar, runtime_checkable
+from typing import Generic, List, Optional, Protocol, TypeVar, runtime_checkable
 
 T = TypeVar("T")  # Entity type
 ID = TypeVar("ID")  # ID type (int, str, UUID, etc.)

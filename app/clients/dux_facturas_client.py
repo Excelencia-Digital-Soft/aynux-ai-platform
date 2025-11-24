@@ -225,7 +225,7 @@ class DuxFacturasClient:
                 else:
                     # Si no es rate limit o ya no hay más reintentos, lanzar la excepción
                     raise
-            except Exception as e:
+            except Exception:
                 # Para otros errores, no reintentar
                 raise
 

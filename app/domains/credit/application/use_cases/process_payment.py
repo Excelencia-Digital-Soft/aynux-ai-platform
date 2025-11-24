@@ -94,7 +94,7 @@ class ProcessPaymentUseCase:
 
             # 4. Create payment record
             payment_id = str(uuid.uuid4())
-            payment_data = {
+            {
                 "payment_id": payment_id,
                 "account_id": request.account_id,
                 "amount": request.amount,

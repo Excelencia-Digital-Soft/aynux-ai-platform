@@ -266,7 +266,6 @@ IMPORTANTE:
             response = await llm.ainvoke(prompt)
 
             # Parse response
-            import json
 
             from app.utils import extract_json_from_text
 

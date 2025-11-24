@@ -2,7 +2,7 @@
 Reasoning Display - Shows the internal reasoning and analysis of agents
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import streamlit as st
 

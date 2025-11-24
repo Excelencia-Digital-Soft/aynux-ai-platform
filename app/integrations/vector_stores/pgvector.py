@@ -7,11 +7,8 @@ Implements the IVectorStore interface for maximum flexibility and testability.
 
 import logging
 import time
-from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_
-from sqlalchemy import delete as sql_delete
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,13 +18,12 @@ from app.core.interfaces.vector_store import (
     IVectorStore,
     IVectorStoreMetrics,
     VectorSearchResult,
-    VectorStoreConnectionError,
     VectorStoreError,
     VectorStoreQueryError,
     VectorStoreType,
 )
 from app.database.async_db import get_async_db_context
-from app.models.db import Brand, Category, Product
+from app.models.db import Product
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +146,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
                 )
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")
-            raise VectorStoreError(f"Failed to generate embedding: {e}")
+            raise VectorStoreError(f"Failed to generate embedding: {e}") from e
 
     async def add_documents(self, documents: List[Document], generate_embeddings: bool = True) -> List[str]:
         """
@@ -212,7 +208,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
 
         except Exception as e:
             logger.error(f"Error adding documents: {e}")
-            raise VectorStoreError(f"Failed to add documents: {e}")
+            raise VectorStoreError(f"Failed to add documents: {e}") from e
 
     async def search(
         self, query: str, top_k: int = 5, filter_metadata: Optional[Dict[str, Any]] = None, min_score: float = 0.0
@@ -253,7 +249,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
 
         except Exception as e:
             logger.error(f"Error in vector search: {e}")
-            raise VectorStoreQueryError(f"Search failed: {e}")
+            raise VectorStoreQueryError(f"Search failed: {e}") from e
 
     async def search_by_vector(
         self, embedding: List[float], top_k: int = 5, filter_metadata: Optional[Dict[str, Any]] = None
@@ -283,7 +279,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
                     func.coalesce(1 - (Product.embedding.cosine_distance(text(f"'{embedding_str}'::vector"))), 0).label(
                         "similarity"
                     ),
-                ).where(Product.active == True, Product.embedding.isnot(None))
+                ).where(Product.active, Product.embedding.isnot(None))
 
                 # Apply metadata filters
                 if filter_metadata:
@@ -338,7 +334,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
 
         except Exception as e:
             logger.error(f"Error in vector search by embedding: {e}")
-            raise VectorStoreQueryError(f"Search by vector failed: {e}")
+            raise VectorStoreQueryError(f"Search by vector failed: {e}") from e
 
     async def get_by_id(self, document_id: str) -> Optional[Document]:
         """
@@ -417,7 +413,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
 
         except Exception as e:
             logger.error(f"Error deleting documents: {e}")
-            raise VectorStoreError(f"Failed to delete documents: {e}")
+            raise VectorStoreError(f"Failed to delete documents: {e}") from e
 
     async def update_document(
         self,
@@ -532,7 +528,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
         """
         try:
             async with get_async_db_context() as db:
-                stmt = select(func.count(Product.id)).where(Product.active == True, Product.embedding.isnot(None))
+                stmt = select(func.count(Product.id)).where(Product.active, Product.embedding.isnot(None))
 
                 # Apply filters
                 if filter_metadata:

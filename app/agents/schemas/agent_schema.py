@@ -181,7 +181,10 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
         ),
         IntentType.PRODUCTO: IntentDefinition(
             intent=IntentType.PRODUCTO,
-            description="Questions about available products, general product searches, categories, features, price, stock",
+            description=(
+                "Questions about available products, general product searches, "
+                "categories, features, price, stock"
+            ),
             examples=[
                 "what products do you have?",
                 "show me the products",
@@ -388,7 +391,10 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             agent=AgentType.EXCELENCIA_AGENT,
             class_name="ExcelenciaAgent",
             display_name="Excelencia ERP Agent",
-            description="Handles queries about Excelencia ERP system: demos, modules, training, and vertical products (healthcare, hotels, social security)",
+            description=(
+                "Handles queries about Excelencia ERP system: demos, modules, training, "
+                "and vertical products (healthcare, hotels, social security)"
+            ),
             primary_intents=[IntentType.EXCELENCIA],
             requires_postgres=True,
             requires_chroma=True,

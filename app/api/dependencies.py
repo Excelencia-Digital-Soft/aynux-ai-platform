@@ -38,7 +38,7 @@ def get_di_container() -> DependencyContainer:
 
 
 def get_super_orchestrator(
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ) -> SuperOrchestrator:
     """
     Get Super Orchestrator instance.
@@ -62,7 +62,7 @@ def get_super_orchestrator(
 
 def get_list_domains_use_case(
     db,
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ):
     """Get ListDomainsUseCase instance"""
     return container.create_list_domains_use_case(db)
@@ -70,7 +70,7 @@ def get_list_domains_use_case(
 
 def get_enable_domain_use_case(
     db,
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ):
     """Get EnableDomainUseCase instance"""
     return container.create_enable_domain_use_case(db)
@@ -78,7 +78,7 @@ def get_enable_domain_use_case(
 
 def get_disable_domain_use_case(
     db,
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ):
     """Get DisableDomainUseCase instance"""
     return container.create_disable_domain_use_case(db)
@@ -86,7 +86,7 @@ def get_disable_domain_use_case(
 
 def get_update_domain_config_use_case(
     db,
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ):
     """Get UpdateDomainConfigUseCase instance"""
     return container.create_update_domain_config_use_case(db)
@@ -94,7 +94,7 @@ def get_update_domain_config_use_case(
 
 def get_get_contact_domain_use_case(
     db,
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ):
     """Get GetContactDomainUseCase instance"""
     return container.create_get_contact_domain_use_case(db)
@@ -102,7 +102,7 @@ def get_get_contact_domain_use_case(
 
 def get_assign_contact_domain_use_case(
     db,
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ):
     """Get AssignContactDomainUseCase instance"""
     return container.create_assign_contact_domain_use_case(db)
@@ -110,7 +110,7 @@ def get_assign_contact_domain_use_case(
 
 def get_remove_contact_domain_use_case(
     db,
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ):
     """Get RemoveContactDomainUseCase instance"""
     return container.create_remove_contact_domain_use_case(db)
@@ -118,7 +118,7 @@ def get_remove_contact_domain_use_case(
 
 def get_clear_domain_assignments_use_case(
     db,
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ):
     """Get ClearDomainAssignmentsUseCase instance"""
     return container.create_clear_domain_assignments_use_case(db)
@@ -126,7 +126,7 @@ def get_clear_domain_assignments_use_case(
 
 def get_get_domain_stats_use_case(
     db,
-    container: DependencyContainer = Depends(get_di_container),
+    container: DependencyContainer = Depends(get_di_container),  # noqa: B008
 ):
     """Get GetDomainStatsUseCase instance"""
     return container.create_get_domain_stats_use_case(db)
@@ -137,7 +137,7 @@ def get_get_domain_stats_use_case(
 # ============================================================
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:  # noqa: B008
     """
     Dependencia para obtener el usuario actual completo
 
@@ -169,7 +169,7 @@ def require_scopes(required_scopes: List[str]):
         required_scopes: Lista de scopes requeridos
     """
 
-    def dependency(token: str = Depends(oauth2_scheme)) -> None:
+    def dependency(token: str = Depends(oauth2_scheme)) -> None:  # noqa: B008
         payload = token_service.decode_token(token)
         user_scopes = payload.get("scopes", [])
 

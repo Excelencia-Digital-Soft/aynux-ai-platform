@@ -133,8 +133,8 @@ async def get_catalog_status(_: Dict = Depends(get_current_user)) -> CatalogStat
 
 @router.post("/catalog/send", response_model=WhatsAppResponse)
 async def send_catalog_message(
-    request: SendCatalogRequest, _: Dict = Depends(get_current_user)
-) -> WhatsAppResponse:  # noqa: B008
+    request: SendCatalogRequest, _: Dict = Depends(get_current_user)  # noqa: B008
+) -> WhatsAppResponse:
     """Send WhatsApp catalog message to user"""
     try:
         # Normalize phone number
@@ -215,8 +215,8 @@ async def get_flows_status(_: Dict = Depends(get_current_user)) -> FlowStatusRes
 
 @router.post("/flows/send", response_model=WhatsAppResponse)
 async def send_flow_message(
-    request: SendFlowRequest, _: Dict = Depends(get_current_user)
-) -> WhatsAppResponse:  # noqa: B008
+    request: SendFlowRequest, _: Dict = Depends(get_current_user)  # noqa: B008
+) -> WhatsAppResponse:
     """Send WhatsApp Flow message to user"""
     try:
         # Normalize phone number
