@@ -63,7 +63,7 @@ def generate_report(data):
     print("=" * 80)
     print("REPORTE DE ANÁLISIS PYRIGHT")
     print("=" * 80)
-    print(f"\n📊 RESUMEN GENERAL:")
+    print("\n📊 RESUMEN GENERAL:")
     print(f"  - Archivos analizados: {summary.get('filesAnalyzed', 0)}")
     print(f"  - Errores: {summary.get('errorCount', 0)}")
     print(f"  - Warnings: {summary.get('warningCount', 0)}")
@@ -76,7 +76,7 @@ def generate_report(data):
     # Clasificar errores por tipo
     error_types = Counter([classify_diagnostic(e) for e in errors])
 
-    print(f"\n🔍 CLASIFICACIÓN DE ERRORES:")
+    print("\n🔍 CLASIFICACIÓN DE ERRORES:")
     for error_type, count in error_types.most_common():
         percentage = (count / len(errors) * 100) if errors else 0
         print(f"  - {error_type:20s}: {count:4d} ({percentage:5.1f}%)")
@@ -87,12 +87,12 @@ def generate_report(data):
         file_path = Path(error.get("file", "")).relative_to(Path.cwd())
         file_errors[str(file_path)] += 1
 
-    print(f"\n📁 TOP 10 ARCHIVOS CON MÁS ERRORES:")
+    print("\n📁 TOP 10 ARCHIVOS CON MÁS ERRORES:")
     for file_path, count in sorted(file_errors.items(), key=lambda x: x[1], reverse=True)[:10]:
         print(f"  - {file_path:60s}: {count:3d} errores")
 
     # Ejemplos de cada tipo de error
-    print(f"\n📝 EJEMPLOS DE ERRORES POR TIPO (primeros 3 de cada tipo):")
+    print("\n📝 EJEMPLOS DE ERRORES POR TIPO (primeros 3 de cada tipo):")
 
     errors_by_type = defaultdict(list)
     for error in errors:
@@ -109,22 +109,22 @@ def generate_report(data):
             print(f"      → {message}")
 
     # Recomendaciones
-    print(f"\n💡 RECOMENDACIONES:")
+    print("\n💡 RECOMENDACIONES:")
 
     if error_types.get("import_error", 0) > 100:
         print(f"  1. ⚠️  Muchos errores de imports ({error_types['import_error']})")
-        print(f"     → Verificar que todas las dependencias estén instaladas")
-        print(f"     → Configurar python.pythonPath en Pyright")
+        print("     → Verificar que todas las dependencias estén instaladas")
+        print("     → Configurar python.pythonPath en Pyright")
 
     if error_types.get("attribute_error", 0) > 50:
         print(f"  2. ⚠️  Muchos errores de atributos ({error_types['attribute_error']})")
-        print(f"     → Mejorar type hints en funciones")
-        print(f"     → Usar TypedDict o dataclasses para diccionarios")
+        print("     → Mejorar type hints en funciones")
+        print("     → Usar TypedDict o dataclasses para diccionarios")
 
     if error_types.get("type_mismatch", 0) > 50:
         print(f"  3. ⚠️  Muchos type mismatches ({error_types['type_mismatch']})")
-        print(f"     → Revisar type hints en signatures de funciones")
-        print(f"     → Usar Union types o Optional donde sea apropiado")
+        print("     → Revisar type hints en signatures de funciones")
+        print("     → Usar Union types o Optional donde sea apropiado")
 
     # Archivos prioritarios para corregir (excluyendo import errors)
     priority_files = []
@@ -137,7 +137,7 @@ def generate_report(data):
     priority_counter = Counter(priority_files)
 
     if priority_counter:
-        print(f"\n🎯 ARCHIVOS PRIORITARIOS PARA CORREGIR (sin imports):")
+        print("\n🎯 ARCHIVOS PRIORITARIOS PARA CORREGIR (sin imports):")
         for file_path, count in priority_counter.most_common(5):
             print(f"  - {file_path:60s}: {count:3d} errores de tipo")
 
