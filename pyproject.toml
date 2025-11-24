@@ -50,6 +50,8 @@ dependencies = [
     "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
     "es_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.8.0/es_core_news_sm-3.8.0-py3-none-any.whl",
     "pgvector>=0.4.1",
+    "streamlit>=1.39.0",
+    "graphviz>=0.20.3",
 ]
 
 [tool.uv]

@@ -25,6 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **docs/LangGraph.md**: Complete LangGraph implementation guide and architecture
 - **docs/9_agent_supervisor.md**: Supervisor-agent pattern and orchestration
 - **docs/TESTING_GUIDE.md**: Testing strategy and best practices
+- **docs/STREAMLIT_VISUALIZER.md**: Interactive agent visualization and debugging tool
 - **docs/PGVECTOR_MIGRATION.md**: Vector search implementation with pgvector
 - **docs/IMPLEMENTATION_SUMMARY.md**: ChromaDB to pgvector migration details
 - **docs/PHASE_4_COMPLETION_SUMMARY.md**: Recent system enhancements
@@ -45,6 +46,17 @@ All major architectural decisions, patterns, and implementation details are docu
 - **Chat endpoint test**: `python test_chat_endpoint.py`
 - **Graph system test**: `python test_graph_simple.py`
 - **Language detection test**: `python test_language_detector.py`
+
+### Agent Visualization and Debugging
+- **Start Streamlit Agent Visualizer**: `./run_visualizer.sh` or `streamlit run streamlit_agent_visualizer.py`
+- **Documentation**: See `docs/STREAMLIT_VISUALIZER.md` for complete guide
+
+The Streamlit Agent Visualizer provides real-time visualization of:
+- **Graph execution flow** with highlighted nodes showing current execution state
+- **Agent reasoning** including orchestrator analysis, supervisor evaluation, and decision-making process
+- **Complete state inspection** with organized views of messages, intent, routing, data, and flow control
+- **Conversation history** with user messages and agent responses
+- **Performance metrics** including execution times, step counts, and agent visit frequency
 
 ### Database Operations
 - **View product statistics**: `PGPASSWORD="" psql -h localhost -U enzo -d aynux -c "SELECT c.display_name as categoria, COUNT(p.id) as total_productos FROM categories c LEFT JOIN products p ON c.id = p.category_id GROUP BY c.display_name;"`
