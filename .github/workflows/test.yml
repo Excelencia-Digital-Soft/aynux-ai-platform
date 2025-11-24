@@ -1,0 +1,179 @@
+name: Tests and Type Checking
+
+on:
+  push:
+    branches: [ main, develop, claude/** ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: aynux_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/uv
+          .venv
+        key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras --dev
+
+    - name: Run pyright type checking
+      run: |
+        uv run pyright app/
+      continue-on-error: true  # Don't fail the build on type errors initially
+
+    - name: Run code formatting check (black)
+      run: |
+        uv run black --check app/
+
+    - name: Run import sorting check (isort)
+      run: |
+        uv run isort --check-only app/
+
+    - name: Run linting (ruff)
+      run: |
+        uv run ruff check app/
+
+    - name: Set up test environment
+      env:
+        DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/aynux_test
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: test
+        TESTING: true
+      run: |
+        # Create test environment file
+        cat > .env.test <<EOF
+        ENVIRONMENT=test
+        TESTING=true
+        DB_HOST=localhost
+        DB_PORT=5432
+        DB_NAME=aynux_test
+        DB_USER=test_user
+        DB_PASSWORD=test_password
+        REDIS_HOST=localhost
+        REDIS_PORT=6379
+        REDIS_DB=0
+        LANGSMITH_TRACING=false
+        DUX_SYNC_ENABLED=false
+        EOF
+
+    - name: Run unit tests
+      env:
+        DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/aynux_test
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: test
+      run: |
+        uv run pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=term-missing
+
+    - name: Run integration tests
+      env:
+        DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/aynux_test
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: test
+      run: |
+        uv run pytest tests/integration/ -v --cov=app --cov-append --cov-report=xml --cov-report=term-missing
+      continue-on-error: true  # Integration tests may require additional setup
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Generate coverage badge
+      run: |
+        uv run coverage report --precision=2 > coverage.txt
+        cat coverage.txt
+
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const coverage = fs.readFileSync('coverage.txt', 'utf8');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## Test Coverage Report\n\`\`\`\n${coverage}\n\`\`\``
+          });
+      continue-on-error: true
+
+  type-check-strict:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run pyright (strict mode)
+      run: |
+        uv run pyright app/ --warnings
+      continue-on-error: true

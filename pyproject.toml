@@ -110,3 +110,44 @@ strictSetInference = true
 # Include and exclude patterns
 include = ["app/**"]
 exclude = ["**/__pycache__", "**/alembic/**", "**/node_modules/**", "**/.venv/**"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/.venv/*",
+    "*/alembic/*",
+    "*/migrations/*",
+    "*/conftest.py",
+    "*/dev-*.sh",
+    "*/run_*.sh",
+    "*/streamlit_*.py",
+    "app/main.py",
+]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "@overload",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
