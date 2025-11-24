@@ -251,6 +251,111 @@ Essential settings include:
 - **DUX ERP**: `DUX_API_BASE_URL`, `DUX_API_KEY`
 - **LangSmith**: `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`
 
+### Agent Enablement Configuration
+
+The system supports enabling/disabling individual agents to optimize resource usage and customize behavior per deployment.
+
+#### Configuration via .env
+
+Add `ENABLED_AGENTS` to your `.env` file as a comma-separated list:
+
+```bash
+# Agent Configuration
+ENABLED_AGENTS=greeting_agent,product_agent,promotions_agent,tracking_agent,support_agent,invoice_agent,excelencia_agent,fallback_agent,farewell_agent,data_insights_agent
+```
+
+#### Available Agents
+
+**Core Agents** (Always Enabled):
+- `orchestrator` - Intent analysis and routing
+- `supervisor` - Response quality evaluation and flow control
+
+**Specialized Agents** (Configurable):
+- `greeting_agent` - Greetings and system capabilities overview
+- `product_agent` - Product catalog, search, pricing, and specifications
+- `data_insights_agent` - Analytics, reports, and business intelligence
+- `promotions_agent` - Discounts, coupons, and promotional offers
+- `tracking_agent` - Order tracking and shipping information
+- `support_agent` - Technical support and troubleshooting
+- `invoice_agent` - Billing, invoices, and payment queries
+- `excelencia_agent` - Excelencia ERP system information
+- `fallback_agent` - Default responses for unhandled intents
+- `farewell_agent` - Conversation closure and farewells
+
+#### Behavior
+
+**When an agent is disabled:**
+1. The agent is NOT instantiated at startup (saves memory/resources)
+2. The agent node is NOT added to the LangGraph workflow
+3. Routing attempts to disabled agents automatically fallback to `fallback_agent`
+4. The orchestrator can still detect the intent, but execution redirects safely
+
+**Default Configuration:**
+All agents are enabled by default. To disable specific agents, exclude them from the `ENABLED_AGENTS` list.
+
+#### Admin API Endpoints
+
+Monitor and manage agent status via REST API:
+
+```bash
+# Get complete agent status
+GET /api/v1/admin/agents/status
+
+# Get list of enabled agents
+GET /api/v1/admin/agents/enabled
+
+# Get list of disabled agents
+GET /api/v1/admin/agents/disabled
+
+# Get current configuration
+GET /api/v1/admin/agents/config
+
+# Check if specific agent is enabled
+GET /api/v1/admin/agents/check/{agent_name}
+```
+
+**Example Response** (`/api/v1/admin/agents/status`):
+```json
+{
+  "enabled_agents": ["greeting_agent", "product_agent", "fallback_agent"],
+  "disabled_agents": ["promotions_agent", "tracking_agent", "support_agent", "invoice_agent", "excelencia_agent", "data_insights_agent", "farewell_agent"],
+  "enabled_count": 3,
+  "disabled_count": 7,
+  "total_possible_agents": 10
+}
+```
+
+#### Use Cases
+
+**Resource Optimization:**
+```bash
+# Minimal setup for basic product inquiries
+ENABLED_AGENTS=greeting_agent,product_agent,fallback_agent,farewell_agent
+```
+
+**E-commerce Focus:**
+```bash
+# E-commerce agents only
+ENABLED_AGENTS=greeting_agent,product_agent,promotions_agent,tracking_agent,invoice_agent,fallback_agent,farewell_agent
+```
+
+**ERP Demo Environment:**
+```bash
+# Excelencia ERP demo
+ENABLED_AGENTS=greeting_agent,excelencia_agent,support_agent,fallback_agent,farewell_agent
+```
+
+#### Testing
+
+Tests for agent enablement are in `tests/test_agent_enablement.py`:
+
+```bash
+# Run agent enablement tests
+pytest tests/test_agent_enablement.py -v
+```
+
+**Note:** Agent configuration requires service restart. Hot-reload of agent configuration is not currently supported.
+
 ### Python Configuration (pyproject.toml)
 - Uses Python 3.13+ with uv as primary package manager
 - Code formatting: Black (line length 120), isort, Ruff

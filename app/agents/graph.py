@@ -32,6 +32,10 @@ class AynuxGraph:
         self.tracer = get_tracer()
         self.conversation_tracers: Dict[str, ConversationTracer] = {}
 
+        # Store enabled agents configuration
+        self.enabled_agents = config.get("enabled_agents", [])
+        logger.info(f"Graph initialized with enabled agents: {self.enabled_agents}")
+
         # Initialize components
         self._init_components()
 
@@ -58,8 +62,8 @@ class AynuxGraph:
         )
         self.agents = self.agent_factory.initialize_all_agents()
 
-        # Initialize router and executor
-        self.router = GraphRouter()
+        # Initialize router with enabled agents configuration
+        self.router = GraphRouter(enabled_agents=self.enabled_agents)
         self.executor = NodeExecutor(self.agents, self.conversation_tracers)
 
     def _get_integrations_config(self) -> Dict[str, Any]:
@@ -85,36 +89,49 @@ class AynuxGraph:
         return workflow
 
     def _add_nodes(self, workflow: StateGraph):
-        """Add all nodes to the workflow"""
-        # Add orchestrator and supervisor nodes
+        """Add only enabled agent nodes to the workflow"""
+        # Add orchestrator and supervisor nodes (always enabled)
         workflow.add_node(AgentType.ORCHESTRATOR.value, self.executor.execute_orchestrator)
         workflow.add_node(AgentType.SUPERVISOR.value, self.executor.execute_supervisor)
 
-        # Add specialized agent nodes
+        # Add specialized agent nodes (only if enabled)
         for agent_type in get_non_supervisor_agents():
             agent_name = agent_type.value
 
-            # Create async wrapper function for each agent
-            async def agent_executor(state, name=agent_name):
-                return await self.executor.execute_agent(state, name)
+            # Only add node if agent is enabled
+            if agent_name in self.enabled_agents and agent_name in self.agents:
+                # Create async wrapper function for each agent
+                async def agent_executor(state, name=agent_name):
+                    return await self.executor.execute_agent(state, name)
 
-            workflow.add_node(agent_name, agent_executor)
+                workflow.add_node(agent_name, agent_executor)
+                logger.debug(f"Added graph node for enabled agent: {agent_name}")
+            else:
+                logger.debug(f"Skipped graph node for disabled agent: {agent_name}")
 
     def _add_edges(self, workflow: StateGraph):
-        """Configure all edges and conditional routing"""
-        # Orchestrator routing
-        orchestrator_edges = {agent.value: agent.value for agent in get_non_supervisor_agents()}
+        """Configure edges only for enabled agents"""
+        # Orchestrator routing - only include enabled agents
+        orchestrator_edges = {}
+        for agent in get_non_supervisor_agents():
+            if agent.value in self.enabled_agents and agent.value in self.agents:
+                orchestrator_edges[agent.value] = agent.value
         orchestrator_edges["__end__"] = END
 
         workflow.add_conditional_edges(AgentType.ORCHESTRATOR.value, self.router.route_to_agent, orchestrator_edges)
 
-        # Most specialized agents route to supervisor, except greeting_agent
+        # Add edges only for enabled agents
         for agent_type in get_non_supervisor_agents():
-            if agent_type.value == AgentType.GREETING_AGENT.value:
-                # Greeting agent goes directly to END (no supervisor needed)
-                workflow.add_edge(agent_type.value, END)
-            else:
-                workflow.add_edge(agent_type.value, AgentType.SUPERVISOR.value)
+            agent_name = agent_type.value
+
+            # Only add edges for enabled agents
+            if agent_name in self.enabled_agents and agent_name in self.agents:
+                if agent_name == AgentType.GREETING_AGENT.value:
+                    # Greeting agent goes directly to END (no supervisor needed)
+                    workflow.add_edge(agent_name, END)
+                else:
+                    # Other agents route to supervisor
+                    workflow.add_edge(agent_name, AgentType.SUPERVISOR.value)
 
         # Supervisor routing
         supervisor_edges = {
@@ -340,3 +357,51 @@ class AynuxGraph:
         except Exception as e:
             logger.warning(f"Error creating state preview: {e}")
             return {"error": "Could not create state preview"}
+
+    def is_agent_enabled(self, agent_name: str) -> bool:
+        """
+        Check if an agent is enabled in the graph.
+
+        Args:
+            agent_name: Name of the agent to check
+
+        Returns:
+            True if agent is enabled, False otherwise
+        """
+        return agent_name in self.enabled_agents and agent_name in self.agents
+
+    def get_enabled_agents(self) -> list[str]:
+        """
+        Get list of enabled agent names.
+
+        Returns:
+            List of enabled agent names (excluding orchestrator and supervisor)
+        """
+        return self.agent_factory.get_enabled_agent_names()
+
+    def get_disabled_agents(self) -> list[str]:
+        """
+        Get list of disabled agent names.
+
+        Returns:
+            List of disabled agent names
+        """
+        return self.agent_factory.get_disabled_agent_names()
+
+    def get_agent_status(self) -> Dict[str, Any]:
+        """
+        Get complete agent status information.
+
+        Returns:
+            Dictionary with enabled/disabled agents and statistics
+        """
+        enabled = self.get_enabled_agents()
+        disabled = self.get_disabled_agents()
+
+        return {
+            "enabled_agents": enabled,
+            "disabled_agents": disabled,
+            "enabled_count": len(enabled),
+            "disabled_count": len(disabled),
+            "total_possible_agents": len(enabled) + len(disabled),
+        }
