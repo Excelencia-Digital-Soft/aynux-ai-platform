@@ -56,6 +56,83 @@ def get_super_orchestrator(
 
 
 # ============================================================
+# ADMIN USE CASES DEPENDENCIES
+# ============================================================
+
+
+def get_list_domains_use_case(
+    db,
+    container: DependencyContainer = Depends(get_di_container),
+):
+    """Get ListDomainsUseCase instance"""
+    return container.create_list_domains_use_case(db)
+
+
+def get_enable_domain_use_case(
+    db,
+    container: DependencyContainer = Depends(get_di_container),
+):
+    """Get EnableDomainUseCase instance"""
+    return container.create_enable_domain_use_case(db)
+
+
+def get_disable_domain_use_case(
+    db,
+    container: DependencyContainer = Depends(get_di_container),
+):
+    """Get DisableDomainUseCase instance"""
+    return container.create_disable_domain_use_case(db)
+
+
+def get_update_domain_config_use_case(
+    db,
+    container: DependencyContainer = Depends(get_di_container),
+):
+    """Get UpdateDomainConfigUseCase instance"""
+    return container.create_update_domain_config_use_case(db)
+
+
+def get_get_contact_domain_use_case(
+    db,
+    container: DependencyContainer = Depends(get_di_container),
+):
+    """Get GetContactDomainUseCase instance"""
+    return container.create_get_contact_domain_use_case(db)
+
+
+def get_assign_contact_domain_use_case(
+    db,
+    container: DependencyContainer = Depends(get_di_container),
+):
+    """Get AssignContactDomainUseCase instance"""
+    return container.create_assign_contact_domain_use_case(db)
+
+
+def get_remove_contact_domain_use_case(
+    db,
+    container: DependencyContainer = Depends(get_di_container),
+):
+    """Get RemoveContactDomainUseCase instance"""
+    return container.create_remove_contact_domain_use_case(db)
+
+
+def get_clear_domain_assignments_use_case(
+    db,
+    container: DependencyContainer = Depends(get_di_container),
+):
+    """Get ClearDomainAssignmentsUseCase instance"""
+    return container.create_clear_domain_assignments_use_case(db)
+
+
+def get_get_domain_stats_use_case(
+    db,
+    container: DependencyContainer = Depends(get_di_container),
+):
+    """Get GetDomainStatsUseCase instance"""
+    return container.create_get_domain_stats_use_case(db)
+
+
+# ============================================================
 # AUTHENTICATION DEPENDENCIES
 # ============================================================
 

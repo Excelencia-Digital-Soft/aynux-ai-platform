@@ -221,6 +221,61 @@ class DependencyContainer:
         """
         return SearchKnowledgeUseCase(db=db)
 
+    # Admin Use Cases
+
+    def create_list_domains_use_case(self, db):
+        """
+        Create ListDomainsUseCase with dependencies.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            ListDomainsUseCase instance
+        """
+        from app.domains.shared.application.use_cases import ListDomainsUseCase
+        return ListDomainsUseCase(db=db)
+
+    def create_enable_domain_use_case(self, db):
+        """Create EnableDomainUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import EnableDomainUseCase
+        return EnableDomainUseCase(db=db)
+
+    def create_disable_domain_use_case(self, db):
+        """Create DisableDomainUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import DisableDomainUseCase
+        return DisableDomainUseCase(db=db)
+
+    def create_update_domain_config_use_case(self, db):
+        """Create UpdateDomainConfigUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import UpdateDomainConfigUseCase
+        return UpdateDomainConfigUseCase(db=db)
+
+    def create_get_contact_domain_use_case(self, db):
+        """Create GetContactDomainUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import GetContactDomainUseCase
+        return GetContactDomainUseCase(db=db)
+
+    def create_assign_contact_domain_use_case(self, db):
+        """Create AssignContactDomainUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import AssignContactDomainUseCase
+        return AssignContactDomainUseCase(db=db)
+
+    def create_remove_contact_domain_use_case(self, db):
+        """Create RemoveContactDomainUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import RemoveContactDomainUseCase
+        return RemoveContactDomainUseCase(db=db)
+
+    def create_clear_domain_assignments_use_case(self, db):
+        """Create ClearDomainAssignmentsUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import ClearDomainAssignmentsUseCase
+        return ClearDomainAssignmentsUseCase(db=db)
+
+    def create_get_domain_stats_use_case(self, db):
+        """Create GetDomainStatsUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import GetDomainStatsUseCase
+        return GetDomainStatsUseCase(db=db)
+
     # ============================================================
     # AGENTS (Domain Coordinators)
     # ============================================================
