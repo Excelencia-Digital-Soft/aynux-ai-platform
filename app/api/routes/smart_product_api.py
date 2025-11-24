@@ -1,7 +1,7 @@
 """
 Smart Product API - Integración de FastAPI para búsquedas inteligentes de productos.
 
-Este módulo proporciona endpoints para interactuar con el SmartProductAgent
+Este módulo proporciona endpoints para interactuar con el ProductAgent (RefactoredProductAgent)
 desde WhatsApp y otras interfaces conversacionales.
 """
 
@@ -14,7 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.agents.integrations.ollama_integration import OllamaIntegration
-from app.agents.subagent.smart_product_agent import SmartProductAgent
+from app.agents.subagent import ProductAgent  # RefactoredProductAgent (SOLID-compliant)
 from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -73,16 +73,16 @@ async def get_redis_client() -> redis.Redis:
     return redis.from_url(settings.redis_url(), decode_responses=True)
 
 
-async def get_product_agent() -> SmartProductAgent:
-    """Dependency para obtener instancia del agente."""
+async def get_product_agent() -> ProductAgent:
+    """Dependency para obtener instancia del agente (RefactoredProductAgent)."""
     ollama = OllamaIntegration()
-    return SmartProductAgent(ollama=ollama)
+    return ProductAgent(ollama=ollama)
 
 
 @router.post("/search", response_model=ProductSearchResponse)
 async def search_products(
     request: ProductSearchRequest,
-    agent: SmartProductAgent = Depends(get_product_agent),  # noqa: B008
+    agent: ProductAgent = Depends(get_product_agent),  # noqa: B008
     background_tasks: BackgroundTasks = BackgroundTasks(),  # noqa: B008
 ) -> ProductSearchResponse:
     """
@@ -157,7 +157,7 @@ async def search_products(
 @router.post("/whatsapp/message", response_model=WhatsAppMessageResponse)
 async def handle_whatsapp_message(
     request: WhatsAppMessageRequest,
-    agent: SmartProductAgent = Depends(get_product_agent),  # noqa: B008
+    agent: ProductAgent = Depends(get_product_agent),  # noqa: B008
     redis_client: redis.Redis = Depends(get_redis_client),  # noqa: B008
 ) -> WhatsAppMessageResponse:
     """
@@ -267,23 +267,19 @@ async def clear_conversation(
 
 
 @router.get("/health")
-async def health_check(agent: SmartProductAgent = Depends(get_product_agent)) -> Dict[str, Any]:  # noqa: B008
+async def health_check(agent: ProductAgent = Depends(get_product_agent)) -> Dict[str, Any]:  # noqa: B008
     """
     Health check del sistema de productos inteligentes.
     """
     try:
-        # Test básico del agente
-        test_result = await agent._analyze_user_intent("test health check", {})
+        # Test básico del agente usando health_check method
+        test_result = await agent.health_check()
 
         return {
-            "status": "healthy",
+            "status": "healthy" if test_result.get("healthy", False) else "degraded",
             "timestamp": datetime.now().isoformat(),
-            "components": {
-                "smart_product_agent": "operational",
-                "ollama_integration": "operational" if agent.ollama else "unavailable",
-                "database": "operational",  # Asumir operacional si llegamos aquí
-            },
-            "test_intent_analysis": bool(test_result),
+            "agent": "refactored_product_agent",
+            "health_details": test_result,
         }
 
     except Exception as e:

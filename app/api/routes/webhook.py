@@ -29,6 +29,8 @@ from app.integrations.whatsapp import WhatsAppService
 from app.services.domain_detector import get_domain_detector
 from app.services.domain_manager import get_domain_manager
 from app.services.super_orchestrator_service import get_super_orchestrator
+from app.services.super_orchestrator_service_refactored import get_super_orchestrator_refactored
+from app.services.whatsapp_service import WhatsAppService
 
 router = APIRouter(tags=["webhook"])
 logger = logging.getLogger(__name__)
@@ -48,7 +50,21 @@ whatsapp_service = WhatsAppService()
 # TODO: Replace with SuperOrchestrator from app.orchestration
 domain_detector = get_domain_detector()
 domain_manager = get_domain_manager()
-super_orchestrator = get_super_orchestrator()
+
+# Super orchestrator - use refactored version if enabled
+def get_orchestrator():
+    """Get super orchestrator based on feature flag."""
+    settings = get_settings()
+    use_refactored = getattr(settings, "USE_REFACTORED_ORCHESTRATOR", True)
+
+    if use_refactored:
+        logger.info("Using SuperOrchestratorServiceRefactored (SOLID-compliant)")
+        return get_super_orchestrator_refactored()
+    else:
+        logger.info("Using SuperOrchestratorService (legacy)")
+        return get_super_orchestrator()
+
+super_orchestrator = get_orchestrator()
 
 
 @router.get("/webhook/")

@@ -1,16 +1,25 @@
 """
 Smart Product Agent - Agente inteligente para búsquedas de productos usando lenguaje natural.
 
+⚠️ DEPRECATED: Este agente está deprecado en favor de RefactoredProductAgent.
+   - Use: from app.agents.subagent import ProductAgent
+   - RefactoredProductAgent sigue principios SOLID y es más mantenible
+   - Las funcionalidades de este agente han sido migradas a estrategias modulares
+
 Este agente puede:
 1. Interpretar consultas complejas en lenguaje natural
 2. Usar búsqueda semántica y SQL dinámico
 3. Entender relaciones entre categorías, marcas, características
 4. Generar respuestas contextuales usando AI
 5. Adaptarse dinámicamente sin lógica hardcodeada
+
+NOTA: Este archivo se mantendrá temporalmente para compatibilidad con evaluaciones
+y sistemas legacy. Se eliminará en una versión futura.
 """
 
 import json
 import logging
+import warnings
 from typing import Any, Dict, List, Optional
 
 from ..integrations.ai_data_integration import AgentDataContext
@@ -36,6 +45,15 @@ class SmartProductAgent(BaseAgent):
     """
 
     def __init__(self, ollama=None, postgres=None, config: Optional[Dict[str, Any]] = None):
+        # Deprecation warning
+        warnings.warn(
+            "SmartProductAgent is deprecated and will be removed in a future version. "
+            "Use 'from app.agents.subagent import ProductAgent' (RefactoredProductAgent) instead. "
+            "RefactoredProductAgent follows SOLID principles and includes all SmartProductAgent features.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         super().__init__("smart_product_agent", config or {}, ollama=ollama, postgres=postgres)
 
         # Configuración específica del agente
