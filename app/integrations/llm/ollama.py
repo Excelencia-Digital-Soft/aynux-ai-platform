@@ -4,6 +4,7 @@ Ollama implementation of ILLM and IEmbeddingModel interfaces
 Provides local LLM capabilities using Ollama service.
 Implements standard interfaces for maximum flexibility and testability.
 """
+
 import logging
 from typing import List, Dict, Optional, AsyncIterator, AsyncGenerator
 import httpx
@@ -18,7 +19,7 @@ from app.core.interfaces.llm import (
     LLMProvider,
     LLMError,
     LLMConnectionError,
-    LLMGenerationError
+    LLMGenerationError,
 )
 from app.config.settings import get_settings
 
@@ -52,13 +53,7 @@ class OllamaLLM(ILLM, IChatLLM):
         ```
     """
 
-    def __init__(
-        self,
-        model_name: str = None,
-        base_url: str = None,
-        temperature: float = 0.7,
-        **kwargs
-    ):
+    def __init__(self, model_name: str = None, base_url: str = None, temperature: float = 0.7, **kwargs):
         """
         Initialize Ollama LLM.
 
@@ -105,13 +100,7 @@ class OllamaLLM(ILLM, IChatLLM):
         """Returns current model name"""
         return self._model_name
 
-    async def generate(
-        self,
-        prompt: str,
-        temperature: float = 0.7,
-        max_tokens: int = 500,
-        **kwargs
-    ) -> str:
+    async def generate(self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs) -> str:
         """
         Generate text from prompt.
 
@@ -157,11 +146,7 @@ class OllamaLLM(ILLM, IChatLLM):
             raise LLMGenerationError(f"Failed to generate text: {e}")
 
     async def generate_chat(
-        self,
-        messages: List[Dict[str, str]],
-        temperature: float = 0.7,
-        max_tokens: int = 500,
-        **kwargs
+        self, messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 500, **kwargs
     ) -> str:
         """
         Generate response in chat format.
@@ -217,11 +202,7 @@ class OllamaLLM(ILLM, IChatLLM):
             raise LLMGenerationError(f"Failed to generate chat response: {e}")
 
     async def generate_stream(  # type: ignore[override]
-        self,
-        prompt: str,
-        temperature: float = 0.7,
-        max_tokens: int = 500,
-        **kwargs
+        self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs
     ) -> AsyncIterator[str]:
         """
         Generate text in streaming mode.
@@ -250,7 +231,7 @@ class OllamaLLM(ILLM, IChatLLM):
             # Stream
             messages = [HumanMessage(content=prompt)]
             async for chunk in self._llm.astream(messages):
-                if hasattr(chunk, 'content'):
+                if hasattr(chunk, "content"):
                     # Ensure we always yield str (chunk.content can be str | list)
                     if isinstance(chunk.content, str):
                         yield chunk.content
@@ -265,13 +246,7 @@ class OllamaLLM(ILLM, IChatLLM):
             raise LLMGenerationError(f"Failed to stream text: {e}")
 
     # IChatLLM implementation
-    async def chat(
-        self,
-        message: str,
-        conversation_id: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
-    ) -> str:
+    async def chat(self, message: str, conversation_id: str, system_prompt: Optional[str] = None, **kwargs) -> str:
         """
         Chat with conversation history.
 
@@ -290,28 +265,16 @@ class OllamaLLM(ILLM, IChatLLM):
 
             # Add system prompt if provided
             if system_prompt:
-                self._conversations[conversation_id].append({
-                    "role": "system",
-                    "content": system_prompt
-                })
+                self._conversations[conversation_id].append({"role": "system", "content": system_prompt})
 
         # Add user message
-        self._conversations[conversation_id].append({
-            "role": "user",
-            "content": message
-        })
+        self._conversations[conversation_id].append({"role": "user", "content": message})
 
         # Generate response
-        response = await self.generate_chat(
-            messages=self._conversations[conversation_id],
-            **kwargs
-        )
+        response = await self.generate_chat(messages=self._conversations[conversation_id], **kwargs)
 
         # Add assistant response to history
-        self._conversations[conversation_id].append({
-            "role": "assistant",
-            "content": response
-        })
+        self._conversations[conversation_id].append({"role": "assistant", "content": response})
 
         return response
 
@@ -356,12 +319,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
         ```
     """
 
-    def __init__(
-        self,
-        model_name: str = None,
-        base_url: str = None,
-        embedding_dimension: int = 768
-    ):
+    def __init__(self, model_name: str = None, base_url: str = None, embedding_dimension: int = 768):
         """
         Initialize Ollama embedding model.
 
@@ -376,10 +334,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
         self._embedding_dimension = embedding_dimension
 
         # Initialize OllamaEmbeddings
-        self._embedder = OllamaEmbeddings(
-            model=self._model_name,
-            base_url=self._base_url
-        )
+        self._embedder = OllamaEmbeddings(model=self._model_name, base_url=self._base_url)
 
         logger.info(f"Initialized OllamaEmbeddingModel: model={self._model_name}")
 
@@ -434,11 +389,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
 
 
 # Factory function for convenience
-def create_ollama_llm(
-    model_name: str = None,
-    temperature: float = 0.7,
-    **kwargs
-) -> OllamaLLM:
+def create_ollama_llm(model_name: str = None, temperature: float = 0.7, **kwargs) -> OllamaLLM:
     """
     Factory function to create OllamaLLM instance.
 
@@ -453,10 +404,7 @@ def create_ollama_llm(
     return OllamaLLM(model_name=model_name, temperature=temperature, **kwargs)
 
 
-def create_ollama_embedder(
-    model_name: str = None,
-    **kwargs
-) -> OllamaEmbeddingModel:
+def create_ollama_embedder(model_name: str = None, **kwargs) -> OllamaEmbeddingModel:
     """
     Factory function to create OllamaEmbeddingModel instance.
 

@@ -141,14 +141,10 @@ class UpdateAgentModulesUseCase:
         for module_id, module_data in modules.items():
             missing_fields = required_fields - set(module_data.keys())
             if missing_fields:
-                raise ValueError(
-                    f"Module '{module_id}' missing required fields: {missing_fields}"
-                )
+                raise ValueError(f"Module '{module_id}' missing required fields: {missing_fields}")
 
             if not isinstance(module_data["features"], list):
-                raise ValueError(
-                    f"Module '{module_id}' features must be a list"
-                )
+                raise ValueError(f"Module '{module_id}' features must be a list")
 
         return True
 
@@ -180,9 +176,7 @@ class UpdateAgentModulesUseCase:
 
         return "\n".join(lines)
 
-    async def execute(
-        self, modules: Dict[str, Any], create_backup: bool = True
-    ) -> Dict[str, Any]:
+    async def execute(self, modules: Dict[str, Any], create_backup: bool = True) -> Dict[str, Any]:
         """
         Update agent modules configuration.
 
@@ -254,11 +248,7 @@ class UpdateAgentModulesUseCase:
                 raise ValueError("Could not find EXCELENCIA_MODULES in config file")
 
             # Replace the section
-            new_lines = (
-                lines[:start_idx]
-                + new_modules_code.split("\n")
-                + lines[end_idx + 1 :]
-            )
+            new_lines = lines[:start_idx] + new_modules_code.split("\n") + lines[end_idx + 1 :]
             new_content = "\n".join(new_lines)
 
             # 6. Write updated content
@@ -270,8 +260,7 @@ class UpdateAgentModulesUseCase:
                 "backup_path": backup_path,
                 "requires_restart": True,
                 "message": (
-                    "Configuration updated successfully. "
-                    "Please restart the application for changes to take effect."
+                    "Configuration updated successfully. " "Please restart the application for changes to take effect."
                 ),
             }
 
@@ -286,10 +275,7 @@ class UpdateAgentModulesUseCase:
             # Try to restore from backup if it exists
             if create_backup and backup_path and Path(backup_path).exists():
                 try:
-                    Path(self.config_path).write_text(
-                        Path(backup_path).read_text(encoding="utf-8"),
-                        encoding="utf-8"
-                    )
+                    Path(self.config_path).write_text(Path(backup_path).read_text(encoding="utf-8"), encoding="utf-8")
                     logger.info("Restored from backup after error")
                 except Exception as restore_error:
                     logger.error(f"Failed to restore from backup: {restore_error}")
@@ -344,8 +330,7 @@ class UpdateAgentSettingsUseCase:
                 "success": True,
                 "settings": settings,
                 "message": (
-                    "Settings validated. For production use, implement "
-                    "database-backed configuration storage."
+                    "Settings validated. For production use, implement " "database-backed configuration storage."
                 ),
             }
 

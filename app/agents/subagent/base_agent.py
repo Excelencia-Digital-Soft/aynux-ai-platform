@@ -164,7 +164,7 @@ class BaseAgent(ABC):
     def get_current_timestamp(self) -> str:
         """
         Get current timestamp in ISO format.
-        
+
         Returns:
             Current timestamp as ISO formatted string
         """

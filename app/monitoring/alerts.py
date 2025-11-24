@@ -685,4 +685,3 @@ def get_alert_manager() -> AynuxAlertManager:
     if _alert_manager_instance is None:
         _alert_manager_instance = AynuxAlertManager()
     return _alert_manager_instance
-

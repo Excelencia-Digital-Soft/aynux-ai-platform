@@ -406,4 +406,3 @@ class ResilientOllamaService:
             return True
         except Exception:
             return False
-

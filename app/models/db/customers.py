@@ -72,4 +72,3 @@ class Customer(Base, TimestampMixin):
         """Nombre completo del cliente."""
         names = [name for name in [self.first_name, self.last_name] if name]  # type: ignore
         return " ".join(names) if names else (self.phone_number or "")  # type: ignore
-

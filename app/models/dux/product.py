@@ -115,4 +115,3 @@ class DuxItem(DuxBaseModel):
         if self.has_barcode():
             return self.codigos_barra[0]  # type: ignore
         return None
-

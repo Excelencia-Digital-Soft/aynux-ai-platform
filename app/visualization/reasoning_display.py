@@ -74,7 +74,10 @@ class ReasoningDisplay:
 
         with col1:
             quality_score = analysis.get("quality_score", 0)
-            st.metric("Puntuación de Calidad", f"{quality_score:.2f}" if isinstance(quality_score, (int, float)) else quality_score)
+            st.metric(
+                "Puntuación de Calidad",
+                f"{quality_score:.2f}" if isinstance(quality_score, (int, float)) else quality_score,
+            )
 
         with col2:
             is_complete = analysis.get("is_complete", False)

@@ -241,11 +241,11 @@ async def process_chat_message_stream(request: ChatStreamRequest):
                 ):
                     # Convertir el evento a formato SSE
                     event_data = stream_event.model_dump()
-                    
+
                     # Formato Server-Sent Events
                     sse_event = f"data: {json.dumps(event_data)}\n\n"
-                    yield sse_event.encode('utf-8')
-                    
+                    yield sse_event.encode("utf-8")
+
                     # Si es el evento final, terminamos
                     if stream_event.event_type.value == "complete" or stream_event.event_type.value == "error":
                         break
@@ -265,7 +265,7 @@ async def process_chat_message_stream(request: ChatStreamRequest):
                 )
                 error_data = error_event.model_dump()
                 sse_event = f"data: {json.dumps(error_data)}\n\n"
-                yield sse_event.encode('utf-8')
+                yield sse_event.encode("utf-8")
 
         # Devolver respuesta streaming con headers SSE apropiados
         return StreamingResponse(
@@ -283,8 +283,7 @@ async def process_chat_message_stream(request: ChatStreamRequest):
     except Exception as e:
         logger.error(f"Error setting up chat message stream: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error setting up message stream: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error setting up message stream: {str(e)}"
         ) from e
 
 
@@ -437,4 +436,3 @@ async def clear_session(session_id: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error clearing session: {str(e)}"
         ) from e
-

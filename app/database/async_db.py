@@ -123,4 +123,3 @@ async def get_async_db_context():
             raise
         finally:
             await session.close()
-

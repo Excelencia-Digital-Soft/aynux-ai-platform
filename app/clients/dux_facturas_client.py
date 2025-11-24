@@ -67,7 +67,7 @@ class DuxFacturasClient:
         """
         # Aplicar rate limiting ANTES de cada request
         rate_info = await dux_rate_limiter.wait_for_next_request()
-        if rate_info['wait_time_seconds'] > 0:
+        if rate_info["wait_time_seconds"] > 0:
             self.logger.debug(
                 f"Rate limit wait: {rate_info['wait_time_seconds']:.2f}s "
                 f"(facturas request #{rate_info['total_requests']})"
@@ -214,7 +214,7 @@ class DuxFacturasClient:
             except DuxApiError as e:
                 if e.error_code == "RATE_LIMIT" and attempt < max_retries:
                     # Calcular tiempo de espera con backoff exponencial
-                    wait_time = 5.0 * (2 ** attempt)  # 5s, 10s, 20s
+                    wait_time = 5.0 * (2**attempt)  # 5s, 10s, 20s
                     self.logger.warning(
                         f"Rate limit hit on facturas, retrying in {wait_time:.1f}s "
                         f"(attempt {attempt + 1}/{max_retries + 1})"
@@ -233,10 +233,7 @@ class DuxFacturasClient:
         if last_error:
             raise last_error
         else:
-            raise DuxApiError(
-                error_code="MAX_RETRIES_EXCEEDED",
-                error_message=f"Failed after {max_retries} retries"
-            )
+            raise DuxApiError(error_code="MAX_RETRIES_EXCEEDED", error_message=f"Failed after {max_retries} retries")
 
     async def get_factura_by_id(self, id_factura: int) -> Optional[dict]:
         """
@@ -368,4 +365,3 @@ class DuxFacturasClientFactory:
         token = auth_token or "UyJ9PjF8mojO9NaexobUURe6mDlnts2J35jnaO8wKVxoSZK4RBTFa6tYZMvyJD7i"
 
         return DuxFacturasClient(auth_token=token, timeout_seconds=timeout_seconds)
-

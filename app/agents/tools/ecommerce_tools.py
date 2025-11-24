@@ -320,7 +320,9 @@ async def get_payment_methods_tool(order_amount: Optional[float] = None) -> Dict
         if order_amount:
             min_amt = float(method["min_amount"]) if isinstance(method.get("min_amount"), (int, float, list)) else 0
             max_amt = (
-                float(method["max_amount"]) if isinstance(method.get("max_amount"), (int, float, list)) else float("inf")
+                float(method["max_amount"])
+                if isinstance(method.get("max_amount"), (int, float, list))
+                else float("inf")
             )
             if order_amount < min_amt or order_amount > max_amt:
                 continue
@@ -378,4 +380,3 @@ async def get_payment_methods_tool(order_amount: Optional[float] = None) -> Dict
             "Monitoreo antifraude",
         ],
     }
-

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 class StreamEventType(str, Enum):
     """Tipos de eventos para streaming"""
+
     THINKING = "thinking"
     PROCESSING = "processing"
     GENERATING = "generating"
@@ -71,7 +72,11 @@ class ChatErrorResponse(BaseModel):
 
     class Config:
         json_schema_extra = {
-            "example": {"error": "Error procesando el mensaje", "status": "error", "detail": "Servicio temporalmente no disponible"}
+            "example": {
+                "error": "Error procesando el mensaje",
+                "status": "error",
+                "detail": "Servicio temporalmente no disponible",
+            }
         }
 
 

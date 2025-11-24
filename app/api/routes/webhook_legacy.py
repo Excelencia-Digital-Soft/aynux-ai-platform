@@ -55,9 +55,7 @@ logger = logging.getLogger(__name__)
 
 # Emit deprecation warning for this module
 warnings.warn(
-    "webhook.py uses legacy architecture. Migrate to new Clean Architecture patterns.",
-    DeprecationWarning,
-    stacklevel=2
+    "webhook.py uses legacy architecture. Migrate to new Clean Architecture patterns.", DeprecationWarning, stacklevel=2
 )
 
 # Services (initialized lazily)
@@ -68,6 +66,7 @@ whatsapp_service = WhatsAppService()
 # TODO: Replace with SuperOrchestrator from app.orchestration
 domain_detector = get_domain_detector()
 domain_manager = get_domain_manager()
+
 
 # Super orchestrator - use refactored version if enabled
 def get_orchestrator():
@@ -81,6 +80,7 @@ def get_orchestrator():
     else:
         logger.info("Using SuperOrchestratorService (legacy)")
         return get_super_orchestrator()
+
 
 super_orchestrator = get_orchestrator()
 
@@ -257,4 +257,3 @@ def is_status_update(request: WhatsAppWebhookRequest) -> bool:
         return bool(request.entry[0].changes[0].value.get("statuses"))
     except (IndexError, AttributeError, KeyError):
         return False
-

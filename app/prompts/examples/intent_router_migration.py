@@ -122,7 +122,8 @@ async def compare_approaches():
 
     print("\n📋 ANTES - Prompt Hardcodeado:")
     print("-" * 70)
-    print("""
+    print(
+        """
     def analyze_intent_with_llm(message, state_dict):
         # ❌ Prompt hardcodeado en el código
         system_prompt = '''
@@ -148,11 +149,13 @@ async def compare_approaches():
             user_prompt=user_prompt
         )
         return response
-    """)
+    """
+    )
 
     print("\n✅ DESPUÉS - Sistema Centralizado:")
     print("-" * 70)
-    print("""
+    print(
+        """
     def analyze_intent_with_llm(message, state_dict):
         # ✅ Prompts centralizados
         system_prompt = await self.prompt_manager.get_prompt(
@@ -182,7 +185,8 @@ async def compare_approaches():
             user_prompt=user_prompt
         )
         return response
-    """)
+    """
+    )
 
     print("\n📊 BENEFICIOS:")
     print("-" * 70)

@@ -264,4 +264,3 @@ class RiskAssessmentAgent(BaseCreditAgent):
             "credit_history_length": "Antigüedad Crediticia",
         }
         return translations.get(factor, factor)
-

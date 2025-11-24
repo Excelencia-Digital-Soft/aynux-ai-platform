@@ -105,12 +105,14 @@ class BaseCreditAgent(ABC):
         # Ensure messages is a list and append
         messages = updated_state.get("messages", [])
         if isinstance(messages, list):
-            messages.append({
-                "role": "assistant",
-                "content": "No tienes permisos para realizar esta operación.",
-                "timestamp": datetime.now(UTC).isoformat(),
-                "metadata": {"agent": self.name, "error": "unauthorized"},
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": "No tienes permisos para realizar esta operación.",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "metadata": {"agent": self.name, "error": "unauthorized"},
+                }
+            )
             updated_state["messages"] = messages
         return updated_state
 
@@ -121,12 +123,14 @@ class BaseCreditAgent(ABC):
         # Ensure messages is a list and append
         messages = updated_state.get("messages", [])
         if isinstance(messages, list):
-            messages.append({
-                "role": "assistant",
-                "content": f"Lo siento, ocurrió un error al procesar tu solicitud: {error}",
-                "timestamp": datetime.now(UTC).isoformat(),
-                "metadata": {"agent": self.name, "error": error},
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": f"Lo siento, ocurrió un error al procesar tu solicitud: {error}",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "metadata": {"agent": self.name, "error": error},
+                }
+            )
             updated_state["messages"] = messages
         return updated_state
 

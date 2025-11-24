@@ -164,9 +164,7 @@ class SearchKnowledgeUseCase:
                     if len(unique_results) >= max_results:
                         break
 
-            logger.info(
-                f"Search completed: {len(unique_results)} unique results (strategy: {strategy})"
-            )
+            logger.info(f"Search completed: {len(unique_results)} unique results (strategy: {strategy})")
             return unique_results
 
         except Exception as e:
@@ -210,9 +208,7 @@ class CreateKnowledgeUseCase:
             ollama_base_url=settings.OLLAMA_API_URL,
         )
 
-    async def execute(
-        self, knowledge_data: Dict[str, Any], auto_embed: bool = True
-    ) -> Dict[str, Any]:
+    async def execute(self, knowledge_data: Dict[str, Any], auto_embed: bool = True) -> Dict[str, Any]:
         """
         Create a new knowledge document.
 
@@ -662,10 +658,7 @@ class ListKnowledgeUseCase:
                 },
             }
 
-            logger.info(
-                f"Listed {len(documents)} knowledge documents "
-                f"(page {page}/{total_pages}, total: {total})"
-            )
+            logger.info(f"Listed {len(documents)} knowledge documents " f"(page {page}/{total_pages}, total: {total})")
             return result
 
         except Exception as e:
@@ -760,9 +753,7 @@ class GetKnowledgeStatisticsUseCase:
 
             # Calculate embedding coverage
             embedding_coverage = (
-                ((total_active - docs_without_embeddings) / total_active * 100)
-                if total_active > 0
-                else 0.0
+                ((total_active - docs_without_embeddings) / total_active * 100) if total_active > 0 else 0.0
             )
 
             stats = {

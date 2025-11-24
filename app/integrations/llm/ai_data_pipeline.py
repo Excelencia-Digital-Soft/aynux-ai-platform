@@ -470,4 +470,3 @@ async def setup_user_pipeline(user_id: str, tables: Optional[List[str]] = None, 
 
     result = await pipeline_service.setup_user_data_pipeline(context)
     return result.success
-

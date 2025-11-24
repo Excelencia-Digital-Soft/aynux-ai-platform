@@ -46,14 +46,8 @@ class DuxRubrosResponse(DuxBaseModel):
     def search_rubros_by_pattern(self, pattern: str) -> List[DuxRubro]:
         """Busca rubros que contengan el patrón en su nombre"""
         pattern_lower = pattern.lower()
-        return [
-            rubro for rubro in self.rubros 
-            if pattern_lower in rubro.rubro.lower()
-        ]
+        return [rubro for rubro in self.rubros if pattern_lower in rubro.rubro.lower()]
 
     def get_rubros_by_id_range(self, min_id: int, max_id: int) -> List[DuxRubro]:
         """Obtiene rubros dentro de un rango de IDs"""
-        return [
-            rubro for rubro in self.rubros 
-            if min_id <= rubro.id_rubro <= max_id
-        ]
+        return [rubro for rubro in self.rubros if min_id <= rubro.id_rubro <= max_id]

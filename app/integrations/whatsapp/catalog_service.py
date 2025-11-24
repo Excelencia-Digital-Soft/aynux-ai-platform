@@ -421,4 +421,3 @@ class DefaultCatalogDecisionEngine(ICatalogDecisionEngine):
         valid_products.sort(key=lambda p: (0 if p.get("price") else 1, p.get("name", "").lower()))
 
         return valid_products[:max_products]
-

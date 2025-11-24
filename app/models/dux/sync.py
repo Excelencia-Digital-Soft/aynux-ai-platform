@@ -13,6 +13,7 @@ from .base import DuxBaseModel
 
 class DuxSyncResult(DuxBaseModel):
     """Resultado de sincronización con DUX"""
+
     total_processed: int = 0
     total_created: int = 0
     total_updated: int = 0
@@ -42,7 +43,7 @@ class DuxSyncResult(DuxBaseModel):
     def is_successful(self) -> bool:
         """Verifica si la sincronización fue exitosa"""
         return self.total_errors == 0 and self.total_processed > 0
-    
+
     @property
     def success(self) -> bool:
         """Property alias for is_successful() for compatibility"""

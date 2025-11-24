@@ -107,9 +107,7 @@ async def example_stats_and_cache():
 
     # Hacer varias peticiones
     for i in range(5):
-        await manager.get_prompt(
-            PromptRegistry.INTENT_ANALYZER_SYSTEM
-        )  # Primera vez: cache miss, luego: cache hits
+        await manager.get_prompt(PromptRegistry.INTENT_ANALYZER_SYSTEM)  # Primera vez: cache miss, luego: cache hits
 
     # Ver estadísticas
     stats = manager.get_stats()

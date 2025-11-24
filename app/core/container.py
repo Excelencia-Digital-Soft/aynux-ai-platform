@@ -86,9 +86,7 @@ class DependencyContainer:
             ILLM instance (Ollama)
         """
         if self._llm_instance is None:
-            model_name = self.config.get("llm_model") or getattr(
-                self.settings, "OLLAMA_API_MODEL", "deepseek-r1:7b"
-            )
+            model_name = self.config.get("llm_model") or getattr(self.settings, "OLLAMA_API_MODEL", "deepseek-r1:7b")
 
             logger.info(f"Creating LLM instance with model: {model_name}")
             self._llm_instance = create_ollama_llm(model_name=model_name)
@@ -106,9 +104,7 @@ class DependencyContainer:
             collection_name = self.config.get("vector_collection", "products")
             embedding_dim = self.config.get("embedding_dimension", 768)
 
-            logger.info(
-                f"Creating Vector Store: {collection_name} (dim: {embedding_dim})"
-            )
+            logger.info(f"Creating Vector Store: {collection_name} (dim: {embedding_dim})")
             self._vector_store_instance = create_pgvector_store(
                 collection_name=collection_name,
                 embedding_dimension=embedding_dim,
@@ -168,23 +164,17 @@ class DependencyContainer:
 
     def create_get_products_by_category_use_case(self) -> GetProductsByCategoryUseCase:
         """Create GetProductsByCategoryUseCase with dependencies"""
-        return GetProductsByCategoryUseCase(
-            product_repository=self.create_product_repository()
-        )
+        return GetProductsByCategoryUseCase(product_repository=self.create_product_repository())
 
     def create_get_featured_products_use_case(self) -> GetFeaturedProductsUseCase:
         """Create GetFeaturedProductsUseCase with dependencies"""
-        return GetFeaturedProductsUseCase(
-            product_repository=self.create_product_repository()
-        )
+        return GetFeaturedProductsUseCase(product_repository=self.create_product_repository())
 
     # Credit Use Cases
 
     def create_get_credit_balance_use_case(self) -> GetCreditBalanceUseCase:
         """Create GetCreditBalanceUseCase with dependencies"""
-        return GetCreditBalanceUseCase(
-            credit_account_repository=self.create_credit_account_repository()
-        )
+        return GetCreditBalanceUseCase(credit_account_repository=self.create_credit_account_repository())
 
     def create_process_payment_use_case(self) -> ProcessPaymentUseCase:
         """Create ProcessPaymentUseCase with dependencies"""
@@ -195,9 +185,7 @@ class DependencyContainer:
 
     def create_get_payment_schedule_use_case(self) -> GetPaymentScheduleUseCase:
         """Create GetPaymentScheduleUseCase with dependencies"""
-        return GetPaymentScheduleUseCase(
-            credit_account_repository=self.create_credit_account_repository()
-        )
+        return GetPaymentScheduleUseCase(credit_account_repository=self.create_credit_account_repository())
 
     # Shared Use Cases
 
@@ -225,36 +213,43 @@ class DependencyContainer:
     def create_create_knowledge_use_case(self, db):
         """Create CreateKnowledgeUseCase with dependencies"""
         from app.domains.shared.application.use_cases import CreateKnowledgeUseCase
+
         return CreateKnowledgeUseCase(db=db)
 
     def create_get_knowledge_use_case(self, db):
         """Create GetKnowledgeUseCase with dependencies"""
         from app.domains.shared.application.use_cases import GetKnowledgeUseCase
+
         return GetKnowledgeUseCase(db=db)
 
     def create_update_knowledge_use_case(self, db):
         """Create UpdateKnowledgeUseCase with dependencies"""
         from app.domains.shared.application.use_cases import UpdateKnowledgeUseCase
+
         return UpdateKnowledgeUseCase(db=db)
 
     def create_delete_knowledge_use_case(self, db):
         """Create DeleteKnowledgeUseCase with dependencies"""
         from app.domains.shared.application.use_cases import DeleteKnowledgeUseCase
+
         return DeleteKnowledgeUseCase(db=db)
 
     def create_list_knowledge_use_case(self, db):
         """Create ListKnowledgeUseCase with dependencies"""
         from app.domains.shared.application.use_cases import ListKnowledgeUseCase
+
         return ListKnowledgeUseCase(db=db)
 
     def create_get_knowledge_statistics_use_case(self, db):
         """Create GetKnowledgeStatisticsUseCase with dependencies"""
         from app.domains.shared.application.use_cases import GetKnowledgeStatisticsUseCase
+
         return GetKnowledgeStatisticsUseCase(db=db)
 
     def create_regenerate_knowledge_embeddings_use_case(self, db):
         """Create RegenerateKnowledgeEmbeddingsUseCase with dependencies"""
         from app.domains.shared.application.use_cases import RegenerateKnowledgeEmbeddingsUseCase
+
         return RegenerateKnowledgeEmbeddingsUseCase(db=db)
 
     # Document Upload Use Cases
@@ -262,16 +257,19 @@ class DependencyContainer:
     def create_upload_pdf_use_case(self, db):
         """Create UploadPDFUseCase with dependencies"""
         from app.domains.shared.application.use_cases import UploadPDFUseCase
+
         return UploadPDFUseCase(db=db)
 
     def create_upload_text_use_case(self, db):
         """Create UploadTextUseCase with dependencies"""
         from app.domains.shared.application.use_cases import UploadTextUseCase
+
         return UploadTextUseCase(db=db)
 
     def create_batch_upload_documents_use_case(self, db):
         """Create BatchUploadDocumentsUseCase with dependencies"""
         from app.domains.shared.application.use_cases import BatchUploadDocumentsUseCase
+
         return BatchUploadDocumentsUseCase(db=db)
 
     # Agent Configuration Use Cases (don't require db session)
@@ -279,16 +277,19 @@ class DependencyContainer:
     def create_get_agent_config_use_case(self):
         """Create GetAgentConfigUseCase"""
         from app.domains.shared.application.use_cases import GetAgentConfigUseCase
+
         return GetAgentConfigUseCase()
 
     def create_update_agent_modules_use_case(self):
         """Create UpdateAgentModulesUseCase"""
         from app.domains.shared.application.use_cases import UpdateAgentModulesUseCase
+
         return UpdateAgentModulesUseCase()
 
     def create_update_agent_settings_use_case(self):
         """Create UpdateAgentSettingsUseCase"""
         from app.domains.shared.application.use_cases import UpdateAgentSettingsUseCase
+
         return UpdateAgentSettingsUseCase()
 
     # Admin Use Cases
@@ -304,46 +305,55 @@ class DependencyContainer:
             ListDomainsUseCase instance
         """
         from app.domains.shared.application.use_cases import ListDomainsUseCase
+
         return ListDomainsUseCase(db=db)
 
     def create_enable_domain_use_case(self, db):
         """Create EnableDomainUseCase with dependencies"""
         from app.domains.shared.application.use_cases import EnableDomainUseCase
+
         return EnableDomainUseCase(db=db)
 
     def create_disable_domain_use_case(self, db):
         """Create DisableDomainUseCase with dependencies"""
         from app.domains.shared.application.use_cases import DisableDomainUseCase
+
         return DisableDomainUseCase(db=db)
 
     def create_update_domain_config_use_case(self, db):
         """Create UpdateDomainConfigUseCase with dependencies"""
         from app.domains.shared.application.use_cases import UpdateDomainConfigUseCase
+
         return UpdateDomainConfigUseCase(db=db)
 
     def create_get_contact_domain_use_case(self, db):
         """Create GetContactDomainUseCase with dependencies"""
         from app.domains.shared.application.use_cases import GetContactDomainUseCase
+
         return GetContactDomainUseCase(db=db)
 
     def create_assign_contact_domain_use_case(self, db):
         """Create AssignContactDomainUseCase with dependencies"""
         from app.domains.shared.application.use_cases import AssignContactDomainUseCase
+
         return AssignContactDomainUseCase(db=db)
 
     def create_remove_contact_domain_use_case(self, db):
         """Create RemoveContactDomainUseCase with dependencies"""
         from app.domains.shared.application.use_cases import RemoveContactDomainUseCase
+
         return RemoveContactDomainUseCase(db=db)
 
     def create_clear_domain_assignments_use_case(self, db):
         """Create ClearDomainAssignmentsUseCase with dependencies"""
         from app.domains.shared.application.use_cases import ClearDomainAssignmentsUseCase
+
         return ClearDomainAssignmentsUseCase(db=db)
 
     def create_get_domain_stats_use_case(self, db):
         """Create GetDomainStatsUseCase with dependencies"""
         from app.domains.shared.application.use_cases import GetDomainStatsUseCase
+
         return GetDomainStatsUseCase(db=db)
 
     # ============================================================
@@ -406,10 +416,7 @@ class DependencyContainer:
             # "excelencia": self.create_excelencia_agent(),
         }
 
-        logger.info(
-            f"Creating SuperOrchestrator with {len(domain_agents)} domains: "
-            f"{list(domain_agents.keys())}"
-        )
+        logger.info(f"Creating SuperOrchestrator with {len(domain_agents)} domains: " f"{list(domain_agents.keys())}")
 
         return SuperOrchestrator(
             domain_agents=domain_agents,
@@ -455,8 +462,7 @@ def get_container(config: Optional[Dict] = None) -> DependencyContainer:
         _container = DependencyContainer(config)
     elif config is not None:
         logger.warning(
-            "Container already initialized, ignoring new config. "
-            "Call reset_container() first to change config."
+            "Container already initialized, ignoring new config. " "Call reset_container() first to change config."
         )
 
     return _container
@@ -476,6 +482,7 @@ def reset_container() -> None:
 # ============================================================
 # CONVENIENCE FUNCTIONS
 # ============================================================
+
 
 def get_super_orchestrator() -> SuperOrchestrator:
     """

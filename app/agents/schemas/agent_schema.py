@@ -114,8 +114,9 @@ class AgentSchema(BaseModel):
     @property
     def graph_node_names(self) -> List[str]:
         """Get list of all graph node names (excludes orchestrator and supervisor)."""
-        return [agent.value for agent in self.agents.keys() 
-                if agent not in (AgentType.ORCHESTRATOR, AgentType.SUPERVISOR)]
+        return [
+            agent.value for agent in self.agents.keys() if agent not in (AgentType.ORCHESTRATOR, AgentType.SUPERVISOR)
+        ]
 
     @property
     def intent_to_agent_mapping(self) -> Dict[str, str]:
@@ -164,7 +165,7 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             examples=[
                 "hello",
                 "hi",
-                "hola", 
+                "hola",
                 "buenos días",
                 "good morning",
                 "hey there",
@@ -173,7 +174,7 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
                 "good afternoon",
                 "hey",
                 "hi there",
-                "hello there"
+                "hello there",
             ],
             target_agent=AgentType.GREETING_AGENT,
             confidence_threshold=0.8,
@@ -474,8 +475,7 @@ def get_agent_routing_literal():
         Tipo Literal con todos los agentes válidos para routing más "__end__"
     """
     # Obtener todos los agentes especializados (excluye ORCHESTRATOR y SUPERVISOR)
-    agent_names = [agent.value for agent in AgentType 
-                   if agent not in (AgentType.ORCHESTRATOR, AgentType.SUPERVISOR)]
+    agent_names = [agent.value for agent in AgentType if agent not in (AgentType.ORCHESTRATOR, AgentType.SUPERVISOR)]
     # Agregar __end__ para terminación
     routing_options = ["__end__"] + agent_names
     return routing_options
@@ -498,8 +498,7 @@ def get_non_supervisor_agents() -> List[AgentType]:
     Returns:
         Lista de AgentType especializados sin orchestrator ni supervisor
     """
-    return [agent for agent in AgentType 
-            if agent not in (AgentType.ORCHESTRATOR, AgentType.SUPERVISOR)]
+    return [agent for agent in AgentType if agent not in (AgentType.ORCHESTRATOR, AgentType.SUPERVISOR)]
 
 
 # Export the default schema instance

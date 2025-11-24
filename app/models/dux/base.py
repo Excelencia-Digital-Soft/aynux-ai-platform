@@ -35,4 +35,3 @@ class DuxApiError(Exception):
         self.error_message = error_message
         self.timestamp = datetime.now()
         super().__init__(f"[{error_code}] {error_message}")
-

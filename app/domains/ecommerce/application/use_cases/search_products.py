@@ -101,9 +101,7 @@ class SearchProductsUseCase:
                 error=str(e),
             )
 
-    async def _semantic_search(
-        self, request: SearchProductsRequest
-    ) -> Optional[SearchProductsResponse]:
+    async def _semantic_search(self, request: SearchProductsRequest) -> Optional[SearchProductsResponse]:
         """
         Perform semantic search using vector store.
 
@@ -165,9 +163,7 @@ class SearchProductsUseCase:
             logger.error(f"Error in semantic search: {e}", exc_info=True)
             return None
 
-    async def _database_search(
-        self, request: SearchProductsRequest
-    ) -> SearchProductsResponse:
+    async def _database_search(self, request: SearchProductsRequest) -> SearchProductsResponse:
         """
         Perform traditional database search.
 

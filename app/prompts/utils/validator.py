@@ -133,9 +133,7 @@ class PromptValidator:
             result["warnings"].append(f"Template is very short ({len(template)} characters)")
 
         if len(template) > cls.MAX_TEMPLATE_LENGTH:
-            result["errors"].append(
-                f"Template exceeds maximum length ({len(template)} > {cls.MAX_TEMPLATE_LENGTH})"
-            )
+            result["errors"].append(f"Template exceeds maximum length ({len(template)} > {cls.MAX_TEMPLATE_LENGTH})")
             result["is_valid"] = False
 
         # Validar balance de llaves

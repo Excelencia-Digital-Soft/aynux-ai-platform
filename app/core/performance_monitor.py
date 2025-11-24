@@ -338,12 +338,12 @@ class PerformanceMonitor:
                     "max": max(values),
                     "avg": sum(values) / len(values),
                     "p50": sorted_values[len(sorted_values) // 2],
-                    "p95": sorted_values[int(len(sorted_values) * 0.95)]
-                    if len(sorted_values) > 20
-                    else sorted_values[-1],
-                    "p99": sorted_values[int(len(sorted_values) * 0.99)]
-                    if len(sorted_values) > 100
-                    else sorted_values[-1],
+                    "p95": (
+                        sorted_values[int(len(sorted_values) * 0.95)] if len(sorted_values) > 20 else sorted_values[-1]
+                    ),
+                    "p99": (
+                        sorted_values[int(len(sorted_values) * 0.99)] if len(sorted_values) > 100 else sorted_values[-1]
+                    ),
                 }
 
         return {
@@ -533,4 +533,3 @@ class PerformanceMonitor:
                 lines.append(f"{metric_name}_sum {sum(values)}")
 
         return "\n".join(lines)
-

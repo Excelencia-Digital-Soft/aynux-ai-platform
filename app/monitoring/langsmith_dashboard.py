@@ -602,4 +602,3 @@ def get_monitor() -> AynuxMonitor:
     if _monitor_instance is None:
         _monitor_instance = AynuxMonitor()
     return _monitor_instance
-

@@ -124,4 +124,3 @@ class OrderItem(Base, TimestampMixin):
 
     def __repr__(self):
         return f"<OrderItem(product='{self.product_name}', quantity={self.quantity}, price={self.unit_price})>"
-

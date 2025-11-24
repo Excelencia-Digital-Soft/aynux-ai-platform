@@ -77,15 +77,25 @@ class LangSmithTracer:
         """Load configuration from environment variables and settings."""
         try:
             from app.config.settings import get_settings
+
             settings = get_settings()
-            
+
             # Use settings if available, fallback to environment variables
             return LangSmithConfig(
                 api_key=settings.LANGSMITH_API_KEY or os.getenv("LANGSMITH_API_KEY"),
-                api_url=settings.LANGSMITH_ENDPOINT or os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
+                api_url=settings.LANGSMITH_ENDPOINT
+                or os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
                 project_name=settings.LANGSMITH_PROJECT or os.getenv("LANGSMITH_PROJECT", "aynux-production"),
-                tracing_enabled=settings.LANGSMITH_TRACING if hasattr(settings, 'LANGSMITH_TRACING') else os.getenv("LANGSMITH_TRACING", "true").lower() == "true",
-                verbose_tracing=settings.LANGSMITH_VERBOSE if hasattr(settings, 'LANGSMITH_VERBOSE') else os.getenv("LANGSMITH_VERBOSE", "false").lower() == "true",
+                tracing_enabled=(
+                    settings.LANGSMITH_TRACING
+                    if hasattr(settings, "LANGSMITH_TRACING")
+                    else os.getenv("LANGSMITH_TRACING", "true").lower() == "true"
+                ),
+                verbose_tracing=(
+                    settings.LANGSMITH_VERBOSE
+                    if hasattr(settings, "LANGSMITH_VERBOSE")
+                    else os.getenv("LANGSMITH_VERBOSE", "false").lower() == "true"
+                ),
                 trace_sample_rate=float(os.getenv("LANGSMITH_SAMPLE_RATE", "1.0")),
                 auto_eval_enabled=os.getenv("LANGSMITH_AUTO_EVAL", "false").lower() == "true",
                 metrics_enabled=os.getenv("LANGSMITH_METRICS_ENABLED", "true").lower() == "true",
@@ -468,4 +478,3 @@ class ConversationTracer:
         if self.tracer.config.metrics_enabled:
             # This would be logged as a custom metric in LangSmith
             pass
-

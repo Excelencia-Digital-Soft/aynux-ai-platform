@@ -289,11 +289,8 @@ class ChromaToPgVectorMigration:
         final_embeddings = pgvector_stats.get("products_with_embeddings", 0)
 
         logger.info(f"  Products with pgvector embeddings after migration: {final_embeddings}")
-        logger.info(
-            f"  Expected embeddings: {
-                self.stats['successfully_migrated'] + self.stats['products_with_pgvector_embeddings']
-            }"
-        )
+        expected_embeddings = self.stats["successfully_migrated"] + self.stats["products_with_pgvector_embeddings"]
+        logger.info(f"  Expected embeddings: {expected_embeddings}")
 
         # Spot check: Query a few products to verify embeddings
         logger.info("  Running spot checks on random products...")
@@ -394,4 +391,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

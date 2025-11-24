@@ -206,4 +206,3 @@ class ChromaDBSearchStrategy(BaseSearchStrategy):
 
         # Fallback to original query if no structured terms
         return " ".join(query_parts) if query_parts else query
-

@@ -56,9 +56,7 @@ class GetCreditBalanceUseCase:
         """
         self.account_repo = credit_account_repository
 
-    async def execute(
-        self, request: GetCreditBalanceRequest
-    ) -> GetCreditBalanceResponse:
+    async def execute(self, request: GetCreditBalanceRequest) -> GetCreditBalanceResponse:
         """
         Execute use case to get credit balance.
 

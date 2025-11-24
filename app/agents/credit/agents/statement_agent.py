@@ -188,4 +188,3 @@ class StatementAgent(BaseCreditAgent):
 • 🔍 Buscar una transacción específica"""
 
         return message
-

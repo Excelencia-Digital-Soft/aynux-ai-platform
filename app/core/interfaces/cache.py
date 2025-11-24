@@ -1,8 +1,9 @@
 """
-Interfaces para sistemas de caché
+Interfaces para sistemas de cachÃ©
 
-Define contratos para almacenamiento en caché (Redis, Memcached, in-memory, etc.)
+Define contratos para almacenamiento en cachÃ© (Redis, Memcached, in-memory, etc.)
 """
+
 from typing import Protocol, Optional, Any, List, Set, Dict, runtime_checkable, Callable
 from abc import abstractmethod
 from enum import Enum
@@ -11,7 +12,8 @@ from datetime import timedelta
 
 
 class CacheBackend(str, Enum):
-    """Backends de caché soportados"""
+    """Backends de cachÃ© soportados"""
+
     REDIS = "redis"
     MEMCACHED = "memcached"
     IN_MEMORY = "in_memory"
@@ -20,7 +22,8 @@ class CacheBackend(str, Enum):
 
 @dataclass
 class CacheEntry:
-    """Entrada de caché con metadata"""
+    """Entrada de cachÃ© con metadata"""
+
     key: str
     value: Any
     ttl: Optional[int] = None  # Seconds
@@ -31,9 +34,9 @@ class CacheEntry:
 @runtime_checkable
 class ICache(Protocol):
     """
-    Interface base para sistemas de caché.
+    Interface base para sistemas de cachÃ©.
 
-    Abstrae operaciones de caché permitiendo cambiar backend sin modificar código.
+    Abstrae operaciones de cachÃ© permitiendo cambiar backend sin modificar cÃ³digo.
 
     Example:
         ```python
@@ -46,19 +49,19 @@ class ICache(Protocol):
     @property
     @abstractmethod
     def backend(self) -> CacheBackend:
-        """Tipo de backend de caché"""
+        """Tipo de backend de cachÃ©"""
         ...
 
     @abstractmethod
     async def get(self, key: str) -> Optional[Any]:
         """
-        Obtiene valor del caché.
+        Obtiene valor del cachÃ©.
 
         Args:
             key: Clave a buscar
 
         Returns:
-            Valor cacheado o None si no existe/expiró
+            Valor cacheado o None si no existe/expirÃ³
 
         Example:
             ```python
@@ -71,22 +74,17 @@ class ICache(Protocol):
         ...
 
     @abstractmethod
-    async def set(
-        self,
-        key: str,
-        value: Any,
-        ttl: Optional[int] = None
-    ) -> bool:
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """
-        Guarda valor en caché.
+        Guarda valor en cachÃ©.
 
         Args:
             key: Clave
             value: Valor a cachear (debe ser serializable)
-            ttl: Time-to-live en segundos (None = sin expiración)
+            ttl: Time-to-live en segundos (None = sin expiraciÃ³n)
 
         Returns:
-            True si se guardó exitosamente
+            True si se guardÃ³ exitosamente
 
         Example:
             ```python
@@ -98,13 +96,13 @@ class ICache(Protocol):
     @abstractmethod
     async def delete(self, key: str) -> bool:
         """
-        Elimina entrada de caché.
+        Elimina entrada de cachÃ©.
 
         Args:
             key: Clave a eliminar
 
         Returns:
-            True si se eliminó, False si no existía
+            True si se eliminÃ³, False si no existÃ­a
         """
         ...
 
@@ -124,10 +122,10 @@ class ICache(Protocol):
     @abstractmethod
     async def clear(self) -> bool:
         """
-        Limpia todo el caché.
+        Limpia todo el cachÃ©.
 
         Returns:
-            True si se limpió exitosamente
+            True si se limpiÃ³ exitosamente
         """
         ...
 
@@ -140,7 +138,7 @@ class ICache(Protocol):
             key: Clave
 
         Returns:
-            Segundos restantes o None si no existe/sin expiración
+            Segundos restantes o None si no existe/sin expiraciÃ³n
         """
         ...
 
@@ -154,7 +152,7 @@ class ICache(Protocol):
             ttl: Nuevo TTL en segundos
 
         Returns:
-            True si se actualizó exitosamente
+            True si se actualizÃ³ exitosamente
         """
         ...
 
@@ -162,13 +160,13 @@ class ICache(Protocol):
 @runtime_checkable
 class IAdvancedCache(Protocol):
     """
-    Interface extendida con operaciones avanzadas de caché.
+    Interface extendida con operaciones avanzadas de cachÃ©.
     """
 
     @abstractmethod
     async def get_many(self, keys: List[str]) -> Dict[str, Any]:
         """
-        Obtiene múltiples valores en una sola operación.
+        Obtiene mÃºltiples valores en una sola operaciÃ³n.
 
         Args:
             keys: Lista de claves
@@ -185,20 +183,16 @@ class IAdvancedCache(Protocol):
         ...
 
     @abstractmethod
-    async def set_many(
-        self,
-        items: Dict[str, Any],
-        ttl: Optional[int] = None
-    ) -> int:
+    async def set_many(self, items: Dict[str, Any], ttl: Optional[int] = None) -> int:
         """
-        Guarda múltiples valores en una sola operación.
+        Guarda mÃºltiples valores en una sola operaciÃ³n.
 
         Args:
             items: Diccionario {key: value}
             ttl: TTL para todas las claves
 
         Returns:
-            Número de items guardados
+            NÃºmero de items guardados
 
         Example:
             ```python
@@ -213,20 +207,20 @@ class IAdvancedCache(Protocol):
     @abstractmethod
     async def delete_many(self, keys: List[str]) -> int:
         """
-        Elimina múltiples claves.
+        Elimina mÃºltiples claves.
 
         Args:
             keys: Lista de claves a eliminar
 
         Returns:
-            Número de claves eliminadas
+            NÃºmero de claves eliminadas
         """
         ...
 
     @abstractmethod
     async def increment(self, key: str, amount: int = 1) -> int:
         """
-        Incrementa valor numérico.
+        Incrementa valor numÃ©rico.
 
         Args:
             key: Clave
@@ -248,7 +242,7 @@ class IAdvancedCache(Protocol):
     @abstractmethod
     async def decrement(self, key: str, amount: int = 1) -> int:
         """
-        Decrementa valor numérico.
+        Decrementa valor numÃ©rico.
 
         Args:
             key: Clave
@@ -269,10 +263,10 @@ class IPatternCache(Protocol):
     @abstractmethod
     async def get_keys(self, pattern: str) -> List[str]:
         """
-        Obtiene claves que coinciden con patrón.
+        Obtiene claves que coinciden con patrÃ³n.
 
         Args:
-            pattern: Patrón de búsqueda (ej. "product:*", "user:*:session")
+            pattern: PatrÃ³n de bÃºsqueda (ej. "product:*", "user:*:session")
 
         Returns:
             Lista de claves que coinciden
@@ -289,17 +283,17 @@ class IPatternCache(Protocol):
     @abstractmethod
     async def delete_pattern(self, pattern: str) -> int:
         """
-        Elimina todas las claves que coinciden con patrón.
+        Elimina todas las claves que coinciden con patrÃ³n.
 
         Args:
-            pattern: Patrón de búsqueda
+            pattern: PatrÃ³n de bÃºsqueda
 
         Returns:
-            Número de claves eliminadas
+            NÃºmero de claves eliminadas
 
         Example:
             ```python
-            # Invalidar todos los cachés de productos
+            # Invalidar todos los cachÃ©s de productos
             deleted = await cache.delete_pattern("product:*")
             ```
         """
@@ -309,28 +303,23 @@ class IPatternCache(Protocol):
 @runtime_checkable
 class ICacheWithCallback(Protocol):
     """
-    Interface para caché con función de recuperación automática.
+    Interface para cachÃ© con funciÃ³n de recuperaciÃ³n automÃ¡tica.
     """
 
     @abstractmethod
-    async def get_or_set(
-        self,
-        key: str,
-        fetch_fn: Callable[[], Any],
-        ttl: Optional[int] = None
-    ) -> Any:
+    async def get_or_set(self, key: str, fetch_fn: Callable[[], Any], ttl: Optional[int] = None) -> Any:
         """
-        Obtiene del caché o ejecuta función si no existe.
+        Obtiene del cachÃ© o ejecuta funciÃ³n si no existe.
 
         Pattern "Cache-Aside" implementado.
 
         Args:
-            key: Clave de caché
-            fetch_fn: Función async para obtener valor si no está en caché
+            key: Clave de cachÃ©
+            fetch_fn: FunciÃ³n async para obtener valor si no estÃ¡ en cachÃ©
             ttl: TTL en segundos
 
         Returns:
-            Valor del caché o del fetch
+            Valor del cachÃ© o del fetch
 
         Example:
             ```python
@@ -347,18 +336,13 @@ class ICacheWithCallback(Protocol):
         ...
 
     @abstractmethod
-    async def remember(
-        self,
-        key: str,
-        fetch_fn: Callable[[], Any],
-        ttl: int = 3600
-    ) -> Any:
+    async def remember(self, key: str, fetch_fn: Callable[[], Any], ttl: int = 3600) -> Any:
         """
         Alias de get_or_set con TTL obligatorio.
 
         Args:
             key: Clave
-            fetch_fn: Función de recuperación
+            fetch_fn: FunciÃ³n de recuperaciÃ³n
             ttl: TTL en segundos (obligatorio)
 
         Returns:
@@ -370,19 +354,15 @@ class ICacheWithCallback(Protocol):
 @runtime_checkable
 class IMultiLayerCache(Protocol):
     """
-    Interface para caché en múltiples capas.
+    Interface para cachÃ© en mÃºltiples capas.
 
-    Combina caché en memoria (rápido) con caché distribuido (compartido).
+    Combina cachÃ© en memoria (rÃ¡pido) con cachÃ© distribuido (compartido).
     """
 
     @abstractmethod
-    async def get_with_fallback(
-        self,
-        key: str,
-        layers: List[str] = ["memory", "redis"]
-    ) -> Optional[Any]:
+    async def get_with_fallback(self, key: str, layers: List[str] = ["memory", "redis"]) -> Optional[Any]:
         """
-        Obtiene valor probando múltiples capas.
+        Obtiene valor probando mÃºltiples capas.
 
         Args:
             key: Clave
@@ -400,24 +380,18 @@ class IMultiLayerCache(Protocol):
         ...
 
     @abstractmethod
-    async def set_multi_layer(
-        self,
-        key: str,
-        value: Any,
-        memory_ttl: int = 60,
-        redis_ttl: int = 3600
-    ) -> bool:
+    async def set_multi_layer(self, key: str, value: Any, memory_ttl: int = 60, redis_ttl: int = 3600) -> bool:
         """
-        Guarda en múltiples capas con TTLs diferentes.
+        Guarda en mÃºltiples capas con TTLs diferentes.
 
         Args:
             key: Clave
             value: Valor
-            memory_ttl: TTL para caché en memoria (corto)
+            memory_ttl: TTL para cachÃ© en memoria (corto)
             redis_ttl: TTL para Redis (largo)
 
         Returns:
-            True si se guardó en al menos una capa
+            True si se guardÃ³ en al menos una capa
         """
         ...
 
@@ -430,7 +404,7 @@ class IMultiLayerCache(Protocol):
             key: Clave a invalidar
 
         Returns:
-            Número de capas donde se invalidó
+            NÃºmero de capas donde se invalidÃ³
         """
         ...
 
@@ -438,16 +412,16 @@ class IMultiLayerCache(Protocol):
 @runtime_checkable
 class ICacheMetrics(Protocol):
     """
-    Interface para métricas de caché.
+    Interface para mÃ©tricas de cachÃ©.
     """
 
     @abstractmethod
     async def get_stats(self) -> Dict[str, Any]:
         """
-        Obtiene estadísticas del caché.
+        Obtiene estadÃ­sticas del cachÃ©.
 
         Returns:
-            Diccionario con métricas (hits, misses, evictions, memory_usage, etc.)
+            Diccionario con mÃ©tricas (hits, misses, evictions, memory_usage, etc.)
 
         Example:
             ```python
@@ -465,26 +439,30 @@ class ICacheMetrics(Protocol):
 
     @abstractmethod
     async def reset_stats(self) -> bool:
-        """Resetea estadísticas"""
+        """Resetea estadÃ­sticas"""
         ...
 
 
 # Excepciones
 class CacheError(Exception):
-    """Error base para caché"""
+    """Error base para cachÃ©"""
+
     pass
 
 
 class CacheConnectionError(CacheError):
-    """Error de conexión con backend"""
+    """Error de conexiÃ³n con backend"""
+
     pass
 
 
 class CacheSerializationError(CacheError):
     """Error serializando/deserializando valor"""
+
     pass
 
 
 class CacheKeyError(CacheError):
     """Error con formato de clave"""
+
     pass

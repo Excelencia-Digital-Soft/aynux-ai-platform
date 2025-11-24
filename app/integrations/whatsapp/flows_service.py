@@ -494,4 +494,3 @@ class DefaultOrderFormHandler(IFlowHandler):
             errors.append("Debe seleccionar al menos un producto")
 
         return len(errors) == 0, errors
-

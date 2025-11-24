@@ -10,6 +10,7 @@ from enum import Enum
 
 class InteractiveType(str, Enum):
     """Supported interactive message types"""
+
     PRODUCT_LIST = "product_list"
     FLOW = "flow"
     BUTTON = "button"
@@ -18,6 +19,7 @@ class InteractiveType(str, Enum):
 
 class FlowAction(str, Enum):
     """Available flow actions"""
+
     NAVIGATE = "navigate"
     COMPLETE = "complete"
     UPDATE_SCREEN = "update_screen"
@@ -26,6 +28,7 @@ class FlowAction(str, Enum):
 # Base WhatsApp Message Models
 class WhatsAppRecipient(BaseModel):
     """Base recipient model for WhatsApp messages"""
+
     to: str = Field(..., description="Recipient phone number")
     messaging_product: str = Field(default="whatsapp", description="Messaging product")
     recipient_type: str = Field(default="individual", description="Type of recipient")
@@ -33,24 +36,28 @@ class WhatsAppRecipient(BaseModel):
 
 class WhatsAppHeaderText(BaseModel):
     """Text header for interactive messages"""
+
     type: str = Field(default="text", description="Header type")
     text: str = Field(..., max_length=60, description="Header text (max 60 chars)")
 
 
 class WhatsAppBody(BaseModel):
     """Body text for messages"""
+
     text: str = Field(..., max_length=1024, description="Body text (max 1024 chars)")
 
 
 # Catalog Models
 class CatalogProductAction(BaseModel):
     """Catalog action configuration"""
+
     catalog_id: str = Field(..., description="WhatsApp Business catalog ID")
     product_retailer_id: Optional[str] = Field(None, description="Specific product ID to highlight")
 
 
 class ProductListInteractive(BaseModel):
     """Interactive configuration for product list"""
+
     type: InteractiveType = Field(InteractiveType.PRODUCT_LIST, description="Interactive type")
     header: Optional[WhatsAppHeaderText] = Field(None, description="Optional header")
     body: WhatsAppBody = Field(..., description="Message body")
@@ -60,10 +67,11 @@ class ProductListInteractive(BaseModel):
 
 class ProductListMessage(WhatsAppRecipient):
     """Complete product list message structure"""
+
     type: str = Field(default="interactive", description="Message type")
     interactive: ProductListInteractive = Field(..., description="Interactive configuration")
 
-    @field_validator('interactive', mode='after')
+    @field_validator("interactive", mode="after")
     @classmethod
     def validate_interactive_type(cls, value):
         """Ensure interactive type is product_list"""
@@ -75,6 +83,7 @@ class ProductListMessage(WhatsAppRecipient):
 # Flow Models
 class FlowData(BaseModel):
     """Flow data configuration"""
+
     flow_message_version: str = Field(default="1", description="Flow message version")
     flow_token: Optional[str] = Field(None, description="Flow token for data passing")
     flow_id: str = Field(..., description="WhatsApp Flow ID")
@@ -82,7 +91,7 @@ class FlowData(BaseModel):
     flow_action: FlowAction = Field(FlowAction.NAVIGATE, description="Flow action type")
     flow_action_payload: Optional[Dict[str, Any]] = Field(None, description="Additional flow data")
 
-    @field_validator('flow_cta', mode='after')
+    @field_validator("flow_cta", mode="after")
     @classmethod
     def validate_flow_cta_length(cls, value):
         """Validate flow CTA length"""
@@ -93,6 +102,7 @@ class FlowData(BaseModel):
 
 class FlowInteractive(BaseModel):
     """Interactive configuration for flows"""
+
     type: InteractiveType = Field(InteractiveType.FLOW, description="Interactive type")
     header: Optional[WhatsAppHeaderText] = Field(None, description="Optional header")
     body: Optional[WhatsAppBody] = Field(None, description="Optional body")
@@ -102,10 +112,11 @@ class FlowInteractive(BaseModel):
 
 class FlowMessage(WhatsAppRecipient):
     """Complete flow message structure"""
+
     type: str = Field(default="interactive", description="Message type")
     interactive: FlowInteractive = Field(..., description="Interactive configuration")
 
-    @field_validator('interactive', mode='after')
+    @field_validator("interactive", mode="after")
     @classmethod
     def validate_interactive_type(cls, value):
         """Ensure interactive type is flow"""
@@ -117,6 +128,7 @@ class FlowMessage(WhatsAppRecipient):
 # Response Models
 class WhatsAppMessageResponse(BaseModel):
     """Standard WhatsApp API response"""
+
     messaging_product: str
     contacts: List[Dict[str, Any]]
     messages: List[Dict[str, str]]
@@ -124,11 +136,13 @@ class WhatsAppMessageResponse(BaseModel):
 
 class WhatsAppErrorResponse(BaseModel):
     """WhatsApp API error response"""
+
     error: Dict[str, Any]
 
 
 class WhatsAppApiResponse(BaseModel):
     """Generic WhatsApp API response wrapper"""
+
     success: bool = Field(..., description="Request success status")
     data: Optional[Union[WhatsAppMessageResponse, Dict[str, Any]]] = Field(None, description="Response data")
     error: Optional[Union[WhatsAppErrorResponse, str]] = Field(None, description="Error details")
@@ -138,6 +152,7 @@ class WhatsAppApiResponse(BaseModel):
 # Catalog Product Models (for local processing)
 class CatalogProduct(BaseModel):
     """Local representation of catalog product"""
+
     id: str = Field(..., description="Product ID")
     retailer_id: str = Field(..., description="Retailer product ID")
     name: str = Field(..., description="Product name")
@@ -153,6 +168,7 @@ class CatalogProduct(BaseModel):
 
 class CatalogProductList(BaseModel):
     """List of catalog products with metadata"""
+
     products: List[CatalogProduct] = Field(..., description="List of products")
     total_count: int = Field(..., description="Total number of products")
     has_more: bool = Field(default=False, description="Whether more products are available")
@@ -162,6 +178,7 @@ class CatalogProductList(BaseModel):
 # Flow Response Models (for handling webhook responses)
 class FlowDataResponse(BaseModel):
     """Flow data received from webhook"""
+
     flow_token: str = Field(..., description="Flow token")
     version: str = Field(..., description="Flow version")
     data: Dict[str, Any] = Field(..., description="Flow response data")
@@ -171,6 +188,7 @@ class FlowDataResponse(BaseModel):
 
 class FlowWebhookData(BaseModel):
     """Webhook data for flow responses"""
+
     messaging_product: str = Field(..., description="Messaging product")
     metadata: Dict[str, Any] = Field(..., description="Message metadata")
     contacts: List[Dict[str, Any]] = Field(..., description="Contact information")
@@ -180,6 +198,7 @@ class FlowWebhookData(BaseModel):
 # Validation and Configuration Models
 class CatalogConfiguration(BaseModel):
     """Catalog configuration validation"""
+
     catalog_id: str = Field(..., description="WhatsApp Business catalog ID")
     phone_number_id: str = Field(..., description="WhatsApp phone number ID")
     access_token: str = Field(..., description="WhatsApp access token")
@@ -195,6 +214,7 @@ class CatalogConfiguration(BaseModel):
 
 class FlowConfiguration(BaseModel):
     """Flow configuration validation"""
+
     flow_id: str = Field(..., description="WhatsApp Flow ID")
     flow_name: str = Field(..., description="Flow name")
     flow_version: str = Field(default="1.0", description="Flow version")
@@ -216,24 +236,18 @@ class MessageFactory:
         catalog_id: str,
         body_text: str,
         header_text: Optional[str] = None,
-        product_retailer_id: Optional[str] = None
+        product_retailer_id: Optional[str] = None,
     ) -> ProductListMessage:
         """Create a product list message"""
         interactive_config = ProductListInteractive(
             body=WhatsAppBody(text=body_text),
-            action=CatalogProductAction(
-                catalog_id=catalog_id,
-                product_retailer_id=product_retailer_id
-            )
+            action=CatalogProductAction(catalog_id=catalog_id, product_retailer_id=product_retailer_id),
         )
 
         if header_text:
             interactive_config.header = WhatsAppHeaderText(text=header_text)
 
-        return ProductListMessage(
-            to=to,
-            interactive=interactive_config
-        )
+        return ProductListMessage(to=to, interactive=interactive_config)
 
     @staticmethod
     def create_flow_message(
@@ -243,19 +257,14 @@ class MessageFactory:
         body_text: Optional[str] = None,
         header_text: Optional[str] = None,
         flow_token: Optional[str] = None,
-        flow_action_payload: Optional[Dict[str, Any]] = None
+        flow_action_payload: Optional[Dict[str, Any]] = None,
     ) -> FlowMessage:
         """Create a flow message"""
         flow_data = FlowData(
-            flow_id=flow_id,
-            flow_cta=flow_cta,
-            flow_token=flow_token,
-            flow_action_payload=flow_action_payload
+            flow_id=flow_id, flow_cta=flow_cta, flow_token=flow_token, flow_action_payload=flow_action_payload
         )
 
-        interactive_config = FlowInteractive(
-            action=flow_data
-        )
+        interactive_config = FlowInteractive(action=flow_data)
 
         if body_text:
             interactive_config.body = WhatsAppBody(text=body_text)
@@ -263,7 +272,4 @@ class MessageFactory:
         if header_text:
             interactive_config.header = WhatsAppHeaderText(text=header_text)
 
-        return FlowMessage(
-            to=to,
-            interactive=interactive_config
-        )
+        return FlowMessage(to=to, interactive=interactive_config)

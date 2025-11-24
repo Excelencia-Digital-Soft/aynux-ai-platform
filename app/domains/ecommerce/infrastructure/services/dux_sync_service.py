@@ -286,9 +286,9 @@ class DuxSyncService:
         product_data["category_id"] = category.id
         if brand:
             product_data["brand_id"] = brand.id
-        
+
         # Remove fields that don't exist in the Product model
-        fields_to_check = ['cost', 'tax_percentage', 'external_code', 'image_url', 'barcode']
+        fields_to_check = ["cost", "tax_percentage", "external_code", "image_url", "barcode"]
         for field in fields_to_check:
             if field in product_data and not hasattr(Product, field):
                 del product_data[field]
@@ -320,18 +320,18 @@ class DuxSyncService:
             try:
                 # Hacer flush para obtener el ID del producto si es nuevo
                 await session.flush()
-                
+
                 # Llamar al callback con información del producto sincronizado
                 callback_data = {
                     "product": product_for_callback,
                     "dux_item": dux_item,
                     "sync_result": sync_result,
                     "category": category,
-                    "brand": brand
+                    "brand": brand,
                 }
-                
+
                 await self.post_sync_callback(callback_data)
-                
+
             except Exception as e:
                 self.logger.warning(f"Post-sync callback failed for product {dux_item.cod_item}: {str(e)}")
                 # No interrumpir el sync por errores en el callback
@@ -341,7 +341,7 @@ class DuxSyncService:
     async def _get_or_create_category(self, session: AsyncSession, dux_item: DuxItem) -> Category:
         """Obtiene o crea una categoría"""
         # Check if Category model has external_id field (for backward compatibility)
-        if hasattr(Category, 'external_id'):
+        if hasattr(Category, "external_id"):
             # Buscar por external_id
             stmt = select(Category).where(Category.external_id == str(dux_item.rubro.id_rubro))
             result = await session.execute(stmt)
@@ -355,12 +355,12 @@ class DuxSyncService:
 
         if not category:
             category_data = self.mapper.map_dux_category(dux_item)
-            
+
             # Remove external_id if the field doesn't exist in the model
-            if not hasattr(Category, 'external_id') and 'external_id' in category_data:
-                del category_data['external_id']
+            if not hasattr(Category, "external_id") and "external_id" in category_data:
+                del category_data["external_id"]
                 self.logger.warning("Removed external_id from category_data as field doesn't exist in model")
-            
+
             category = Category(**category_data)
             session.add(category)
             await session.flush()  # Para obtener el ID
@@ -380,10 +380,10 @@ class DuxSyncService:
 
         if not brand:
             # Remove external_code if the field doesn't exist in the model
-            if not hasattr(Brand, 'external_code') and 'external_code' in brand_data:
-                del brand_data['external_code']
+            if not hasattr(Brand, "external_code") and "external_code" in brand_data:
+                del brand_data["external_code"]
                 self.logger.warning("Removed external_code from brand_data as field doesn't exist in model")
-            
+
             brand = Brand(**brand_data)
             session.add(brand)
             await session.flush()  # Para obtener el ID
@@ -404,4 +404,3 @@ class DuxSyncService:
             "batch_size": self.batch_size,
             "last_sync": None,  # TODO: Implementar tracking de última sincronización
         }
-

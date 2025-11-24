@@ -54,7 +54,7 @@ def create_vector_store(
     store_type: VectorStoreType = VectorStoreType.PGVECTOR,
     collection_name: str = "products",
     embedding_dimension: int = 768,
-    **kwargs
+    **kwargs,
 ) -> IVectorStore:
     """
     Factory function to create vector store based on type.
@@ -88,11 +88,7 @@ def create_vector_store(
         ```
     """
     if store_type == VectorStoreType.PGVECTOR:
-        return PgVectorStore(
-            collection_name=collection_name,
-            embedding_dimension=embedding_dimension,
-            **kwargs
-        )
+        return PgVectorStore(collection_name=collection_name, embedding_dimension=embedding_dimension, **kwargs)
     elif store_type == VectorStoreType.CHROMA:
         # TODO: Implement ChromaDB integration
         raise NotImplementedError("ChromaDB integration not yet implemented in new architecture")
@@ -138,10 +134,7 @@ class VectorStoreFactory(IVectorStoreFactory):
     """
 
     def create_vector_store(
-        self,
-        store_type: VectorStoreType,
-        collection_name: str,
-        config: Optional[Dict[str, Any]] = None
+        self, store_type: VectorStoreType, collection_name: str, config: Optional[Dict[str, Any]] = None
     ) -> IVectorStore:
         """
         Create vector store instance.
@@ -155,8 +148,4 @@ class VectorStoreFactory(IVectorStoreFactory):
             IVectorStore instance
         """
         config = config or {}
-        return create_vector_store(
-            store_type=store_type,
-            collection_name=collection_name,
-            **config
-        )
+        return create_vector_store(store_type=store_type, collection_name=collection_name, **config)

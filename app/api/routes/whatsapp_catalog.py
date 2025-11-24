@@ -132,7 +132,9 @@ async def get_catalog_status(_: Dict = Depends(get_current_user)) -> CatalogStat
 
 
 @router.post("/catalog/send", response_model=WhatsAppResponse)
-async def send_catalog_message(request: SendCatalogRequest, _: Dict = Depends(get_current_user)) -> WhatsAppResponse:  # noqa: B008
+async def send_catalog_message(
+    request: SendCatalogRequest, _: Dict = Depends(get_current_user)
+) -> WhatsAppResponse:  # noqa: B008
     """Send WhatsApp catalog message to user"""
     try:
         # Normalize phone number
@@ -170,7 +172,10 @@ async def send_catalog_message(request: SendCatalogRequest, _: Dict = Depends(ge
 
 @router.get("/catalog/products")
 async def get_catalog_products(
-    limit: int = 10, after: Optional[str] = None, catalog_id: Optional[str] = None, _: Dict = Depends(get_current_user)  # noqa: B008
+    limit: int = 10,
+    after: Optional[str] = None,
+    catalog_id: Optional[str] = None,
+    _: Dict = Depends(get_current_user),  # noqa: B008
 ):
     """Get products from WhatsApp Business Catalog"""
     try:
@@ -209,7 +214,9 @@ async def get_flows_status(_: Dict = Depends(get_current_user)) -> FlowStatusRes
 
 
 @router.post("/flows/send", response_model=WhatsAppResponse)
-async def send_flow_message(request: SendFlowRequest, _: Dict = Depends(get_current_user)) -> WhatsAppResponse:  # noqa: B008
+async def send_flow_message(
+    request: SendFlowRequest, _: Dict = Depends(get_current_user)
+) -> WhatsAppResponse:  # noqa: B008
     """Send WhatsApp Flow message to user"""
     try:
         # Normalize phone number
@@ -350,4 +357,3 @@ async def test_catalog_functionality(test_phone: str, _: Dict = Depends(get_curr
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error testing catalog: {str(e)}"
         ) from e
-

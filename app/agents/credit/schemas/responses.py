@@ -80,4 +80,3 @@ class RiskAssessmentResponse(BaseModel):
     suggested_limit: Decimal
     suggested_interest_rate: Decimal
     assessment_date: datetime = Field(default_factory=lambda: datetime.now(UTC))
-

@@ -59,16 +59,12 @@ class CreditAgent(IAgent):
         self._prompt_manager = PromptManager()
 
         # Initialize use cases
-        self._balance_use_case = GetCreditBalanceUseCase(
-            credit_account_repository=credit_account_repository
-        )
+        self._balance_use_case = GetCreditBalanceUseCase(credit_account_repository=credit_account_repository)
         self._payment_use_case = ProcessPaymentUseCase(
             credit_account_repository=credit_account_repository,
             payment_repository=payment_repository,
         )
-        self._schedule_use_case = GetPaymentScheduleUseCase(
-            credit_account_repository=credit_account_repository
-        )
+        self._schedule_use_case = GetPaymentScheduleUseCase(credit_account_repository=credit_account_repository)
 
         logger.info("CreditAgent initialized with use cases and prompt manager")
 
@@ -157,14 +153,11 @@ class CreditAgent(IAgent):
         try:
             # Load prompt from YAML
             prompt = await self._prompt_manager.get_prompt(
-                PromptRegistry.CREDIT_INTENT_ANALYSIS,
-                variables={"message": message}
+                PromptRegistry.CREDIT_INTENT_ANALYSIS, variables={"message": message}
             )
 
             # Get metadata for LLM configuration
-            template = await self._prompt_manager.get_template(
-                PromptRegistry.CREDIT_INTENT_ANALYSIS
-            )
+            template = await self._prompt_manager.get_template(PromptRegistry.CREDIT_INTENT_ANALYSIS)
             temperature = template.metadata.get("temperature", 0.2)
             max_tokens = template.metadata.get("max_tokens", 10)
 
@@ -180,9 +173,7 @@ class CreditAgent(IAgent):
             logger.warning(f"Error analyzing intent: {e}")
             return "balance"
 
-    async def _handle_balance(
-        self, account_id: str, state: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _handle_balance(self, account_id: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """Handle balance inquiry"""
         try:
             request = GetCreditBalanceRequest(account_id=account_id)
@@ -211,9 +202,7 @@ class CreditAgent(IAgent):
             logger.error(f"Error in balance handler: {e}", exc_info=True)
             return self._error_response(str(e), state)
 
-    async def _handle_payment(
-        self, message: str, account_id: str, state: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _handle_payment(self, message: str, account_id: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """Handle payment processing"""
         try:
             # Extract payment amount (simplified - should use NLP)
@@ -252,9 +241,7 @@ class CreditAgent(IAgent):
             logger.error(f"Error in payment handler: {e}", exc_info=True)
             return self._error_response(str(e), state)
 
-    async def _handle_schedule(
-        self, account_id: str, state: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _handle_schedule(self, account_id: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """Handle payment schedule request"""
         try:
             request = GetPaymentScheduleRequest(account_id=account_id, months_ahead=6)
@@ -301,13 +288,11 @@ class CreditAgent(IAgent):
                     "next_payment_amount": f"{balance.next_payment_amount:,.2f}",
                     "next_payment_date": str(balance.next_payment_date),
                     "status": balance.status,
-                }
+                },
             )
 
             # Get metadata for LLM configuration
-            template = await self._prompt_manager.get_template(
-                PromptRegistry.CREDIT_BALANCE_RESPONSE
-            )
+            template = await self._prompt_manager.get_template(PromptRegistry.CREDIT_BALANCE_RESPONSE)
             temperature = template.metadata.get("temperature", 0.7)
             max_tokens = template.metadata.get("max_tokens", 200)
 
@@ -329,13 +314,11 @@ class CreditAgent(IAgent):
                     "remaining_balance": f"{payment.remaining_balance:,.2f}",
                     "available_credit": f"{payment.available_credit:,.2f}",
                     "payment_id": payment.payment_id,
-                }
+                },
             )
 
             # Get metadata for LLM configuration
-            template = await self._prompt_manager.get_template(
-                PromptRegistry.CREDIT_PAYMENT_CONFIRMATION
-            )
+            template = await self._prompt_manager.get_template(PromptRegistry.CREDIT_PAYMENT_CONFIRMATION)
             temperature = template.metadata.get("temperature", 0.7)
             max_tokens = template.metadata.get("max_tokens", 150)
 
@@ -350,10 +333,7 @@ class CreditAgent(IAgent):
         """Generate AI response for payment schedule using centralized prompts"""
         try:
             schedule_text = "\n".join(
-                [
-                    f"{item.payment_number}. {item.due_date} - ${item.amount:,.2f}"
-                    for item in schedule.schedule[:3]
-                ]
+                [f"{item.payment_number}. {item.due_date} - ${item.amount:,.2f}" for item in schedule.schedule[:3]]
             )
 
             # Load prompt from YAML
@@ -362,13 +342,11 @@ class CreditAgent(IAgent):
                 variables={
                     "total_payments": str(len(schedule.schedule)),
                     "schedule_text": schedule_text,
-                }
+                },
             )
 
             # Get metadata for LLM configuration
-            template = await self._prompt_manager.get_template(
-                PromptRegistry.CREDIT_SCHEDULE_RESPONSE
-            )
+            template = await self._prompt_manager.get_template(PromptRegistry.CREDIT_SCHEDULE_RESPONSE)
             temperature = template.metadata.get("temperature", 0.7)
             max_tokens = template.metadata.get("max_tokens", 150)
 

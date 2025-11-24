@@ -287,4 +287,3 @@ Generate your response now:"""
             "generator_class": self.__class__.__name__,
             "config": self.get_config(),
         }
-

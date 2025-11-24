@@ -12,6 +12,7 @@ import io
 
 try:
     from pypdf import PdfReader
+
     PYPDF_AVAILABLE = True
 except ImportError:
     PYPDF_AVAILABLE = False
@@ -37,14 +38,9 @@ class PDFExtractor:
     def __init__(self):
         """Initialize PDF extractor."""
         if not PYPDF_AVAILABLE:
-            raise ImportError(
-                "pypdf is required for PDF extraction. "
-                "Install with: pip install pypdf"
-            )
+            raise ImportError("pypdf is required for PDF extraction. " "Install with: pip install pypdf")
 
-    def extract_text_from_bytes(
-        self, pdf_bytes: bytes, extract_metadata: bool = True
-    ) -> Dict[str, any]:
+    def extract_text_from_bytes(self, pdf_bytes: bytes, extract_metadata: bool = True) -> Dict[str, any]:
         """
         Extract text and metadata from PDF bytes.
 
@@ -106,9 +102,7 @@ class PDFExtractor:
             logger.error(f"Error extracting text from PDF: {e}")
             raise ValueError(f"Could not extract text from PDF: {str(e)}")
 
-    def extract_text_from_file(
-        self, file_path: str, extract_metadata: bool = True
-    ) -> Dict[str, any]:
+    def extract_text_from_file(self, file_path: str, extract_metadata: bool = True) -> Dict[str, any]:
         """
         Extract text and metadata from PDF file path.
 
@@ -159,9 +153,7 @@ class PDFExtractor:
             logger.debug(f"PDF validation failed: {e}")
             return False
 
-    def extract_pages_range(
-        self, pdf_bytes: bytes, start_page: int = 1, end_page: Optional[int] = None
-    ) -> str:
+    def extract_pages_range(self, pdf_bytes: bytes, start_page: int = 1, end_page: Optional[int] = None) -> str:
         """
         Extract text from a specific range of pages.
 

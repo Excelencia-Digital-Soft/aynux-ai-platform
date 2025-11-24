@@ -249,9 +249,7 @@ class ProductRepository(ISearchableRepository[Product]):
             logger.error(f"Error searching products: {e}", exc_info=True)
             return []
 
-    async def find_by_criteria(
-        self, criteria: Dict[str, Any], limit: int = 100
-    ) -> List[Product]:
+    async def find_by_criteria(self, criteria: Dict[str, Any], limit: int = 100) -> List[Product]:
         """
         Find products by criteria.
 
@@ -292,15 +290,11 @@ class ProductRepository(ISearchableRepository[Product]):
         """
         # Category filter
         if "category" in filters:
-            query = query.join(Category).filter(
-                Category.name == filters["category"].lower()
-            )
+            query = query.join(Category).filter(Category.name == filters["category"].lower())
 
         # Subcategory filter
         if "subcategory" in filters:
-            query = query.join(Subcategory).filter(
-                Subcategory.name == filters["subcategory"].lower()
-            )
+            query = query.join(Subcategory).filter(Subcategory.name == filters["subcategory"].lower())
 
         # Brand filter
         if "brand" in filters:

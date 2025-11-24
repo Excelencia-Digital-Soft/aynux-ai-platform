@@ -53,11 +53,7 @@ __all__ = [
 ]
 
 
-def create_llm(
-    provider: LLMProvider = LLMProvider.OLLAMA,
-    model_name: str = None,
-    **kwargs
-) -> ILLM:
+def create_llm(provider: LLMProvider = LLMProvider.OLLAMA, model_name: str = None, **kwargs) -> ILLM:
     """
     Factory function to create LLM instance based on provider.
 
@@ -96,11 +92,7 @@ def create_llm(
         raise ValueError(f"Unknown LLM provider: {provider}")
 
 
-def create_embedder(
-    provider: LLMProvider = LLMProvider.OLLAMA,
-    model_name: str = None,
-    **kwargs
-) -> IEmbeddingModel:
+def create_embedder(provider: LLMProvider = LLMProvider.OLLAMA, model_name: str = None, **kwargs) -> IEmbeddingModel:
     """
     Factory function to create embedding model based on provider.
 

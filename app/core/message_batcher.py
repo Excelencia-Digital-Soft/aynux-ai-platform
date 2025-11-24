@@ -409,4 +409,3 @@ class WhatsAppMessageBatcher:
         self._stats["queue_size"] = 0
 
         return cleared_count
-

@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class SyncState(Enum):
     """Estados de sincronización."""
+
     IDLE = "idle"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -447,4 +448,3 @@ def get_scheduled_sync_service(use_rag_sync: bool = True) -> ScheduledSyncServic
     if _scheduled_sync_service is None:
         _scheduled_sync_service = ScheduledSyncService(use_rag_sync=use_rag_sync)
     return _scheduled_sync_service
-

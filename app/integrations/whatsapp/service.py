@@ -130,7 +130,7 @@ class WhatsAppService:
             # Log de la transformación
             if original_number != numero_normalizado:
                 logger.info(f"Número normalizado: {original_number} -> {numero_normalizado}")
-            
+
             # Usar el número normalizado
             numero = numero_normalizado
         else:
@@ -310,7 +310,7 @@ class WhatsAppService:
         body_text: str,
         header_text: Optional[str] = None,
         product_retailer_id: Optional[str] = None,
-        catalog_id: Optional[str] = None
+        catalog_id: Optional[str] = None,
     ) -> WhatsAppApiResponse:
         """
         Envía una lista de productos del catálogo de WhatsApp Business
@@ -326,10 +326,7 @@ class WhatsAppService:
             Respuesta estructurada de la API de WhatsApp
         """
         if not numero or not body_text:
-            return WhatsAppApiResponse(
-                success=False,
-                error="Número y texto del cuerpo son requeridos"
-            )
+            return WhatsAppApiResponse(success=False, error="Número y texto del cuerpo son requeridos")
 
         # Normalizar número de teléfono
         test_mode = self.settings.is_development
@@ -350,7 +347,7 @@ class WhatsAppService:
                 catalog_id=used_catalog_id,
                 body_text=body_text,
                 header_text=header_text,
-                product_retailer_id=product_retailer_id
+                product_retailer_id=product_retailer_id,
             )
 
             # Convertir a diccionario para envío
@@ -363,16 +360,13 @@ class WhatsAppService:
                 success=response.get("success", False),
                 data=response.get("data"),
                 error=response.get("error"),
-                status_code=response.get("status_code")
+                status_code=response.get("status_code"),
             )
 
         except Exception as e:
             error_msg = f"Error al crear mensaje de catálogo: {str(e)}"
             logger.error(error_msg)
-            return WhatsAppApiResponse(
-                success=False,
-                error=error_msg
-            )
+            return WhatsAppApiResponse(success=False, error=error_msg)
 
     async def send_flow_message(
         self,
@@ -382,7 +376,7 @@ class WhatsAppService:
         body_text: Optional[str] = None,
         header_text: Optional[str] = None,
         flow_token: Optional[str] = None,
-        flow_data: Optional[Dict[str, Any]] = None
+        flow_data: Optional[Dict[str, Any]] = None,
     ) -> WhatsAppApiResponse:
         """
         Envía un mensaje con WhatsApp Flow
@@ -400,10 +394,7 @@ class WhatsAppService:
             Respuesta estructurada de la API de WhatsApp
         """
         if not numero or not flow_id or not flow_cta:
-            return WhatsAppApiResponse(
-                success=False,
-                error="Número, flow_id y flow_cta son requeridos"
-            )
+            return WhatsAppApiResponse(success=False, error="Número, flow_id y flow_cta son requeridos")
 
         # Normalizar número de teléfono
         test_mode = self.settings.is_development
@@ -423,7 +414,7 @@ class WhatsAppService:
                 body_text=body_text,
                 header_text=header_text,
                 flow_token=flow_token,
-                flow_action_payload=flow_data
+                flow_action_payload=flow_data,
             )
 
             # Convertir a diccionario para envío
@@ -436,22 +427,16 @@ class WhatsAppService:
                 success=response.get("success", False),
                 data=response.get("data"),
                 error=response.get("error"),
-                status_code=response.get("status_code")
+                status_code=response.get("status_code"),
             )
 
         except Exception as e:
             error_msg = f"Error al crear mensaje de Flow: {str(e)}"
             logger.error(error_msg)
-            return WhatsAppApiResponse(
-                success=False,
-                error=error_msg
-            )
+            return WhatsAppApiResponse(success=False, error=error_msg)
 
     async def get_catalog_products(
-        self,
-        limit: int = 10,
-        after: Optional[str] = None,
-        catalog_id: Optional[str] = None
+        self, limit: int = 10, after: Optional[str] = None, catalog_id: Optional[str] = None
     ) -> WhatsAppApiResponse:
         """
         Obtiene productos del catálogo de WhatsApp Business
@@ -481,26 +466,20 @@ class WhatsAppService:
                 if response.status_code == 200:
                     data = response.json()
                     logger.info(f"Productos del catálogo obtenidos: {len(data.get('data', []))}")
-                    return WhatsAppApiResponse(
-                        success=True,
-                        data=data
-                    )
+                    return WhatsAppApiResponse(success=True, data=data)
                 else:
                     error_detail = response.text
                     logger.error(f"Error {response.status_code} obteniendo productos: {error_detail}")
                     return WhatsAppApiResponse(
                         success=False,
                         error=f"HTTP {response.status_code}: {error_detail}",
-                        status_code=response.status_code
+                        status_code=response.status_code,
                     )
 
         except Exception as e:
             error_msg = f"Error obteniendo productos del catálogo: {str(e)}"
             logger.error(error_msg)
-            return WhatsAppApiResponse(
-                success=False,
-                error=error_msg
-            )
+            return WhatsAppApiResponse(success=False, error=error_msg)
 
     async def get_business_catalogs(self, business_account_id: str) -> WhatsAppApiResponse:
         """
@@ -522,26 +501,20 @@ class WhatsAppService:
                 if response.status_code == 200:
                     data = response.json()
                     logger.info(f"Catálogos obtenidos: {len(data.get('data', []))}")
-                    return WhatsAppApiResponse(
-                        success=True,
-                        data=data
-                    )
+                    return WhatsAppApiResponse(success=True, data=data)
                 else:
                     error_detail = response.text
                     logger.error(f"Error {response.status_code} obteniendo catálogos: {error_detail}")
                     return WhatsAppApiResponse(
                         success=False,
                         error=f"HTTP {response.status_code}: {error_detail}",
-                        status_code=response.status_code
+                        status_code=response.status_code,
                     )
 
         except Exception as e:
             error_msg = f"Error obteniendo catálogos: {str(e)}"
             logger.error(error_msg)
-            return WhatsAppApiResponse(
-                success=False,
-                error=error_msg
-            )
+            return WhatsAppApiResponse(success=False, error=error_msg)
 
     def get_catalog_configuration(self) -> CatalogConfiguration:
         """
@@ -551,9 +524,7 @@ class WhatsAppService:
             Configuración del catálogo validada
         """
         return CatalogConfiguration(
-            catalog_id=self.catalog_id,
-            phone_number_id=self.phone_number_id,
-            access_token=self.access_token
+            catalog_id=self.catalog_id, phone_number_id=self.phone_number_id, access_token=self.access_token
         )
 
     def create_flow_configuration(self, flow_id: str, flow_name: str) -> FlowConfiguration:
@@ -568,10 +539,7 @@ class WhatsAppService:
             Configuración del Flow validada
         """
         return FlowConfiguration(
-            flow_id=flow_id,
-            flow_name=flow_name,
-            phone_number_id=self.phone_number_id,
-            access_token=self.access_token
+            flow_id=flow_id, flow_name=flow_name, phone_number_id=self.phone_number_id, access_token=self.access_token
         )
 
     async def verificar_configuracion(self) -> Dict[str, Any]:

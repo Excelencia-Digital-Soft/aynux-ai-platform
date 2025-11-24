@@ -1,11 +1,13 @@
 """
 Credit Agent Types and User Roles
 """
+
 from enum import Enum
 
 
 class CreditAgentType(str, Enum):
     """Types of credit agents"""
+
     SUPERVISOR = "supervisor"
     CREDIT_BALANCE = "credit_balance"
     CREDIT_APPLICATION = "credit_application"
@@ -27,6 +29,7 @@ class CreditAgentType(str, Enum):
 
 class UserRole(str, Enum):
     """User roles in credit system"""
+
     CUSTOMER = "customer"
     CREDIT_ANALYST = "credit_analyst"
     MANAGER = "manager"

@@ -414,4 +414,3 @@ Máximo 2 líneas, tono amigable:"""
         print("message", message, error)
 
         return "Disculpa, tuve un problema procesando tu consulta de datos. ¿Podrías intentar reformularla?"
-

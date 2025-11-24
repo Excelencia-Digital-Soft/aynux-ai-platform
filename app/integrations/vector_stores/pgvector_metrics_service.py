@@ -351,23 +351,23 @@ class PgVectorMetricsService:
                 "high_quality": {
                     "count": len(high_quality),
                     "percentage": len(high_quality) / len(recent_searches) * 100,
-                    "avg_similarity": sum(m.avg_similarity for m in high_quality) / len(high_quality)
-                    if high_quality
-                    else 0,
+                    "avg_similarity": (
+                        sum(m.avg_similarity for m in high_quality) / len(high_quality) if high_quality else 0
+                    ),
                 },
                 "medium_quality": {
                     "count": len(medium_quality),
                     "percentage": len(medium_quality) / len(recent_searches) * 100,
-                    "avg_similarity": sum(m.avg_similarity for m in medium_quality) / len(medium_quality)
-                    if medium_quality
-                    else 0,
+                    "avg_similarity": (
+                        sum(m.avg_similarity for m in medium_quality) / len(medium_quality) if medium_quality else 0
+                    ),
                 },
                 "low_quality": {
                     "count": len(low_quality),
                     "percentage": len(low_quality) / len(recent_searches) * 100,
-                    "avg_similarity": sum(m.avg_similarity for m in low_quality) / len(low_quality)
-                    if low_quality
-                    else 0,
+                    "avg_similarity": (
+                        sum(m.avg_similarity for m in low_quality) / len(low_quality) if low_quality else 0
+                    ),
                 },
                 "no_results": {"count": len(no_results), "percentage": len(no_results) / len(recent_searches) * 100},
             },
@@ -472,4 +472,3 @@ def get_metrics_service() -> PgVectorMetricsService:
     if _metrics_service is None:
         _metrics_service = PgVectorMetricsService()
     return _metrics_service
-

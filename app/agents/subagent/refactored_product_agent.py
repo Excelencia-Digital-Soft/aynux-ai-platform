@@ -185,9 +185,7 @@ class RefactoredProductAgent(BaseAgent):
         metadata={"agent_type": "refactored_product", "uses_orchestrator": True},
         extract_state=True,
     )
-    async def _process_internal(
-        self, message: str, state_dict: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process user message using orchestrator.
 
@@ -234,8 +232,7 @@ class RefactoredProductAgent(BaseAgent):
                     {
                         "role": "assistant",
                         "content": (
-                            "Disculpa, tuve un problema consultando los productos. "
-                            "¿Podrías reformular tu pregunta?"
+                            "Disculpa, tuve un problema consultando los productos. " "¿Podrías reformular tu pregunta?"
                         ),
                     }
                 ],

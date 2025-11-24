@@ -34,4 +34,3 @@ class CreditState(TypedDict):
     available_credit: Optional[float]
     payment_history: Optional[List[Dict[str, Any]]]
     pending_operations: Optional[List[Dict[str, Any]]]
-

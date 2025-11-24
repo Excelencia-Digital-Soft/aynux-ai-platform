@@ -52,11 +52,7 @@ class DuxItemsResponse(DuxBaseModel):
 
     def find_items_by_rubro(self, rubro_nombre: str) -> List[DuxItem]:
         """Obtiene items filtrados por rubro"""
-        return [
-            item
-            for item in self.results
-            if item.rubro.rubro.lower() == rubro_nombre.lower()
-        ]
+        return [item for item in self.results if item.rubro.rubro.lower() == rubro_nombre.lower()]
 
     def find_items_by_marca(self, marca_nombre: str) -> List[DuxItem]:
         """Obtiene items filtrados por marca"""
@@ -69,4 +65,3 @@ class DuxItemsResponse(DuxBaseModel):
     def get_items_with_barcode(self) -> List[DuxItem]:
         """Obtiene items que tienen código de barras"""
         return [item for item in self.results if item.has_barcode()]
-

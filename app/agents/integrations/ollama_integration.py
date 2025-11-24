@@ -82,10 +82,7 @@ class OllamaIntegration:
 
         # Use model-specific cache to avoid conflicts between different embedding models
         if embedding_model not in self._embedding_caches:
-            self._embedding_caches[embedding_model] = OllamaEmbeddings(
-                model=embedding_model,
-                base_url=self.base_url
-            )
+            self._embedding_caches[embedding_model] = OllamaEmbeddings(model=embedding_model, base_url=self.base_url)
             logger.debug(f"Created new OllamaEmbeddings instance for {embedding_model}")
 
         return self._embedding_caches[embedding_model]

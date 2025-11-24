@@ -57,7 +57,9 @@ class Settings(BaseSettings):
     OLLAMA_API_MODEL_FAST: str = Field("llama3.2:1b", description="Modelo rápido para respuestas al usuario")
     OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
     OLLAMA_API_CHROMADB: str = Field("./data/vector_db/", description="Ruta de la base de datos de ollama")
-    OLLAMA_API_MODEL_EMBEDDING: str = Field("nomic-embed-text:v1.5", description="Embedding del modelo de ollama (768 dimensions)")
+    OLLAMA_API_MODEL_EMBEDDING: str = Field(
+        "nomic-embed-text:v1.5", description="Embedding del modelo de ollama (768 dimensions)"
+    )
 
     # Vector Search Configuration
     USE_PGVECTOR: bool = Field(True, description="Enable pgvector for native PostgreSQL vector search")
@@ -112,11 +114,9 @@ class Settings(BaseSettings):
 
     # DUX Synchronization Configuration (independent from ProductAgent)
     DUX_SYNC_ENABLED: bool = Field(True, description="Habilitar sincronización automática DUX a PostgreSQL")
-    DUX_SYNC_HOURS: list[int] = Field(
-        [2, 14], description="Horas del día para sincronización automática (0-23)"
-    )
+    DUX_SYNC_HOURS: list[int] = Field([2, 14], description="Horas del día para sincronización automática (0-23)")
     DUX_FORCE_SYNC_THRESHOLD_HOURS: int = Field(24, description="Forzar sync si datos > X horas antiguos")
-    
+
     # ProductAgent Configuration (always uses PostgreSQL only)
     PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")
 
@@ -175,7 +175,7 @@ class Settings(BaseSettings):
         if v != "database":
             raise ValueError("PRODUCT_AGENT_DATA_SOURCE must be 'database' (always uses PostgreSQL)")
         return v
-    
+
     @field_validator("DUX_SYNC_HOURS", mode="before")
     @classmethod
     def parse_dux_sync_hours(cls, value):
@@ -191,7 +191,6 @@ class Settings(BaseSettings):
                     raise ValueError("DUX sync hours must be between 0 and 23")
             return value
         return value
-
 
     @field_validator("DB_POOL_SIZE")
     @classmethod

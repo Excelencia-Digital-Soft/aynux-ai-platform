@@ -83,4 +83,3 @@ Based on ALL the information above (customer data, history and current message),
 respond only with the intent JSON.
 """
     return user_prompt.strip()
-

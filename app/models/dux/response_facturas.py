@@ -85,46 +85,25 @@ class DuxFacturasResponse(DuxBaseModel):
 
     def get_facturas_by_cliente(self, cliente_id: int) -> List[DuxFactura]:
         """Obtiene facturas de un cliente específico"""
-        return [
-            f for f in self.facturas 
-            if f.cliente and f.cliente.id_cliente == cliente_id
-        ]
+        return [f for f in self.facturas if f.cliente and f.cliente.id_cliente == cliente_id]
 
     def get_sorted_facturas(self, by_date: bool = True, ascending: bool = False) -> List[DuxFactura]:
         """Obtiene facturas ordenadas por fecha o número"""
         if by_date:
-            return sorted(
-                self.facturas, 
-                key=lambda f: f.fecha_factura or "", 
-                reverse=not ascending
-            )
-        return sorted(
-            self.facturas, 
-            key=lambda f: f.numero_factura or "", 
-            reverse=not ascending
-        )
+            return sorted(self.facturas, key=lambda f: f.fecha_factura or "", reverse=not ascending)
+        return sorted(self.facturas, key=lambda f: f.numero_factura or "", reverse=not ascending)
 
     def get_facturas_by_date_range(self, fecha_desde: str, fecha_hasta: str) -> List[DuxFactura]:
         """Obtiene facturas dentro de un rango de fechas"""
-        return [
-            f for f in self.facturas 
-            if f.fecha_factura and fecha_desde <= f.fecha_factura <= fecha_hasta
-        ]
+        return [f for f in self.facturas if f.fecha_factura and fecha_desde <= f.fecha_factura <= fecha_hasta]
 
     def get_facturas_by_amount_range(self, min_amount: Decimal, max_amount: Decimal) -> List[DuxFactura]:
         """Obtiene facturas dentro de un rango de montos"""
-        return [
-            f for f in self.facturas 
-            if min_amount <= f.get_total_factura() <= max_amount
-        ]
+        return [f for f in self.facturas if min_amount <= f.get_total_factura() <= max_amount]
 
     def get_top_facturas_by_amount(self, top_n: int = 10) -> List[DuxFactura]:
         """Obtiene las facturas con mayor monto"""
-        return sorted(
-            self.facturas, 
-            key=lambda f: f.get_total_factura(), 
-            reverse=True
-        )[:top_n]
+        return sorted(self.facturas, key=lambda f: f.get_total_factura(), reverse=True)[:top_n]
 
     def calculate_statistics(self) -> dict:
         """Calcula estadísticas básicas de las facturas"""
@@ -137,11 +116,11 @@ class DuxFacturasResponse(DuxBaseModel):
                 "max_amount": Decimal("0"),
                 "pending_count": 0,
                 "paid_count": 0,
-                "cancelled_count": 0
+                "cancelled_count": 0,
             }
 
         amounts = [f.get_total_factura() for f in self.facturas]
-        
+
         return {
             "total_facturas": len(self.facturas),
             "total_amount": self.calculate_total_amount(),
@@ -150,5 +129,5 @@ class DuxFacturasResponse(DuxBaseModel):
             "max_amount": max(amounts) if amounts else Decimal("0"),
             "pending_count": len(self.get_facturas_pendientes()),
             "paid_count": len(self.get_facturas_pagadas()),
-            "cancelled_count": len(self.get_facturas_canceladas())
+            "cancelled_count": len(self.get_facturas_canceladas()),
         }

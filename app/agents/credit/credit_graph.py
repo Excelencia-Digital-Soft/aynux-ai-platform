@@ -149,12 +149,14 @@ Por favor, intenta reformular tu pregunta o selecciona una de estas opciones:
         # Ensure messages is a list and append
         messages = updated_state.get("messages", [])
         if isinstance(messages, list):
-            messages.append({
-                "role": "assistant",
-                "content": fallback_message,
-                "timestamp": datetime.now(UTC).isoformat(),
-                "metadata": {"agent": "fallback"},
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": fallback_message,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "metadata": {"agent": "fallback"},
+                }
+            )
             updated_state["messages"] = messages
 
         return updated_state
@@ -172,12 +174,14 @@ Si necesitas ayuda adicional, no dudes en contactarnos nuevamente.
         # Ensure messages is a list and append
         messages = updated_state.get("messages", [])
         if isinstance(messages, list):
-            messages.append({
-                "role": "assistant",
-                "content": end_message,
-                "timestamp": datetime.now(UTC).isoformat(),
-                "metadata": {"agent": "end", "type": "farewell"},
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": end_message,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "metadata": {"agent": "end", "type": "farewell"},
+                }
+            )
             updated_state["messages"] = messages
 
         return updated_state
@@ -287,4 +291,3 @@ Si necesitas ayuda adicional, no dudes en contactarnos nuevamente.
         except Exception as e:
             self.logger.error(f"Error visualizing graph: {str(e)}")
             return None
-

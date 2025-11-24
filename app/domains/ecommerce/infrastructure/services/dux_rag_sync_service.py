@@ -19,10 +19,10 @@ from app.models.dux import DuxSyncResult
 
 class DuxRagSyncResult(DuxSyncResult):
     """Resultado extendido que incluye métricas de RAG/embeddings"""
-    
+
     # RAG-specific metrics as model fields
     total_embeddings_created: int = 0
-    total_embeddings_updated: int = 0 
+    total_embeddings_updated: int = 0
     total_embeddings_errors: int = 0
     embedding_processing_time_seconds: float = 0.0
     vector_store_stats: Dict[str, Any] = {}
@@ -99,10 +99,14 @@ class DuxRagSyncService:
                 # Check if the failure was due to rate limiting
                 rate_limit_errors = [error for error in db_result.errors if "RATE_LIMIT" in str(error)]
                 if rate_limit_errors:
-                    self.logger.warning(f"PostgreSQL sync hit rate limits ({len(rate_limit_errors)} errors), skipping RAG update. Consider increasing DUX_API_RATE_LIMIT_SECONDS or reducing sync frequency.")
+                    self.logger.warning(
+                        f"PostgreSQL sync hit rate limits ({len(rate_limit_errors)} errors), skipping RAG update. Consider increasing DUX_API_RATE_LIMIT_SECONDS or reducing sync frequency."
+                    )
                 else:
-                    self.logger.error(f"PostgreSQL sync failed with {db_result.total_errors} errors, skipping RAG update. First error: {db_result.errors[0] if db_result.errors else 'Unknown'}")
-                
+                    self.logger.error(
+                        f"PostgreSQL sync failed with {db_result.total_errors} errors, skipping RAG update. First error: {db_result.errors[0] if db_result.errors else 'Unknown'}"
+                    )
+
                 rag_result.mark_completed()
                 return rag_result
 
@@ -187,7 +191,9 @@ class DuxRagSyncService:
             async with DuxFacturasClientFactory.create_client() as client:
                 # Probar conexión con manejo mejorado de rate limits
                 if not await client.test_connection():
-                    rag_result.add_error("Failed to connect to DUX Facturas API - likely due to rate limiting or network issues. Check logs for details.")
+                    rag_result.add_error(
+                        "Failed to connect to DUX Facturas API - likely due to rate limiting or network issues. Check logs for details."
+                    )
                     rag_result.mark_completed()
                     return rag_result
 
@@ -305,4 +311,3 @@ def create_dux_rag_sync_service(batch_size: int = 50) -> DuxRagSyncService:
         DuxRagSyncService: Instancia del servicio
     """
     return DuxRagSyncService(batch_size=batch_size)
-

@@ -61,10 +61,9 @@ class DuxApiClient:
         """
         # Aplicar rate limiting ANTES de cada request
         rate_info = await dux_rate_limiter.wait_for_next_request()
-        if rate_info['wait_time_seconds'] > 0:
+        if rate_info["wait_time_seconds"] > 0:
             self.logger.debug(
-                f"Rate limit wait: {rate_info['wait_time_seconds']:.2f}s "
-                f"(request #{rate_info['total_requests']})"
+                f"Rate limit wait: {rate_info['wait_time_seconds']:.2f}s " f"(request #{rate_info['total_requests']})"
             )
 
         url = f"{self.base_url}/items"
@@ -177,10 +176,9 @@ class DuxApiClient:
             except DuxApiError as e:
                 if e.error_code == "RATE_LIMIT" and attempt < max_retries:
                     # Calcular tiempo de espera con backoff exponencial
-                    wait_time = 5.0 * (2 ** attempt)  # 5s, 10s, 20s
+                    wait_time = 5.0 * (2**attempt)  # 5s, 10s, 20s
                     self.logger.warning(
-                        f"Rate limit hit, retrying in {wait_time:.1f}s "
-                        f"(attempt {attempt + 1}/{max_retries + 1})"
+                        f"Rate limit hit, retrying in {wait_time:.1f}s " f"(attempt {attempt + 1}/{max_retries + 1})"
                     )
                     await asyncio.sleep(wait_time)
                     last_error = e
@@ -196,10 +194,7 @@ class DuxApiClient:
         if last_error:
             raise last_error
         else:
-            raise DuxApiError(
-                error_code="MAX_RETRIES_EXCEEDED",
-                error_message=f"Failed after {max_retries} retries"
-            )
+            raise DuxApiError(error_code="MAX_RETRIES_EXCEEDED", error_message=f"Failed after {max_retries} retries")
 
     @trace_integration("dux_test_connection")
     async def test_connection(self) -> bool:

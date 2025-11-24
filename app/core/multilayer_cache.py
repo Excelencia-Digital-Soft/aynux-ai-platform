@@ -455,4 +455,3 @@ class AynuxResponseCache:
         """Cachear respuesta de producto específico"""
         cache_key = self.cache.generate_key("product_response", product_query.lower())
         await self.cache.set_response(cache_key, response, ttl)
-

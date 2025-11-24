@@ -47,9 +47,7 @@ class GetFeaturedProductsUseCase:
         """
         self.product_repo = product_repository
 
-    async def execute(
-        self, request: GetFeaturedProductsRequest
-    ) -> GetFeaturedProductsResponse:
+    async def execute(self, request: GetFeaturedProductsRequest) -> GetFeaturedProductsResponse:
         """
         Execute use case to get featured products.
 
@@ -65,17 +63,13 @@ class GetFeaturedProductsUseCase:
 
             # Filter featured products
             featured_products = [
-                p
-                for p in all_products
-                if getattr(p, "featured", False) and getattr(p, "active", True)
+                p for p in all_products if getattr(p, "featured", False) and getattr(p, "active", True)
             ]
 
             # Apply category filter if specified
             if request.category:
                 featured_products = [
-                    p
-                    for p in featured_products
-                    if p.category and p.category.name.lower() == request.category.lower()
+                    p for p in featured_products if p.category and p.category.name.lower() == request.category.lower()
                 ]
 
             # Limit results

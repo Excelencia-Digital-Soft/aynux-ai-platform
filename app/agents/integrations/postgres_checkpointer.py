@@ -78,4 +78,3 @@ async def initialize_checkpointer():
         logger.warning("PostgreSQL checkpointer health check failed - using fallback")
 
     return health_ok
-

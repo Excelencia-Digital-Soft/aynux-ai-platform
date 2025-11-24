@@ -155,7 +155,10 @@ class KnowledgeRepository:
         """
         try:
             stmt = (
-                update(CompanyKnowledge).where(CompanyKnowledge.id == knowledge_id).values(**update_data).returning(CompanyKnowledge)
+                update(CompanyKnowledge)
+                .where(CompanyKnowledge.id == knowledge_id)
+                .values(**update_data)
+                .returning(CompanyKnowledge)
             )
             result = await self.db.execute(stmt)
             await self.db.flush()
@@ -311,13 +314,13 @@ class KnowledgeRepository:
             # Build full-text search query
             stmt = select(
                 CompanyKnowledge,
-                func.ts_rank(CompanyKnowledge.search_vector, func.plainto_tsquery("spanish", query_text)).label("text_rank"),
+                func.ts_rank(CompanyKnowledge.search_vector, func.plainto_tsquery("spanish", query_text)).label(
+                    "text_rank"
+                ),
             )
 
             # Build filters
-            filters = [
-                CompanyKnowledge.search_vector.op("@@")(func.plainto_tsquery("spanish", query_text))
-            ]
+            filters = [CompanyKnowledge.search_vector.op("@@")(func.plainto_tsquery("spanish", query_text))]
 
             if active_only:
                 filters.append(CompanyKnowledge.active == True)

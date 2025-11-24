@@ -432,10 +432,7 @@ async def domain_system_health():
 
     return {
         "overall_status": "healthy",
-        "domains": {
-            domain: {"status": "healthy", "initialized": True}
-            for domain in available_domains
-        },
+        "domains": {domain: {"status": "healthy", "initialized": True} for domain in available_domains},
         "note": "Simplified health check - full implementation requires GetDomainSystemHealthUseCase",
         "timestamp": "now",
     }

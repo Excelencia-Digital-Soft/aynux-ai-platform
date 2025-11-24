@@ -288,13 +288,15 @@ async def batch_upload_documents(
                 doc_type = "text"
                 file_bytes = file_bytes.decode("utf-8")
 
-            documents.append({
-                "type": doc_type,
-                "content": file_bytes,
-                "title": file.filename,
-                "document_type": document_type,
-                "category": category,
-            })
+            documents.append(
+                {
+                    "type": doc_type,
+                    "content": file_bytes,
+                    "title": file.filename,
+                    "document_type": document_type,
+                    "category": category,
+                }
+            )
 
         # Execute batch upload
         use_case = BatchUploadDocumentsUseCase(db)

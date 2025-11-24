@@ -291,4 +291,3 @@ class OrchestratorAgent(BaseAgent):
             Lista de nombres de intenciones válidas
         """
         return self.intent_router.spacy_analyzer.get_supported_intents() if self.intent_router.spacy_analyzer else []
-

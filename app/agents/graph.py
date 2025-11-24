@@ -328,7 +328,7 @@ class AynuxGraph:
 
                 # Yield final result
                 yield {"type": "final_result", "data": final_result or {}}
-                
+
             except GeneratorExit:
                 # Handle generator cleanup gracefully
                 logger.debug(f"Stream generator for conversation {conv_id} was closed")

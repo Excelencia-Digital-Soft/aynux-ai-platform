@@ -60,4 +60,3 @@ async def force_sync():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error forcing sync: {str(e)}") from e
-

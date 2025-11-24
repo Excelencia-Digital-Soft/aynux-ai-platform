@@ -61,12 +61,8 @@ class ProductAgent(IAgent):
             vector_store=vector_store,
             llm=llm,
         )
-        self._category_use_case = GetProductsByCategoryUseCase(
-            product_repository=product_repository
-        )
-        self._featured_use_case = GetFeaturedProductsUseCase(
-            product_repository=product_repository
-        )
+        self._category_use_case = GetProductsByCategoryUseCase(product_repository=product_repository)
+        self._featured_use_case = GetFeaturedProductsUseCase(product_repository=product_repository)
 
         logger.info("ProductAgent initialized with use cases")
 
@@ -174,9 +170,7 @@ Return ONLY one word: search, category_browse, or featured"""
             logger.warning(f"Error analyzing intent: {e}")
             return "search"
 
-    async def _handle_search(
-        self, message: str, state: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _handle_search(self, message: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """
         Handle product search request.
 
@@ -202,9 +196,7 @@ Return ONLY one word: search, category_browse, or featured"""
                 return self._error_response(response.error or "Search failed", state)
 
             # Generate AI response
-            ai_response = await self._generate_product_response(
-                message, response.products, response.search_method
-            )
+            ai_response = await self._generate_product_response(message, response.products, response.search_method)
 
             return {
                 "messages": [{"role": "assistant", "content": ai_response}],
@@ -222,9 +214,7 @@ Return ONLY one word: search, category_browse, or featured"""
             logger.error(f"Error in search handler: {e}", exc_info=True)
             return self._error_response(str(e), state)
 
-    async def _handle_category_browse(
-        self, message: str, state: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _handle_category_browse(self, message: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """
         Handle category browsing request.
 
@@ -257,9 +247,7 @@ Return ONLY one word: search, category_browse, or featured"""
                 return self._error_response(response.error or "Category browse failed", state)
 
             # Generate AI response
-            ai_response = await self._generate_category_response(
-                category, response.products
-            )
+            ai_response = await self._generate_category_response(category, response.products)
 
             return {
                 "messages": [{"role": "assistant", "content": ai_response}],
@@ -289,9 +277,7 @@ Return ONLY one word: search, category_browse, or featured"""
         """
         try:
             # Create use case request
-            request = GetFeaturedProductsRequest(
-                limit=self._config.get("max_featured", 10)
-            )
+            request = GetFeaturedProductsRequest(limit=self._config.get("max_featured", 10))
 
             # Execute use case
             response = await self._featured_use_case.execute(request)
@@ -317,9 +303,7 @@ Return ONLY one word: search, category_browse, or featured"""
             logger.error(f"Error in featured handler: {e}", exc_info=True)
             return self._error_response(str(e), state)
 
-    async def _generate_product_response(
-        self, query: str, products: list, search_method: str
-    ) -> str:
+    async def _generate_product_response(self, query: str, products: list, search_method: str) -> str:
         """Generate AI response for product search"""
         try:
             if not products:
@@ -327,10 +311,7 @@ Return ONLY one word: search, category_browse, or featured"""
 
             # Format products for context
             products_text = "\n".join(
-                [
-                    f"{i+1}. {p['name']} - ${p['price']:,.2f} (Stock: {p['stock']})"
-                    for i, p in enumerate(products[:5])
-                ]
+                [f"{i+1}. {p['name']} - ${p['price']:,.2f} (Stock: {p['stock']})" for i, p in enumerate(products[:5])]
             )
 
             prompt = f"""Genera una respuesta amigable para esta búsqueda de productos:
@@ -356,19 +337,12 @@ Genera una respuesta:
             logger.error(f"Error generating response: {e}")
             return f"Encontré {len(products)} productos que podrían interesarte."
 
-    async def _generate_category_response(
-        self, category: str, products: list
-    ) -> str:
+    async def _generate_category_response(self, category: str, products: list) -> str:
         """Generate AI response for category browse"""
         if not products:
             return f"No encontré productos en la categoría '{category}'."
 
-        products_text = "\n".join(
-            [
-                f"{i+1}. {p['name']} - ${p['price']:,.2f}"
-                for i, p in enumerate(products[:5])
-            ]
-        )
+        products_text = "\n".join([f"{i+1}. {p['name']} - ${p['price']:,.2f}" for i, p in enumerate(products[:5])])
 
         try:
             prompt = f"""Responde sobre productos de una categoría:
@@ -394,12 +368,7 @@ Genera respuesta breve y amigable (máximo 4 líneas)"""
             return "No hay productos destacados en este momento."
 
         try:
-            products_text = "\n".join(
-                [
-                    f"{i+1}. {p['name']} - ${p['price']:,.2f}"
-                    for i, p in enumerate(products[:5])
-                ]
-            )
+            products_text = "\n".join([f"{i+1}. {p['name']} - ${p['price']:,.2f}" for i, p in enumerate(products[:5])])
 
             prompt = f"""Presenta productos destacados:
 

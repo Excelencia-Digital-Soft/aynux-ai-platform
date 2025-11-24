@@ -111,8 +111,7 @@ class DomainClassifier:
         # If keyword confidence is high, return immediately
         if keyword_result.confidence >= 0.8:
             logger.debug(
-                f"High confidence keyword classification: "
-                f"{keyword_result.domain} ({keyword_result.confidence:.2f})"
+                f"High confidence keyword classification: " f"{keyword_result.domain} ({keyword_result.confidence:.2f})"
             )
             return keyword_result
 

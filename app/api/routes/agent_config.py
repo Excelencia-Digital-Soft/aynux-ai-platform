@@ -56,9 +56,7 @@ class AgentSettingsUpdate(BaseModel):
 
     model: Optional[str] = Field(None, description="LLM model name")
     temperature: Optional[float] = Field(None, ge=0.0, le=1.0, description="Temperature")
-    max_response_length: Optional[int] = Field(
-        None, ge=100, le=2000, description="Max response length"
-    )
+    max_response_length: Optional[int] = Field(None, ge=100, le=2000, description="Max response length")
     use_rag: Optional[bool] = Field(None, description="Enable RAG")
     rag_max_results: Optional[int] = Field(None, ge=1, le=10, description="RAG results limit")
 
@@ -154,10 +152,7 @@ async def update_excelencia_modules(request: UpdateModulesRequest):
     """
     try:
         # Convert Pydantic models to dicts
-        modules_dict = {
-            module_id: module_config.model_dump()
-            for module_id, module_config in request.modules.items()
-        }
+        modules_dict = {module_id: module_config.model_dump() for module_id, module_config in request.modules.items()}
 
         use_case = UpdateAgentModulesUseCase()
         result = await use_case.execute(
@@ -219,9 +214,7 @@ async def update_excelencia_settings(request: AgentSettingsUpdate):
     """
     try:
         # Filter out None values
-        settings_dict = {
-            k: v for k, v in request.model_dump().items() if v is not None
-        }
+        settings_dict = {k: v for k, v in request.model_dump().items() if v is not None}
 
         use_case = UpdateAgentSettingsUseCase()
         result = await use_case.execute(settings=settings_dict)

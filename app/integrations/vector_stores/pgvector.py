@@ -4,6 +4,7 @@ PostgreSQL pgvector implementation of IVectorStore interface
 Provides semantic search using PostgreSQL pgvector extension.
 Implements the IVectorStore interface for maximum flexibility and testability.
 """
+
 import logging
 import time
 from typing import List, Dict, Any, Optional, Tuple
@@ -21,7 +22,7 @@ from app.core.interfaces.vector_store import (
     VectorStoreType,
     VectorStoreError,
     VectorStoreConnectionError,
-    VectorStoreQueryError
+    VectorStoreQueryError,
 )
 from app.database.async_db import get_async_db_context
 from app.models.db import Product, Category, Brand
@@ -47,12 +48,12 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
         # Add documents
         docs = [
             Document(id="1", content="Laptop gaming HP", metadata={"price": 899}),
-            Document(id="2", content="Mouse inalámbrico Logitech")
+            Document(id="2", content="Mouse inalÃ¡mbrico Logitech")
         ]
         await store.add_documents(docs)
 
         # Search
-        results = await store.search("laptop económica", top_k=5)
+        results = await store.search("laptop econÃ³mica", top_k=5)
         for result in results:
             print(f"{result.document.content} - Score: {result.score}")
         ```
@@ -63,7 +64,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
         collection_name: str = "products",
         embedding_dimension: int = 768,
         embedding_model: Optional[Any] = None,
-        db_session: Optional[AsyncSession] = None
+        db_session: Optional[AsyncSession] = None,
     ):
         """
         Initialize pgvector store.
@@ -80,10 +81,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
         self._db_session = db_session
         self._default_similarity_threshold = 0.6
 
-        logger.info(
-            f"Initialized PgVectorStore: collection={collection_name}, "
-            f"dimension={embedding_dimension}"
-        )
+        logger.info(f"Initialized PgVectorStore: collection={collection_name}, " f"dimension={embedding_dimension}")
 
     @property
     def store_type(self) -> VectorStoreType:
@@ -118,8 +116,8 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
             List of floats
         """
         # Remove brackets and split
-        clean_str = vector_str.strip('[]')
-        return [float(v) for v in clean_str.split(',')]
+        clean_str = vector_str.strip("[]")
+        return [float(v) for v in clean_str.split(",")]
 
     async def _get_embedding(self, text: str) -> List[float]:
         """
@@ -139,9 +137,9 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
 
         try:
             # Assuming embedding_model has an embed_text method
-            if hasattr(self._embedding_model, 'embed_text'):
+            if hasattr(self._embedding_model, "embed_text"):
                 return await self._embedding_model.embed_text(text)
-            elif hasattr(self._embedding_model, 'generate_embedding'):
+            elif hasattr(self._embedding_model, "generate_embedding"):
                 return await self._embedding_model.generate_embedding(text)
             else:
                 raise VectorStoreError(
@@ -152,11 +150,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
             logger.error(f"Error generating embedding: {e}")
             raise VectorStoreError(f"Failed to generate embedding: {e}")
 
-    async def add_documents(
-        self,
-        documents: List[Document],
-        generate_embeddings: bool = True
-    ) -> List[str]:
+    async def add_documents(self, documents: List[Document], generate_embeddings: bool = True) -> List[str]:
         """
         Add documents to pgvector store.
 
@@ -192,17 +186,16 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
                             embedding_str = self._format_vector_for_query(embedding)
 
                             # Update product embedding
-                            stmt = text("""
+                            stmt = text(
+                                """
                                 UPDATE products
                                 SET embedding = :embedding::vector,
                                     updated_at = NOW()
                                 WHERE id = :product_id
-                            """)
-
-                            await db.execute(
-                                stmt,
-                                {"embedding": embedding_str, "product_id": product_id}
+                            """
                             )
+
+                            await db.execute(stmt, {"embedding": embedding_str, "product_id": product_id})
 
                             added_ids.append(doc.id)
 
@@ -220,11 +213,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
             raise VectorStoreError(f"Failed to add documents: {e}")
 
     async def search(
-        self,
-        query: str,
-        top_k: int = 5,
-        filter_metadata: Optional[Dict[str, Any]] = None,
-        min_score: float = 0.0
+        self, query: str, top_k: int = 5, filter_metadata: Optional[Dict[str, Any]] = None, min_score: float = 0.0
     ) -> List[VectorSearchResult]:
         """
         Semantic search using vector similarity.
@@ -249,19 +238,14 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
 
             # Use search_by_vector
             results = await self.search_by_vector(
-                embedding=query_embedding,
-                top_k=top_k,
-                filter_metadata=filter_metadata
+                embedding=query_embedding, top_k=top_k, filter_metadata=filter_metadata
             )
 
             # Filter by min_score
             filtered_results = [r for r in results if r.score >= min_score]
 
             query_time = (time.perf_counter() - start_time) * 1000
-            logger.info(
-                f"pgvector search: query='{query}', found={len(filtered_results)}, "
-                f"time={query_time:.2f}ms"
-            )
+            logger.info(f"pgvector search: query='{query}', found={len(filtered_results)}, " f"time={query_time:.2f}ms")
 
             return filtered_results
 
@@ -270,10 +254,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
             raise VectorStoreQueryError(f"Search failed: {e}")
 
     async def search_by_vector(
-        self,
-        embedding: List[float],
-        top_k: int = 5,
-        filter_metadata: Optional[Dict[str, Any]] = None
+        self, embedding: List[float], top_k: int = 5, filter_metadata: Optional[Dict[str, Any]] = None
     ) -> List[VectorSearchResult]:
         """
         Search using embedding vector directly.
@@ -297,34 +278,30 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
                 # Base query with vector similarity
                 stmt = select(
                     Product,
-                    func.coalesce(
-                        1 - (Product.embedding.cosine_distance(text(f"'{embedding_str}'::vector"))),
-                        0
-                    ).label('similarity')
-                ).where(
-                    Product.active == True,
-                    Product.embedding.isnot(None)
-                )
+                    func.coalesce(1 - (Product.embedding.cosine_distance(text(f"'{embedding_str}'::vector"))), 0).label(
+                        "similarity"
+                    ),
+                ).where(Product.active == True, Product.embedding.isnot(None))
 
                 # Apply metadata filters
                 if filter_metadata:
-                    if 'category_id' in filter_metadata:
-                        stmt = stmt.where(Product.category_id == filter_metadata['category_id'])
+                    if "category_id" in filter_metadata:
+                        stmt = stmt.where(Product.category_id == filter_metadata["category_id"])
 
-                    if 'brand_id' in filter_metadata:
-                        stmt = stmt.where(Product.brand_id == filter_metadata['brand_id'])
+                    if "brand_id" in filter_metadata:
+                        stmt = stmt.where(Product.brand_id == filter_metadata["brand_id"])
 
-                    if 'price_max' in filter_metadata:
-                        stmt = stmt.where(Product.price <= filter_metadata['price_max'])
+                    if "price_max" in filter_metadata:
+                        stmt = stmt.where(Product.price <= filter_metadata["price_max"])
 
-                    if 'price_min' in filter_metadata:
-                        stmt = stmt.where(Product.price >= filter_metadata['price_min'])
+                    if "price_min" in filter_metadata:
+                        stmt = stmt.where(Product.price >= filter_metadata["price_min"])
 
-                    if filter_metadata.get('stock_required', False):
+                    if filter_metadata.get("stock_required", False):
                         stmt = stmt.where(Product.stock > 0)
 
                 # Order by similarity and limit
-                stmt = stmt.order_by(text('similarity DESC')).limit(top_k)
+                stmt = stmt.order_by(text("similarity DESC")).limit(top_k)
 
                 # Execute
                 result = await db.execute(stmt)
@@ -342,16 +319,16 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
                             "category_id": product.category_id,
                             "brand_id": product.brand_id,
                             "stock": product.stock or 0,
-                            "sku": product.sku
+                            "sku": product.sku,
                         },
-                        score=similarity
+                        score=similarity,
                     )
 
                     search_results.append(
                         VectorSearchResult(
                             document=doc,
                             score=float(similarity),
-                            distance=1.0 - float(similarity)  # Convert similarity to distance
+                            distance=1.0 - float(similarity),  # Convert similarity to distance
                         )
                     )
 
@@ -394,8 +371,8 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
                             "category_id": product.category_id,
                             "brand_id": product.brand_id,
                             "stock": product.stock or 0,
-                            "sku": product.sku
-                        }
+                            "sku": product.sku,
+                        },
                     )
 
                 return None
@@ -420,12 +397,14 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
             async with get_async_db_context() as db:
                 product_ids = [int(id) for id in document_ids if id.isdigit()]
 
-                stmt = text("""
+                stmt = text(
+                    """
                     UPDATE products
                     SET embedding = NULL,
                         updated_at = NOW()
                     WHERE id = ANY(:product_ids)
-                """)
+                """
+                )
 
                 result = await db.execute(stmt, {"product_ids": product_ids})
                 await db.commit()
@@ -443,7 +422,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
         document_id: str,
         content: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        regenerate_embedding: bool = True
+        regenerate_embedding: bool = True,
     ) -> bool:
         """
         Update an existing document.
@@ -468,17 +447,16 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
 
                 async with get_async_db_context() as db:
                     product_id = int(document_id)
-                    stmt = text("""
+                    stmt = text(
+                        """
                         UPDATE products
                         SET embedding = :embedding::vector,
                             updated_at = NOW()
                         WHERE id = :product_id
-                    """)
-
-                    await db.execute(
-                        stmt,
-                        {"embedding": embedding_str, "product_id": product_id}
+                    """
                     )
+
+                    await db.execute(stmt, {"embedding": embedding_str, "product_id": product_id})
                     await db.commit()
 
                 return True
@@ -489,11 +467,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
             logger.error(f"Error updating document {document_id}: {e}")
             return False
 
-    async def create_collection(
-        self,
-        collection_name: str,
-        embedding_dimension: int = 1024
-    ) -> bool:
+    async def create_collection(self, collection_name: str, embedding_dimension: int = 1024) -> bool:
         """
         Create a new collection.
 
@@ -544,10 +518,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
             logger.error(f"Error deleting collection {collection_name}: {e}")
             return False
 
-    async def count_documents(
-        self,
-        filter_metadata: Optional[Dict[str, Any]] = None
-    ) -> int:
+    async def count_documents(self, filter_metadata: Optional[Dict[str, Any]] = None) -> int:
         """
         Count documents in collection.
 
@@ -559,17 +530,14 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
         """
         try:
             async with get_async_db_context() as db:
-                stmt = select(func.count(Product.id)).where(
-                    Product.active == True,
-                    Product.embedding.isnot(None)
-                )
+                stmt = select(func.count(Product.id)).where(Product.active == True, Product.embedding.isnot(None))
 
                 # Apply filters
                 if filter_metadata:
-                    if 'category_id' in filter_metadata:
-                        stmt = stmt.where(Product.category_id == filter_metadata['category_id'])
-                    if 'brand_id' in filter_metadata:
-                        stmt = stmt.where(Product.brand_id == filter_metadata['brand_id'])
+                    if "category_id" in filter_metadata:
+                        stmt = stmt.where(Product.category_id == filter_metadata["category_id"])
+                    if "brand_id" in filter_metadata:
+                        stmt = stmt.where(Product.brand_id == filter_metadata["brand_id"])
 
                 result = await db.execute(stmt)
                 count = result.scalar()
@@ -586,7 +554,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
         top_k: int = 5,
         vector_weight: float = 0.7,
         keyword_weight: float = 0.3,
-        filter_metadata: Optional[Dict[str, Any]] = None
+        filter_metadata: Optional[Dict[str, Any]] = None,
     ) -> List[VectorSearchResult]:
         """
         Hybrid search combining vector similarity and keyword matching.
@@ -613,9 +581,7 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
         try:
             async with get_async_db_context() as db:
                 # Get count
-                count_stmt = select(func.count(Product.id)).where(
-                    Product.embedding.isnot(None)
-                )
+                count_stmt = select(func.count(Product.id)).where(Product.embedding.isnot(None))
                 count_result = await db.execute(count_stmt)
                 count = count_result.scalar() or 0
 
@@ -624,18 +590,14 @@ class PgVectorStore(IVectorStore, IHybridSearch, IVectorStoreMetrics):
                     "document_count": count,
                     "embedding_dimension": self._embedding_dimension,
                     "store_type": "pgvector",
-                    "index_type": "HNSW"  # Assuming HNSW index
+                    "index_type": "HNSW",  # Assuming HNSW index
                 }
 
         except Exception as e:
             logger.error(f"Error getting index stats: {e}")
             return {}
 
-    async def get_search_performance(
-        self,
-        query: str,
-        top_k: int = 5
-    ) -> Tuple[List[VectorSearchResult], float]:
+    async def get_search_performance(self, query: str, top_k: int = 5) -> Tuple[List[VectorSearchResult], float]:
         """Execute search and measure performance"""
         start_time = time.perf_counter()
         results = await self.search(query, top_k)

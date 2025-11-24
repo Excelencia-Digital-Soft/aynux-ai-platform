@@ -9,17 +9,17 @@ from .responses import (
     CreditApplicationResponse,
     PaymentResponse,
     StatementResponse,
-    RiskAssessmentResponse
+    RiskAssessmentResponse,
 )
 
 __all__ = [
-    'CreditAgentType',
-    'UserRole',
-    'CreditState',
-    'CreditMessage',
-    'CreditBalanceResponse',
-    'CreditApplicationResponse',
-    'PaymentResponse',
-    'StatementResponse',
-    'RiskAssessmentResponse'
+    "CreditAgentType",
+    "UserRole",
+    "CreditState",
+    "CreditMessage",
+    "CreditBalanceResponse",
+    "CreditApplicationResponse",
+    "PaymentResponse",
+    "StatementResponse",
+    "RiskAssessmentResponse",
 ]

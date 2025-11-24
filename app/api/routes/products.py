@@ -192,7 +192,12 @@ async def get_stock_report():
     Genera un reporte de stock por categorías
     """
     try:
-        report: Dict[str, Any] = {"laptops": {}, "desktops": {}, "components": {}, "peripherals": {"total_stock": 0, "products": []}}
+        report: Dict[str, Any] = {
+            "laptops": {},
+            "desktops": {},
+            "components": {},
+            "peripherals": {"total_stock": 0, "products": []},
+        }
 
         # Stock de laptops
         for category, laptops in PRODUCTS_CATALOG["laptops"].items():

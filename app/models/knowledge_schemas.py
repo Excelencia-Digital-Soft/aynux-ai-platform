@@ -39,9 +39,7 @@ class KnowledgeCreate(BaseModel):
         ...,
         min_length=50,
         description="Document content in markdown or plain text (minimum 50 characters)",
-        examples=[
-            "# Misión\nNuestra misión es proporcionar soluciones tecnológicas...\n\n# Visión\nSer líderes en..."
-        ],
+        examples=["# Misión\nNuestra misión es proporcionar soluciones tecnológicas...\n\n# Visión\nSer líderes en..."],
     )
 
     document_type: str = Field(
@@ -94,9 +92,7 @@ class KnowledgeCreate(BaseModel):
             "general",
         ]
         if v not in allowed_types:
-            raise ValueError(
-                f"document_type must be one of: {', '.join(allowed_types)}"
-            )
+            raise ValueError(f"document_type must be one of: {', '.join(allowed_types)}")
         return v
 
     @field_validator("content")

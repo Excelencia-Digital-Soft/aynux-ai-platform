@@ -56,4 +56,3 @@ __all__ = [
     # Authentication
     "UserDB",
 ]
-

@@ -2,14 +2,15 @@
 Interfaces base para repositorios (Data Access Layer)
 
 Estos protocols definen contratos que deben implementar todos los repositorios
-del sistema, siguiendo el patrÛn Repository y Dependency Inversion Principle.
+del sistema, siguiendo el patr√≥n Repository y Dependency Inversion Principle.
 """
+
 from typing import Protocol, Optional, List, Any, TypeVar, Generic, runtime_checkable
 from abc import abstractmethod
 
 
-T = TypeVar('T')  # Entity type
-ID = TypeVar('ID')  # ID type (int, str, UUID, etc.)
+T = TypeVar("T")  # Entity type
+ID = TypeVar("ID")  # ID type (int, str, UUID, etc.)
 
 
 @runtime_checkable
@@ -17,7 +18,7 @@ class IRepository(Protocol, Generic[T, ID]):
     """
     Interface base para todos los repositorios.
 
-    Implementa el patrÛn Repository para abstraer el acceso a datos.
+    Implementa el patr√≥n Repository para abstraer el acceso a datos.
     Las implementaciones concretas pueden usar SQLAlchemy, MongoDB, Redis, etc.
 
     Type Parameters:
@@ -39,7 +40,7 @@ class IRepository(Protocol, Generic[T, ID]):
         Encuentra una entidad por su ID.
 
         Args:
-            id: Identificador ˙nico de la entidad
+            id: Identificador √∫nico de la entidad
 
         Returns:
             Entidad encontrada o None si no existe
@@ -49,11 +50,11 @@ class IRepository(Protocol, Generic[T, ID]):
     @abstractmethod
     async def find_all(self, skip: int = 0, limit: int = 100) -> List[T]:
         """
-        Obtiene todas las entidades con paginaciÛn.
+        Obtiene todas las entidades con paginaci√≥n.
 
         Args:
-            skip: N˙mero de registros a saltar
-            limit: N˙mero m·ximo de registros a retornar
+            skip: N√∫mero de registros a saltar
+            limit: N√∫mero m√°ximo de registros a retornar
 
         Returns:
             Lista de entidades
@@ -82,7 +83,7 @@ class IRepository(Protocol, Generic[T, ID]):
             id: Identificador de la entidad a eliminar
 
         Returns:
-            True si se eliminÛ, False si no existÌa
+            True si se elimin√≥, False si no exist√≠a
         """
         ...
 
@@ -102,10 +103,10 @@ class IRepository(Protocol, Generic[T, ID]):
     @abstractmethod
     async def count(self) -> int:
         """
-        Cuenta el n˙mero total de entidades.
+        Cuenta el n√∫mero total de entidades.
 
         Returns:
-            N˙mero total de registros
+            N√∫mero total de registros
         """
         ...
 
@@ -115,7 +116,7 @@ class IReadOnlyRepository(Protocol, Generic[T, ID]):
     """
     Interface para repositorios de solo lectura.
 
-    ⁄til para vistas, reportes, o cuando no se permite modificar datos.
+    √ötil para vistas, reportes, o cuando no se permite modificar datos.
     """
 
     @abstractmethod
@@ -142,29 +143,29 @@ class IReadOnlyRepository(Protocol, Generic[T, ID]):
 @runtime_checkable
 class ISearchableRepository(Protocol, Generic[T]):
     """
-    Interface para repositorios con capacidad de b˙squeda.
+    Interface para repositorios con capacidad de b√∫squeda.
 
-    Extiende IRepository agregando mÈtodos de b˙squeda y filtrado.
+    Extiende IRepository agregando m√©todos de b√∫squeda y filtrado.
     """
 
     @abstractmethod
     async def search(self, query: str, limit: int = 10) -> List[T]:
         """
-        B˙squeda de texto completo.
+        B√∫squeda de texto completo.
 
         Args:
             query: Texto a buscar
-            limit: N˙mero m·ximo de resultados
+            limit: N√∫mero m√°ximo de resultados
 
         Returns:
-            Lista de entidades que coinciden con la b˙squeda
+            Lista de entidades que coinciden con la b√∫squeda
         """
         ...
 
     @abstractmethod
     async def filter_by(self, **kwargs) -> List[T]:
         """
-        Filtra entidades por criterios especÌficos.
+        Filtra entidades por criterios espec√≠ficos.
 
         Args:
             **kwargs: Pares clave-valor para filtrar
@@ -185,15 +186,12 @@ class IKnowledgeRepository(Protocol):
     """
     Interface especializada para repositorios de knowledge base.
 
-    Maneja documentos, embeddings y b˙squeda sem·ntica.
+    Maneja documentos, embeddings y b√∫squeda sem√°ntica.
     """
 
     @abstractmethod
     async def add_documents(
-        self,
-        documents: List[str],
-        metadatas: Optional[List[dict]] = None,
-        ids: Optional[List[str]] = None
+        self, documents: List[str], metadatas: Optional[List[dict]] = None, ids: Optional[List[str]] = None
     ) -> List[str]:
         """
         Agrega documentos a la knowledge base.
@@ -201,7 +199,7 @@ class IKnowledgeRepository(Protocol):
         Args:
             documents: Lista de textos a agregar
             metadatas: Metadatos opcionales por documento
-            ids: IDs opcionales (se generan autom·ticamente si no se proveen)
+            ids: IDs opcionales (se generan autom√°ticamente si no se proveen)
 
         Returns:
             Lista de IDs de los documentos agregados
@@ -209,18 +207,13 @@ class IKnowledgeRepository(Protocol):
         ...
 
     @abstractmethod
-    async def search_semantic(
-        self,
-        query: str,
-        top_k: int = 5,
-        filter_metadata: Optional[dict] = None
-    ) -> List[dict]:
+    async def search_semantic(self, query: str, top_k: int = 5, filter_metadata: Optional[dict] = None) -> List[dict]:
         """
-        B˙squeda sem·ntica usando embeddings.
+        B√∫squeda sem√°ntica usando embeddings.
 
         Args:
-            query: Texto de b˙squeda
-            top_k: N˙mero de resultados a retornar
+            query: Texto de b√∫squeda
+            top_k: N√∫mero de resultados a retornar
             filter_metadata: Filtros adicionales por metadata
 
         Returns:
@@ -231,23 +224,23 @@ class IKnowledgeRepository(Protocol):
     @abstractmethod
     async def update_embeddings(self, document_ids: List[str]) -> bool:
         """
-        Actualiza embeddings de documentos especÌficos.
+        Actualiza embeddings de documentos espec√≠ficos.
 
         Args:
             document_ids: IDs de documentos a actualizar
 
         Returns:
-            True si se actualizÛ exitosamente
+            True si se actualiz√≥ exitosamente
         """
         ...
 
     @abstractmethod
     async def delete_collection(self) -> bool:
         """
-        Elimina toda la colecciÛn de documentos.
+        Elimina toda la colecci√≥n de documentos.
 
         Returns:
-            True si se eliminÛ exitosamente
+            True si se elimin√≥ exitosamente
         """
         ...
 
@@ -269,7 +262,7 @@ class ICacheRepository(Protocol, Generic[T]):
             key: Clave de cache
 
         Returns:
-            Valor cacheado o None si no existe/expirÛ
+            Valor cacheado o None si no existe/expir√≥
         """
         ...
 
@@ -296,18 +289,13 @@ class ICacheRepository(Protocol, Generic[T]):
         ...
 
     @abstractmethod
-    async def get_or_fetch(
-        self,
-        key: str,
-        fetch_fn: callable,
-        ttl: int = 3600
-    ) -> T:
+    async def get_or_fetch(self, key: str, fetch_fn: callable, ttl: int = 3600) -> T:
         """
-        Obtiene del cache o ejecuta funciÛn de fetch si no existe.
+        Obtiene del cache o ejecuta funci√≥n de fetch si no existe.
 
         Args:
             key: Clave de cache
-            fetch_fn: FunciÛn async para obtener el valor si no est· en cache
+            fetch_fn: Funci√≥n async para obtener el valor si no est√° en cache
             ttl: Time-to-live en segundos
 
         Returns:

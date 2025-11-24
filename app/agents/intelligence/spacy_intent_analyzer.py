@@ -202,7 +202,7 @@ class SpacyIntentAnalyzer:
     def get_supported_intents(self) -> List[str]:
         """
         Get list of supported intents.
-        
+
         Returns:
             List of intent names that can be recognized
         """

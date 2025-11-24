@@ -193,9 +193,7 @@ async def list_knowledge(
 async def update_knowledge(
     knowledge_id: UUID,
     knowledge: KnowledgeUpdate,
-    regenerate_embedding: bool = Query(
-        True, description="Regenerate embeddings if content changed"
-    ),
+    regenerate_embedding: bool = Query(True, description="Regenerate embeddings if content changed"),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
@@ -435,9 +433,7 @@ async def sync_all_embeddings(
     - Migrating to a new embedding model
     """
     try:
-        logger.info(
-            f"Starting full embedding sync (pgvector={update_pgvector}, chroma={update_chroma})"
-        )
+        logger.info(f"Starting full embedding sync (pgvector={update_pgvector}, chroma={update_chroma})")
 
         container = DependencyContainer()
         use_case = container.create_regenerate_knowledge_embeddings_use_case(db)

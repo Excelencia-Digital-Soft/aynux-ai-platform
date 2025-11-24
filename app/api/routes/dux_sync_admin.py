@@ -280,11 +280,7 @@ async def get_sync_progress():
         sync_service = get_scheduled_sync_service()
         progress_info = sync_service.get_current_sync_state()
 
-        return {
-            "success": True,
-            "data": progress_info,
-            "timestamp": datetime.now().isoformat()
-        }
+        return {"success": True, "data": progress_info, "timestamp": datetime.now().isoformat()}
 
     except Exception as e:
         logger.error(f"Error getting sync progress: {e}")
@@ -304,25 +300,15 @@ async def cancel_sync():
         cancelled = await sync_service.cancel_current_sync()
 
         if cancelled:
-            return SyncResponse(
-                success=True,
-                message="Sync cancelled successfully",
-                data={"cancelled": True}
-            )
+            return SyncResponse(success=True, message="Sync cancelled successfully", data={"cancelled": True})
         else:
             return SyncResponse(
-                success=False,
-                message="No active sync to cancel or cancellation failed",
-                data={"cancelled": False}
+                success=False, message="No active sync to cancel or cancellation failed", data={"cancelled": False}
             )
 
     except Exception as e:
         logger.error(f"Error cancelling sync: {e}")
-        return SyncResponse(
-            success=False,
-            message=f"Error cancelling sync: {str(e)}",
-            data={"error": str(e)}
-        )
+        return SyncResponse(success=False, message=f"Error cancelling sync: {str(e)}", data={"error": str(e)})
 
 
 @router.post("/sync/reset", response_model=SyncResponse)
@@ -337,17 +323,8 @@ async def reset_sync_state():
         sync_service = get_scheduled_sync_service()
         sync_service.reset_sync_state()
 
-        return SyncResponse(
-            success=True,
-            message="Sync state reset to IDLE",
-            data={"state": "idle"}
-        )
+        return SyncResponse(success=True, message="Sync state reset to IDLE", data={"state": "idle"})
 
     except Exception as e:
         logger.error(f"Error resetting sync state: {e}")
-        return SyncResponse(
-            success=False,
-            message=f"Error resetting sync state: {str(e)}",
-            data={"error": str(e)}
-        )
-
+        return SyncResponse(success=False, message=f"Error resetting sync state: {str(e)}", data={"error": str(e)})
