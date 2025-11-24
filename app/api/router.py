@@ -1,9 +1,11 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    agent_config,
     agents_admin,
     auth,
     chat,
+    document_upload,
     domain_admin,
     dux_sync_admin,
     embeddings,
@@ -31,4 +33,6 @@ api_router.include_router(agents_admin.router, tags=["agents-admin"])
 api_router.include_router(domain_admin.router, tags=["domain-admin"])
 api_router.include_router(langsmith_status.router, prefix="/admin", tags=["monitoring"])
 api_router.include_router(knowledge_admin.router, tags=["Knowledge Base"])
+api_router.include_router(document_upload.router, tags=["Document Upload"])
+api_router.include_router(agent_config.router, tags=["Agent Configuration"])
 api_router.include_router(whatsapp_catalog.router, tags=["WhatsApp Catalog & Flows"])
