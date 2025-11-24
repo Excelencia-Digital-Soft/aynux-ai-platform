@@ -1,0 +1,29 @@
+# Credit Domain - Intent Analysis Prompts
+# Purpose: Analyze user intent for credit-related queries
+
+prompts:
+  - key: credit.intent.analysis
+    name: Credit Intent Analysis
+    description: Analyzes user intent for credit account queries to determine action type
+    version: "1.0.0"
+    template: |
+      Analyze this credit account query and return ONLY the intent type:
+
+      Query: "{message}"
+
+      Intent types:
+      - balance: Asking for credit balance or account status
+      - payment: Making a payment or asking about payment options
+      - schedule: Asking for payment schedule or calendar
+
+      Return ONLY one word: balance, payment, or schedule
+    metadata:
+      temperature: 0.2
+      max_tokens: 10
+      model: "deepseek-r1:7b"
+      tags:
+        - credit
+        - intent_analysis
+      variables:
+        required:
+          - message

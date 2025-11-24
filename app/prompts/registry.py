@@ -58,6 +58,38 @@ class PromptRegistry:
     INVOICE_QUERY = "invoice.query"
     INVOICE_PAYMENT_INFO = "invoice.payment.info"
 
+    # === CREDIT ===
+    CREDIT_INTENT_ANALYSIS = "credit.intent.analysis"
+    CREDIT_BALANCE_RESPONSE = "credit.balance.response"
+    CREDIT_PAYMENT_CONFIRMATION = "credit.payment.confirmation"
+    CREDIT_SCHEDULE_RESPONSE = "credit.schedule.response"
+
+    # === HEALTHCARE ===
+    HEALTHCARE_APPOINTMENT_INTENT = "healthcare.appointment.intent"
+    HEALTHCARE_APPOINTMENT_CONFIRMATION = "healthcare.appointment.confirmation"
+    HEALTHCARE_APPOINTMENT_LIST = "healthcare.appointment.list"
+    HEALTHCARE_PATIENT_INTENT = "healthcare.patient.intent"
+    HEALTHCARE_PATIENT_INFO_RESPONSE = "healthcare.patient.info_response"
+    HEALTHCARE_PRESCRIPTION_RESPONSE = "healthcare.prescription.response"
+
+    # === EXCELENCIA ===
+    EXCELENCIA_QUERY_INTENT = "excelencia.query.intent"
+    EXCELENCIA_RESPONSE_GENERAL = "excelencia.response.general"
+    EXCELENCIA_DEMO_REQUEST = "excelencia.demo.request"
+    EXCELENCIA_MODULE_INFO = "excelencia.module.info"
+
+    # === AGENTS ===
+    AGENTS_FAREWELL_CONTEXTUAL = "agents.farewell.contextual"
+    AGENTS_FAREWELL_DEFAULT_INTERACTED = "agents.farewell.default_interacted"
+    AGENTS_FAREWELL_DEFAULT_BRIEF = "agents.farewell.default_brief"
+    AGENTS_FALLBACK_HELPFUL_RESPONSE = "agents.fallback.helpful_response"
+    AGENTS_FALLBACK_DEFAULT_RESPONSE = "agents.fallback.default_response"
+    AGENTS_FALLBACK_ERROR_RESPONSE = "agents.fallback.error_response"
+    AGENTS_SUPERVISOR_ENHANCEMENT = "agents.supervisor.enhancement"
+
+    # === ORCHESTRATOR (additional) ===
+    ORCHESTRATOR_DOMAIN_DETECTION = "orchestrator.domain.detection"
+
     @classmethod
     def get_all_keys(cls) -> list[str]:
         """Retorna todas las claves de prompts registradas."""

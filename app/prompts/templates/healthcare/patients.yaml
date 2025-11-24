@@ -1,0 +1,94 @@
+# Healthcare Domain - Patient Management Prompts
+# Purpose: Handle patient information and medical records queries
+
+prompts:
+  - key: healthcare.patient.intent
+    name: Patient Query Intent Analysis
+    description: Analyzes patient query intent for medical records and information
+    version: "1.0.0"
+    template: |
+      Analyze this patient information query and return ONLY the intent type:
+
+      Query: "{message}"
+
+      Intent types:
+      - medical_history: Asking for medical history or past treatments
+      - prescriptions: Asking for current or past prescriptions
+      - test_results: Asking for lab or test results
+      - profile: Asking for patient profile information
+      - insurance: Asking about insurance or coverage information
+
+      Return ONLY one word: medical_history, prescriptions, test_results, profile, or insurance
+    metadata:
+      temperature: 0.2
+      max_tokens: 15
+      model: "deepseek-r1:7b"
+      tags:
+        - healthcare
+        - patient
+        - intent_analysis
+      variables:
+        required:
+          - message
+
+  - key: healthcare.patient.info_response
+    name: Patient Information Response
+    description: Generates friendly response with patient profile information
+    version: "1.0.0"
+    template: |
+      Generate patient information summary:
+
+      Patient Name: {patient_name}
+      Date of Birth: {date_of_birth}
+      Gender: {gender}
+      Blood Type: {blood_type}
+      Allergies: {allergies}
+      Insurance: {insurance_provider}
+
+      Generate brief, professional summary (max 5 lines) with appropriate emojis
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      model: "deepseek-r1:7b"
+      tags:
+        - healthcare
+        - patient
+        - profile
+      variables:
+        required:
+          - patient_name
+          - date_of_birth
+          - gender
+          - blood_type
+          - allergies
+          - insurance_provider
+
+  - key: healthcare.prescription.response
+    name: Prescription Information Response
+    description: Generates response with current prescription information
+    version: "1.0.0"
+    template: |
+      Generate prescription information:
+
+      Patient: {patient_name}
+
+      Current Prescriptions:
+      {prescriptions_list}
+
+      Important Notes:
+      - Follow dosage instructions carefully
+      - Contact doctor if any side effects occur
+
+      Generate brief, caring message (max 5 lines)
+    metadata:
+      temperature: 0.7
+      max_tokens: 250
+      model: "deepseek-r1:7b"
+      tags:
+        - healthcare
+        - prescription
+        - medication
+      variables:
+        required:
+          - patient_name
+          - prescriptions_list

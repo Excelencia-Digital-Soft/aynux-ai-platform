@@ -1,0 +1,138 @@
+# Excelencia Domain - Response Generation Prompts
+# Purpose: Generate contextual responses for Excelencia ERP queries with RAG support
+
+prompts:
+  - key: excelencia.response.general
+    name: Excelencia ERP General Response Generator
+    description: Generates contextual responses for Excelencia ERP queries with RAG support and module information
+    version: "1.0.0"
+    template: |
+      Eres un asistente especializado en el ERP Excelencia.
+
+      ## CONSULTA DEL USUARIO:
+      "{user_message}"
+
+      ## ANÁLISIS:
+      - Tipo de consulta: {query_type}
+      - Intención: {user_intent}
+      - Requiere demo: {requires_demo}
+      {modules_context}
+      {rag_context}
+
+      ## INFORMACIÓN GENERAL SOBRE EXCELENCIA:
+      Excelencia es un ERP modular especializado en diferentes verticales de negocio, con especial
+       foco en el sector salud (hospitales, clínicas, obras sociales) y hotelería.
+
+      Principales módulos:
+      1. **Historia Clínica Electrónica** - Gestión integral de historias clínicas
+      2. **Sistema de Turnos Médicos** - Agendas y turnos automatizados
+      3. **Gestión Hospitalaria** - Administración completa de hospitales
+      4. **Obras Sociales** - Gestión de prestaciones y facturación
+      5. **Hoteles** - Software de gestión hotelera completo
+      6. **Farmacias** - Sistema especializado para farmacias
+
+      ## INSTRUCCIONES:
+      1. Responde de manera amigable y profesional
+      2. **IMPORTANTE**: Si hay información en la Knowledge Base (sección "INFORMACIÓN CORPORATIVA RELEVANTE"), úsala como fuente principal y prioritaria
+      3. Si pregunta sobre demos: Menciona que pueden solicitar una demo personalizada
+      4. Si pregunta sobre capacitación: Indica que ofrecen capacitación completa y soporte
+      5. Si pregunta sobre un módulo específico: Detalla sus características principales
+      6. Si pregunta sobre productos: Enumera los módulos relevantes
+      7. Si pregunta sobre misión, visión, valores, contacto, casos de éxito: Usa la información de Knowledge Base
+      8. Usa máximo 6-7 líneas
+      9. Usa 1-2 emojis apropiados
+      10. Si es una consulta general, haz un overview breve
+      11. NO inventes información, usa solo lo que está en el contexto proporcionado
+
+      Genera tu respuesta ahora:
+    metadata:
+      temperature: 0.7
+      max_tokens: 500
+      model: "llama3.1"
+      tags:
+        - excelencia
+        - response_generation
+        - erp
+        - rag
+      variables:
+        required:
+          - user_message
+          - query_type
+          - user_intent
+          - requires_demo
+        optional:
+          - modules_context
+          - rag_context
+      sections:
+        modules_context:
+          description: "Contextual information about mentioned modules"
+          example: |
+
+            MÓDULOS RELEVANTES:
+
+            **Historia Clínica Electrónica**
+            - Sistema completo de gestión de historias clínicas digitales con cumplimiento normativo
+            - Características: Registro de pacientes, Consultas médicas, Prescripciones
+            - Target: Hospitales, Clínicas, Centros médicos
+        rag_context:
+          description: "Information retrieved from knowledge base via RAG"
+          example: |
+
+            ## INFORMACIÓN CORPORATIVA RELEVANTE (Knowledge Base):
+            ### 1. Misión y Visión de Excelencia
+            [Content from knowledge base...]
+
+  - key: excelencia.demo.request
+    name: Demo Request Response
+    description: Friendly response for demo requests with module options
+    version: "1.0.0"
+    template: |
+      ¡Hola! 👋 Con gusto te puedo mostrar una demo de Excelencia ERP.
+
+      Ofrecemos demostraciones personalizadas de nuestros sistemas:
+      - Historia Clínica Electrónica
+      - Gestión Hospitalaria
+      - Sistema de Turnos
+      - Gestión Hotelera
+
+      ¿Sobre qué módulo te gustaría ver la demo?
+    metadata:
+      temperature: 0.8
+      max_tokens: 150
+      model: "llama3.1"
+      tags:
+        - excelencia
+        - demo
+        - sales
+
+  - key: excelencia.module.info
+    name: Module Information Response
+    description: Generates detailed information about specific Excelencia modules
+    version: "1.0.0"
+    template: |
+      **{module_name}** {emoji}
+
+      {module_description}
+
+      **Características principales:**
+      {features_list}
+
+      **Ideal para:** {target_audience}
+
+      ¿Te gustaría conocer más detalles o ver una demo?
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      model: "llama3.1"
+      tags:
+        - excelencia
+        - module_info
+        - products
+      variables:
+        required:
+          - module_name
+          - module_description
+          - features_list
+          - target_audience
+        optional:
+          - emoji

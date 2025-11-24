@@ -1,0 +1,74 @@
+# Agent Prompts - Fallback Agent
+# Purpose: Handle unrecognized queries and guide users to available services
+
+prompts:
+  - key: agents.fallback.helpful_response
+    name: Helpful Fallback Response
+    description: Generates friendly guidance when user query is unclear or unrecognized
+    version: "1.0.0"
+    template: |
+      El usuario escribió: "{message}"
+
+      Parece que su consulta no fue clara o no es reconocida.
+
+      Responde de forma amable y útil:
+      • Sugiere 3 o 4 cosas comunes que podemos ayudar (ej: precios, soporte, pedidos).
+      • Sé breve (máximo 4 líneas).
+      • Usa emojis para hacerlo más cálido.
+      • No repitas el mensaje del usuario.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      model: "llama3.1"
+      tags:
+        - fallback
+        - recovery
+        - agent
+      variables:
+        required:
+          - message
+
+  - key: agents.fallback.default_response
+    name: Default Fallback Response
+    description: Standard fallback response when LLM generation fails
+    version: "1.0.0"
+    template: |
+      No entendí tu consulta, pero estoy aquí para ayudarte 😊
+
+      Puedo asistirte con:
+      • 🛒 Ver productos disponibles
+      • 💰 Consultar precios y ofertas
+      • 📦 Rastrear tu pedido
+      • 🔧 Soporte técnico
+
+      ¿Con qué te gustaría que te ayude?
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      model: "llama3.1"
+      tags:
+        - fallback
+        - default
+        - template
+
+  - key: agents.fallback.error_response
+    name: Error Fallback Response
+    description: Fallback response when agent encounters an error
+    version: "1.0.0"
+    template: |
+      No entendí tu consulta, pero puedo ayudarte con:
+      • 🛍️ Ver productos y categorías
+      • 💻 Buscar equipos específicos
+      • 📦 Seguimiento de pedidos
+      • 🎯 Ofertas y promociones
+      • 💬 Soporte técnico
+
+      ¿Con qué te gustaría empezar?
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      model: "llama3.1"
+      tags:
+        - fallback
+        - error
+        - template

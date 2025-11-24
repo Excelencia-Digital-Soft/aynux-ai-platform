@@ -1,0 +1,74 @@
+# Agent Prompts - Farewell Agent
+# Purpose: Generate contextual farewell messages for conversation closure
+
+prompts:
+  - key: agents.farewell.contextual
+    name: Contextual Farewell Response
+    description: Generates personalized farewell based on user message and interaction level
+    version: "1.0.0"
+    template: |
+      El usuario escribió: "{message}"
+
+      {context}
+
+      Tu tarea es generar una despedida cordial, profesional y empática.
+      Si ayudamos, agradece su confianza. Invita a volver en el futuro.
+
+      • Usa máximo 3 líneas.
+      • Usa 1 o 2 emojis relevantes (no más).
+      • No repitas el mensaje del usuario.
+    metadata:
+      temperature: 0.8
+      max_tokens: 150
+      model: "llama3.1"
+      tags:
+        - farewell
+        - conversation_end
+        - agent
+      variables:
+        required:
+          - message
+          - context
+      context_options:
+        interacted: "El usuario ha interactuado con varios servicios."
+        brief: "Es una conversación breve."
+
+  - key: agents.farewell.default_interacted
+    name: Default Farewell for Interacted Users
+    description: Standard farewell message for users who have interacted with services
+    version: "1.0.0"
+    template: |
+      ¡Gracias por confiar en nosotros! 😊
+      {time_greeting}
+      Estamos aquí cuando nos necesites. ¡Hasta pronto! 👋
+    metadata:
+      temperature: 0.8
+      max_tokens: 100
+      model: "llama3.1"
+      tags:
+        - farewell
+        - default
+        - template
+      variables:
+        required:
+          - time_greeting
+
+  - key: agents.farewell.default_brief
+    name: Default Farewell for Brief Conversations
+    description: Standard farewell for brief interactions
+    version: "1.0.0"
+    template: |
+      ¡Hasta luego! 👋
+      {time_greeting}
+      No dudes en contactarnos si necesitas algo. 😊
+    metadata:
+      temperature: 0.8
+      max_tokens: 100
+      model: "llama3.1"
+      tags:
+        - farewell
+        - default
+        - template
+      variables:
+        required:
+          - time_greeting
