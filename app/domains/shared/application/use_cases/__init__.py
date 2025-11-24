@@ -31,6 +31,16 @@ from app.domains.shared.application.use_cases.knowledge_use_cases import (
     SearchKnowledgeUseCase,
     UpdateKnowledgeUseCase,
 )
+from app.domains.shared.application.use_cases.upload_document_use_case import (
+    UploadPDFUseCase,
+    UploadTextUseCase,
+    BatchUploadDocumentsUseCase,
+)
+from app.domains.shared.application.use_cases.agent_config_use_case import (
+    GetAgentConfigUseCase,
+    UpdateAgentModulesUseCase,
+    UpdateAgentSettingsUseCase,
+)
 
 __all__ = [
     # Customer Use Cases
@@ -44,6 +54,14 @@ __all__ = [
     "ListKnowledgeUseCase",
     "GetKnowledgeStatisticsUseCase",
     "RegenerateKnowledgeEmbeddingsUseCase",
+    # Document Upload Use Cases
+    "UploadPDFUseCase",
+    "UploadTextUseCase",
+    "BatchUploadDocumentsUseCase",
+    # Agent Configuration Use Cases
+    "GetAgentConfigUseCase",
+    "UpdateAgentModulesUseCase",
+    "UpdateAgentSettingsUseCase",
     # Admin Use Cases
     "ListDomainsUseCase",
     "EnableDomainUseCase",

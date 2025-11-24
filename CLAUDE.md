@@ -27,6 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **docs/TESTING_GUIDE.md**: Testing strategy and best practices
 - **docs/STREAMLIT_VISUALIZER.md**: Interactive agent visualization and debugging tool
 - **docs/PGVECTOR_MIGRATION.md**: Vector search implementation with pgvector
+- **docs/PDF_VECTOR_STORAGE_SERVICE.md**: PDF/text upload and agent configuration management
 - **docs/IMPLEMENTATION_SUMMARY.md**: ChromaDB to pgvector migration details
 - **docs/PHASE_4_COMPLETION_SUMMARY.md**: Recent system enhancements
 - **docs/QUICKSTART_TESTING.md**: Quick testing setup guide
@@ -57,6 +58,17 @@ The Streamlit Agent Visualizer provides real-time visualization of:
 - **Complete state inspection** with organized views of messages, intent, routing, data, and flow control
 - **Conversation history** with user messages and agent responses
 - **Performance metrics** including execution times, step counts, and agent visit frequency
+
+### Knowledge Base and Agent Configuration Management
+- **Start Knowledge Manager**: `./run_knowledge_manager.sh` or `streamlit run streamlit_knowledge_manager.py`
+- **Documentation**: See `docs/PDF_VECTOR_STORAGE_SERVICE.md` for complete guide
+
+The Streamlit Knowledge Manager provides:
+- **PDF Upload**: Upload PDF files, extract text, store in pgvector
+- **Text Upload**: Upload plain text or markdown content
+- **Browse Knowledge**: View, filter, and manage documents in knowledge base
+- **Agent Configuration**: Edit Excelencia agent modules and settings
+- **Statistics**: View knowledge base statistics and embedding coverage
 
 ### Database Operations
 - **View product statistics**: `PGPASSWORD="" psql -h localhost -U enzo -d aynux -c "SELECT c.display_name as categoria, COUNT(p.id) as total_productos FROM categories c LEFT JOIN products p ON c.id = p.category_id GROUP BY c.display_name;"`

@@ -256,6 +256,40 @@ class DependencyContainer:
         from app.domains.shared.application.use_cases import RegenerateKnowledgeEmbeddingsUseCase
         return RegenerateKnowledgeEmbeddingsUseCase(db=db)
 
+    # Document Upload Use Cases
+
+    def create_upload_pdf_use_case(self, db):
+        """Create UploadPDFUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import UploadPDFUseCase
+        return UploadPDFUseCase(db=db)
+
+    def create_upload_text_use_case(self, db):
+        """Create UploadTextUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import UploadTextUseCase
+        return UploadTextUseCase(db=db)
+
+    def create_batch_upload_documents_use_case(self, db):
+        """Create BatchUploadDocumentsUseCase with dependencies"""
+        from app.domains.shared.application.use_cases import BatchUploadDocumentsUseCase
+        return BatchUploadDocumentsUseCase(db=db)
+
+    # Agent Configuration Use Cases (don't require db session)
+
+    def create_get_agent_config_use_case(self):
+        """Create GetAgentConfigUseCase"""
+        from app.domains.shared.application.use_cases import GetAgentConfigUseCase
+        return GetAgentConfigUseCase()
+
+    def create_update_agent_modules_use_case(self):
+        """Create UpdateAgentModulesUseCase"""
+        from app.domains.shared.application.use_cases import UpdateAgentModulesUseCase
+        return UpdateAgentModulesUseCase()
+
+    def create_update_agent_settings_use_case(self):
+        """Create UpdateAgentSettingsUseCase"""
+        from app.domains.shared.application.use_cases import UpdateAgentSettingsUseCase
+        return UpdateAgentSettingsUseCase()
+
     # Admin Use Cases
 
     def create_list_domains_use_case(self, db):
