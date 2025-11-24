@@ -1,0 +1,94 @@
+# Healthcare Domain - Appointment Management Prompts
+# Purpose: Handle patient appointment scheduling and queries
+
+prompts:
+  - key: healthcare.appointment.intent
+    name: Appointment Intent Analysis
+    description: Analyzes patient intent for appointment-related queries
+    version: "1.0.0"
+    template: |
+      Analyze this healthcare appointment query and return ONLY the intent type:
+
+      Query: "{message}"
+
+      Intent types:
+      - schedule: Patient wants to schedule a new appointment
+      - check: Patient wants to check existing appointments
+      - cancel: Patient wants to cancel an appointment
+      - reschedule: Patient wants to change appointment time/date
+
+      Return ONLY one word: schedule, check, cancel, or reschedule
+    metadata:
+      temperature: 0.2
+      max_tokens: 10
+      model: "deepseek-r1:7b"
+      tags:
+        - healthcare
+        - appointment
+        - intent_analysis
+      variables:
+        required:
+          - message
+
+  - key: healthcare.appointment.confirmation
+    name: Appointment Confirmation Response
+    description: Generates friendly confirmation for scheduled appointments
+    version: "1.0.0"
+    template: |
+      Generate appointment confirmation message:
+
+      Patient Name: {patient_name}
+      Doctor: Dr. {doctor_name}
+      Specialty: {specialty}
+      Date: {appointment_date}
+      Time: {appointment_time}
+      Location: {location}
+      Appointment ID: {appointment_id}
+
+      Generate brief, professional confirmation (max 5 lines) with relevant emojis
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      model: "deepseek-r1:7b"
+      tags:
+        - healthcare
+        - appointment
+        - confirmation
+      variables:
+        required:
+          - patient_name
+          - doctor_name
+          - specialty
+          - appointment_date
+          - appointment_time
+          - location
+          - appointment_id
+
+  - key: healthcare.appointment.list
+    name: Appointment List Response
+    description: Generates summary of patient upcoming appointments
+    version: "1.0.0"
+    template: |
+      Generate patient appointments summary:
+
+      Patient: {patient_name}
+
+      Upcoming appointments:
+      {appointments_list}
+
+      Total appointments: {total_appointments}
+
+      Generate brief, friendly summary (max 6 lines) with helpful emojis
+    metadata:
+      temperature: 0.7
+      max_tokens: 250
+      model: "deepseek-r1:7b"
+      tags:
+        - healthcare
+        - appointment
+        - list
+      variables:
+        required:
+          - patient_name
+          - appointments_list
+          - total_appointments

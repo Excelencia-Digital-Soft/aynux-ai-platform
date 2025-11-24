@@ -56,70 +56,85 @@ prompts:
 
   - key: product.search.response
     name: Product Search Response Generation
-    description: Generates intelligent, contextual responses for product search results
-    version: "1.0.0"
+    description: Generates intelligent, contextual responses for product search results with strict data accuracy
+    version: "2.0.0"
     template: |
-      # GENERACIÓN DE RESPUESTA INTELIGENTE
+      # CONTEXTO
+      Eres un asistente de e-commerce ayudando a un cliente con su búsqueda de productos.
 
-      ## CONSULTA ORIGINAL:
-      "{user_message}"
+      # CONSULTA DEL USUARIO
+      "{user_query}"
 
-      ## ANÁLISIS DE INTENCIÓN:
-      - Tipo: {intent_type}
-      - Emoción del usuario: {user_emotion}
-      - Estilo preferido: {response_style}
-      - Complejidad: {query_complexity}
+      # INTENCIÓN DETECTADA
+      {intent}
 
-      ## RESULTADOS ENCONTRADOS:
-      - Total de productos: {count}
-      - Método de búsqueda: {method}
-      - Productos principales:
-      {products_summary}
+      # PRODUCTOS ENCONTRADOS ({product_count})
+      {formatted_products}{stock_info}
 
-      ## INSTRUCCIONES:
-      1. Responde de manera {response_style} y adaptada a la emoción {user_emotion}
-      2. Destaca los productos más relevantes para la consulta
-      3. Incluye información clave como precios, disponibilidad y características
-      4. Si hay muchos resultados, agrupa por categorías o características
-      5. Sugiere próximos pasos útiles para el usuario
-      6. Usa emojis apropiados para WhatsApp pero sin exceso
-      7. Máximo 6 líneas de respuesta, sé conciso pero informativo
+      # INSTRUCCIONES CRÍTICAS - DEBES SEGUIR ESTRICTAMENTE
+      1. **NUNCA inventes datos**: NO inventes precios, marcas, modelos, o cantidades que NO estén en los productos mostrados arriba
+      2. **SOLO usa datos reales**: Si un producto tiene precio $0 o "Precio no disponible", NO lo menciones o di "consultar precio"
+      3. **Brevedad**: Responde en máximo 2-3 oraciones (1 párrafo corto)
+      4. **Sin listado de productos**: Los productos se mostrarán automáticamente en cards visuales abajo, NO los listes
+      5. **Contexto útil**: Da una introducción amigable mencionando cuántos productos encontraste
+      6. **Disponibilidad**: Si hay productos sin stock, menciona que pueden solicitarse por pedido con posibles demoras
+      7. **Tono**: Amigable, profesional, servicial
+      8. **Emojis**: Usa 1-2 emojis apropiados
+      9. **Cierre**: Ofrece ayuda adicional de forma concisa
 
-      TONO: Amigable, profesional, orientado a la acción.
+      # EJEMPLOS DE RESPUESTAS CORRECTAS
+
+      ## Todos con stock:
+      "¡Hola! 😊 Encontré {product_count} productos disponibles con entrega inmediata. Puedes ver los detalles a continuación. ¿Necesitas ayuda con algo específico?"
+
+      ## Mixto (con y sin stock):
+      "¡Hola! 😊 Encontré {product_count} productos relacionados. Algunos tienen stock para entrega inmediata, mientras que otros pueden solicitarse por pedido (con posibles demoras). ¿Te gustaría más información?"
+
+      ## Todos sin stock:
+      "¡Hola! 😊 Encontré {product_count} productos que pueden solicitarse por pedido. Ten en cuenta que pueden tener demoras de entrega. ¿Te interesa alguno en particular?"
+
+      # EJEMPLO DE RESPUESTA INCORRECTA (NO HAGAS ESTO)
+      "Tengo estas motos: ECHO CS-7310P a $760,500 con 10 unidades disponibles..." ❌ NUNCA inventes precios o stock
+
+      # RESPUESTA
     metadata:
       temperature: 0.7
       max_tokens: 600
+      model: "deepseek-r1:7b"
+      variables:
+        required:
+          - user_query
+          - intent
+          - product_count
+          - formatted_products
+          - stock_info
 
   - key: product.search.no_results
     name: Product Search No Results Handler
     description: Generates empathetic responses when no products match the search
-    version: "1.0.0"
+    version: "2.0.0"
     template: |
-      # NO HAY RESULTADOS
+      # CONTEXTO
+      Eres un asistente de e-commerce. El cliente buscó productos pero no se encontraron resultados.
 
-      ## CONSULTA:
-      "{message}"
+      # CONSULTA DEL USUARIO
+      "{user_query}"
 
-      ## INTENCIÓN DETECTADA:
-      {intent_analysis}
+      # INSTRUCCIONES
+      1. Expresa empatía por no encontrar resultados
+      2. Sugiere alternativas o búsquedas similares
+      3. Ofrece ayuda para refinar la búsqueda
+      4. Mantén un tono positivo y servicial
+      5. Pregunta si hay algo más en lo que puedas ayudar
 
-      ## INSTRUCCIONES:
-      El usuario no obtuvo resultados para su búsqueda. Genera una respuesta que:
-
-      1. Sea empática y comprensiva
-      2. Ofrezca 2-3 alternativas específicas y útiles
-      3. Sugiera ampliar o modificar la búsqueda
-      4. Mantenga un tono positivo y servicial
-      5. Use máximo 4 líneas
-
-      Ejemplos de alternativas:
-      - Sugerir categorías relacionadas
-      - Proponer marcas similares
-      - Ofrecer productos con características parecidas
-      - Preguntar por más detalles específicos
+      # RESPUESTA
     metadata:
       temperature: 0.8
       max_tokens: 400
+      model: "deepseek-r1:7b"
+      variables:
+        required:
+          - user_query
 
   - key: product.search.error
     name: Product Search Error Handler

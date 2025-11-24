@@ -20,6 +20,8 @@ from app.domains.credit.application.use_cases import (
     GetPaymentScheduleUseCase,
     GetPaymentScheduleRequest,
 )
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,9 @@ class CreditAgent(IAgent):
         self._payment_repo = payment_repository
         self._llm = llm
 
+        # Initialize prompt manager for centralized prompt handling
+        self._prompt_manager = PromptManager()
+
         # Initialize use cases
         self._balance_use_case = GetCreditBalanceUseCase(
             credit_account_repository=credit_account_repository
@@ -65,7 +70,7 @@ class CreditAgent(IAgent):
             credit_account_repository=credit_account_repository
         )
 
-        logger.info("CreditAgent initialized with use cases")
+        logger.info("CreditAgent initialized with use cases and prompt manager")
 
     @property
     def agent_type(self) -> AgentType:
@@ -141,7 +146,7 @@ class CreditAgent(IAgent):
 
     async def _analyze_intent(self, message: str) -> str:
         """
-        Analyze user intent using LLM.
+        Analyze user intent using LLM with centralized prompt management.
 
         Args:
             message: User message
@@ -150,18 +155,20 @@ class CreditAgent(IAgent):
             Intent string ('balance', 'payment', 'schedule')
         """
         try:
-            prompt = f"""Analyze this credit account query and return ONLY the intent type:
+            # Load prompt from YAML
+            prompt = await self._prompt_manager.get_prompt(
+                PromptRegistry.CREDIT_INTENT_ANALYSIS,
+                variables={"message": message}
+            )
 
-Query: "{message}"
+            # Get metadata for LLM configuration
+            template = await self._prompt_manager.get_template(
+                PromptRegistry.CREDIT_INTENT_ANALYSIS
+            )
+            temperature = template.metadata.get("temperature", 0.2)
+            max_tokens = template.metadata.get("max_tokens", 10)
 
-Intent types:
-- balance: Asking for credit balance or account status
-- payment: Making a payment or asking about payment options
-- schedule: Asking for payment schedule or calendar
-
-Return ONLY one word: balance, payment, or schedule"""
-
-            response = await self._llm.generate(prompt, temperature=0.2, max_tokens=10)
+            response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             intent = response.strip().lower()
 
             if intent in ["balance", "payment", "schedule"]:
@@ -282,19 +289,29 @@ Return ONLY one word: balance, payment, or schedule"""
             return self._error_response(str(e), state)
 
     async def _generate_balance_response(self, balance) -> str:
-        """Generate AI response for balance inquiry"""
+        """Generate AI response for balance inquiry using centralized prompts"""
         try:
-            prompt = f"""Generate a friendly response for credit balance:
+            # Load prompt from YAML
+            prompt = await self._prompt_manager.get_prompt(
+                PromptRegistry.CREDIT_BALANCE_RESPONSE,
+                variables={
+                    "credit_limit": f"{balance.credit_limit:,.2f}",
+                    "used_credit": f"{balance.used_credit:,.2f}",
+                    "available_credit": f"{balance.available_credit:,.2f}",
+                    "next_payment_amount": f"{balance.next_payment_amount:,.2f}",
+                    "next_payment_date": str(balance.next_payment_date),
+                    "status": balance.status,
+                }
+            )
 
-Credit Limit: ${balance.credit_limit:,.2f}
-Used Credit: ${balance.used_credit:,.2f}
-Available Credit: ${balance.available_credit:,.2f}
-Next Payment: ${balance.next_payment_amount:,.2f} on {balance.next_payment_date}
-Status: {balance.status}
+            # Get metadata for LLM configuration
+            template = await self._prompt_manager.get_template(
+                PromptRegistry.CREDIT_BALANCE_RESPONSE
+            )
+            temperature = template.metadata.get("temperature", 0.7)
+            max_tokens = template.metadata.get("max_tokens", 200)
 
-Generate brief, professional response (max 5 lines) with emojis"""
-
-            response = await self._llm.generate(prompt, temperature=0.7, max_tokens=200)
+            response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()
 
         except Exception as e:
@@ -302,18 +319,27 @@ Generate brief, professional response (max 5 lines) with emojis"""
             return f"Tu saldo disponible es ${balance.available_credit:,.2f}"
 
     async def _generate_payment_response(self, payment) -> str:
-        """Generate AI response for payment confirmation"""
+        """Generate AI response for payment confirmation using centralized prompts"""
         try:
-            prompt = f"""Generate payment confirmation message:
+            # Load prompt from YAML
+            prompt = await self._prompt_manager.get_prompt(
+                PromptRegistry.CREDIT_PAYMENT_CONFIRMATION,
+                variables={
+                    "amount": f"{payment.amount:,.2f}",
+                    "remaining_balance": f"{payment.remaining_balance:,.2f}",
+                    "available_credit": f"{payment.available_credit:,.2f}",
+                    "payment_id": payment.payment_id,
+                }
+            )
 
-Amount Paid: ${payment.amount:,.2f}
-Remaining Balance: ${payment.remaining_balance:,.2f}
-Available Credit: ${payment.available_credit:,.2f}
-Payment ID: {payment.payment_id}
+            # Get metadata for LLM configuration
+            template = await self._prompt_manager.get_template(
+                PromptRegistry.CREDIT_PAYMENT_CONFIRMATION
+            )
+            temperature = template.metadata.get("temperature", 0.7)
+            max_tokens = template.metadata.get("max_tokens", 150)
 
-Generate brief, friendly confirmation (max 4 lines)"""
-
-            response = await self._llm.generate(prompt, temperature=0.7, max_tokens=150)
+            response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()
 
         except Exception as e:
@@ -321,7 +347,7 @@ Generate brief, friendly confirmation (max 4 lines)"""
             return f"¡Pago procesado! Monto: ${payment.amount:,.2f}"
 
     async def _generate_schedule_response(self, schedule) -> str:
-        """Generate AI response for payment schedule"""
+        """Generate AI response for payment schedule using centralized prompts"""
         try:
             schedule_text = "\n".join(
                 [
@@ -330,14 +356,23 @@ Generate brief, friendly confirmation (max 4 lines)"""
                 ]
             )
 
-            prompt = f"""Generate payment schedule message:
+            # Load prompt from YAML
+            prompt = await self._prompt_manager.get_prompt(
+                PromptRegistry.CREDIT_SCHEDULE_RESPONSE,
+                variables={
+                    "total_payments": str(len(schedule.schedule)),
+                    "schedule_text": schedule_text,
+                }
+            )
 
-Next {len(schedule.schedule)} payments:
-{schedule_text}
+            # Get metadata for LLM configuration
+            template = await self._prompt_manager.get_template(
+                PromptRegistry.CREDIT_SCHEDULE_RESPONSE
+            )
+            temperature = template.metadata.get("temperature", 0.7)
+            max_tokens = template.metadata.get("max_tokens", 150)
 
-Generate brief summary (max 4 lines)"""
-
-            response = await self._llm.generate(prompt, temperature=0.7, max_tokens=150)
+            response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()
 
         except Exception as e:

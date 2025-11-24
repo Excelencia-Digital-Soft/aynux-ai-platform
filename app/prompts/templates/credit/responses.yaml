@@ -1,0 +1,86 @@
+# Credit Domain - Response Generation Prompts
+# Purpose: Generate friendly AI responses for credit operations
+
+prompts:
+  - key: credit.balance.response
+    name: Credit Balance Response
+    description: Generates friendly response for credit balance inquiry with account details
+    version: "1.0.0"
+    template: |
+      Generate a friendly response for credit balance:
+
+      Credit Limit: ${credit_limit}
+      Used Credit: ${used_credit}
+      Available Credit: ${available_credit}
+      Next Payment: ${next_payment_amount} on {next_payment_date}
+      Status: {status}
+
+      Generate brief, professional response (max 5 lines) with emojis
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      model: "deepseek-r1:7b"
+      tags:
+        - credit
+        - balance
+        - response_generation
+      variables:
+        required:
+          - credit_limit
+          - used_credit
+          - available_credit
+          - next_payment_amount
+          - next_payment_date
+          - status
+
+  - key: credit.payment.confirmation
+    name: Payment Confirmation Response
+    description: Generates friendly confirmation message after successful payment processing
+    version: "1.0.0"
+    template: |
+      Generate payment confirmation message:
+
+      Amount Paid: ${amount}
+      Remaining Balance: ${remaining_balance}
+      Available Credit: ${available_credit}
+      Payment ID: {payment_id}
+
+      Generate brief, friendly confirmation (max 4 lines)
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      model: "deepseek-r1:7b"
+      tags:
+        - credit
+        - payment
+        - confirmation
+      variables:
+        required:
+          - amount
+          - remaining_balance
+          - available_credit
+          - payment_id
+
+  - key: credit.schedule.response
+    name: Payment Schedule Response
+    description: Generates summary of payment schedule with upcoming payments
+    version: "1.0.0"
+    template: |
+      Generate payment schedule message:
+
+      Next {total_payments} payments:
+      {schedule_text}
+
+      Generate brief summary (max 4 lines)
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      model: "deepseek-r1:7b"
+      tags:
+        - credit
+        - payment_schedule
+        - response_generation
+      variables:
+        required:
+          - total_payments
+          - schedule_text

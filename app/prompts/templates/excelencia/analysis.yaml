@@ -1,0 +1,35 @@
+# Excelencia Domain - Query Analysis Prompts
+# Purpose: Analyze user queries about Excelencia ERP system
+
+prompts:
+  - key: excelencia.query.intent
+    name: Excelencia Query Intent Analysis
+    description: Analyzes user intent for Excelencia ERP queries using AI with JSON output
+    version: "1.0.0"
+    template: |
+      Analiza la siguiente consulta sobre el ERP Excelencia:
+
+      "{message}"
+
+      Responde en JSON con esta estructura:
+      {{
+        "query_type": "demo|modules|training|support|products|corporate|clients|general",
+        "user_intent": "breve descripción de lo que busca el usuario",
+        "specific_modules": ["módulo1", "módulo2"],
+        "requires_demo": true|false,
+        "urgency": "low|medium|high"
+      }}
+
+      Responde solo con el JSON, sin texto adicional.
+    metadata:
+      temperature: 0.3
+      max_tokens: 300
+      model: "llama3.1"
+      output_format: "json"
+      tags:
+        - excelencia
+        - intent_analysis
+        - erp
+      variables:
+        required:
+          - message
