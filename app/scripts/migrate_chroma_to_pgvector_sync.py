@@ -20,7 +20,7 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 from uuid import UUID
 
 import psycopg2
@@ -80,7 +80,7 @@ class SyncChromaToPgVectorMigration:
         self.db_url = self._build_db_url()
 
         # Migration statistics
-        self.stats = {
+        self.stats: Dict[str, Any] = {
             "total_products": 0,
             "products_with_chroma_embeddings": 0,
             "products_with_pgvector_embeddings": 0,
@@ -112,7 +112,7 @@ class SyncChromaToPgVectorMigration:
         """Get a new database connection."""
         return psycopg2.connect(self.db_url)
 
-    def run(self) -> Dict[str, int]:
+    def run(self) -> Dict[str, Any]:
         """
         Execute migration.
 

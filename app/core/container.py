@@ -100,7 +100,7 @@ class DependencyContainer:
         Get Vector Store instance (singleton).
 
         Returns:
-            IVectorStore instance (PgVector)
+            Vector Store instance (PgVector)
         """
         if self._vector_store_instance is None:
             collection_name = self.config.get("vector_collection", "products")
@@ -113,6 +113,7 @@ class DependencyContainer:
                 collection_name=collection_name,
                 embedding_dimension=embedding_dim,
             )
+            assert self._vector_store_instance is not None, "Failed to create vector store"
 
         return self._vector_store_instance
 
@@ -120,14 +121,14 @@ class DependencyContainer:
     # REPOSITORIES (Data Access)
     # ============================================================
 
-    def create_product_repository(self) -> IRepository:
+    def create_product_repository(self) -> ProductRepository:
         """
         Create Product Repository.
 
         Returns:
             ProductRepository instance
         """
-        return ProductRepository()
+        return ProductRepository()  # type: ignore[abstract]
 
     def create_credit_account_repository(self) -> IRepository:
         """

@@ -21,7 +21,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -75,7 +75,7 @@ class ChromaToPgVectorMigration:
         self.chroma_collection = "products_all_products"
 
         # Migration statistics
-        self.stats = {
+        self.stats: Dict[str, Any] = {
             "total_products": 0,
             "products_with_chroma_embeddings": 0,
             "products_with_pgvector_embeddings": 0,
@@ -86,7 +86,7 @@ class ChromaToPgVectorMigration:
             "end_time": None,
         }
 
-    async def run(self) -> Dict[str, int]:
+    async def run(self) -> Dict[str, Any]:
         """
         Execute migration.
 

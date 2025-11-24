@@ -15,6 +15,7 @@ try:
     PYPDF_AVAILABLE = True
 except ImportError:
     PYPDF_AVAILABLE = False
+    PdfReader = None  # type: ignore  # noqa
     logging.warning("pypdf not installed. Install with: pip install pypdf")
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ class PDFExtractor:
         try:
             # Read PDF from bytes
             pdf_file = io.BytesIO(pdf_bytes)
-            reader = PdfReader(pdf_file)
+            reader = PdfReader(pdf_file)  # type: ignore  # PdfReader is checked in __init__
 
             # Extract text from all pages
             pages_text = []
@@ -150,7 +151,7 @@ class PDFExtractor:
         """
         try:
             pdf_file = io.BytesIO(pdf_bytes)
-            reader = PdfReader(pdf_file)
+            reader = PdfReader(pdf_file)  # type: ignore  # PdfReader is checked in __init__
             # Try to access pages to validate
             _ = len(reader.pages)
             return True

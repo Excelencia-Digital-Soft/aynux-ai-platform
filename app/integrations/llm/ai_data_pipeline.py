@@ -12,6 +12,11 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from app.integrations.vector_stores import create_vector_ingestion_service
+from app.integrations.vector_stores.vector_store_ingestion_service import (
+    VectorStoreDocument,
+    VectorStoreIngestionService,
+    create_ingestion_service_from_config,
+)
 from app.core.shared.utils.data_extraction import (
     DataExtractionService,
     UserDataContext,

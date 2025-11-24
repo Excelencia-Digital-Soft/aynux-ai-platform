@@ -5,6 +5,7 @@ Routes conversations to appropriate domain agents based on context and intent.
 Follows Clean Architecture and SOLID principles.
 """
 
+import inspect
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -186,7 +187,7 @@ If unclear, return: {self.default_domain}"""
         Returns:
             Health status for each domain
         """
-        health = {
+        health: Dict[str, Any] = {
             "orchestrator": "healthy",
             "domains": {},
         }
@@ -194,8 +195,13 @@ If unclear, return: {self.default_domain}"""
         for domain_name, agent in self.domain_agents.items():
             try:
                 # If agent has health_check method, use it
-                if hasattr(agent, "health_check"):
-                    agent_health = await agent.health_check()
+                health_check_method = getattr(agent, "health_check", None)
+                if health_check_method and callable(health_check_method):
+                    # Check if it's a coroutine function
+                    if inspect.iscoroutinefunction(health_check_method):
+                        agent_health = await health_check_method()
+                    else:
+                        agent_health = health_check_method()
                     health["domains"][domain_name] = agent_health
                 else:
                     health["domains"][domain_name] = {
@@ -226,7 +232,7 @@ If unclear, return: {self.default_domain}"""
             "messages": [
                 {
                     "role": "assistant",
-                    "content": "Disculpa, tuve un problema procesando tu solicitud. ¿Podrías intentar de nuevo?",
+                    "content": "Disculpa, tuve un problema procesando tu solicitud. ï¿½Podrï¿½as intentar de nuevo?",
                 }
             ],
             "error": error,

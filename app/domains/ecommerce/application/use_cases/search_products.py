@@ -144,7 +144,7 @@ class SearchProductsUseCase:
             # Convert vector results to product dicts
             products = []
             for result in results:
-                product_data = result.document.metadata
+                product_data = result.document.metadata or {}
                 product_data["_similarity_score"] = result.score
                 products.append(product_data)
 

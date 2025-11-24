@@ -20,7 +20,7 @@ class CreditBalanceResponse(BaseModel):
     next_payment_amount: Optional[Decimal] = None
     interest_rate: Decimal
     status: str
-    last_update: datetime = Field(default_factory=datetime.now(UTC))
+    last_update: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class CreditApplicationResponse(BaseModel):
@@ -35,7 +35,7 @@ class CreditApplicationResponse(BaseModel):
     risk_score: Optional[float] = None
     decision_reason: Optional[str] = None
     required_documents: Optional[List[str]] = None
-    created_at: datetime = Field(default_factory=datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class PaymentResponse(BaseModel):
@@ -79,5 +79,5 @@ class RiskAssessmentResponse(BaseModel):
     factors: List[Dict[str, Any]]
     suggested_limit: Decimal
     suggested_interest_rate: Decimal
-    assessment_date: datetime = Field(default_factory=datetime.now(UTC))
+    assessment_date: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

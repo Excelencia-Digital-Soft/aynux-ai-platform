@@ -13,7 +13,7 @@ class CreditMessage(BaseModel):
 
     role: str
     content: str
-    timestamp: datetime = Field(default_factory=datetime.now(UTC))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: Optional[Dict[str, Any]] = None
 
 

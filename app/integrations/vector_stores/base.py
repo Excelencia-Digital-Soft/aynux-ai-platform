@@ -5,6 +5,8 @@ This module provides a convenient way to import vector store interfaces
 and create instances without knowing implementation details.
 """
 
+from typing import Optional, Dict, Any
+
 from app.core.interfaces.vector_store import (
     # Interfaces
     IVectorStore,
@@ -139,7 +141,7 @@ class VectorStoreFactory(IVectorStoreFactory):
         self,
         store_type: VectorStoreType,
         collection_name: str,
-        config: dict = None
+        config: Optional[Dict[str, Any]] = None
     ) -> IVectorStore:
         """
         Create vector store instance.

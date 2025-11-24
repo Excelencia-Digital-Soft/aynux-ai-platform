@@ -368,10 +368,11 @@ async def get_delivery_info_tool(order_id: str, detailed: bool = False) -> Dict[
             "rating_request": "¿Cómo fue tu experiencia de entrega?"
         }
     elif order["status"] == "out_for_delivery":
+        tracking_num = order.get("tracking_number") or ""
         status_specific_info = {
             "estimated_window": "Entre 10:00 y 14:00",
             "driver_contact": "+54 11 1234-5678",
-            "live_tracking": "https://track.example.com/live/" + order.get("tracking_number", ""),
+            "live_tracking": f"https://track.example.com/live/{tracking_num}",
             "preparation_tips": [
                 "Asegúrate de estar disponible",
                 "Ten tu documento de identidad listo",
@@ -466,18 +467,18 @@ async def update_shipping_address_tool(
     if order["status"] == "shipped":
         additional_cost = 12.99
         cost_reason = "Costo por redirección en tránsito"
-    elif city.lower() != order["shipping_address"]["city"].lower():
+    elif order.get("shipping_address") and city.lower() != str(order["shipping_address"].get("city", "")).lower():
         additional_cost = 8.50
         cost_reason = "Costo por cambio de ciudad"
-    
+
     # Simular actualización exitosa
-    old_address = order["shipping_address"].copy()
-    
+    old_address = order.get("shipping_address", {}).copy() if order.get("shipping_address") else {}
+
     new_address_data = {
         "street": new_address,
         "city": city,
         "postal_code": postal_code,
-        "country": order["shipping_address"]["country"]  # Mantener país
+        "country": order.get("shipping_address", {}).get("country", "")  # Mantener país
     }
     
     # Actualizar en base de datos (simulado)

@@ -7,7 +7,7 @@ import logging
 import time
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Dict, Type
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class CircuitBreaker:
         self._next_attempt_time = 0
 
         # Métricas
-        self._stats = {
+        self._stats: Dict[str, Union[int, List[Dict[str, Any]]]] = {
             "total_calls": 0,
             "successful_calls": 0,
             "failed_calls": 0,
@@ -99,11 +99,13 @@ class CircuitBreaker:
                 "reason": reason,
                 "failure_count": self._failure_count,
             }
-            self._stats["state_changes"].append(change_record)
+            state_changes = self._stats["state_changes"]
+            assert isinstance(state_changes, list)
+            state_changes.append(change_record)
 
             # Mantener solo los últimos 50 cambios
-            if len(self._stats["state_changes"]) > 50:
-                self._stats["state_changes"] = self._stats["state_changes"][-50:]
+            if len(state_changes) > 50:
+                self._stats["state_changes"] = state_changes[-50:]
 
             logger.warning(
                 f"CircuitBreaker '{self.name}' state change: {old_state.value} -> {new_state.value} ({reason})"
@@ -111,14 +113,23 @@ class CircuitBreaker:
 
             # Actualizar métricas específicas
             if new_state == CircuitState.OPEN:
-                self._stats["circuit_opens"] += 1
+                opens = self._stats["circuit_opens"]
+                assert isinstance(opens, int)
+                self._stats["circuit_opens"] = opens + 1
             elif new_state == CircuitState.HALF_OPEN:
-                self._stats["circuit_half_opens"] += 1
+                half_opens = self._stats["circuit_half_opens"]
+                assert isinstance(half_opens, int)
+                self._stats["circuit_half_opens"] = half_opens + 1
 
     def record_success(self):
         """Registrar una llamada exitosa"""
-        self._stats["total_calls"] += 1
-        self._stats["successful_calls"] += 1
+        total = self._stats["total_calls"]
+        assert isinstance(total, int)
+        self._stats["total_calls"] = total + 1
+
+        successful = self._stats["successful_calls"]
+        assert isinstance(successful, int)
+        self._stats["successful_calls"] = successful + 1
 
         if self._state == CircuitState.HALF_OPEN:
             # Éxito en half-open: cerrar el circuit
@@ -128,10 +139,15 @@ class CircuitBreaker:
             # Reset failure count en estado normal
             self._failure_count = 0
 
-    def record_failure(self, exception: Exception = None):
+    def record_failure(self, exception: Optional[Exception] = None):
         """Registrar una llamada fallida"""
-        self._stats["total_calls"] += 1
-        self._stats["failed_calls"] += 1
+        total = self._stats["total_calls"]
+        assert isinstance(total, int)
+        self._stats["total_calls"] = total + 1
+
+        failed = self._stats["failed_calls"]
+        assert isinstance(failed, int)
+        self._stats["failed_calls"] = failed + 1
 
         self._failure_count += 1
         self._last_failure_time = time.time()
@@ -193,9 +209,17 @@ class CircuitBreaker:
 
     def get_stats(self) -> Dict[str, Any]:
         """Obtener estadísticas del circuit breaker"""
+        total_calls = self._stats["total_calls"]
+        assert isinstance(total_calls, int)
+        successful_calls = self._stats["successful_calls"]
+        assert isinstance(successful_calls, int)
+
         success_rate = 0
-        if self._stats["total_calls"] > 0:
-            success_rate = (self._stats["successful_calls"] / self._stats["total_calls"]) * 100
+        if total_calls > 0:
+            success_rate = (successful_calls / total_calls) * 100
+
+        state_changes = self._stats["state_changes"]
+        assert isinstance(state_changes, list)
 
         return {
             "name": self.name,
@@ -205,13 +229,13 @@ class CircuitBreaker:
             "recovery_timeout": self.recovery_timeout,
             "last_failure_time": self._last_failure_time,
             "next_attempt_time": self._next_attempt_time if self._state == CircuitState.OPEN else None,
-            "total_calls": self._stats["total_calls"],
-            "successful_calls": self._stats["successful_calls"],
+            "total_calls": total_calls,
+            "successful_calls": successful_calls,
             "failed_calls": self._stats["failed_calls"],
             "success_rate": f"{success_rate:.1f}%",
             "circuit_opens": self._stats["circuit_opens"],
             "circuit_half_opens": self._stats["circuit_half_opens"],
-            "recent_state_changes": self._stats["state_changes"][-5:],  # Últimos 5 cambios
+            "recent_state_changes": state_changes[-5:],  # Últimos 5 cambios
         }
 
     def reset(self):
@@ -224,7 +248,10 @@ class CircuitBreaker:
 
 
 def circuit_breaker(
-    failure_threshold: int = 5, recovery_timeout: int = 60, expected_exception: type = Exception, name: str = None
+    failure_threshold: int = 5,
+    recovery_timeout: int = 60,
+    expected_exception: type = Exception,
+    name: Optional[str] = None,
 ):
     """
     Decorador para aplicar circuit breaker a funciones.
@@ -288,7 +315,12 @@ class ResilientOllamaService:
         logger.info(f"ResilientOllamaService initialized - max_retries: {max_retries}, base_delay: {base_delay}s")
 
     async def generate_response(
-        self, system_prompt: str, user_prompt: str, model: str = None, temperature: float = 0.1, **kwargs
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: Optional[str] = None,
+        temperature: float = 0.1,
+        **kwargs,
     ) -> str:
         """
         Generar respuesta con circuit breaker y reintentos exponenciales.

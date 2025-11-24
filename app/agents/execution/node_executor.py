@@ -46,6 +46,10 @@ class NodeExecutor:
 
             # Process with orchestrator
             orchestrator = self.agents.get("orchestrator")
+            if not orchestrator:
+                logger.error("Orchestrator agent not found")
+                return {"next_agent": "fallback_agent", "error": "Orchestrator not available"}
+
             result = await orchestrator._process_internal(message=user_message, state_dict=state_dict)
 
             # Update state with orchestrator decision
@@ -86,6 +90,10 @@ class NodeExecutor:
 
             # Process with supervisor
             supervisor = self.agents.get("supervisor")
+            if not supervisor:
+                logger.error("Supervisor agent not found")
+                return {"is_complete": True, "error": "Supervisor not available"}
+
             result = await supervisor._process_internal(message=user_message, state_dict=state_dict)
 
             # Prepare updates
@@ -158,7 +166,7 @@ class NodeExecutor:
             result = await agent._process_internal(message=user_message, state_dict=state_dict)
 
             # Prepare updates
-            updates = {
+            updates: Dict[str, Any] = {
                 "current_agent": agent_name,
                 "agent_history": state.get("agent_history", []) + [agent_name],
             }

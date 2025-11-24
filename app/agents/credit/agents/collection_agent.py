@@ -30,7 +30,7 @@ class CollectionAgent(BaseCreditAgent):
 
     async def _handle_customer_collection(self, state: CreditState) -> Dict[str, Any]:
         """Handle customer inquiries about overdue accounts"""
-        account_id = state.get("credit_account_id", state["user_id"])
+        account_id = state.get("credit_account_id") or state["user_id"]
 
         try:
             # Get account status
@@ -253,8 +253,14 @@ class CollectionAgent(BaseCreditAgent):
         }
 
         message = "📋 **Estrategia de Cobranza Generada**\n\n"
-        for action in strategy["recommended_actions"]:
-            message += f"📅 Día {action['day']}: {action['action']} ({action['channel']})\n"
+        recommended_actions = strategy.get("recommended_actions", [])
+        if isinstance(recommended_actions, list):
+            for action in recommended_actions:
+                if isinstance(action, dict):
+                    day = action.get("day", 0)
+                    action_desc = action.get("action", "")
+                    channel = action.get("channel", "")
+                    message += f"📅 Día {day}: {action_desc} ({channel})\n"
 
         return {"message": message, "data": strategy}
 
@@ -276,17 +282,30 @@ class CollectionAgent(BaseCreditAgent):
             ],
         }
 
+        days_overdue = account_detail.get("days_overdue", 0)
+        overdue_amount = account_detail.get("overdue_amount", Decimal("0.00"))
+        collection_stage = account_detail.get("collection_stage", "unknown")
+        last_contact_date = account_detail.get("last_contact_date")
+        last_contact_str = last_contact_date.strftime("%d/%m/%Y") if isinstance(last_contact_date, date) else "N/A"
+
         message = f"""📋 **Detalle de Cuenta en Cobranza**
 
 🆔 **Cuenta:** {account_id}
-📅 **Días de atraso:** {account_detail["days_overdue"]} días
-💰 **Monto vencido:** ${account_detail["overdue_amount"]:,.2f}
-🏷️ **Etapa:** {account_detail["collection_stage"]}
-📞 **Último contacto:** {account_detail["last_contact_date"].strftime("%d/%m/%Y")}
+📅 **Días de atraso:** {days_overdue} días
+💰 **Monto vencido:** ${overdue_amount:,.2f}
+🏷️ **Etapa:** {collection_stage}
+📞 **Último contacto:** {last_contact_str}
 
 📊 **Historial de contactos:**"""
 
-        for contact in account_detail["contact_history"]:
-            message += f"\n• {contact['date'].strftime('%d/%m/%Y')} - {contact['type']}: {contact['outcome']}"
+        contact_history = account_detail.get("contact_history", [])
+        if isinstance(contact_history, list):
+            for contact in contact_history:
+                if isinstance(contact, dict):
+                    contact_date = contact.get("date")
+                    contact_date_str = contact_date.strftime("%d/%m/%Y") if isinstance(contact_date, date) else "N/A"
+                    contact_type = contact.get("type", "N/A")
+                    contact_outcome = contact.get("outcome", "N/A")
+                    message += f"\n• {contact_date_str} - {contact_type}: {contact_outcome}"
 
         return {"message": message, "data": account_detail}

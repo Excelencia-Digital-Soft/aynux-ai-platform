@@ -175,36 +175,38 @@ class SystemMonitor:
     ) -> Dict[str, Any]:
         """
         Obtiene el estado de salud del sistema LangGraph.
-        
+
         Args:
             initialized: Si el servicio está inicializado
             graph_system: Sistema de graph LangGraph
-            
+
         Returns:
             Diccionario con información del estado de salud
         """
         try:
-            health_status = {
+            components: Dict[str, Any] = {}
+
+            # Check integrations
+            if graph_system:
+                components["ollama"] = (
+                    hasattr(graph_system, "ollama") and graph_system.ollama is not None
+                )
+                components["postgres"] = (
+                    hasattr(graph_system, "postgres") and graph_system.postgres is not None
+                )
+                components["chroma"] = (
+                    hasattr(graph_system, "chroma") and graph_system.chroma is not None
+                )
+                components["supervisor_agent"] = (
+                    graph_system.agents.get(AgentType.SUPERVISOR.value) is not None
+                )
+
+            health_status: Dict[str, Any] = {
                 "service": "langgraph_chatbot",
                 "initialized": initialized,
                 "graph_system": graph_system is not None,
-                "components": {},
+                "components": components,
             }
-            
-            # Check integrations
-            if graph_system:
-                health_status["components"]["ollama"] = (
-                    hasattr(graph_system, "ollama") and graph_system.ollama is not None
-                )
-                health_status["components"]["postgres"] = (
-                    hasattr(graph_system, "postgres") and graph_system.postgres is not None
-                )
-                health_status["components"]["chroma"] = (
-                    hasattr(graph_system, "chroma") and graph_system.chroma is not None
-                )
-                health_status["components"]["supervisor_agent"] = (
-                    graph_system.agents.get(AgentType.SUPERVISOR.value) is not None
-                )
             
             # Check database health
             health_status["database"] = await self.security_validator.check_database_health()

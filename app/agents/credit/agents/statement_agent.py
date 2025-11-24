@@ -21,7 +21,7 @@ class StatementAgent(BaseCreditAgent):
         """Process statement request"""
         user_message = self._get_last_user_message(state)
         user_id = state["user_id"]
-        credit_account_id = state.get("credit_account_id", user_id)
+        credit_account_id = state.get("credit_account_id") or user_id
 
         # Determine statement period
         period = await self._extract_statement_period(user_message)

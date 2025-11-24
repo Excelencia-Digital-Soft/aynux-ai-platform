@@ -165,7 +165,7 @@ class WhatsAppService:
         if not numero or not nombre or not document_url:
             return {"success": False, "error": "Número, nombre y URL del documento son requeridos"}
 
-        payload = {
+        payload: Dict[str, Any] = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
             "to": numero,
@@ -175,7 +175,7 @@ class WhatsAppService:
 
         # Añadir caption si es proporcionado
         if caption:
-            payload["document"]["caption"] = caption
+            payload["document"]["caption"] = caption  # type: ignore
 
         return await self._make_request(payload)
 
@@ -197,7 +197,7 @@ class WhatsAppService:
         if not numero or latitud is None or longitud is None:
             return {"success": False, "error": "Número, latitud y longitud son requeridos"}
 
-        payload = {
+        payload: Dict[str, Any] = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
             "to": numero,
@@ -207,7 +207,7 @@ class WhatsAppService:
 
         # Añadir nombre si es proporcionado
         if nombre:
-            payload["location"]["name"] = nombre
+            payload["location"]["name"] = nombre  # type: ignore
 
         return await self._make_request(payload)
 

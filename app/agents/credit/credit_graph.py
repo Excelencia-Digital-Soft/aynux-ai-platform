@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph
+from langgraph.graph.graph import CompiledGraph
 
 from app.agents.credit.agents.collection_agent import CollectionAgent
 from app.agents.credit.agents.credit_application_agent import CreditApplicationAgent
@@ -27,9 +28,9 @@ class CreditSystemGraph:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.graph = None
-        self.compiled_graph = None
-        self.checkpointer = None
+        self.graph: Optional[StateGraph] = None
+        self.compiled_graph: Optional[CompiledGraph] = None
+        self.checkpointer: Optional[AsyncPostgresSaver] = None
 
         # Initialize agents
         self._init_agents()
@@ -195,7 +196,8 @@ Si necesitas ayuda adicional, no dudes en contactarnos nuevamente.
                 self.checkpointer = checkpointer
 
             # Recompile graph with checkpointer
-            self.compiled_graph = self.graph.compile(checkpointer=self.checkpointer)
+            if self.graph is not None:
+                self.compiled_graph = self.graph.compile(checkpointer=self.checkpointer)
 
             self.logger.info("Credit graph checkpointer initialized successfully")
 
@@ -233,11 +235,14 @@ Si necesitas ayuda adicional, no dudes en contactarnos nuevamente.
             )
 
             # Configure for persistence if checkpointer available
-            config = {}
+            config: Dict[str, Any] = {}
             if self.checkpointer and session_id:
                 config = {"configurable": {"thread_id": session_id}}
 
             # Process through graph
+            if self.compiled_graph is None:
+                raise RuntimeError("Graph not compiled. Cannot process message.")
+
             result = await self.compiled_graph.ainvoke(initial_state, config)
 
             # Extract response
@@ -270,6 +275,10 @@ Si necesitas ayuda adicional, no dudes en contactarnos nuevamente.
     def visualize_graph(self) -> Optional[bytes]:
         """Generate a visualization of the graph structure"""
         try:
+            if self.compiled_graph is None:
+                self.logger.error("Graph not compiled. Cannot visualize.")
+                return None
+
             # Use LangGraph's built-in visualization
             img = self.compiled_graph.get_graph().draw_mermaid_png()
             if isinstance(img, bytes):

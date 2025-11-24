@@ -18,7 +18,7 @@ from app.models.db import Brand, Category, Product, Subcategory
 logger = logging.getLogger(__name__)
 
 
-class ProductRepository(ISearchableRepository[Product, int]):
+class ProductRepository(ISearchableRepository[Product]):
     """
     Product Repository implementation.
 
@@ -172,7 +172,20 @@ class ProductRepository(ISearchableRepository[Product, int]):
 
     # ISearchableRepository methods
 
-    async def search(
+    async def search(self, query: str, limit: int = 10) -> List[Product]:
+        """
+        Search products (interface method).
+
+        Args:
+            query: Search query text
+            limit: Maximum results
+
+        Returns:
+            List of matching products
+        """
+        return await self.search_advanced(query=query, limit=limit)
+
+    async def search_advanced(
         self,
         query: str,
         filters: Optional[Dict[str, Any]] = None,
@@ -317,3 +330,15 @@ class ProductRepository(ISearchableRepository[Product, int]):
             query = query.filter(Product.on_sale == filters["on_sale"])
 
         return query
+
+    async def filter_by(self, **kwargs) -> List[Product]:
+        """
+        Filter products by specific criteria (interface method).
+
+        Args:
+            **kwargs: Key-value pairs for filtering
+
+        Returns:
+            List of products matching the criteria
+        """
+        return await self.find_by_criteria(criteria=kwargs)

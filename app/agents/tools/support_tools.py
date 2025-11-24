@@ -165,7 +165,8 @@ async def search_faq_tool(query: str, category: Optional[str] = None) -> Dict[st
                     relevance_score += 1
         
         # Agregar bonus por popularidad
-        popularity_bonus = faq["popularity"] / 100
+        popularity_value = float(faq.get("popularity", 0)) if isinstance(faq.get("popularity"), (int, float)) else 0
+        popularity_bonus = popularity_value / 100
         final_score = relevance_score + popularity_bonus
         
         if final_score > 0.5:  # Umbral mínimo de relevancia

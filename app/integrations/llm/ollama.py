@@ -5,7 +5,7 @@ Provides local LLM capabilities using Ollama service.
 Implements standard interfaces for maximum flexibility and testability.
 """
 import logging
-from typing import List, Dict, Optional, AsyncIterator
+from typing import List, Dict, Optional, AsyncIterator, AsyncGenerator
 import httpx
 
 from langchain_ollama import ChatOllama, OllamaEmbeddings
@@ -140,7 +140,14 @@ class OllamaLLM(ILLM, IChatLLM):
             messages = [HumanMessage(content=prompt)]
             response = await self._llm.ainvoke(messages)
 
-            return response.content
+            # Ensure we always return str (response.content can be str | list)
+            if isinstance(response.content, str):
+                return response.content
+            elif isinstance(response.content, list):
+                # Convert list to string representation
+                return " ".join(str(item) for item in response.content)
+            else:
+                return str(response.content)
 
         except httpx.ConnectError as e:
             logger.error(f"Connection error to Ollama: {e}")
@@ -195,13 +202,21 @@ class OllamaLLM(ILLM, IChatLLM):
 
             # Generate
             response = await self._llm.ainvoke(lc_messages)
-            return response.content
+
+            # Ensure we always return str (response.content can be str | list)
+            if isinstance(response.content, str):
+                return response.content
+            elif isinstance(response.content, list):
+                # Convert list to string representation
+                return " ".join(str(item) for item in response.content)
+            else:
+                return str(response.content)
 
         except Exception as e:
             logger.error(f"Error in chat generation: {e}")
             raise LLMGenerationError(f"Failed to generate chat response: {e}")
 
-    async def generate_stream(
+    async def generate_stream(  # type: ignore[override]
         self,
         prompt: str,
         temperature: float = 0.7,
@@ -236,7 +251,14 @@ class OllamaLLM(ILLM, IChatLLM):
             messages = [HumanMessage(content=prompt)]
             async for chunk in self._llm.astream(messages):
                 if hasattr(chunk, 'content'):
-                    yield chunk.content
+                    # Ensure we always yield str (chunk.content can be str | list)
+                    if isinstance(chunk.content, str):
+                        yield chunk.content
+                    elif isinstance(chunk.content, list):
+                        # Convert list to string representation
+                        yield " ".join(str(item) for item in chunk.content)
+                    else:
+                        yield str(chunk.content)
 
         except Exception as e:
             logger.error(f"Error in streaming generation: {e}")

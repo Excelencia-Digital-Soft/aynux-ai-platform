@@ -88,7 +88,9 @@ def get_langsmith_status() -> dict:
     Returns:
         Dictionary with LangSmith configuration and status
     """
-    status = {
+    from typing import Any, Dict
+
+    status: Dict[str, Any] = {
         "initialized": False,
         "tracing_enabled": False,
         "api_key_set": False,

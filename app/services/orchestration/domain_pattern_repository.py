@@ -255,16 +255,18 @@ class DomainPatternRepository:
         Returns:
             Statistics about patterns
         """
-        stats = {
-            "total_domains": len(self._patterns),
-            "domains": {},
-        }
+        domains_stats: dict[str, Any] = {}
 
         for domain, pattern in self._patterns.items():
-            stats["domains"][domain] = {
+            domains_stats[domain] = {
                 "keywords_count": len(pattern.get("keywords", [])),
                 "phrases_count": len(pattern.get("phrases", [])),
                 "indicators_count": len(pattern.get("indicators", [])),
             }
+
+        stats: dict[str, Any] = {
+            "total_domains": len(self._patterns),
+            "domains": domains_stats,
+        }
 
         return stats

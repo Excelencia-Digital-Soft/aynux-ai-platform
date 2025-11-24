@@ -134,7 +134,7 @@ async def sync_health_check():
         Dict con estado de salud de los componentes
     """
     try:
-        health_status = {"overall_status": "healthy", "components": {}, "issues": []}
+        health_status: Dict[str, Any] = {"overall_status": "healthy", "components": {}, "issues": []}
 
         # Verificar servicio de sincronización
         sync_service = get_scheduled_sync_service()
@@ -218,7 +218,7 @@ async def get_sync_metrics():
         sync_service = get_scheduled_sync_service()
         status = await sync_service.get_sync_status()
 
-        metrics = {
+        metrics: Dict[str, Any] = {
             "sync_performance": {
                 "mode": status["sync_mode"],
                 "is_running": status["is_running"],

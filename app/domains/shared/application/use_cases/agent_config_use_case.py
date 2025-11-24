@@ -211,6 +211,8 @@ class UpdateAgentModulesUseCase:
                 }
             })
         """
+        backup_path = None  # Initialize early for exception handler
+
         try:
             # 1. Validate module structure
             self._validate_module_structure(modules)
@@ -223,7 +225,6 @@ class UpdateAgentModulesUseCase:
             original_content = file_path.read_text(encoding="utf-8")
 
             # 3. Create backup if requested
-            backup_path = None
             if create_backup:
                 backup_path = f"{self.config_path}.backup"
                 Path(backup_path).write_text(original_content, encoding="utf-8")
