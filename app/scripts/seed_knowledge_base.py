@@ -13,6 +13,11 @@ Usage:
 
 or from project root:
     uv run python app/scripts/seed_knowledge_base.py
+
+NOTE: This script uses KnowledgeService (deprecated) because the Clean Architecture
+Use Cases for knowledge creation (CreateKnowledgeUseCase, GetKnowledgeStatisticsUseCase)
+are not yet implemented. This script should be migrated once those Use Cases are available.
+See: app/domains/shared/application/use_cases/ for current implementation status.
 """
 
 import asyncio
@@ -21,7 +26,8 @@ from datetime import datetime
 
 from app.config.settings import get_settings
 from app.database.async_db import get_async_db_context
-from app.services.knowledge_service import KnowledgeService
+# FIXME: Replace with CreateKnowledgeUseCase when implemented
+from app.services.knowledge_service import KnowledgeService  # deprecated - awaiting Use Case implementation
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

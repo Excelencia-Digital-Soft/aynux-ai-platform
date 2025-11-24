@@ -1,14 +1,32 @@
 """
-DEPRECATION NOTICE:
-This webhook module uses LEGACY architecture patterns with deprecated services.
-These endpoints should be migrated to use the new Clean Architecture with SuperOrchestrator.
+⚠️  LEGACY MODULE - SCHEDULED FOR REFACTORING ⚠️
 
-TODO: Refactor to use:
-  - app.api.dependencies.get_super_orchestrator (new architecture)
-  - SuperOrchestrator.route_message() instead of manual domain detection
-  - Remove domain_detector and domain_manager (handled internally by orchestrator)
+This webhook module uses DEPRECATED services and architecture patterns:
+- domain_detector (app/services/domain_detector.py) - DEPRECATED
+- domain_manager (app/services/domain_manager.py) - DEPRECATED
+- super_orchestrator_service (app/services/super_orchestrator_service.py) - DEPRECATED
 
-For now, these endpoints remain functional but marked as LEGACY.
+These services mix multiple responsibilities (data access, business logic, orchestration)
+and violate Single Responsibility Principle (SRP).
+
+MIGRATION STATUS:
+  [⏸️ BLOCKED] - Cannot migrate until new API endpoints are implemented
+  The new SuperOrchestrator (app/orchestration/super_orchestrator.py) uses LangGraph state
+  and has a different interface incompatible with WhatsApp webhook structure.
+
+REQUIRED FOR MIGRATION:
+  1. Implement webhook adapter for new SuperOrchestrator
+  2. Create domain-agnostic webhook processor using Clean Architecture
+  3. Implement LangGraphChatbotService.process_webhook_message() as the single entry point
+
+CURRENT STATUS:
+  ✅ Functional - Endpoints work but use deprecated services
+  ⚠️  Not recommended for new features
+  📅 Scheduled for refactoring in Phase 5 (Post-Migration Cleanup)
+
+For new webhook implementations, use:
+  - LangGraphChatbotService (app/services/langgraph_chatbot_service.py)
+  - Clean Architecture Use Cases
 """
 
 import logging

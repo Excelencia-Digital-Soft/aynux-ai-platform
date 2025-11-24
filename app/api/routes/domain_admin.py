@@ -1,5 +1,26 @@
 """
 API de administración para gestión del sistema multi-dominio
+
+⚠️  LEGACY MODULE - SCHEDULED FOR REFACTORING ⚠️
+
+This admin API module uses DEPRECATED services:
+- domain_detector (app/services/domain_detector.py) - DEPRECATED
+- domain_manager (app/services/domain_manager.py) - DEPRECATED
+- super_orchestrator_service (app/services/super_orchestrator_service.py) - DEPRECATED
+
+MIGRATION STATUS:
+  [⏸️ BLOCKED] - Cannot migrate until admin Use Cases are implemented
+  These endpoints provide domain management functionality not yet available in Clean Architecture.
+
+REQUIRED FOR MIGRATION:
+  1. Implement Admin Use Cases (app/domains/shared/application/use_cases/admin_use_cases.py)
+  2. Create DomainManagementUseCase, DomainStatsUseCase, ContactAssignmentUseCase
+  3. Migrate endpoints to use Use Cases via DependencyContainer
+
+CURRENT STATUS:
+  ✅ Functional - Endpoints work but use deprecated services
+  ⚠️  Not recommended for new features
+  📅 Scheduled for refactoring in Phase 5 (Post-Migration Cleanup)
 """
 
 import logging
