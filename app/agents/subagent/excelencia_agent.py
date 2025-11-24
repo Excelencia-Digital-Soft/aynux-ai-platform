@@ -15,8 +15,8 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from app.config.settings import get_settings
+from app.core.container import DependencyContainer
 from app.database.async_db import get_async_db_context
-from app.services.knowledge_service import KnowledgeService
 
 from ..integrations.ollama_integration import OllamaIntegration
 from ..utils.tracing import trace_async_method
@@ -245,13 +245,14 @@ Responde solo con el JSON, sin texto adicional."""
             return ""
 
         try:
-            # Search knowledge base using async context manager
+            # Search knowledge base using new Clean Architecture Use Case
             async with get_async_db_context() as db:
-                service = KnowledgeService(db)
-                results = await service.search_knowledge(
+                container = DependencyContainer()
+                use_case = container.create_search_knowledge_use_case(db)
+                results = await use_case.execute(
                     query=query,
-                    max_results=self.rag_max_results,
-                    search_strategy="hybrid",
+                    limit=self.rag_max_results,
+                    use_vector_search=True,
                 )
 
                 if not results:

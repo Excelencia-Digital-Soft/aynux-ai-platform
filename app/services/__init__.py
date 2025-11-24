@@ -1,26 +1,30 @@
-from .ai_service import AIService
-from .category_vector_service import CategoryVectorService
-from .customer_service import CustomerService
-from .dux_sync_service import DuxSyncService
-from .embedding_update_service import EmbeddingUpdateService
-from .enhanced_product_service import EnhancedProductService
-from .product_service import ProductService
-from .prompt_service import PromptService
+"""
+Services Module
+
+This module exports active services. Many legacy services have been deprecated
+and migrated to Clean Architecture (Use Cases in app/domains/).
+
+DEPRECATED SERVICES (removed):
+- AIService → Use ILLM interface (app/core/interfaces/llm.py)
+- CustomerService → Use GetOrCreateCustomerUseCase
+- ProductService → Use SearchProductsUseCase, GetProductsByCategoryUseCase
+- EnhancedProductService → Use SearchProductsUseCase
+- CategoryVectorService → Use product Use Cases with vector search
+
+MOVED SERVICES (now in integrations):
+- DuxSyncService → app/domains/ecommerce/infrastructure/services/
+- WhatsAppService → app/integrations/whatsapp/
+- EmbeddingUpdateService → app/integrations/vector_stores/
+- PromptService → app/core/shared/prompt_service.py
+
+For dependency injection, use DependencyContainer (app/core/container.py)
+"""
+
 from .token_service import TokenService
 from .user_service import UserService
-from .whatsapp_service import WhatsAppService
 
 __all__ = [
-    "AIService",
-    "CustomerService",
-    "DuxSyncService",
-    "ProductService",
-    "PromptService",
     "TokenService",
     "UserService",
-    "WhatsAppService",
-    "EmbeddingUpdateService",
-    "CategoryVectorService",
-    "EnhancedProductService",
 ]
 

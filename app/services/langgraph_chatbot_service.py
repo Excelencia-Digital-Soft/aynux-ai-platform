@@ -6,11 +6,12 @@ import logging
 from typing import Any, AsyncGenerator, Dict
 
 from app.agents.graph import AynuxGraph
+from app.agents.schemas.customer import CustomerContext
 from app.config.langgraph_config import get_langgraph_config
 from app.config.settings import get_settings
+from app.core.container import DependencyContainer
 from app.models.chat import ChatStreamEvent
 from app.models.message import BotResponse, Contact, WhatsAppMessage
-from app.services.customer_service import CustomerService
 from app.services.langgraph import (
     ConversationManager,
     MessageProcessor,
@@ -40,8 +41,8 @@ class LangGraphChatbotService:
         # Cargar configuración LangGraph
         self.langgraph_config = get_langgraph_config()
 
-        # Servicios básicos
-        self.customer_service = CustomerService()
+        # Dependency Container
+        self.container = DependencyContainer()
 
         # Módulos especializados
         self.message_processor = MessageProcessor()
@@ -115,7 +116,7 @@ class LangGraphChatbotService:
             profile_name = (
                 contact.profile.get("name") if contact.profile and isinstance(contact.profile, dict) else "Usuario"
             )
-            customer_context = await self.customer_service._get_or_create_customer_context(user_number, profile_name)
+            customer_context = await self._get_or_create_customer_context(user_number, profile_name)
             conversation_context = self.message_processor.create_conversation_context(
                 session_id, message_text, {"channel": "whatsapp"}
             )
@@ -302,4 +303,58 @@ class LangGraphChatbotService:
             # TODO: Cleanup graph resources if needed
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
+
+    async def _get_or_create_customer_context(self, user_number: str, user_name: str) -> CustomerContext:
+        """
+        Get or create customer context using new Clean Architecture Use Case.
+
+        Args:
+            user_number: WhatsApp number
+            user_name: User's profile name
+
+        Returns:
+            CustomerContext instance
+        """
+        try:
+            # Use GetOrCreateCustomerUseCase from DependencyContainer
+            use_case = self.container.create_get_or_create_customer_use_case()
+            customer = await use_case.execute(phone_number=user_number, profile_name=user_name)
+
+            if not customer:
+                # Fallback to default context
+                return CustomerContext(
+                    customer_id=f"whatsapp_{user_number}",
+                    name=user_name or "Usuario",
+                    email=None,
+                    phone=user_number,
+                    tier="basic",
+                    purchase_history=[],
+                    preferences={},
+                )
+
+            # Transform customer dict to CustomerContext
+            customer_name = customer.get("name") or customer.get("profile_name") or user_name or "Usuario"
+
+            return CustomerContext(
+                customer_id=str(customer.get("id", f"whatsapp_{user_number}")),
+                name=customer_name,
+                email=customer.get("email"),
+                phone=customer.get("phone_number", user_number),
+                tier=customer.get("tier", "basic"),
+                purchase_history=[],  # Can be loaded from DB if needed
+                preferences=customer.get("preferences", {}),
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Error getting customer context: {e}")
+            # Return fallback context on error
+            return CustomerContext(
+                customer_id=f"whatsapp_{user_number}",
+                name=user_name or "Usuario",
+                email=None,
+                phone=user_number,
+                tier="basic",
+                purchase_history=[],
+                preferences={},
+            )
 
