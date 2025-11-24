@@ -6,12 +6,12 @@ import httpx
 from app.config.settings import get_settings
 from app.core.shared.utils import get_normalized_number_only
 from app.models.whatsapp_advanced import (
-    ProductListMessage,
-    FlowMessage,
-    MessageFactory,
-    WhatsAppApiResponse,
     CatalogConfiguration,
     FlowConfiguration,
+    FlowMessage,
+    MessageFactory,
+    ProductListMessage,
+    WhatsAppApiResponse,
 )
 
 logger = logging.getLogger(__name__)

@@ -4,10 +4,10 @@ Interfaces para Vector Stores
 Define contratos para almacenamiento y búsqueda de embeddings vectoriales.
 """
 
-from typing import Protocol, List, Dict, Any, Optional, Tuple, runtime_checkable
 from abc import abstractmethod
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable
 
 
 class VectorStoreType(str, Enum):

@@ -2,8 +2,9 @@
 Graph Visualizer - Creates visual representations of the LangGraph execution flow
 """
 
-import graphviz
 from typing import List, Optional, Set
+
+import graphviz
 
 
 class GraphVisualizer:

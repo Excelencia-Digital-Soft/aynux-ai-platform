@@ -4,9 +4,9 @@ Interfaces para LLM providers
 Define contratos para proveedores de Language Models (Ollama, OpenAI, etc.)
 """
 
-from typing import Protocol, List, Dict, Any, Optional, AsyncIterator, runtime_checkable
 from abc import abstractmethod
 from enum import Enum
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, runtime_checkable
 
 
 class LLMProvider(str, Enum):

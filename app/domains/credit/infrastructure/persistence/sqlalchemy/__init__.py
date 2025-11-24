@@ -5,7 +5,7 @@ Repository implementations for data access.
 All repositories implement core interfaces from app.core.interfaces.repository
 """
 
-from .credit_account_repository import CreditAccountRepository, CreditAccount
+from .credit_account_repository import CreditAccount, CreditAccountRepository
 
 __all__ = [
     "CreditAccountRepository",

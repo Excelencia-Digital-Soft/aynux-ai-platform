@@ -3,9 +3,10 @@ Advanced WhatsApp Business API models for catalog and flows functionality
 Following SOLID principles and Pydantic best practices
 """
 
-from typing import Dict, List, Optional, Any, Union
-from pydantic import BaseModel, Field, field_validator
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class InteractiveType(str, Enum):

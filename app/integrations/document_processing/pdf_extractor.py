@@ -5,10 +5,10 @@ Service for extracting text content from PDF files.
 Follows SRP: Single responsibility for PDF text extraction.
 """
 
-import logging
-from typing import Dict, List, Optional
-from pathlib import Path
 import io
+import logging
+from pathlib import Path
+from typing import Dict, List, Optional
 
 try:
     from pypdf import PdfReader

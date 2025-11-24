@@ -21,7 +21,7 @@ from uuid import UUID
 from sqlalchemy import and_, delete, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.db.knowledge_base import CompanyKnowledge, DOCUMENT_TYPES
+from app.models.db.knowledge_base import DOCUMENT_TYPES, CompanyKnowledge
 
 logger = logging.getLogger(__name__)
 

@@ -7,9 +7,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from app.integrations.whatsapp import WhatsAppService
 from app.models.conversation import ConversationHistory
 from app.repositories.redis_repository import RedisRepository
-from app.integrations.whatsapp import WhatsAppService
 
 # Configurar expiración de conversación (24 horas)
 CONVERSATION_EXPIRATION = 86400  # 24 horas en segundos

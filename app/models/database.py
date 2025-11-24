@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -20,7 +21,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, relationship
-from pgvector.sqlalchemy import Vector
 
 Base = declarative_base()
 

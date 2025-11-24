@@ -38,14 +38,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import Settings, get_settings
 from app.database.async_db import get_async_db
-from app.models.message import BotResponse, WhatsAppWebhookRequest
-from app.services.langgraph_chatbot_service import LangGraphChatbotService
 from app.integrations.whatsapp import WhatsAppService
+from app.models.message import BotResponse, WhatsAppWebhookRequest
 
 # LEGACY IMPORTS - These services are deprecated, kept for backward compatibility
 # TODO: Remove when endpoints are refactored to new architecture
 from app.services.domain_detector import get_domain_detector
 from app.services.domain_manager import get_domain_manager
+from app.services.langgraph_chatbot_service import LangGraphChatbotService
 from app.services.super_orchestrator_service import get_super_orchestrator
 from app.services.super_orchestrator_service_refactored import get_super_orchestrator_refactored
 from app.services.whatsapp_service import WhatsAppService

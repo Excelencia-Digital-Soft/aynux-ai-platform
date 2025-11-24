@@ -2,8 +2,9 @@
 Reasoning Display - Shows the internal reasoning and analysis of agents
 """
 
-import streamlit as st
 from typing import Any, Dict, Optional
+
+import streamlit as st
 
 
 class ReasoningDisplay:

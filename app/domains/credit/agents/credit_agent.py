@@ -9,16 +9,16 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from app.core.interfaces.agent import IAgent, AgentType
+from app.core.interfaces.agent import AgentType, IAgent
 from app.core.interfaces.llm import ILLM
 from app.core.interfaces.repository import IRepository
 from app.domains.credit.application.use_cases import (
-    GetCreditBalanceUseCase,
     GetCreditBalanceRequest,
-    ProcessPaymentUseCase,
-    ProcessPaymentRequest,
-    GetPaymentScheduleUseCase,
+    GetCreditBalanceUseCase,
     GetPaymentScheduleRequest,
+    GetPaymentScheduleUseCase,
+    ProcessPaymentRequest,
+    ProcessPaymentUseCase,
 )
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry

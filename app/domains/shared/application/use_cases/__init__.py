@@ -18,6 +18,11 @@ from app.domains.shared.application.use_cases.admin_use_cases import (
     RemoveContactDomainUseCase,
     UpdateDomainConfigUseCase,
 )
+from app.domains.shared.application.use_cases.agent_config_use_case import (
+    GetAgentConfigUseCase,
+    UpdateAgentModulesUseCase,
+    UpdateAgentSettingsUseCase,
+)
 from app.domains.shared.application.use_cases.customer_use_cases import (
     GetOrCreateCustomerUseCase,
 )
@@ -32,14 +37,9 @@ from app.domains.shared.application.use_cases.knowledge_use_cases import (
     UpdateKnowledgeUseCase,
 )
 from app.domains.shared.application.use_cases.upload_document_use_case import (
+    BatchUploadDocumentsUseCase,
     UploadPDFUseCase,
     UploadTextUseCase,
-    BatchUploadDocumentsUseCase,
-)
-from app.domains.shared.application.use_cases.agent_config_use_case import (
-    GetAgentConfigUseCase,
-    UpdateAgentModulesUseCase,
-    UpdateAgentSettingsUseCase,
 )
 
 __all__ = [

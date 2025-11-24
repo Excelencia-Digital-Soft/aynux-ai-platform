@@ -3,8 +3,8 @@ Modelos de respuesta para facturas de la API DUX
 Responsabilidad: Definir estructuras de respuesta específicas para facturas
 """
 
-from typing import List, Optional
 from decimal import Decimal
+from typing import List, Optional
 
 from .base import DuxBaseModel, DuxPaginationInfo
 from .invoice import DuxFactura

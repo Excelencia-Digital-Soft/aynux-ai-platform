@@ -18,7 +18,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ============================================================================
 # Request Schemas (Input)
 # ============================================================================

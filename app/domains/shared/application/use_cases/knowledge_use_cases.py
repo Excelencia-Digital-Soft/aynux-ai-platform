@@ -20,8 +20,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import get_settings
-from app.repositories.knowledge_repository import KnowledgeRepository
 from app.integrations.vector_stores import KnowledgeEmbeddingService
+from app.repositories.knowledge_repository import KnowledgeRepository
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

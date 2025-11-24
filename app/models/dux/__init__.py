@@ -8,19 +8,19 @@ from .base import DuxApiError, DuxBaseModel, DuxPaginationInfo
 # Entidades
 from .entities import DuxMarca, DuxProveedor, DuxRubro, DuxSubRubro
 
+# Facturas
+from .invoice import DuxFactura, DuxFacturaCliente, DuxFacturaDetalle, DuxFacturaTotales
+
 # Precios y Stock
 from .pricing import DuxPrecio, DuxStock
 
 # Producto
 from .product import DuxItem
-
-# Facturas
-from .invoice import DuxFactura, DuxFacturaCliente, DuxFacturaDetalle, DuxFacturaTotales
+from .response_facturas import DuxFacturasResponse
 
 # Respuestas
 from .response_items import DuxItemsResponse
 from .response_rubros import DuxRubrosResponse
-from .response_facturas import DuxFacturasResponse
 
 # Sincronización
 from .sync import DuxSyncResult

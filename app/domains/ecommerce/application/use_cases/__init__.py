@@ -5,20 +5,20 @@ Business use cases for the e-commerce domain.
 Each use case represents a single business operation.
 """
 
-from .search_products import (
-    SearchProductsUseCase,
-    SearchProductsRequest,
-    SearchProductsResponse,
-)
-from .get_products_by_category import (
-    GetProductsByCategoryUseCase,
-    GetProductsByCategoryRequest,
-    GetProductsByCategoryResponse,
-)
 from .get_featured_products import (
-    GetFeaturedProductsUseCase,
     GetFeaturedProductsRequest,
     GetFeaturedProductsResponse,
+    GetFeaturedProductsUseCase,
+)
+from .get_products_by_category import (
+    GetProductsByCategoryRequest,
+    GetProductsByCategoryResponse,
+    GetProductsByCategoryUseCase,
+)
+from .search_products import (
+    SearchProductsRequest,
+    SearchProductsResponse,
+    SearchProductsUseCase,
 )
 
 __all__ = [

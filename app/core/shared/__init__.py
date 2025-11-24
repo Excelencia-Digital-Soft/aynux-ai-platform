@@ -29,8 +29,8 @@ from .phone_normalizer import (
 # Rate limiting
 from .rate_limiter import (
     RateLimiter,
-    rate_limit,
     check_rate_limit,
+    rate_limit,
 )
 
 __all__ = [

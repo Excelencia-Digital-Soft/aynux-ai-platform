@@ -5,6 +5,7 @@ Product catalog models: Products, Categories, Brands, etc.
 import uuid
 from typing import TYPE_CHECKING, List, Optional
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -20,7 +21,6 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
-from pgvector.sqlalchemy import Vector
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, relationship
 

@@ -5,24 +5,20 @@ This module provides a convenient way to import vector store interfaces
 and create instances without knowing implementation details.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from app.core.interfaces.vector_store import (
-    # Interfaces
-    IVectorStore,
-    IHybridSearch,
-    IVectorStoreMetrics,
-    IVectorStoreFactory,
-    # Data classes
+from app.core.interfaces.vector_store import (  # Interfaces; Data classes; Enums; Exceptions
     Document,
+    IHybridSearch,
+    IVectorStore,
+    IVectorStoreFactory,
+    IVectorStoreMetrics,
     VectorSearchResult,
-    # Enums
-    VectorStoreType,
-    # Exceptions
-    VectorStoreError,
     VectorStoreConnectionError,
+    VectorStoreError,
     VectorStoreIndexError,
     VectorStoreQueryError,
+    VectorStoreType,
 )
 
 from .pgvector import PgVectorStore

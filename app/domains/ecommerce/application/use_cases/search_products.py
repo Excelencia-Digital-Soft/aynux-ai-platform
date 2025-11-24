@@ -9,9 +9,9 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from app.core.interfaces.llm import ILLM
 from app.core.interfaces.repository import ISearchableRepository
 from app.core.interfaces.vector_store import IVectorStore
-from app.core.interfaces.llm import ILLM
 
 logger = logging.getLogger(__name__)
 

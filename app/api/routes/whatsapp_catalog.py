@@ -12,10 +12,10 @@ from pydantic import BaseModel, Field, field_validator
 from app.api.dependencies import get_current_user
 from app.core.shared.utils import get_normalized_number_only
 from app.integrations.whatsapp import (
-    WhatsAppService,
+    FlowType,
     WhatsAppCatalogService,
     WhatsAppFlowsService,
-    FlowType,
+    WhatsAppService,
 )
 
 logger = logging.getLogger(__name__)

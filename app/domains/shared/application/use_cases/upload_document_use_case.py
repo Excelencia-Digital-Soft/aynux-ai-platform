@@ -5,15 +5,15 @@ Use cases for uploading documents (PDF/text) to the knowledge base.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.integrations.document_processing import PDFExtractor
 from app.domains.shared.application.use_cases.knowledge_use_cases import (
     CreateKnowledgeUseCase,
 )
+from app.integrations.document_processing import PDFExtractor
 
 logger = logging.getLogger(__name__)
 

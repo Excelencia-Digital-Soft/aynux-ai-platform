@@ -7,25 +7,27 @@ Implements the IVectorStore interface for maximum flexibility and testability.
 
 import logging
 import time
-from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import asdict
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, func, select, text, delete as sql_delete
+from sqlalchemy import and_
+from sqlalchemy import delete as sql_delete
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.interfaces.vector_store import (
-    IVectorStore,
-    IHybridSearch,
-    IVectorStoreMetrics,
     Document,
+    IHybridSearch,
+    IVectorStore,
+    IVectorStoreMetrics,
     VectorSearchResult,
-    VectorStoreType,
-    VectorStoreError,
     VectorStoreConnectionError,
+    VectorStoreError,
     VectorStoreQueryError,
+    VectorStoreType,
 )
 from app.database.async_db import get_async_db_context
-from app.models.db import Product, Category, Brand
+from app.models.db import Brand, Category, Product
 
 logger = logging.getLogger(__name__)
 

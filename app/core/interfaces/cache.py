@@ -4,11 +4,11 @@ Interfaces para sistemas de caché
 Define contratos para almacenamiento en caché (Redis, Memcached, in-memory, etc.)
 """
 
-from typing import Protocol, Optional, Any, List, Set, Dict, runtime_checkable, Callable
 from abc import abstractmethod
-from enum import Enum
 from dataclasses import dataclass
 from datetime import timedelta
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Protocol, Set, runtime_checkable
 
 
 class CacheBackend(str, Enum):

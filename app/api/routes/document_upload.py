@@ -21,15 +21,15 @@ from fastapi import (
     UploadFile,
     status,
 )
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.async_db import get_async_db
 from app.domains.shared.application.use_cases import (
+    BatchUploadDocumentsUseCase,
     UploadPDFUseCase,
     UploadTextUseCase,
-    BatchUploadDocumentsUseCase,
 )
-from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 

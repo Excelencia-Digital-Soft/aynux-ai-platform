@@ -4,9 +4,9 @@ Interfaces para agentes LangGraph
 Define contratos para todos los agentes del sistema multi-dominio.
 """
 
-from typing import Protocol, Dict, Any, Optional, List, runtime_checkable
 from abc import abstractmethod
 from enum import Enum
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 
 class AgentStatus(str, Enum):

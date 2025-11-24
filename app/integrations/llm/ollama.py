@@ -6,22 +6,22 @@ Implements standard interfaces for maximum flexibility and testability.
 """
 
 import logging
-from typing import List, Dict, Optional, AsyncIterator, AsyncGenerator
+from typing import AsyncGenerator, AsyncIterator, Dict, List, Optional
+
 import httpx
-
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama, OllamaEmbeddings
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
+from app.config.settings import get_settings
 from app.core.interfaces.llm import (
     ILLM,
-    IEmbeddingModel,
     IChatLLM,
-    LLMProvider,
-    LLMError,
+    IEmbeddingModel,
     LLMConnectionError,
+    LLMError,
     LLMGenerationError,
+    LLMProvider,
 )
-from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 

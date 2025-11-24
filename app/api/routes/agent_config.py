@@ -10,7 +10,7 @@ Follows Clean Architecture:
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field

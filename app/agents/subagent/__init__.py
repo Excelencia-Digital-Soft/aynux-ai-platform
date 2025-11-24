@@ -11,12 +11,12 @@ from .greeting_agent import GreetingAgent
 from .invoice_agent import InvoiceAgent
 from .orchestrator_agent import OrchestratorAgent
 from .promotions_agent import PromotionsAgent
-from .supervisor_agent import SupervisorAgent
-from .support_agent import SupportAgent
-from .tracking_agent import TrackingAgent
 
 # Use refactored SOLID-compliant ProductAgent
 from .refactored_product_agent import RefactoredProductAgent as ProductAgent
+from .supervisor_agent import SupervisorAgent
+from .support_agent import SupportAgent
+from .tracking_agent import TrackingAgent
 
 # Export all agent classes
 __all__ = [

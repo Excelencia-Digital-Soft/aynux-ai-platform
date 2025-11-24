@@ -5,9 +5,8 @@ Estos protocols definen contratos que deben implementar todos los repositorios
 del sistema, siguiendo el patrón Repository y Dependency Inversion Principle.
 """
 
-from typing import Protocol, Optional, List, Any, TypeVar, Generic, runtime_checkable
 from abc import abstractmethod
-
+from typing import Any, Generic, List, Optional, Protocol, TypeVar, runtime_checkable
 
 T = TypeVar("T")  # Entity type
 ID = TypeVar("ID")  # ID type (int, str, UUID, etc.)

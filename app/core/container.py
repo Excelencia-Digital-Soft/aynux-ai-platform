@@ -15,37 +15,37 @@ from app.core.interfaces.agent import IAgent
 from app.core.interfaces.llm import ILLM
 from app.core.interfaces.repository import IRepository
 from app.core.interfaces.vector_store import IVectorStore
-
-# Integrations (Implementations)
-from app.integrations.llm import create_ollama_llm
-from app.integrations.vector_stores import create_pgvector_store
-
-# E-commerce Domain
-from app.domains.ecommerce.infrastructure.repositories import ProductRepository
-from app.domains.ecommerce.agents import ProductAgent
-from app.domains.ecommerce.application.use_cases import (
-    SearchProductsUseCase,
-    GetProductsByCategoryUseCase,
-    GetFeaturedProductsUseCase,
+from app.domains.credit.agents import CreditAgent
+from app.domains.credit.application.use_cases import (
+    GetCreditBalanceUseCase,
+    GetPaymentScheduleUseCase,
+    ProcessPaymentUseCase,
 )
 
 # Credit Domain
 from app.domains.credit.infrastructure.persistence.sqlalchemy import CreditAccountRepository
-from app.domains.credit.agents import CreditAgent
-from app.domains.credit.application.use_cases import (
-    GetCreditBalanceUseCase,
-    ProcessPaymentUseCase,
-    GetPaymentScheduleUseCase,
+from app.domains.ecommerce.agents import ProductAgent
+from app.domains.ecommerce.application.use_cases import (
+    GetFeaturedProductsUseCase,
+    GetProductsByCategoryUseCase,
+    SearchProductsUseCase,
 )
 
-# Orchestration
-from app.orchestration import SuperOrchestrator
+# E-commerce Domain
+from app.domains.ecommerce.infrastructure.repositories import ProductRepository
 
 # Shared Domain Use Cases
 from app.domains.shared.application.use_cases import (
     GetOrCreateCustomerUseCase,
     SearchKnowledgeUseCase,
 )
+
+# Integrations (Implementations)
+from app.integrations.llm import create_ollama_llm
+from app.integrations.vector_stores import create_pgvector_store
+
+# Orchestration
+from app.orchestration import SuperOrchestrator
 
 logger = logging.getLogger(__name__)
 

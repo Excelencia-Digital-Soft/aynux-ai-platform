@@ -8,10 +8,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.config.settings import get_settings
+from app.integrations.whatsapp.service import WhatsAppService
 from app.models.whatsapp_advanced import (
     WhatsAppApiResponse,
 )
-from app.integrations.whatsapp.service import WhatsAppService
 
 logger = logging.getLogger(__name__)
 
