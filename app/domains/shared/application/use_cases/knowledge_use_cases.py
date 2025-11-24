@@ -65,18 +65,22 @@ class SearchKnowledgeUseCase:
     async def execute(
         self,
         query: str,
-        limit: int = 10,
+        max_results: int = 10,
         document_type: Optional[str] = None,
-        use_vector_search: bool = True,
+        category: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        search_strategy: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Search knowledge base with hybrid approach.
+        Search knowledge base with configurable search strategy.
 
         Args:
             query: Search query text
-            limit: Maximum number of results
+            max_results: Maximum number of results
             document_type: Optional filter by document type
-            use_vector_search: Whether to use vector similarity search
+            category: Optional filter by category
+            tags: Optional filter by tags
+            search_strategy: Search strategy - "pgvector_primary", "chroma_primary", or "hybrid" (default)
 
         Returns:
             List of knowledge documents with relevance scores
@@ -85,8 +89,9 @@ class SearchKnowledgeUseCase:
             use_case = SearchKnowledgeUseCase(db)
             results = await use_case.execute(
                 "How to configure payment gateway?",
-                limit=5,
-                document_type="tutorial"
+                max_results=5,
+                document_type="tutorial",
+                search_strategy="hybrid"
             )
         """
         try:
@@ -95,34 +100,58 @@ class SearchKnowledgeUseCase:
                 logger.warning("Search query too short")
                 return []
 
-            if limit < 1 or limit > 100:
-                limit = 10  # Default limit
+            if max_results < 1 or max_results > 100:
+                max_results = 10  # Default limit
+
+            # Determine search strategy (default to hybrid)
+            strategy = search_strategy or settings.KNOWLEDGE_SEARCH_STRATEGY or "hybrid"
 
             results = []
 
-            if use_vector_search:
-                # Vector similarity search (semantic)
+            # Execute search based on strategy
+            if strategy in ["hybrid", "chroma_primary"]:
+                # Vector similarity search (semantic) using ChromaDB
                 try:
                     vector_results = await self.embedding_service.search_knowledge(
                         query=query,
-                        k=limit,
+                        k=max_results,
                         filter_type=document_type,
                     )
                     results.extend(vector_results)
-                    logger.info(f"Vector search returned {len(vector_results)} results")
+                    logger.info(f"ChromaDB search returned {len(vector_results)} results")
                 except Exception as e:
-                    logger.error(f"Vector search failed: {e}")
-                    # Fallback to SQL search if vector fails
+                    logger.error(f"ChromaDB search failed: {e}")
+                    # Continue to try other strategies
 
-            # SQL search (keyword-based) as fallback or complement
+            if strategy in ["hybrid", "pgvector_primary"]:
+                # SQL search with pgvector (if not enough results from ChromaDB)
+                if strategy == "hybrid" and len(results) >= max_results:
+                    # Already have enough results from ChromaDB
+                    pass
+                else:
+                    try:
+                        sql_results = await self.repository.search_by_keywords(
+                            query=query,
+                            limit=max_results,
+                            document_type=document_type,
+                        )
+                        results.extend(sql_results)
+                        logger.info(f"SQL/pgvector search returned {len(sql_results)} results")
+                    except Exception as e:
+                        logger.error(f"SQL search failed: {e}")
+
+            # Fallback to SQL search if no results from vector search
             if not results:
-                sql_results = await self.repository.search_by_keywords(
-                    query=query,
-                    limit=limit,
-                    document_type=document_type,
-                )
-                results.extend(sql_results)
-                logger.info(f"SQL search returned {len(sql_results)} results")
+                try:
+                    sql_results = await self.repository.search_by_keywords(
+                        query=query,
+                        limit=max_results,
+                        document_type=document_type,
+                    )
+                    results.extend(sql_results)
+                    logger.info(f"Fallback SQL search returned {len(sql_results)} results")
+                except Exception as e:
+                    logger.error(f"Fallback search failed: {e}")
 
             # Remove duplicates and limit results
             seen_ids = set()
@@ -132,10 +161,12 @@ class SearchKnowledgeUseCase:
                 if doc_id not in seen_ids:
                     seen_ids.add(doc_id)
                     unique_results.append(result)
-                    if len(unique_results) >= limit:
+                    if len(unique_results) >= max_results:
                         break
 
-            logger.info(f"Search completed: {len(unique_results)} unique results")
+            logger.info(
+                f"Search completed: {len(unique_results)} unique results (strategy: {strategy})"
+            )
             return unique_results
 
         except Exception as e:
@@ -784,8 +815,7 @@ class RegenerateKnowledgeEmbeddingsUseCase:
         self.db = db
         self.repository = repository or KnowledgeRepository(db)
         self.embedding_service = embedding_service or KnowledgeEmbeddingService(
-            collection_name=settings.CHROMA_COLLECTION_NAME,
-            embedding_model=settings.OLLAMA_EMBEDDING_MODEL,
+            embedding_model=settings.OLLAMA_API_MODEL_EMBEDDING,
             ollama_base_url=settings.OLLAMA_API_URL,
         )
 
