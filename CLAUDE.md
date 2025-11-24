@@ -18,6 +18,52 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Healthcare** (Hospital): Patient management, appointments, medical records
 - **Finance** (Credit): Account management, collections, payment processing
 
+## Critical Development Rules
+
+1 **Exception Handling with Context**
+Always use `from e` to preserve stack traces:
+
+```python
+  # ❌ Bad (Loses original context)
+  try:
+      result = await service.create_invoice(data)
+  except ValueError:
+      raise HTTPException(status_code=400, detail="Invalid data")
+
+  # ✅ Good (Preserves stack trace)
+  try:
+      result = await service.create_invoice(data)
+  except ValueError as e:
+      raise HTTPException(status_code=400, detail="Invalid data") from e
+```
+
+2 **Modern Typing (Python 3.10+)**: Use native types and the union operator (`|`) instead of the imported types from `typing`.
+
+```python
+from typing import List, Dict, Set, Optional, Set, Union, Tuple # 👈 Avoid these imports if not necessary
+
+# ❌ Bad (Old style)
+def old_style(user_ids: List[int], data: Optional[Dict[str, Set[str]]]) -> None:
+    ...
+
+# ✅ Good (Modern style)
+def new_style(user_ids: list[int], data: dict[str, set[str]] | None) -> None:
+    ...
+```
+
+3 **UTC Timezone Awareness**
+  All datetime operations MUST use UTC:
+
+```python
+from datetime import UTC, datetime
+
+# ❌ Bad (Timezone-naive, server-dependent)
+# now = datetime.now()
+
+# ✅ Good (Explicitly UTC)
+now_utc = datetime.now(UTC)
+```
+
 ## Documentation
 
 **IMPORTANT**: Before making any changes, review the comprehensive documentation in the `docs/` directory:
