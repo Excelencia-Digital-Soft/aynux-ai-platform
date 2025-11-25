@@ -81,7 +81,6 @@ class LangGraphConfig(BaseModel):
             integrations=IntegrationConfig(
                 ollama_url=os.getenv("OLLAMA_API_URL", "http://localhost:11434"),
                 ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1:8b"),
-                chromadb_path=os.getenv("CHROMADB_PATH", "./data/chromadb"),
                 postgres_pool_size=int(os.getenv("POSTGRES_POOL_SIZE", "5")),
                 redis_ttl=int(os.getenv("REDIS_TTL", "86400")),
             ),

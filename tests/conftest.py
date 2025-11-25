@@ -175,14 +175,6 @@ def mock_pgvector_service():
     return mock
 
 
-@pytest.fixture
-def mock_chroma_db():
-    """Create a mock ChromaDB client."""
-    mock = Mock()
-    mock.get_collection = Mock(return_value=Mock())
-    mock.create_collection = Mock(return_value=Mock())
-    mock.delete_collection = Mock(return_value=True)
-    return mock
 
 
 # ============================================================================

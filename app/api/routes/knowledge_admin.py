@@ -255,7 +255,7 @@ async def delete_knowledge(
     Delete a knowledge document.
 
     - **hard_delete=false** (default): Soft delete (set active=false)
-    - **hard_delete=true**: Permanently delete from database and ChromaDB
+    - **hard_delete=true**: Permanently delete from database and pgvector
 
     Soft delete is recommended to preserve history.
     """
@@ -453,7 +453,7 @@ async def get_stats(
 
     Returns:
     - Database statistics (active, inactive, embedding coverage)
-    - ChromaDB collection counts
+    - pgvector embedding counts
     - Embedding model information
     """
     try:

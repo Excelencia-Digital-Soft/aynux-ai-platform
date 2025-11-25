@@ -47,7 +47,7 @@ class DuxRagSyncResult(DuxSyncResult):
 class DuxRagSyncService:
     """
     Servicio integrado que sincroniza datos de DUX a PostgreSQL
-    y automáticamente actualiza embeddings en ChromaDB
+    y automáticamente actualiza embeddings en pgvector
     """
 
     def __init__(self, batch_size: int = 50):
@@ -114,9 +114,9 @@ class DuxRagSyncService:
                 rag_result.mark_completed()
                 return rag_result
 
-            # Paso 2: Actualizar embeddings en ChromaDB (si no es dry_run)
+            # Paso 2: Actualizar embeddings en pgvector (si no es dry_run)
             if not dry_run and not skip_embeddings:
-                self.logger.info("Step 2: Updating embeddings in ChromaDB...")
+                self.logger.info("Step 2: Updating embeddings in pgvector...")
                 embedding_start_time = datetime.now()
 
                 try:

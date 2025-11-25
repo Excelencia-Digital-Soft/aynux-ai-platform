@@ -3,7 +3,7 @@ Company Knowledge Base models for storing corporate information with vector embe
 
 This module contains models for storing company information such as mission, vision,
 software catalog, FAQs, client information, and success stories with semantic search
-capabilities using pgvector and ChromaDB.
+capabilities using pgvector.
 """
 
 import uuid

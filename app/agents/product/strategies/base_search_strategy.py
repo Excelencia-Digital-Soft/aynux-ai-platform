@@ -30,7 +30,7 @@ class SearchResult:
 
         Args:
             products: List of product dictionaries
-            source: Search source identifier (e.g., "pgvector", "chroma", "database")
+            source: Search source identifier (e.g., "pgvector", "database")
             query: Original search query
             metadata: Additional search metadata (similarity scores, filters, etc.)
             success: Whether search was successful
@@ -90,7 +90,7 @@ class BaseSearchStrategy(ABC):
         Get strategy name identifier.
 
         Returns:
-            Strategy name (e.g., "pgvector", "chroma", "database")
+            Strategy name (e.g., "pgvector", "database")
         """
         pass
 
