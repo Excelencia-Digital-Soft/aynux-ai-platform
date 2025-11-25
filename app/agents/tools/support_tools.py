@@ -5,12 +5,34 @@ Tools especializadas para el Support Agent
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TypedDict
 
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+
+class FAQEntry(TypedDict):
+    """Type definition for FAQ database entries."""
+
+    id: str
+    category: str
+    question: str
+    answer: str
+    keywords: list[str]
+    popularity: int
+
+
+class WarrantyEntry(TypedDict):
+    """Type definition for warranty info entries."""
+
+    warranty_period: int
+    warranty_type: str
+    covered_issues: list[str]
+    not_covered: list[str]
+    support_contact: str
+    repair_centers: list[str]
 
 
 class FAQSearchInput(BaseModel):
@@ -38,7 +60,7 @@ class WarrantyInput(BaseModel):
 
 
 # Base de datos simulada de FAQ
-FAQ_DB = [
+FAQ_DB: list[FAQEntry] = [
     {
         "id": "faq_001",
         "category": "envios",
@@ -85,8 +107,7 @@ FAQ_DB = [
         "category": "cuenta",
         "question": "¿Cómo cambio mi contraseña?",
         "answer": (
-            "Ve a 'Mi Cuenta' > 'Configuración' > 'Cambiar Contraseña'. "
-            "También puedes usar 'Olvidé mi contraseña'."
+            "Ve a 'Mi Cuenta' > 'Configuración' > 'Cambiar Contraseña'. " "También puedes usar 'Olvidé mi contraseña'."
         ),
         "keywords": ["contraseña", "cambiar", "olvidé", "cuenta", "configuración"],
         "popularity": 71,
@@ -127,7 +148,7 @@ FAQ_DB = [
 ]
 
 # Productos con información de garantía
-WARRANTY_INFO = {
+WARRANTY_INFO: dict[str, WarrantyEntry] = {
     "laptop_001": {
         "warranty_period": 365,  # días
         "warranty_type": "Garantía del fabricante",
@@ -319,11 +340,11 @@ async def get_warranty_info_tool(product_id: str, purchase_date: Optional[str] =
             "support_contact": "soporte@aynux.com",
         }
 
-    warranty_info = warranty.copy()
+    warranty_info: dict[str, Any] = dict(warranty)
 
     # Calcular estado de garantía si se proporciona fecha de compra
-    warranty_status = None
-    days_remaining = None
+    warranty_status: str | None = None
+    days_remaining: int | None = None
 
     if purchase_date:
         try:
@@ -339,14 +360,10 @@ async def get_warranty_info_tool(product_id: str, purchase_date: Optional[str] =
                 warranty_status = "expired"
                 warranty_info["days_expired"] = days_expired
 
-            warranty_info.update(
-                {
-                    "purchase_date": purchase_date,
-                    "warranty_end_date": warranty_end_date.strftime("%Y-%m-%d"),
-                    "warranty_status": warranty_status,
-                    "days_remaining": days_remaining,
-                }
-            )
+            warranty_info["purchase_date"] = purchase_date
+            warranty_info["warranty_end_date"] = warranty_end_date.strftime("%Y-%m-%d")
+            warranty_info["warranty_status"] = warranty_status
+            warranty_info["days_remaining"] = days_remaining
 
         except ValueError:
             return {

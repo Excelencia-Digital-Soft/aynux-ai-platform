@@ -182,8 +182,7 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
         IntentType.PRODUCTO: IntentDefinition(
             intent=IntentType.PRODUCTO,
             description=(
-                "Questions about available products, general product searches, "
-                "categories, features, price, stock"
+                "Questions about available products, general product searches, " "categories, features, price, stock"
             ),
             examples=[
                 "what products do you have?",

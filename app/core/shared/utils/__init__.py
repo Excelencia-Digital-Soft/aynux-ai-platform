@@ -14,15 +14,19 @@ from app.core.shared.utils.data_extraction import (
 from app.core.shared.utils.phone_normalizer import (
     PhoneNumberInfo,
     PhoneNumberRequest,
+    PhoneNumberResponse,
+    PydanticPhoneNumberNormalizer,
     get_normalized_number_only,
-    normalize_phone_number,
+    normalize_whatsapp_number_pydantic,
 )
 
 __all__ = [
     # Phone Normalizer
     "PhoneNumberInfo",
     "PhoneNumberRequest",
-    "normalize_phone_number",
+    "PhoneNumberResponse",
+    "PydanticPhoneNumberNormalizer",
+    "normalize_whatsapp_number_pydantic",
     "get_normalized_number_only",
     # Data Extraction
     "DataExtractionService",

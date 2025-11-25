@@ -5,12 +5,64 @@ Tools especializadas para el Tracking Agent
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TypedDict
 
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+
+class TrackingEvent(TypedDict):
+    """Type definition for tracking event."""
+
+    date: str
+    status: str
+    location: str
+    description: str
+
+
+class ShippingAddress(TypedDict):
+    """Type definition for shipping address."""
+
+    street: str
+    city: str
+    postal_code: str
+    country: str
+
+
+class OrderItem(TypedDict):
+    """Type definition for order item."""
+
+    product_id: str
+    name: str
+    quantity: int
+
+
+class OrderEntry(TypedDict):
+    """Type definition for order database entry."""
+
+    order_id: str
+    user_id: str
+    status: str
+    tracking_number: str | None
+    carrier: str
+    items: list[OrderItem]
+    order_date: str
+    shipped_date: str | None
+    estimated_delivery: str
+    actual_delivery: str | None
+    shipping_address: ShippingAddress
+    tracking_events: list[TrackingEvent]
+
+
+class CarrierInfo(TypedDict):
+    """Type definition for carrier info."""
+
+    name: str
+    tracking_url: str
+    phone: str
+    email: str
 
 
 class OrderTrackingInput(BaseModel):
@@ -37,7 +89,7 @@ class AddressUpdateInput(BaseModel):
 
 
 # Base de datos simulada de órdenes
-ORDERS_DB = {
+ORDERS_DB: dict[str, OrderEntry] = {
     "ORD-2024-001": {
         "order_id": "ORD-2024-001",
         "user_id": "user123",
@@ -176,7 +228,7 @@ STATUS_DESCRIPTIONS = {
 }
 
 # Transportistas y sus URLs de seguimiento
-CARRIERS = {
+CARRIERS: dict[str, CarrierInfo] = {
     "Express Delivery": {
         "name": "Express Delivery",
         "tracking_url": "https://express-delivery.com/tracking/",
@@ -297,7 +349,7 @@ async def get_delivery_info_tool(order_id: str, detailed: bool = False) -> Dict[
         return {"success": False, "error": f"Orden {order_id} no encontrada"}
 
     # Información básica de entrega
-    delivery_info = {
+    delivery_info: dict[str, Any] = {
         "order_id": order_id,
         "status": order["status"],
         "estimated_delivery": order["estimated_delivery"],
@@ -351,7 +403,7 @@ async def get_delivery_info_tool(order_id: str, detailed: bool = False) -> Dict[
         )
 
     # Información contextual basada en estado
-    status_specific_info = {}
+    status_specific_info: dict[str, Any] = {}
 
     if order["status"] == "delivered":
         status_specific_info = {
@@ -442,21 +494,22 @@ async def update_shipping_address_tool(
     additional_cost = 0
     cost_reason = None
 
+    shipping_addr = order["shipping_address"]
     if order["status"] == "shipped":
         additional_cost = 12.99
         cost_reason = "Costo por redirección en tránsito"
-    elif order.get("shipping_address") and city.lower() != str(order["shipping_address"].get("city", "")).lower():
+    elif city.lower() != shipping_addr["city"].lower():
         additional_cost = 8.50
         cost_reason = "Costo por cambio de ciudad"
 
     # Simular actualización exitosa
-    old_address = order.get("shipping_address", {}).copy() if order.get("shipping_address") else {}
+    old_address: dict[str, Any] = dict(shipping_addr)
 
     new_address_data = {
         "street": new_address,
         "city": city,
         "postal_code": postal_code,
-        "country": order.get("shipping_address", {}).get("country", ""),  # Mantener país
+        "country": shipping_addr["country"],  # Mantener país
     }
 
     # Actualizar en base de datos (simulado)

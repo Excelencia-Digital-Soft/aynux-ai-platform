@@ -4,8 +4,9 @@ Credit System Graph Orchestration using LangGraph
 
 import logging
 from datetime import UTC, datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -247,7 +248,7 @@ Si necesitas ayuda adicional, no dudes en contactarnos nuevamente.
             if self.compiled_graph is None:
                 raise RuntimeError("Graph not compiled. Cannot process message.")
 
-            result = await self.compiled_graph.ainvoke(initial_state, config)
+            result = await self.compiled_graph.ainvoke(initial_state, cast(RunnableConfig, config))
 
             # Extract response
             if result and "messages" in result:

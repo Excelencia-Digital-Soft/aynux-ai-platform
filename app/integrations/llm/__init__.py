@@ -7,7 +7,7 @@ AI/LLM integration services and pipelines:
 """
 
 from app.integrations.llm.ai_data_pipeline import (
-    AiDataPipelineService,
+    AIDataPipelineService,
     PipelineExecutionContext,
     create_ai_data_pipeline_service,
     get_user_context_for_agent,
@@ -19,7 +19,7 @@ __all__ = [
     "OllamaLLM",
     "create_ollama_llm",
     # AI Data Pipeline
-    "AiDataPipelineService",
+    "AIDataPipelineService",
     "PipelineExecutionContext",
     "create_ai_data_pipeline_service",
     "get_user_context_for_agent",

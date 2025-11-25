@@ -6,8 +6,8 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Optional, cast
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.types import RunnableConfig
 
 from app.config.settings import get_settings
 

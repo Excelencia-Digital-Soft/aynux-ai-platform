@@ -52,23 +52,18 @@ class OllamaIntegration:
         cache_key = f"{model_to_use}_{temperature}"
 
         if cache_key not in self._llm_cache:
-            default_params = {
-                "model": model_to_use,
-                "base_url": self.base_url,
-                "temperature": temperature,
-                "num_gpu": 1,
-                "num_thread": 4,
-                "repeat_penalty": 1.1,
-                "top_k": 40,
-                "top_p": 0.9,
-                "request_timeout": 60.0,
-                "keep_alive": "5m",
-            }
-
-            # Merge with custom parameters
-            default_params.update(kwargs)
-
-            self._llm_cache[cache_key] = ChatOllama(**default_params)
+            self._llm_cache[cache_key] = ChatOllama(
+                model=model_to_use,
+                base_url=self.base_url,
+                temperature=temperature,
+                num_gpu=1,
+                num_thread=4,
+                repeat_penalty=1.1,
+                top_k=40,
+                top_p=0.9,
+                keep_alive="5m",
+                **kwargs,
+            )
             logger.debug(f"Created new ChatOllama instance for {model_to_use}")
 
         return self._llm_cache[cache_key]

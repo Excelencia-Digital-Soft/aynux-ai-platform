@@ -6,9 +6,8 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Hashable, Optional, cast
 
-from langgraph.types import RunnableConfig
-
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
 from app.config.langsmith_config import ConversationTracer, get_tracer
@@ -140,13 +139,15 @@ class AynuxGraph:
                     workflow.add_edge(agent_name, AgentType.SUPERVISOR.value)
 
         # Supervisor routing
-        supervisor_edges = {
+        supervisor_edges: dict[str, str] = {
             "continue": AgentType.ORCHESTRATOR.value,
             "__end__": END,
         }
 
         workflow.add_conditional_edges(
-            AgentType.SUPERVISOR.value, self.router.supervisor_should_continue, supervisor_edges
+            AgentType.SUPERVISOR.value,
+            self.router.supervisor_should_continue,
+            cast(dict[Hashable, str], supervisor_edges),
         )
 
     def initialize(self, db_url: Optional[str] = None):

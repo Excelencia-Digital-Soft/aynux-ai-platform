@@ -8,46 +8,44 @@ All utilities are domain-agnostic and reusable.
 # JSON utilities
 from .json_extractor import (
     extract_json_from_text,
-    extract_json_objects,
-    safe_json_parse,
+    extract_json_safely,
 )
 
 # Language detection
 from .language_detector import (
     LanguageDetector,
     detect_language,
-    detect_language_batch,
+    get_language_detector,
 )
 
 # Phone number normalization
 from .phone_normalizer import (
-    PhoneNormalizer,
-    normalize_phone,
-    validate_phone,
+    PhoneNumberNormalizer,
+    normalize_whatsapp_number,
 )
 
 # Rate limiting
 from .rate_limiter import (
+    BatchRateLimiter,
+    DuxApiRateLimiter,
     RateLimiter,
-    check_rate_limit,
-    rate_limit,
+    retry_with_rate_limit,
 )
 
 __all__ = [
     # JSON utilities
     "extract_json_from_text",
-    "extract_json_objects",
-    "safe_json_parse",
+    "extract_json_safely",
     # Language detection
     "LanguageDetector",
     "detect_language",
-    "detect_language_batch",
+    "get_language_detector",
     # Phone normalization
-    "PhoneNormalizer",
-    "normalize_phone",
-    "validate_phone",
+    "PhoneNumberNormalizer",
+    "normalize_whatsapp_number",
     # Rate limiting
     "RateLimiter",
-    "rate_limit",
-    "check_rate_limit",
+    "DuxApiRateLimiter",
+    "BatchRateLimiter",
+    "retry_with_rate_limit",
 ]

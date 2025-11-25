@@ -120,7 +120,8 @@ async def quick_validate(
 
 @router.post("/add-test-number")
 async def add_test_number(
-    phone_number: str, normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer)  # noqa: B008
+    phone_number: str,
+    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),  # noqa: B008
 ):
     """
     Agrega un número a la lista de números de prueba autorizados
@@ -147,7 +148,9 @@ async def get_supported_countries():
 
 
 @router.get("/test-numbers")
-async def get_test_numbers(normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer)):  # noqa: B008
+async def get_test_numbers(
+    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),
+):  # noqa: B008
     """
     Obtiene la lista de números de prueba configurados
     """

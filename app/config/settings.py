@@ -135,8 +135,7 @@ class Settings(BaseSettings):
             "farewell_agent",
         ],
         description=(
-            "List of enabled agent names (from AgentType enum). "
-            "Orchestrator and Supervisor are always enabled."
+            "List of enabled agent names (from AgentType enum). " "Orchestrator and Supervisor are always enabled."
         ),
     )
 

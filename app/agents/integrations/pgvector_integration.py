@@ -310,7 +310,7 @@ class PgVectorIntegration:
             # Update product with new embedding
             product.embedding = embedding  # type: ignore[assignment]
             product.last_embedding_update = datetime.now(UTC)
-            product.embedding_model = self.embedding_model  # type: ignore[assignment]
+            product.embedding_model = self.embedding_model
 
             await db.commit()
             logger.info(f"Updated embedding for product {product_id}")
@@ -346,7 +346,8 @@ class PgVectorIntegration:
         # Get brand name for context
         brand_name = ""
         if product.brand is not None and hasattr(product.brand, "name"):
-            brand_name = str(product.brand.name) if product.brand.name else ""
+            name_value = product.brand.name
+            brand_name = str(name_value) if name_value is not None else ""
 
         # Product name (highest weight) with abbreviation expansion
         if product.name is not None:

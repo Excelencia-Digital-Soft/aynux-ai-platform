@@ -73,8 +73,8 @@ class PostgreSQLIntegration:
             if self._checkpoint_pool is not None:
                 self._checkpointer = PostgresSaver(self._checkpoint_pool)  # type: ignore[arg-type]
 
-            # Inicializar tablas de checkpointing
-            self._checkpointer.setup()
+                # Inicializar tablas de checkpointing
+                self._checkpointer.setup()
 
             logger.info("PostgreSQL checkpoint connection initialized")
 
@@ -320,9 +320,9 @@ class PostgreSQLIntegration:
                 },
                 "checkpoint_connection": {
                     "status": "initialized" if self._checkpoint_pool else "not_initialized",
-                    "pool_size": self._checkpoint_pool._maxsize if self._checkpoint_pool else 0,  # type: ignore[union-attr]
+                    "pool_size": self._checkpoint_pool._maxsize if self._checkpoint_pool else 0,
                     "current_size": (
-                        self._checkpoint_pool._queue.qsize() if self._checkpoint_pool and self._checkpoint_pool._queue else 0  # type: ignore[union-attr]
+                        self._checkpoint_pool._queue.qsize() if self._checkpoint_pool and self._checkpoint_pool._queue else 0
                     ),
                 },
             }
@@ -377,12 +377,14 @@ class PostgreSQLIntegration:
         try:
             async with self.async_session() as session:
                 # Usar raw SQL para hacer upsert correctamente
-                query = text("""
+                query = text(
+                    """
                 INSERT INTO conversation_metadata (thread_id, metadata, updated_at)
                 VALUES (:thread_id, :metadata, NOW())
                 ON CONFLICT (thread_id)
                 DO UPDATE SET metadata = :metadata, updated_at = NOW()
-                """)
+                """
+                )
 
                 await session.execute(query, {"thread_id": thread_id, "metadata": metadata})
                 await session.commit()
@@ -408,10 +410,12 @@ class PostgreSQLIntegration:
 
         try:
             async with self.async_session() as session:
-                query = text("""
+                query = text(
+                    """
                 SELECT metadata FROM conversation_metadata
                 WHERE thread_id = :thread_id
-                """)
+                """
+                )
 
                 result = await session.execute(query, {"thread_id": thread_id})
                 row = result.fetchone()

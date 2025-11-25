@@ -67,9 +67,7 @@ class IntentRouterRefactored:
             user_prompt = await self.prompt_manager.get_prompt(PromptRegistry.INTENT_ANALYZER_USER, variables=variables)
 
             # 4. Llamar a Ollama (sin cambios)
-            await self.ollama.generate_response(
-                system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.5
-            )
+            await self.ollama.generate_response(system_prompt=system_prompt, user_prompt=user_prompt, temperature=0.5)
 
             # 5. Procesar respuesta (sin cambios)
             # ... resto del código igual ...

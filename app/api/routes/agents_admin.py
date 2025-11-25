@@ -168,7 +168,9 @@ async def get_agent_config(service: LangGraphChatbotService = Depends(get_chatbo
 
 
 @router.get("/check/{agent_name}")
-async def check_agent_enabled(agent_name: str, service: LangGraphChatbotService = Depends(get_chatbot_service)):  # noqa: B008
+async def check_agent_enabled(
+    agent_name: str, service: LangGraphChatbotService = Depends(get_chatbot_service)
+):  # noqa: B008
     """
     Check if a specific agent is enabled.
 
