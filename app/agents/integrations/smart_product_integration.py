@@ -263,17 +263,19 @@ Respuesta:"""
         message_lower = message.lower()
 
         # Calcular scores para cada agente
-        scores = {}
+        scores: dict[AgentType, int] = {}
         for agent_type, info in self.agent_capabilities.items():
             score = 0
-            for keyword in info["keywords"]:
-                if keyword in message_lower:
-                    score += 1
+            keywords = info.get("keywords", [])
+            if isinstance(keywords, list):
+                for keyword in keywords:
+                    if keyword in message_lower:
+                        score += 1
             scores[agent_type] = score
 
         # Seleccionar agente con mayor score
         if scores:
-            best_agent = max(scores, key=scores.get)
+            best_agent = max(scores, key=lambda x: scores[x])
             if scores[best_agent] > 0:
                 return best_agent
 
@@ -292,14 +294,14 @@ def create_smart_product_graph(ollama: Optional[OllamaIntegration] = None, postg
     smart_product_node = SmartProductAgentNode(ollama, postgres)
 
     # Crear grafo
-    workflow = StateGraph(ConversationState)
+    workflow = StateGraph(ConversationState)  # type: ignore[arg-type]
 
     # Agregar nodos
-    workflow.add_node("router", router_node)
-    workflow.add_node("smart_product_agent", smart_product_node)
-    workflow.add_node("data_insights_agent", placeholder_agent_node("data_insights_agent"))
-    workflow.add_node("support_agent", placeholder_agent_node("support_agent"))
-    workflow.add_node("general_agent", placeholder_agent_node("general_agent"))
+    workflow.add_node("router", router_node)  # type: ignore[arg-type]
+    workflow.add_node("smart_product_agent", smart_product_node)  # type: ignore[arg-type]
+    workflow.add_node("data_insights_agent", placeholder_agent_node("data_insights_agent"))  # type: ignore[arg-type]
+    workflow.add_node("support_agent", placeholder_agent_node("support_agent"))  # type: ignore[arg-type]
+    workflow.add_node("general_agent", placeholder_agent_node("general_agent"))  # type: ignore[arg-type]
 
     # Definir punto de entrada
     workflow.set_entry_point("router")

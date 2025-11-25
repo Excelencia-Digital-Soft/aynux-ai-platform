@@ -4,7 +4,9 @@ Graph principal del sistema multi-agente LangGraph (Simplified)
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Hashable, Optional, cast
+
+from langgraph.types import RunnableConfig
 
 from langchain_core.messages import HumanMessage
 from langgraph.graph import END, StateGraph
@@ -118,7 +120,11 @@ class AynuxGraph:
                 orchestrator_edges[agent.value] = agent.value
         orchestrator_edges["__end__"] = END
 
-        workflow.add_conditional_edges(AgentType.ORCHESTRATOR.value, self.router.route_to_agent, orchestrator_edges)
+        workflow.add_conditional_edges(
+            AgentType.ORCHESTRATOR.value,
+            self.router.route_to_agent,
+            cast(dict[Hashable, str], orchestrator_edges),
+        )
 
         # Add edges only for enabled agents
         for agent_type in get_non_supervisor_agents():
@@ -223,7 +229,7 @@ class AynuxGraph:
                 },
                 tags=["langgraph", "conversation", "multi_agent"],
             ):
-                result = await self.app.ainvoke(initial_state, config)
+                result = await self.app.ainvoke(initial_state, cast(RunnableConfig, config))
 
                 # Track response
                 if conv_tracker and result.get("messages"):
@@ -290,7 +296,7 @@ class AynuxGraph:
 
             try:
                 # Stream through the graph execution
-                async for chunk in app.astream(initial_state, config):
+                async for chunk in app.astream(initial_state, cast(RunnableConfig, config)):
                     step_count += 1
 
                     # Emit progress events based on graph steps

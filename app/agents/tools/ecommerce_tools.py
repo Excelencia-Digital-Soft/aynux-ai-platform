@@ -180,7 +180,9 @@ async def get_categories_tool(parent_category: Optional[str] = None) -> Dict[str
         categories = [cat for cat in CATEGORIES_DB if cat.get("parent") is None]  # Solo categorías raíz
 
     # Calcular estadísticas
-    total_products = sum(cat["product_count"] for cat in categories)
+    total_products = sum(
+        int(cat["product_count"]) if isinstance(cat.get("product_count"), (int, str)) else 0 for cat in categories
+    )
 
     return {
         "success": True,
@@ -228,7 +230,10 @@ async def get_promotions_tool(category: Optional[str] = None, active_only: bool 
         "total_promotions": len(promotions),
         "category_filter": category,
         "active_only": active_only,
-        "max_savings_available": max([p["discount_percentage"] for p in promotions] + [0]),
+        "max_savings_available": max(
+            [int(p["discount_percentage"]) for p in promotions if isinstance(p.get("discount_percentage"), (int, str))]
+            + [0]
+        ),
         "total_savings": total_savings,
     }
 
@@ -318,27 +323,27 @@ async def get_payment_methods_tool(order_amount: Optional[float] = None) -> Dict
     for method in PAYMENT_METHODS:
         # Verificar si el método es válido para el monto
         if order_amount:
-            min_amt = float(method["min_amount"]) if isinstance(method.get("min_amount"), (int, float, list)) else 0
-            max_amt = (
-                float(method["max_amount"])
-                if isinstance(method.get("max_amount"), (int, float, list))
-                else float("inf")
-            )
+            min_amt_val = method.get("min_amount")
+            min_amt = float(min_amt_val) if isinstance(min_amt_val, (int, float)) else 0.0
+            max_amt_val = method.get("max_amount")
+            max_amt = float(max_amt_val) if isinstance(max_amt_val, (int, float)) else float("inf")
             if order_amount < min_amt or order_amount > max_amt:
                 continue
 
         # Calcular comisión si aplica
-        fee_amount = 0
-        method_fees = float(method.get("fees", 0)) if isinstance(method.get("fees"), (int, float, list)) else 0
+        fee_amount = 0.0
+        fees_val = method.get("fees", 0)
+        method_fees = float(fees_val) if isinstance(fees_val, (int, float)) else 0.0
         if method_fees > 0 and order_amount:
             fee_amount = round(order_amount * (method_fees / 100), 2)
 
-        method_info = method.copy()
+        method_info: dict[str, object] = dict(method)
         method_info["calculated_fee"] = fee_amount
 
         # Calcular cuotas disponibles según el monto
+        installments_val = method.get("installments", [1])
         if order_amount and order_amount >= 100:
-            available_installments = method["installments"]
+            available_installments = installments_val if isinstance(installments_val, list) else [1]
         else:
             available_installments = [1]  # Solo una cuota para montos pequeños
 
@@ -346,10 +351,11 @@ async def get_payment_methods_tool(order_amount: Optional[float] = None) -> Dict
 
         # Calcular valor de cuotas
         if order_amount:
-            installment_values = {}
+            installment_values: dict[str, float] = {}
             for installments in available_installments:
-                monthly_amount = (order_amount + fee_amount) / installments
-                installment_values[str(installments)] = round(monthly_amount, 2)
+                if isinstance(installments, (int, float)) and installments > 0:
+                    monthly_amount = (order_amount + fee_amount) / installments
+                    installment_values[str(installments)] = round(monthly_amount, 2)
             method_info["installment_values"] = installment_values
 
         available_methods.append(method_info)

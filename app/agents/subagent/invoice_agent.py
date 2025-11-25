@@ -125,7 +125,10 @@ class InvoiceAgent(BaseAgent):
     def _handle_invoice_status(self, invoice_number: Optional[str], order_number: Optional[str]) -> str:
         """Maneja consultas sobre estado de factura."""
         # Simular información de factura
-        invoice_info = self._get_invoice_info(invoice_number or order_number)
+        number = invoice_number or order_number
+        if not number:
+            return "No se proporcionó número de factura u orden. Por favor proporciona un número válido."
+        invoice_info = self._get_invoice_info(number)
 
         if not invoice_info:
             return """No encontré información de factura con ese número.

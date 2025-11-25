@@ -22,6 +22,7 @@ from app.models.chat import (
     ChatStreamEvent,
     ChatStreamRequest,
     ConversationHistoryResponse,
+    StreamEventType,
 )
 from app.orchestration import SuperOrchestrator
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
@@ -257,7 +258,7 @@ async def process_chat_message_stream(request: ChatStreamRequest):
                 logger.error(f"Error in streaming: {str(e)}")
                 # Enviar evento de error en formato SSE
                 error_event = ChatStreamEvent(
-                    event_type="error",
+                    event_type=StreamEventType.ERROR,
                     message=f"❌ Error procesando tu mensaje: {str(e)}",
                     agent_current="fallback",
                     progress=0.0,

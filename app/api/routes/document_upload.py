@@ -122,7 +122,8 @@ async def upload_pdf(
     """
     try:
         # Validate file type
-        if not file.filename.lower().endswith(".pdf"):
+        filename = file.filename or ""
+        if not filename.lower().endswith(".pdf"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File must be a PDF (.pdf extension required)",
@@ -281,7 +282,8 @@ async def batch_upload_documents(
             file_bytes = await file.read()
 
             # Determine file type
-            if file.filename.lower().endswith(".pdf"):
+            file_name = file.filename or ""
+            if file_name.lower().endswith(".pdf"):
                 doc_type = "pdf"
             else:
                 # Assume text file

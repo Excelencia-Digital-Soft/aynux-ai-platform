@@ -4,7 +4,7 @@ Integración con Ollama para LLMs locales
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 from langchain_ollama import ChatOllama, OllamaEmbeddings
@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 class OllamaIntegration:
     """Gestiona la integración con Ollama para LLMs y embeddings"""
 
-    def __init__(self, config: dict = None, base_url: str = None, model_name: str = None):
+    def __init__(
+        self, config: dict[str, Any] | None = None, base_url: str | None = None, model_name: str | None = None
+    ):
         self.settings = get_settings()
 
         # Handle config dictionary or individual parameters

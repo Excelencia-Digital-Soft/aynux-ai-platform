@@ -109,7 +109,7 @@ def trace_async_method(
 
             @traceable(
                 name=trace_name,
-                run_type=run_type,
+                run_type=run_type,  # type: ignore[arg-type]
                 metadata=trace_metadata,
                 project_name=tracer.config.project_name,
             )
@@ -157,7 +157,7 @@ def trace_sync_method(name: Optional[str] = None, run_type: str = "chain", metad
         @wraps(func)
         @traceable(
             name=trace_name,
-            run_type=run_type,
+            run_type=run_type,  # type: ignore[arg-type]
             metadata=metadata,
             project_name=tracer.config.project_name,
         )
@@ -273,8 +273,10 @@ class AgentTracer:
 
                 finally:
                     duration_ms = (time.time() - start_time) * 1000
-                    self.metrics["total_duration_ms"] += duration_ms
-                    self.metrics["avg_duration_ms"] = self.metrics["total_duration_ms"] / self.metrics["total_calls"]
+                    self.metrics["total_duration_ms"] = int(self.metrics["total_duration_ms"]) + int(duration_ms)
+                    self.metrics["avg_duration_ms"] = int(
+                        self.metrics["total_duration_ms"] / max(self.metrics["total_calls"], 1)
+                    )
 
                     # Log metrics
                     logger.debug(f"Agent {self.agent_name} metrics: {self.metrics}")

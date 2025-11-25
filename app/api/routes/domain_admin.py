@@ -230,7 +230,7 @@ async def assign_contact_domain(
             wa_id=wa_id,
             domain=assignment.domain,
             method=assignment.method,
-            confidence=assignment.confidence,
+            confidence=assignment.confidence or 1.0,
         )
 
         logger.info(f"Domain manually assigned: {wa_id} -> {assignment.domain}")

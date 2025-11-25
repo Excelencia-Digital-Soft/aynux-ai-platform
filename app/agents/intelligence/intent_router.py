@@ -19,7 +19,7 @@ from .spacy_intent_analyzer import SpacyIntentAnalyzer
 logger = logging.getLogger(__name__)
 
 
-def _get_cache_key(message: str, context: Dict[str, Any] = None) -> str:
+def _get_cache_key(message: str, context: Dict[str, Any] | None = None) -> str:
     """Generate cache key based on message and context"""
     # Normalize message for better hit rate but keep it unique
     normalized_message = message.lower().strip()

@@ -179,10 +179,12 @@ class ExcelenciaAgent(BaseAgent):
         # Detectar módulos mencionados
         mentioned_modules = []
         for module_id, module_info in EXCELENCIA_MODULES.items():
+            name = str(module_info["name"])
+            features = module_info["features"]
             module_keywords = [
-                module_info["name"].lower(),
+                name.lower(),
                 module_id.replace("_", " "),
-            ] + [feature.lower() for feature in module_info["features"][:2]]
+            ] + [str(f).lower() for f in features[:2]]
 
             if any(keyword in message_lower for keyword in module_keywords):
                 mentioned_modules.append(module_id)
@@ -209,7 +211,8 @@ Responde solo con el JSON, sin texto adicional."""
 
             # Intentar parsear como JSON
             try:
-                ai_analysis = json.loads(response.content)
+                response_text = response.content if isinstance(response.content, str) else str(response.content)
+                ai_analysis = json.loads(response_text)
                 return {
                     "query_type": ai_analysis.get("query_type", query_type),
                     "user_intent": ai_analysis.get("user_intent", ""),
@@ -255,8 +258,8 @@ Responde solo con el JSON, sin texto adicional."""
                 use_case = container.create_search_knowledge_use_case(db)
                 results = await use_case.execute(
                     query=query,
-                    limit=self.rag_max_results,
-                    use_vector_search=True,
+                    max_results=self.rag_max_results,
+                    search_strategy="pgvector_primary",
                 )
 
                 if not results:

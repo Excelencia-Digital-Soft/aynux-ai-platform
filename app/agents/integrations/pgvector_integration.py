@@ -346,15 +346,16 @@ class PgVectorIntegration:
         # Get brand name for context
         brand_name = ""
         if product.brand is not None and hasattr(product.brand, "name"):
-            brand_name = product.brand.name
+            brand_name = str(product.brand.name) if product.brand.name else ""
 
         # Product name (highest weight) with abbreviation expansion
         if product.name is not None:
-            expanded_name = self._expand_product_name_abbreviations(product.name, brand_name)
+            name_str = str(product.name)
+            expanded_name = self._expand_product_name_abbreviations(name_str, brand_name)
             parts.append(f"Product: {expanded_name}")
 
         # Brand with additional context
-        if brand_name is not None:  # brand_name is guaranteed to be str, empty or non-empty
+        if brand_name:  # brand_name is guaranteed to be str, empty or non-empty
             brand_context = self._get_brand_context(brand_name)
             parts.append(f"Brand: {brand_name} {brand_context}")
 
@@ -369,12 +370,14 @@ class PgVectorIntegration:
         # Description
         if product.description is not None:
             # Limit description length
-            desc = product.description[:500] if len(product.description) > 500 else product.description
+            desc_str = str(product.description)
+            desc = desc_str[:500] if len(desc_str) > 500 else desc_str
             parts.append(f"Description: {desc}")
 
         # Specs
         if product.specs is not None:
-            specs = product.specs[:300] if len(product.specs) > 300 else product.specs
+            specs_str = str(product.specs)
+            specs = specs_str[:300] if len(specs_str) > 300 else specs_str
             parts.append(f"Specifications: {specs}")
 
         # Technical specs (JSONB)

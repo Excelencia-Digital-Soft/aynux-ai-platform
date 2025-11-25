@@ -17,7 +17,7 @@ router = APIRouter(tags=["phone-normalization"])
 @router.post("/normalize", response_model=PhoneNumberResponse)
 async def normalize_phone_number(
     request: PhoneNumberRequest,
-    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),  # type: ignore  # noqa: B008
+    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),  # noqa: B008
 ):
     """
     Normaliza un número de teléfono para WhatsApp
@@ -76,7 +76,12 @@ async def normalize_batch_phone_numbers(
         except Exception as e:
             # En lote, no falla todo si uno falla
             responses.append(
-                PhoneNumberResponse(success=False, error_message=f"Error processing {request.phone_number}: {str(e)}")
+                PhoneNumberResponse(
+                    success=False,
+                    phone_info=None,
+                    normalized_number=None,
+                    error_message=f"Error processing {request.phone_number}: {str(e)}",
+                )
             )
 
     return responses
@@ -85,7 +90,7 @@ async def normalize_batch_phone_numbers(
 @router.get("/validate/{phone_number}")
 async def quick_validate(
     phone_number: str,
-    country: SupportedCountry = None,
+    country: SupportedCountry | None = None,
     test_mode: bool = True,
     normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),  # noqa: B008
 ):
