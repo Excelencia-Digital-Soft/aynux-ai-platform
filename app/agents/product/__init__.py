@@ -15,7 +15,6 @@ from .intent_analyzer import IntentAnalyzer
 from .models import SearchResult, SearchStrategyType, UserIntent
 from .search_strategy_manager import SearchStrategyManager
 from .strategies import (
-    ChromaDBSearchStrategy,
     DatabaseSearchStrategy,
     PgVectorSearchStrategy,
 )
@@ -27,6 +26,5 @@ __all__ = [
     "IntentAnalyzer",
     "SearchStrategyManager",
     "PgVectorSearchStrategy",
-    "ChromaDBSearchStrategy",
     "DatabaseSearchStrategy",
 ]

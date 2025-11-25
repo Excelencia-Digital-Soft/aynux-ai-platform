@@ -24,7 +24,7 @@ class BaseAgent(ABC):
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.{name}")
 
-        # Integraciones (Ollama, PostgreSQL, ChromaDB, etc.)
+        # Integraciones (Ollama, PostgreSQL, pgvector, etc.)
         self.integrations = integrations
         self.tools = []
 

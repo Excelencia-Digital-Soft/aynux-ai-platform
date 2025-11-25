@@ -13,11 +13,10 @@ from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable
 class VectorStoreType(str, Enum):
     """Tipos de vector stores soportados"""
 
-    PGVECTOR = "pgvector"  # PostgreSQL con extensión pgvector
-    CHROMA = "chroma"  # ChromaDB (legacy)
-    PINECONE = "pinecone"  # Pinecone cloud
-    WEAVIATE = "weaviate"  # Weaviate
-    FAISS = "faiss"  # Facebook AI Similarity Search
+    PGVECTOR = "pgvector"  # PostgreSQL con extensión pgvector (primary)
+    PINECONE = "pinecone"  # Pinecone cloud (future)
+    WEAVIATE = "weaviate"  # Weaviate (future)
+    FAISS = "faiss"  # Facebook AI Similarity Search (future)
 
 
 @dataclass

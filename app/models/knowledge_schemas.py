@@ -209,19 +209,7 @@ class KnowledgeSearch(BaseModel):
         description="Filter by tags (documents with ANY of these tags)",
     )
 
-    search_strategy: Optional[str] = Field(
-        None,
-        description="Search strategy: pgvector_primary, chroma_primary, or hybrid",
-        examples=["hybrid"],
-    )
-
-    @field_validator("search_strategy")
-    @classmethod
-    def validate_search_strategy(cls, v: Optional[str]) -> Optional[str]:
-        """Validate search strategy if provided."""
-        if v is not None and v not in ["pgvector_primary", "chroma_primary", "hybrid"]:
-            raise ValueError("search_strategy must be pgvector_primary, chroma_primary, or hybrid")
-        return v
+    # Note: search_strategy field removed - pgvector is now the only vector store
 
 
 # ============================================================================
@@ -314,11 +302,11 @@ class KnowledgeListResponse(BaseModel):
 
 
 class KnowledgeStats(BaseModel):
-    """Schema for knowledge base statistics."""
+    """Schema for knowledge base statistics (pgvector only)."""
 
     database: Dict[str, Any] = Field(
         ...,
-        description="Database statistics",
+        description="Database and pgvector statistics",
         examples=[
             {
                 "total_active": 50,
@@ -327,11 +315,6 @@ class KnowledgeStats(BaseModel):
                 "embedding_coverage": 96.0,
             }
         ],
-    )
-    chromadb_collections: Dict[str, int] = Field(
-        ...,
-        description="ChromaDB collection statistics",
-        examples=[{"all_knowledge": 50, "mission_vision": 5, "faq": 20}],
     )
     embedding_model: str = Field(..., description="Embedding model name", examples=["nomic-embed-text"])
 

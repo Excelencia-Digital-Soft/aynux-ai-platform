@@ -17,12 +17,10 @@ from typing import Any, Dict, Optional
 from app.agents.integrations.ollama_integration import OllamaIntegration
 from app.config.settings import get_settings
 
-from ..integrations.chroma_integration import ChromaDBIntegration
 from ..integrations.pgvector_integration import PgVectorIntegration
 from ..product.product_agent_orchestrator import ProductAgentOrchestrator
 from ..product.response import AIResponseGenerator
 from ..product.strategies import (
-    ChromaDBSearchStrategy,
     DatabaseSearchStrategy,
     PgVectorSearchStrategy,
     SQLGenerationSearchStrategy,
@@ -106,28 +104,15 @@ class RefactoredProductAgent(BaseAgent):
         """
         strategies = []
 
-        # pgvector strategy (highest priority if enabled)
-        use_pgvector = getattr(settings, "USE_PGVECTOR", True)
-        if use_pgvector:
-            pgvector_integration = PgVectorIntegration(ollama=self.ollama)
-            strategies.append(
-                PgVectorSearchStrategy(
-                    pgvector=pgvector_integration,
-                    config=config,
-                )
-            )
-            logger.info("pgvector search strategy enabled (priority: 10)")
-
-        # ChromaDB strategy (medium priority, fallback)
-        chroma_integration = ChromaDBIntegration()
+        # pgvector strategy (highest priority - primary vector search)
+        pgvector_integration = PgVectorIntegration(ollama=self.ollama)
         strategies.append(
-            ChromaDBSearchStrategy(
-                chroma=chroma_integration,
-                collection_name="products",  # Default collection name
+            PgVectorSearchStrategy(
+                pgvector=pgvector_integration,
                 config=config,
             )
         )
-        logger.info("ChromaDB search strategy enabled (priority: 30)")
+        logger.info("pgvector search strategy enabled (priority: 10)")
 
         # SQL Generation strategy (medium-low priority, for complex queries)
         use_sql_generation = getattr(settings, "USE_SQL_GENERATION", True)

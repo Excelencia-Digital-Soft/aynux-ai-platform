@@ -304,14 +304,13 @@ async def search_knowledge(
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
-    Search the knowledge base with various strategies.
+    Search the knowledge base using pgvector semantic search.
 
     - **query**: Search text (required)
     - **max_results**: Maximum results to return (1-50)
     - **document_type**: Filter by document type
     - **category**: Filter by category
     - **tags**: Filter by tags
-    - **search_strategy**: pgvector_primary | chroma_primary | hybrid (default)
 
     Returns ranked results with similarity scores.
     """
@@ -354,39 +353,29 @@ async def search_knowledge(
 )
 async def regenerate_embedding(
     knowledge_id: UUID,
-    update_pgvector: bool = Query(True, description="Update pgvector embeddings"),  # noqa: B008
-    update_chroma: bool = Query(True, description="Update ChromaDB embeddings"),  # noqa: B008
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
-    Regenerate embeddings for a specific document.
+    Regenerate pgvector embeddings for a specific document.
 
     Useful when:
     - Changing embedding models
     - Fixing corrupted embeddings
     - Re-syncing after manual content edits
-
-    - **update_pgvector**: Update PostgreSQL pgvector embeddings
-    - **update_chroma**: Update ChromaDB embeddings
     """
     try:
         container = DependencyContainer()
         use_case = container.create_regenerate_knowledge_embeddings_use_case(db)
 
         # Regenerate embeddings (will verify document exists)
-        await use_case.execute(
-            knowledge_id=knowledge_id,
-            update_pgvector=update_pgvector,
-            update_chroma=update_chroma,
-        )
+        await use_case.execute(knowledge_id=knowledge_id)
 
         return MessageResponse(
             message=f"Embeddings regenerated successfully for document {knowledge_id}",
             success=True,
             details={
                 "knowledge_id": str(knowledge_id),
-                "pgvector_updated": update_pgvector,
-                "chroma_updated": update_chroma,
+                "pgvector_updated": True,
             },
         )
     except ValueError as e:
@@ -412,18 +401,13 @@ async def regenerate_embedding(
     description="Regenerate embeddings for ALL documents in the knowledge base",
 )
 async def sync_all_embeddings(
-    update_pgvector: bool = Query(True, description="Update pgvector embeddings"),  # noqa: B008
-    update_chroma: bool = Query(True, description="Update ChromaDB embeddings"),  # noqa: B008
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
-    Regenerate embeddings for ALL knowledge documents.
+    Regenerate pgvector embeddings for ALL knowledge documents.
 
     WARNING: This can take several minutes for large knowledge bases.
     Use with caution in production environments.
-
-    - **update_pgvector**: Update PostgreSQL pgvector embeddings
-    - **update_chroma**: Update ChromaDB embeddings
 
     This endpoint is useful for:
     - Initial setup after bulk import
@@ -431,24 +415,19 @@ async def sync_all_embeddings(
     - Migrating to a new embedding model
     """
     try:
-        logger.info(f"Starting full embedding sync (pgvector={update_pgvector}, chroma={update_chroma})")
+        logger.info("Starting full pgvector embedding sync")
 
         container = DependencyContainer()
         use_case = container.create_regenerate_knowledge_embeddings_use_case(db)
 
         # Regenerate all embeddings (knowledge_id=None means all documents)
-        processed_count = await use_case.execute(
-            knowledge_id=None,
-            update_pgvector=update_pgvector,
-            update_chroma=update_chroma,
-        )
+        processed_count = await use_case.execute(knowledge_id=None)
 
         return MessageResponse(
             message="All embeddings synchronized successfully",
             success=True,
             details={
-                "pgvector_updated": update_pgvector,
-                "chroma_updated": update_chroma,
+                "pgvector_updated": True,
                 "processed_documents": processed_count,
             },
         )

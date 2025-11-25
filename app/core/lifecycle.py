@@ -106,7 +106,7 @@ class LifecycleManager:
             if settings.DUX_API_KEY:
                 await self._verify_dux_connectivity()
 
-            # Verify Ollama/ChromaDB connectivity
+            # Verify Ollama connectivity (embeddings)
             await self._verify_embedding_connectivity()
 
         except Exception as e:
@@ -126,15 +126,19 @@ class LifecycleManager:
             logger.warning(f"DUX API connectivity check failed: {e}")
 
     async def _verify_embedding_connectivity(self) -> None:
-        """Verify embedding service (Ollama/ChromaDB) is accessible."""
+        """Verify embedding service (Ollama/pgvector) is accessible."""
         try:
-            from app.services.embedding_update_service import EmbeddingUpdateService
+            from langchain_ollama import OllamaEmbeddings
 
-            embedding_service = EmbeddingUpdateService()
-            stats = embedding_service.get_collection_stats()
-            logger.info(f"ChromaDB/Ollama connectivity verified - Collections: {len(stats)}")
+            embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
+            # Simple test embedding
+            test_result = embeddings.embed_query("test")
+            if test_result and len(test_result) > 0:
+                logger.info(f"Ollama embeddings connectivity verified - Dimension: {len(test_result)}")
+            else:
+                logger.warning("Ollama embeddings test returned empty result")
         except Exception as e:
-            logger.warning(f"ChromaDB/Ollama connectivity failed: {e}")
+            logger.warning(f"Ollama embeddings connectivity failed: {e}")
 
 
 # Global lifecycle manager instance

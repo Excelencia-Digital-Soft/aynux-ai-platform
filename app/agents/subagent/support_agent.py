@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 class SupportAgent(BaseAgent):
     """Agente especializado en soporte técnico y resolución de problemas"""
 
-    def __init__(self, ollama=None, chroma=None, config: Optional[Dict[str, Any]] = None):
-        super().__init__("support_agent", config or {}, ollama=ollama, chroma=chroma)
+    def __init__(self, ollama=None, config: Optional[Dict[str, Any]] = None):
+        super().__init__("support_agent", config or {}, ollama=ollama)
 
         # FAQ común
         self.faq_responses = self._load_faq_responses()

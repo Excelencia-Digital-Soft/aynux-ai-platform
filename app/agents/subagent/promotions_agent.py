@@ -12,8 +12,8 @@ from .base_agent import BaseAgent
 class PromotionsAgent(BaseAgent):
     """Agente especializado en promociones, ofertas y descuentos"""
 
-    def __init__(self, ollama=None, chroma=None, config: Optional[Dict[str, Any]] = None):
-        super().__init__("promotions_agent", config or {}, ollama=ollama, chroma=chroma)
+    def __init__(self, ollama=None, config: Optional[Dict[str, Any]] = None):
+        super().__init__("promotions_agent", config or {}, ollama=ollama)
 
         # Inicializar herramientas simuladas
         self.active_tool = ActivePromotionsTool(None)

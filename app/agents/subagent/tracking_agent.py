@@ -13,8 +13,8 @@ from .base_agent import BaseAgent
 class TrackingAgent(BaseAgent):
     """Agente especializado en rastreo de pedidos y estado de envíos"""
 
-    def __init__(self, ollama=None, chroma=None, config: Optional[Dict[str, Any]] = None):
-        super().__init__("tracking_agent", config or {}, ollama=ollama, chroma=chroma)
+    def __init__(self, ollama=None, config: Optional[Dict[str, Any]] = None):
+        super().__init__("tracking_agent", config or {}, ollama=ollama)
 
         # Inicializar herramientas simuladas
         self.order_tool = OrderLookupTool(None)

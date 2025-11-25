@@ -26,9 +26,8 @@ logger = logging.getLogger(__name__)
 class AgentFactory:
     """Factory class for creating and managing agent instances"""
 
-    def __init__(self, ollama, chroma, postgres, config: Dict[str, Any]):
+    def __init__(self, ollama, postgres, config: Dict[str, Any]):
         self.ollama = ollama
-        self.chroma = chroma
         self.postgres = postgres
         self.config = config
         self.agents = {}
@@ -66,21 +65,20 @@ class AgentFactory:
                     config=self._extract_config(agent_configs, "data_insights"),
                 ),
                 "promotions_agent": lambda: PromotionsAgent(
-                    ollama=self.ollama, chroma=self.chroma, config=self._extract_config(agent_configs, "promotions")
+                    ollama=self.ollama, config=self._extract_config(agent_configs, "promotions")
                 ),
                 "tracking_agent": lambda: TrackingAgent(
-                    ollama=self.ollama, chroma=self.chroma, config=self._extract_config(agent_configs, "tracking")
+                    ollama=self.ollama, config=self._extract_config(agent_configs, "tracking")
                 ),
                 "support_agent": lambda: SupportAgent(
-                    ollama=self.ollama, chroma=self.chroma, config=self._extract_config(agent_configs, "support")
+                    ollama=self.ollama, config=self._extract_config(agent_configs, "support")
                 ),
                 "invoice_agent": lambda: InvoiceAgent(
-                    ollama=self.ollama, chroma=self.chroma, config=self._extract_config(agent_configs, "invoice")
+                    ollama=self.ollama, config=self._extract_config(agent_configs, "invoice")
                 ),
                 "excelencia_agent": lambda: ExcelenciaAgent(
                     ollama=self.ollama,
                     postgres=self.postgres,
-                    chroma=self.chroma,
                     config=self._extract_config(agent_configs, "excelencia"),
                 ),
                 "fallback_agent": lambda: FallbackAgent(ollama=self.ollama, postgres=self.postgres, config={}),

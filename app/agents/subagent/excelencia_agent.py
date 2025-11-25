@@ -84,8 +84,8 @@ class ExcelenciaAgent(BaseAgent):
     - Productos verticales (Salud, Hoteles, etc.)
     """
 
-    def __init__(self, ollama=None, postgres=None, chroma=None, config: Optional[Dict[str, Any]] = None):
-        super().__init__("excelencia_agent", config or {}, ollama=ollama, postgres=postgres, chroma=chroma)
+    def __init__(self, ollama=None, postgres=None, config: Optional[Dict[str, Any]] = None):
+        super().__init__("excelencia_agent", config or {}, ollama=ollama, postgres=postgres)
 
         # Configuración específica del agente
         self.ollama = ollama or OllamaIntegration()

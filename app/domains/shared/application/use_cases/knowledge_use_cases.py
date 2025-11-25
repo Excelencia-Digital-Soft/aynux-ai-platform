@@ -80,7 +80,7 @@ class SearchKnowledgeUseCase:
             document_type: Optional filter by document type
             category: Optional filter by category
             tags: Optional filter by tags
-            search_strategy: Search strategy - "pgvector_primary", "chroma_primary", or "hybrid" (default)
+            search_strategy: Search strategy - "pgvector" (default, semantic search via pgvector)
 
         Returns:
             List of knowledge documents with relevance scores
@@ -103,42 +103,20 @@ class SearchKnowledgeUseCase:
             if max_results < 1 or max_results > 100:
                 max_results = 10  # Default limit
 
-            # Determine search strategy (default to hybrid)
-            strategy = search_strategy or settings.KNOWLEDGE_SEARCH_STRATEGY or "hybrid"
-
             results = []
 
-            # Execute search based on strategy
-            if strategy in ["hybrid", "chroma_primary"]:
-                # Vector similarity search (semantic) using ChromaDB
-                try:
-                    vector_results = await self.embedding_service.search_knowledge(
-                        query=query,
-                        k=max_results,
-                        filter_type=document_type,
-                    )
-                    results.extend(vector_results)
-                    logger.info(f"ChromaDB search returned {len(vector_results)} results")
-                except Exception as e:
-                    logger.error(f"ChromaDB search failed: {e}")
-                    # Continue to try other strategies
-
-            if strategy in ["hybrid", "pgvector_primary"]:
-                # SQL search with pgvector (if not enough results from ChromaDB)
-                if strategy == "hybrid" and len(results) >= max_results:
-                    # Already have enough results from ChromaDB
-                    pass
-                else:
-                    try:
-                        sql_results = await self.repository.search_by_keywords(
-                            query=query,
-                            limit=max_results,
-                            document_type=document_type,
-                        )
-                        results.extend(sql_results)
-                        logger.info(f"SQL/pgvector search returned {len(sql_results)} results")
-                    except Exception as e:
-                        logger.error(f"SQL search failed: {e}")
+            # Execute pgvector semantic search (primary strategy)
+            try:
+                vector_results = await self.embedding_service.search_knowledge(
+                    query=query,
+                    k=max_results,
+                    document_type=document_type,
+                )
+                results.extend(vector_results)
+                logger.info(f"pgvector search returned {len(vector_results)} results")
+            except Exception as e:
+                logger.error(f"pgvector search failed: {e}")
+                # Continue to try SQL fallback
 
             # Fallback to SQL search if no results from vector search
             if not results:
@@ -164,7 +142,7 @@ class SearchKnowledgeUseCase:
                     if len(unique_results) >= max_results:
                         break
 
-            logger.info(f"Search completed: {len(unique_results)} unique results (strategy: {strategy})")
+            logger.info(f"Search completed: {len(unique_results)} unique results (strategy: pgvector)")
             return unique_results
 
         except Exception as e:
@@ -181,7 +159,7 @@ class CreateKnowledgeUseCase:
     Responsibilities:
     - Validate input data (title, content, document_type required)
     - Create document in database
-    - Generate vector embeddings (pgvector + ChromaDB)
+    - Generate vector embeddings (pgvector)
     - Handle errors and rollback on failure
 
     Follows SRP: Single responsibility for knowledge creation logic
@@ -254,8 +232,6 @@ class CreateKnowledgeUseCase:
                 try:
                     await self.embedding_service.update_knowledge_embeddings(
                         knowledge_id=str(knowledge.id),
-                        update_pgvector=settings.USE_PGVECTOR,
-                        update_chroma=True,
                     )
                     # Refresh to get updated embedding
                     await self.db.refresh(knowledge)
@@ -438,8 +414,6 @@ class UpdateKnowledgeUseCase:
                 try:
                     await self.embedding_service.update_knowledge_embeddings(
                         knowledge_id=str(knowledge_id),
-                        update_pgvector=settings.USE_PGVECTOR,
-                        update_chroma=True,
                     )
                     await self.db.refresh(knowledge)
                     logger.info(f"Regenerated embeddings for knowledge ID: {knowledge_id}")
@@ -538,7 +512,7 @@ class DeleteKnowledgeUseCase:
                     logger.info(f"Soft deleted knowledge document: {knowledge_id}")
             else:
                 success = await self.repository.delete(knowledge_id)
-                # Also delete from ChromaDB for hard delete
+                # Also delete embeddings for hard delete
                 if success:
                     try:
                         await self.embedding_service.delete_knowledge_embeddings(str(knowledge_id))
@@ -693,7 +667,7 @@ class GetKnowledgeStatisticsUseCase:
     - Count total documents (active/inactive)
     - Count documents without embeddings
     - Calculate embedding coverage percentage
-    - Get ChromaDB collection stats
+    - Get pgvector embedding stats
     - Return formatted statistics
 
     Follows SRP: Single responsibility for statistics collection
@@ -738,7 +712,6 @@ class GetKnowledgeStatisticsUseCase:
             #         "missing_embeddings": 2,
             #         "embedding_coverage": 96.0
             #     },
-            #     "chromadb_collections": {...},
             #     "embedding_model": "nomic-embed-text"
             # }
         """
@@ -747,9 +720,6 @@ class GetKnowledgeStatisticsUseCase:
             total_active = await self.repository.count_documents(active_only=True)
             total_inactive = await self.repository.count_documents(active_only=False) - total_active
             docs_without_embeddings = len(await self.repository.get_documents_without_embeddings())
-
-            # Get ChromaDB stats
-            chroma_stats = self.embedding_service.get_chroma_collection_stats()
 
             # Calculate embedding coverage
             embedding_coverage = (
@@ -763,7 +733,6 @@ class GetKnowledgeStatisticsUseCase:
                     "missing_embeddings": docs_without_embeddings,
                     "embedding_coverage": round(embedding_coverage, 2),
                 },
-                "chromadb_collections": chroma_stats,
                 "embedding_model": self.embedding_service.embedding_model,
             }
 
@@ -813,16 +782,12 @@ class RegenerateKnowledgeEmbeddingsUseCase:
     async def execute(
         self,
         knowledge_id: Optional[UUID] = None,
-        update_pgvector: bool = True,
-        update_chroma: bool = True,
     ) -> int:
         """
-        Regenerate embeddings for one or all knowledge documents.
+        Regenerate embeddings for one or all knowledge documents in pgvector.
 
         Args:
             knowledge_id: UUID of document to regenerate (None = all documents)
-            update_pgvector: Whether to update pgvector embeddings
-            update_chroma: Whether to update ChromaDB embeddings
 
         Returns:
             Number of documents processed
@@ -834,7 +799,7 @@ class RegenerateKnowledgeEmbeddingsUseCase:
         try:
             if knowledge_id is not None:
                 # Regenerate single document
-                logger.info(f"Regenerating embeddings for document: {knowledge_id}")
+                logger.info(f"Regenerating pgvector embeddings for document: {knowledge_id}")
 
                 # Verify document exists
                 knowledge = await self.repository.get_by_id(knowledge_id)
@@ -843,16 +808,7 @@ class RegenerateKnowledgeEmbeddingsUseCase:
 
                 # Regenerate embeddings
                 await self.embedding_service.update_knowledge_embeddings(
-                    knowledge_id=knowledge_id,
-                    title=knowledge.title,
-                    content=knowledge.content,
-                    metadata={
-                        "document_type": knowledge.document_type,
-                        "category": knowledge.category or "",
-                        "tags": knowledge.tags or [],
-                    },
-                    update_pgvector=update_pgvector,
-                    update_chroma=update_chroma,
+                    knowledge_id=str(knowledge_id),
                 )
 
                 logger.info(f"Successfully regenerated embeddings for document: {knowledge_id}")
@@ -860,31 +816,14 @@ class RegenerateKnowledgeEmbeddingsUseCase:
 
             else:
                 # Regenerate all documents
-                logger.info("Regenerating embeddings for ALL knowledge documents")
+                logger.info("Regenerating pgvector embeddings for ALL knowledge documents")
 
-                # Get all active documents
+                # Use the service's rebuild method for efficiency
+                await self.embedding_service.rebuild_all_embeddings()
+
+                # Get count of processed documents
                 all_knowledge = await self.repository.get_all()
-                processed_count = 0
-
-                for knowledge in all_knowledge:
-                    try:
-                        await self.embedding_service.update_knowledge_embeddings(
-                            knowledge_id=knowledge.id,
-                            title=knowledge.title,
-                            content=knowledge.content,
-                            metadata={
-                                "document_type": knowledge.document_type,
-                                "category": knowledge.category or "",
-                                "tags": knowledge.tags or [],
-                            },
-                            update_pgvector=update_pgvector,
-                            update_chroma=update_chroma,
-                        )
-                        processed_count += 1
-
-                    except Exception as e:
-                        logger.error(f"Error regenerating embeddings for {knowledge.id}: {e}")
-                        # Continue with next document
+                processed_count = len(all_knowledge)
 
                 logger.info(f"Successfully regenerated embeddings for {processed_count} documents")
                 return processed_count

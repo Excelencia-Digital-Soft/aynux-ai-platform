@@ -190,7 +190,6 @@ class SystemMonitor:
             if graph_system:
                 components["ollama"] = hasattr(graph_system, "ollama") and graph_system.ollama is not None
                 components["postgres"] = hasattr(graph_system, "postgres") and graph_system.postgres is not None
-                components["chroma"] = hasattr(graph_system, "chroma") and graph_system.chroma is not None
                 components["supervisor_agent"] = graph_system.agents.get(AgentType.SUPERVISOR.value) is not None
 
             health_status: Dict[str, Any] = {

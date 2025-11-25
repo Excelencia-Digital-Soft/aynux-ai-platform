@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 class InvoiceAgent(BaseAgent):
     """Agente especializado en facturación, pagos y consultas financieras"""
 
-    def __init__(self, ollama=None, chroma=None, config: Optional[Dict[str, Any]] = None):
-        super().__init__("invoice_agent", config or {}, ollama=ollama, chroma=chroma)
+    def __init__(self, ollama=None, config: Optional[Dict[str, Any]] = None):
+        super().__init__("invoice_agent", config or {}, ollama=ollama)
 
     @trace_async_method(
         name="invoice_agent_process",

@@ -14,7 +14,6 @@ from app.config.langsmith_config import ConversationTracer, get_tracer
 
 from .execution.node_executor import NodeExecutor
 from .factories.agent_factory import AgentFactory
-from .integrations.chroma_integration import ChromaDBIntegration
 from .integrations.ollama_integration import OllamaIntegration
 from .integrations.postgres_integration import PostgreSQLIntegration
 from .routing.graph_router import GraphRouter
@@ -54,12 +53,11 @@ class AynuxGraph:
         # Initialize integrations
         integrations_config = self._get_integrations_config()
         self.ollama = OllamaIntegration(integrations_config.get("ollama", {}))
-        self.chroma = ChromaDBIntegration(integrations_config.get("chromadb", {}))
         self.postgres = PostgreSQLIntegration(integrations_config.get("postgres", {}))
 
         # Initialize factory and create agents
         self.agent_factory = AgentFactory(
-            ollama=self.ollama, chroma=self.chroma, postgres=self.postgres, config=self.config
+            ollama=self.ollama, postgres=self.postgres, config=self.config
         )
         self.agents = self.agent_factory.initialize_all_agents()
 

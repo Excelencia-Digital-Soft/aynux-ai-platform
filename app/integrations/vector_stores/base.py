@@ -56,7 +56,7 @@ def create_vector_store(
     Factory function to create vector store based on type.
 
     Args:
-        store_type: Type of vector store (PGVECTOR, CHROMA, PINECONE, etc.)
+        store_type: Type of vector store (PGVECTOR is primary, others are future)
         collection_name: Name of the collection/table
         embedding_dimension: Dimension of embeddings
         **kwargs: Additional parameters specific to the store type
@@ -68,7 +68,7 @@ def create_vector_store(
         ```python
         from app.integrations.vector_stores import create_vector_store, VectorStoreType
 
-        # Create pgvector store
+        # Create pgvector store (primary vector store)
         store = create_vector_store(
             store_type=VectorStoreType.PGVECTOR,
             collection_name="products",
@@ -85,9 +85,6 @@ def create_vector_store(
     """
     if store_type == VectorStoreType.PGVECTOR:
         return PgVectorStore(collection_name=collection_name, embedding_dimension=embedding_dimension, **kwargs)
-    elif store_type == VectorStoreType.CHROMA:
-        # TODO: Implement ChromaDB integration
-        raise NotImplementedError("ChromaDB integration not yet implemented in new architecture")
     elif store_type == VectorStoreType.PINECONE:
         # TODO: Implement Pinecone integration
         raise NotImplementedError("Pinecone integration not yet implemented")
@@ -119,13 +116,6 @@ class VectorStoreFactory(IVectorStoreFactory):
             "products",
             config={"embedding_dimension": 768}
         )
-
-        # Future: ChromaDB
-        # chroma = factory.create_vector_store(
-        #     VectorStoreType.CHROMA,
-        #     "products",
-        #     config={"persist_directory": "./chroma_data"}
-        # )
         ```
     """
 
