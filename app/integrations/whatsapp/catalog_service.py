@@ -8,10 +8,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.config.settings import get_settings
+from app.integrations.whatsapp.service import WhatsAppService
 from app.models.whatsapp_advanced import (
     WhatsAppApiResponse,
 )
-from app.integrations.whatsapp.service import WhatsAppService
 
 logger = logging.getLogger(__name__)
 
@@ -421,4 +421,3 @@ class DefaultCatalogDecisionEngine(ICatalogDecisionEngine):
         valid_products.sort(key=lambda p: (0 if p.get("price") else 1, p.get("name", "").lower()))
 
         return valid_products[:max_products]
-

@@ -141,9 +141,9 @@ class DuxRubrosClient:
         try:
             # Aplicar rate limiting antes de la prueba de conexión
             rate_info = await dux_rate_limiter.wait_for_next_request()
-            if rate_info['wait_time_seconds'] > 0:
+            if rate_info["wait_time_seconds"] > 0:
                 self.logger.debug(f"Rate limit wait for rubros connection test: {rate_info['wait_time_seconds']:.2f}s")
-            
+
             await self.get_rubros()
             self.logger.info("DUX API rubros connection test successful")
             return True

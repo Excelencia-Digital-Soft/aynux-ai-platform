@@ -7,7 +7,7 @@ import logging
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ class WhatsAppMessageBatcher:
         self._batch_counter = 0
 
         # Estadísticas
-        self._stats = {
+        self._stats: Dict[str, Union[int, float, None]] = {
             "total_batches": 0,
             "total_messages": 0,
             "avg_batch_size": 0.0,
@@ -86,7 +86,12 @@ class WhatsAppMessageBatcher:
         logger.info(f"WhatsAppMessageBatcher initialized - batch_size: {batch_size}, timeout: {batch_timeout}s")
 
     async def enqueue_message(
-        self, user_id: str, message_id: str, content: str, metadata: Dict[str, Any] = None, priority: int = 1
+        self,
+        user_id: str,
+        message_id: str,
+        content: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        priority: int = 1,
     ) -> bool:
         """
         Encolar mensaje para procesamiento en batch.
@@ -125,7 +130,9 @@ class WhatsAppMessageBatcher:
             return True
 
         except asyncio.QueueFull:
-            self._stats["backpressure_events"] += 1
+            backpressure = self._stats["backpressure_events"]
+            assert isinstance(backpressure, int)
+            self._stats["backpressure_events"] = backpressure + 1
             logger.warning(f"Message queue full - dropping message {message_id}")
             return False
 
@@ -294,13 +301,28 @@ class WhatsAppMessageBatcher:
 
     def _update_stats(self, batch_stats: BatchStats):
         """Actualizar estadísticas globales"""
-        self._stats["total_batches"] += 1
-        self._stats["total_messages"] += batch_stats.batch_size
-        self._stats["total_processing_time"] += batch_stats.processing_time
+        total_batches = self._stats["total_batches"]
+        assert isinstance(total_batches, int)
+        self._stats["total_batches"] = total_batches + 1
+
+        total_messages = self._stats["total_messages"]
+        assert isinstance(total_messages, int)
+        self._stats["total_messages"] = total_messages + batch_stats.batch_size
+
+        total_proc_time = self._stats["total_processing_time"]
+        assert isinstance(total_proc_time, float)
+        self._stats["total_processing_time"] = total_proc_time + batch_stats.processing_time
 
         # Calcular promedios
-        self._stats["avg_batch_size"] = self._stats["total_messages"] / self._stats["total_batches"]
-        self._stats["avg_processing_time"] = self._stats["total_processing_time"] / self._stats["total_batches"]
+        new_total_batches = self._stats["total_batches"]
+        assert isinstance(new_total_batches, int)
+        new_total_messages = self._stats["total_messages"]
+        assert isinstance(new_total_messages, int)
+        new_total_proc_time = self._stats["total_processing_time"]
+        assert isinstance(new_total_proc_time, float)
+
+        self._stats["avg_batch_size"] = new_total_messages / new_total_batches
+        self._stats["avg_processing_time"] = new_total_proc_time / new_total_batches
 
         # Calcular mensajes por segundo (ventana deslizante de últimos 10 batches)
         recent_batches = list(self._batch_history)[-10:]
@@ -387,4 +409,3 @@ class WhatsAppMessageBatcher:
         self._stats["queue_size"] = 0
 
         return cleared_count
-

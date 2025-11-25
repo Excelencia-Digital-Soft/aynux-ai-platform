@@ -9,9 +9,9 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from app.core.interfaces.llm import ILLM
 from app.core.interfaces.repository import ISearchableRepository
 from app.core.interfaces.vector_store import IVectorStore
-from app.core.interfaces.llm import ILLM
 
 logger = logging.getLogger(__name__)
 
@@ -101,9 +101,7 @@ class SearchProductsUseCase:
                 error=str(e),
             )
 
-    async def _semantic_search(
-        self, request: SearchProductsRequest
-    ) -> Optional[SearchProductsResponse]:
+    async def _semantic_search(self, request: SearchProductsRequest) -> Optional[SearchProductsResponse]:
         """
         Perform semantic search using vector store.
 
@@ -144,7 +142,7 @@ class SearchProductsUseCase:
             # Convert vector results to product dicts
             products = []
             for result in results:
-                product_data = result.document.metadata
+                product_data = result.document.metadata or {}
                 product_data["_similarity_score"] = result.score
                 products.append(product_data)
 
@@ -165,9 +163,7 @@ class SearchProductsUseCase:
             logger.error(f"Error in semantic search: {e}", exc_info=True)
             return None
 
-    async def _database_search(
-        self, request: SearchProductsRequest
-    ) -> SearchProductsResponse:
+    async def _database_search(self, request: SearchProductsRequest) -> SearchProductsResponse:
         """
         Perform traditional database search.
 

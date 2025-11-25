@@ -67,8 +67,8 @@ class MemoryCacheBackend(CacheBackend):
     def __init__(self, max_size: int = 10000, max_memory_mb: int = 100):
         self.max_size = max_size
         self.max_memory_bytes = max_memory_mb * 1024 * 1024
-        self._cache = OrderedDict()
-        self._stats = {
+        self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
+        self._stats: Dict[str, int] = {
             "hits": 0,
             "misses": 0,
             "sets": 0,
@@ -216,7 +216,12 @@ class MultiLayerCache:
             )
 
         # Estadísticas globales
-        self._global_stats = {"total_hits": 0, "total_misses": 0, "total_sets": 0, "layer_performance": {}}
+        self._global_stats: Dict[str, Union[int, Dict[str, Any]]] = {
+            "total_hits": 0,
+            "total_misses": 0,
+            "total_sets": 0,
+            "layer_performance": {},
+        }
 
         logger.info("MultiLayerCache initialized with 3 layers")
 
@@ -235,10 +240,14 @@ class MultiLayerCache:
         entry = await backend.get(key)
 
         if entry:
-            self._global_stats["total_hits"] += 1
+            hits = self._global_stats["total_hits"]
+            assert isinstance(hits, int)
+            self._global_stats["total_hits"] = hits + 1
             return entry.value
 
-        self._global_stats["total_misses"] += 1
+        misses = self._global_stats["total_misses"]
+        assert isinstance(misses, int)
+        self._global_stats["total_misses"] = misses + 1
         return None
 
     async def set(self, key: str, value: Any, layer: CacheLayer, ttl: Optional[float] = None) -> bool:
@@ -261,7 +270,9 @@ class MultiLayerCache:
 
         success = await backend.set(key, entry)
         if success:
-            self._global_stats["total_sets"] += 1
+            sets = self._global_stats["total_sets"]
+            assert isinstance(sets, int)
+            self._global_stats["total_sets"] = sets + 1
 
         return success
 
@@ -361,8 +372,13 @@ class MultiLayerCache:
             total_entries += backend_stats["current_size"]
 
         # Calcular hit rate global
-        total_requests = self._global_stats["total_hits"] + self._global_stats["total_misses"]
-        global_hit_rate = (self._global_stats["total_hits"] / max(total_requests, 1)) * 100
+        total_hits = self._global_stats["total_hits"]
+        assert isinstance(total_hits, int)
+        total_misses = self._global_stats["total_misses"]
+        assert isinstance(total_misses, int)
+
+        total_requests = total_hits + total_misses
+        global_hit_rate = (total_hits / max(total_requests, 1)) * 100
 
         return {
             "global_stats": {
@@ -378,7 +394,7 @@ class MultiLayerCache:
 
     async def health_check(self) -> Dict[str, Any]:
         """Verificar estado de salud del sistema de caché"""
-        health = {"status": "healthy", "issues": []}
+        health: Dict[str, Any] = {"status": "healthy", "issues": []}
 
         for layer in CacheLayer:
             backend_stats = self.backends[layer].get_stats()
@@ -389,12 +405,16 @@ class MultiLayerCache:
             memory_percent = (memory_usage / memory_limit) * 100
 
             if memory_percent > 90:
-                health["issues"].append(f"Layer {layer.value} memory usage high: {memory_percent:.1f}%")
+                issues = health["issues"]
+                assert isinstance(issues, list)
+                issues.append(f"Layer {layer.value} memory usage high: {memory_percent:.1f}%")
 
             # Verificar hit rate
             hit_rate = float(backend_stats["hit_rate"].rstrip("%"))
             if hit_rate < 20:  # Hit rate muy bajo
-                health["issues"].append(f"Layer {layer.value} hit rate low: {hit_rate:.1f}%")
+                issues = health["issues"]
+                assert isinstance(issues, list)
+                issues.append(f"Layer {layer.value} hit rate low: {hit_rate:.1f}%")
 
         if health["issues"]:
             health["status"] = "degraded"
@@ -426,7 +446,7 @@ class AynuxResponseCache:
 
         logger.info(f"Initialized {len(self.common_responses)} common responses in cache")
 
-    async def get_common_response(self, intent: str, _: Dict[str, Any] = None) -> Optional[str]:
+    async def get_common_response(self, intent: str, _: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """Obtener respuesta común basada en intención"""
         cache_key = self.cache.generate_key("common_response", intent)
         return await self.cache.get_response(cache_key)
@@ -435,4 +455,3 @@ class AynuxResponseCache:
         """Cachear respuesta de producto específico"""
         cache_key = self.cache.generate_key("product_response", product_query.lower())
         await self.cache.set_response(cache_key, response, ttl)
-

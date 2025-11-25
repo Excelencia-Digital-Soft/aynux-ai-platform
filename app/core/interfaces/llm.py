@@ -3,13 +3,15 @@ Interfaces para LLM providers
 
 Define contratos para proveedores de Language Models (Ollama, OpenAI, etc.)
 """
-from typing import Protocol, List, Dict, Any, Optional, AsyncIterator, runtime_checkable
+
 from abc import abstractmethod
 from enum import Enum
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, runtime_checkable
 
 
 class LLMProvider(str, Enum):
     """Proveedores de LLM soportados"""
+
     OLLAMA = "ollama"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -21,8 +23,8 @@ class ILLM(Protocol):
     """
     Interface base para proveedores de LLM.
 
-    Abstrae la generación de texto con diferentes modelos.
-    Permite cambiar de provider (Ollama ’ OpenAI) sin modificar código.
+    Abstrae la generaciÃ³n de texto con diferentes modelos.
+    Permite cambiar de provider (Ollama Â’ OpenAI) sin modificar cÃ³digo.
 
     Example:
         ```python
@@ -46,37 +48,27 @@ class ILLM(Protocol):
         ...
 
     @abstractmethod
-    async def generate(
-        self,
-        prompt: str,
-        temperature: float = 0.7,
-        max_tokens: int = 500,
-        **kwargs
-    ) -> str:
+    async def generate(self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs) -> str:
         """
         Genera texto basado en el prompt.
 
         Args:
             prompt: Texto de entrada para el modelo
-            temperature: Control de creatividad (0.0 = determinístico, 1.0 = creativo)
-            max_tokens: Número máximo de tokens a generar
-            **kwargs: Parámetros adicionales específicos del provider
+            temperature: Control de creatividad (0.0 = determinÃ­stico, 1.0 = creativo)
+            max_tokens: NÃºmero mÃ¡ximo de tokens a generar
+            **kwargs: ParÃ¡metros adicionales especÃ­ficos del provider
 
         Returns:
             Texto generado por el modelo
 
         Raises:
-            LLMError: Si hay error en la generación
+            LLMError: Si hay error en la generaciÃ³n
         """
         ...
 
     @abstractmethod
     async def generate_chat(
-        self,
-        messages: List[Dict[str, str]],
-        temperature: float = 0.7,
-        max_tokens: int = 500,
-        **kwargs
+        self, messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 500, **kwargs
     ) -> str:
         """
         Genera respuesta en formato chat.
@@ -84,8 +76,8 @@ class ILLM(Protocol):
         Args:
             messages: Lista de mensajes con formato {"role": "user/assistant", "content": "..."}
             temperature: Control de creatividad
-            max_tokens: Número máximo de tokens
-            **kwargs: Parámetros adicionales
+            max_tokens: NÃºmero mÃ¡ximo de tokens
+            **kwargs: ParÃ¡metros adicionales
 
         Returns:
             Respuesta del modelo
@@ -105,11 +97,7 @@ class ILLM(Protocol):
 
     @abstractmethod
     async def generate_stream(
-        self,
-        prompt: str,
-        temperature: float = 0.7,
-        max_tokens: int = 500,
-        **kwargs
+        self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs
     ) -> AsyncIterator[str]:
         """
         Genera texto en streaming (token por token).
@@ -117,8 +105,8 @@ class ILLM(Protocol):
         Args:
             prompt: Texto de entrada
             temperature: Control de creatividad
-            max_tokens: Número máximo de tokens
-            **kwargs: Parámetros adicionales
+            max_tokens: NÃºmero mÃ¡ximo de tokens
+            **kwargs: ParÃ¡metros adicionales
 
         Yields:
             Tokens generados uno por uno
@@ -137,13 +125,13 @@ class IEmbeddingModel(Protocol):
     """
     Interface para modelos de embeddings.
 
-    Convierte texto en vectores numéricos para búsqueda semántica.
+    Convierte texto en vectores numÃ©ricos para bÃºsqueda semÃ¡ntica.
     """
 
     @property
     @abstractmethod
     def embedding_dimension(self) -> int:
-        """Dimensión de los embeddings generados"""
+        """DimensiÃ³n de los embeddings generados"""
         ...
 
     @abstractmethod
@@ -155,7 +143,7 @@ class IEmbeddingModel(Protocol):
             text: Texto a convertir en embedding
 
         Returns:
-            Vector de números flotantes
+            Vector de nÃºmeros flotantes
 
         Example:
             ```python
@@ -168,9 +156,9 @@ class IEmbeddingModel(Protocol):
     @abstractmethod
     async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
-        Genera embeddings para múltiples textos en batch.
+        Genera embeddings para mÃºltiples textos en batch.
 
-        Más eficiente que llamar embed_text() múltiples veces.
+        MÃ¡s eficiente que llamar embed_text() mÃºltiples veces.
 
         Args:
             texts: Lista de textos
@@ -191,43 +179,37 @@ class IEmbeddingModel(Protocol):
 @runtime_checkable
 class IChatLLM(Protocol):
     """
-    Interface específica para modelos de chat con historial.
+    Interface especÃ­fica para modelos de chat con historial.
 
     Maneja conversaciones multi-turn con contexto.
     """
 
     @abstractmethod
-    async def chat(
-        self,
-        message: str,
-        conversation_id: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
-    ) -> str:
+    async def chat(self, message: str, conversation_id: str, system_prompt: Optional[str] = None, **kwargs) -> str:
         """
-        Genera respuesta manteniendo historial de conversación.
+        Genera respuesta manteniendo historial de conversaciÃ³n.
 
         Args:
             message: Mensaje del usuario
-            conversation_id: ID de la conversación (para mantener contexto)
+            conversation_id: ID de la conversaciÃ³n (para mantener contexto)
             system_prompt: Prompt de sistema opcional
-            **kwargs: Parámetros adicionales
+            **kwargs: ParÃ¡metros adicionales
 
         Returns:
             Respuesta del modelo
 
         Example:
             ```python
-            # Primera interacción
+            # Primera interacciÃ³n
             response1 = await llm.chat(
                 "Hola, soy Juan",
                 conversation_id="conv-123"
             )
-            # Response: "Hola Juan, ¿en qué puedo ayudarte?"
+            # Response: "Hola Juan, Â¿en quÃ© puedo ayudarte?"
 
-            # Segunda interacción (recuerda el nombre)
+            # Segunda interacciÃ³n (recuerda el nombre)
             response2 = await llm.chat(
-                "¿Cuál es mi nombre?",
+                "Â¿CuÃ¡l es mi nombre?",
                 conversation_id="conv-123"
             )
             # Response: "Tu nombre es Juan"
@@ -238,10 +220,10 @@ class IChatLLM(Protocol):
     @abstractmethod
     async def reset_conversation(self, conversation_id: str) -> None:
         """
-        Reinicia el historial de una conversación.
+        Reinicia el historial de una conversaciÃ³n.
 
         Args:
-            conversation_id: ID de la conversación a resetear
+            conversation_id: ID de la conversaciÃ³n a resetear
         """
         ...
 
@@ -251,23 +233,18 @@ class IStructuredLLM(Protocol):
     """
     Interface para LLMs con salida estructurada (JSON).
 
-    Útil para extraer información específica de forma confiable.
+    Ãštil para extraer informaciÃ³n especÃ­fica de forma confiable.
     """
 
     @abstractmethod
-    async def generate_json(
-        self,
-        prompt: str,
-        schema: Dict[str, Any],
-        **kwargs
-    ) -> Dict[str, Any]:
+    async def generate_json(self, prompt: str, schema: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """
-        Genera respuesta en formato JSON según schema.
+        Genera respuesta en formato JSON segÃºn schema.
 
         Args:
             prompt: Texto de entrada
             schema: Schema JSON que define la estructura esperada
-            **kwargs: Parámetros adicionales
+            **kwargs: ParÃ¡metros adicionales
 
         Returns:
             Diccionario con datos estructurados
@@ -298,23 +275,18 @@ class ILLMFactory(Protocol):
     """
     Interface para factories de LLM.
 
-    Permite crear instances de LLM según provider.
+    Permite crear instances de LLM segÃºn provider.
     """
 
     @abstractmethod
-    def create_llm(
-        self,
-        provider: LLMProvider,
-        model_name: str,
-        config: Optional[Dict[str, Any]] = None
-    ) -> ILLM:
+    def create_llm(self, provider: LLMProvider, model_name: str, config: Optional[Dict[str, Any]] = None) -> ILLM:
         """
         Crea instance de LLM.
 
         Args:
             provider: Proveedor a usar
             model_name: Nombre del modelo
-            config: Configuración adicional
+            config: ConfiguraciÃ³n adicional
 
         Returns:
             Instancia de ILLM
@@ -344,19 +316,23 @@ class ILLMFactory(Protocol):
 # Excepciones
 class LLMError(Exception):
     """Error base para LLM"""
+
     pass
 
 
 class LLMConnectionError(LLMError):
-    """Error de conexión con el provider"""
+    """Error de conexiÃ³n con el provider"""
+
     pass
 
 
 class LLMGenerationError(LLMError):
-    """Error durante generación"""
+    """Error durante generaciÃ³n"""
+
     pass
 
 
 class LLMRateLimitError(LLMError):
     """Rate limit excedido"""
+
     pass

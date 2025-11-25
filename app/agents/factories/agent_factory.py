@@ -32,7 +32,7 @@ class AgentFactory:
         self.postgres = postgres
         self.config = config
         self.agents = {}
-        
+
     def initialize_all_agents(self) -> Dict[str, Any]:
         """
         Initialize only enabled agents based on configuration.
@@ -46,73 +46,45 @@ class AgentFactory:
             agent_configs = self.config.get("agents", {})
 
             # Always create orchestrator and supervisor (required for system)
-            self.agents["orchestrator"] = OrchestratorAgent(
-                ollama=self.ollama,
-                config={}
-            )
+            self.agents["orchestrator"] = OrchestratorAgent(ollama=self.ollama, config={})
 
             supervisor_config = self._get_supervisor_config()
-            self.agents["supervisor"] = SupervisorAgent(
-                ollama=self.ollama,
-                config=supervisor_config
-            )
+            self.agents["supervisor"] = SupervisorAgent(ollama=self.ollama, config=supervisor_config)
 
             logger.info("Core agents (orchestrator, supervisor) initialized")
 
             # Agent builder registry - maps agent names to their initialization functions
             # This allows lazy initialization of only enabled agents
             agent_builders = {
-                "greeting_agent": lambda: GreetingAgent(
-                    ollama=self.ollama,
-                    postgres=self.postgres,
-                    config={}
-                ),
+                "greeting_agent": lambda: GreetingAgent(ollama=self.ollama, postgres=self.postgres, config={}),
                 "product_agent": lambda: ProductAgent(
-                    ollama=self.ollama,
-                    postgres=self.postgres,
-                    config=self._extract_config(agent_configs, "product")
+                    ollama=self.ollama, postgres=self.postgres, config=self._extract_config(agent_configs, "product")
                 ),
                 "data_insights_agent": lambda: DataInsightsAgent(
                     ollama=self.ollama,
                     postgres=self.postgres,
-                    config=self._extract_config(agent_configs, "data_insights")
+                    config=self._extract_config(agent_configs, "data_insights"),
                 ),
                 "promotions_agent": lambda: PromotionsAgent(
-                    ollama=self.ollama,
-                    chroma=self.chroma,
-                    config=self._extract_config(agent_configs, "promotions")
+                    ollama=self.ollama, chroma=self.chroma, config=self._extract_config(agent_configs, "promotions")
                 ),
                 "tracking_agent": lambda: TrackingAgent(
-                    ollama=self.ollama,
-                    chroma=self.chroma,
-                    config=self._extract_config(agent_configs, "tracking")
+                    ollama=self.ollama, chroma=self.chroma, config=self._extract_config(agent_configs, "tracking")
                 ),
                 "support_agent": lambda: SupportAgent(
-                    ollama=self.ollama,
-                    chroma=self.chroma,
-                    config=self._extract_config(agent_configs, "support")
+                    ollama=self.ollama, chroma=self.chroma, config=self._extract_config(agent_configs, "support")
                 ),
                 "invoice_agent": lambda: InvoiceAgent(
-                    ollama=self.ollama,
-                    chroma=self.chroma,
-                    config=self._extract_config(agent_configs, "invoice")
+                    ollama=self.ollama, chroma=self.chroma, config=self._extract_config(agent_configs, "invoice")
                 ),
                 "excelencia_agent": lambda: ExcelenciaAgent(
                     ollama=self.ollama,
                     postgres=self.postgres,
                     chroma=self.chroma,
-                    config=self._extract_config(agent_configs, "excelencia")
+                    config=self._extract_config(agent_configs, "excelencia"),
                 ),
-                "fallback_agent": lambda: FallbackAgent(
-                    ollama=self.ollama,
-                    postgres=self.postgres,
-                    config={}
-                ),
-                "farewell_agent": lambda: FarewellAgent(
-                    ollama=self.ollama,
-                    postgres=self.postgres,
-                    config={}
-                ),
+                "fallback_agent": lambda: FallbackAgent(ollama=self.ollama, postgres=self.postgres, config={}),
+                "farewell_agent": lambda: FarewellAgent(ollama=self.ollama, postgres=self.postgres, config={}),
             }
 
             # Initialize only enabled agents
@@ -147,21 +119,21 @@ class AgentFactory:
         except Exception as e:
             logger.error(f"Error initializing agents: {e}")
             raise
-    
+
     def _get_supervisor_config(self) -> Dict[str, Any]:
         """Extract supervisor configuration"""
         supervisor_config = self.config.get("supervisor", {})
         if hasattr(supervisor_config, "model_dump"):
             return supervisor_config.model_dump()
         return supervisor_config
-    
+
     def _extract_config(self, agent_configs: Dict, agent_name: str) -> Dict[str, Any]:
         """Extract configuration for a specific agent"""
         config = agent_configs.get(agent_name, {})
         if hasattr(config, "model_dump"):
             return config.model_dump()
         return {}
-    
+
     def get_agent(self, agent_name: str) -> Any:
         """Get a specific agent instance"""
         return self.agents.get(agent_name)
@@ -176,17 +148,20 @@ class AgentFactory:
 
     def get_enabled_agent_names(self) -> List[str]:
         """Get list of all enabled agent names (excluding orchestrator and supervisor)"""
-        return [
-            name for name in self.agents.keys()
-            if name not in ["orchestrator", "supervisor"]
-        ]
+        return [name for name in self.agents.keys() if name not in ["orchestrator", "supervisor"]]
 
     def get_disabled_agent_names(self) -> List[str]:
         """Get list of all disabled agent names"""
         all_possible_agents = [
-            "greeting_agent", "product_agent", "data_insights_agent",
-            "promotions_agent", "tracking_agent", "support_agent",
-            "invoice_agent", "excelencia_agent", "fallback_agent",
-            "farewell_agent"
+            "greeting_agent",
+            "product_agent",
+            "data_insights_agent",
+            "promotions_agent",
+            "tracking_agent",
+            "support_agent",
+            "invoice_agent",
+            "excelencia_agent",
+            "fallback_agent",
+            "farewell_agent",
         ]
         return [name for name in all_possible_agents if name not in self.agents]

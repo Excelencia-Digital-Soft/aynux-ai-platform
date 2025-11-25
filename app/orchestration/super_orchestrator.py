@@ -5,6 +5,7 @@ Routes conversations to appropriate domain agents based on context and intent.
 Follows Clean Architecture and SOLID principles.
 """
 
+import inspect
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -45,8 +46,7 @@ class SuperOrchestrator:
         self.default_domain = self.config.get("default_domain", "ecommerce")
 
         logger.info(
-            f"SuperOrchestrator initialized with {len(domain_agents)} domains: "
-            f"{list(domain_agents.keys())}"
+            f"SuperOrchestrator initialized with {len(domain_agents)} domains: " f"{list(domain_agents.keys())}"
         )
 
     async def route_message(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -103,9 +103,7 @@ class SuperOrchestrator:
             logger.error(f"Error in SuperOrchestrator: {e}", exc_info=True)
             return self._error_response(str(e), state)
 
-    async def _detect_domain(
-        self, message: str, state: Dict[str, Any]
-    ) -> str:
+    async def _detect_domain(self, message: str, state: Dict[str, Any]) -> str:
         """
         Detect domain from message using LLM.
 
@@ -141,19 +139,14 @@ Return ONLY the domain name (one word): {domains_list}
 
 If unclear, return: {self.default_domain}"""
 
-            response = await self.llm.generate(
-                prompt,
-                temperature=0.2,
-                max_tokens=10
-            )
+            response = await self.llm.generate(prompt, temperature=0.2, max_tokens=10)
 
             detected_domain = response.strip().lower()
 
             # Validate detected domain
             if detected_domain not in available_domains:
                 logger.warning(
-                    f"LLM returned invalid domain '{detected_domain}', "
-                    f"using default: {self.default_domain}"
+                    f"LLM returned invalid domain '{detected_domain}', " f"using default: {self.default_domain}"
                 )
                 return self.default_domain
 
@@ -172,11 +165,15 @@ If unclear, return: {self.default_domain}"""
         """
         domains = []
         for domain_name, agent in self.domain_agents.items():
-            domains.append({
-                "name": domain_name,
-                "agent_type": agent.agent_type.value if hasattr(agent.agent_type, "value") else str(agent.agent_type),
-                "agent_name": agent.agent_name,
-            })
+            domains.append(
+                {
+                    "name": domain_name,
+                    "agent_type": (
+                        agent.agent_type.value if hasattr(agent.agent_type, "value") else str(agent.agent_type)
+                    ),
+                    "agent_name": agent.agent_name,
+                }
+            )
         return domains
 
     async def health_check(self) -> Dict[str, Any]:
@@ -186,7 +183,7 @@ If unclear, return: {self.default_domain}"""
         Returns:
             Health status for each domain
         """
-        health = {
+        health: Dict[str, Any] = {
             "orchestrator": "healthy",
             "domains": {},
         }
@@ -194,8 +191,13 @@ If unclear, return: {self.default_domain}"""
         for domain_name, agent in self.domain_agents.items():
             try:
                 # If agent has health_check method, use it
-                if hasattr(agent, "health_check"):
-                    agent_health = await agent.health_check()
+                health_check_method = getattr(agent, "health_check", None)
+                if health_check_method and callable(health_check_method):
+                    # Check if it's a coroutine function
+                    if inspect.iscoroutinefunction(health_check_method):
+                        agent_health = await health_check_method()
+                    else:
+                        agent_health = health_check_method()
                     health["domains"][domain_name] = agent_health
                 else:
                     health["domains"][domain_name] = {
@@ -226,7 +228,7 @@ If unclear, return: {self.default_domain}"""
             "messages": [
                 {
                     "role": "assistant",
-                    "content": "Disculpa, tuve un problema procesando tu solicitud. ¿Podrías intentar de nuevo?",
+                    "content": "Disculpa, tuve un problema procesando tu solicitud. ï¿½Podrï¿½as intentar de nuevo?",
                 }
             ],
             "error": error,

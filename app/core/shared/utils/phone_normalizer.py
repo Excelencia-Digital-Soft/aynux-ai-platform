@@ -280,17 +280,17 @@ class PydanticPhoneNumberNormalizer(BaseModel):
         match = patterns["mobile_with_9"].match(clean_number)
         if match:
             area_and_local = match.group(1) + match.group(2)
-            
+
             # Buscar código de área válido
             area_code_found = None
             local_number = None
-            
+
             for area_code in sorted(area_codes.keys(), key=len, reverse=True):
                 if area_and_local.startswith(area_code):
                     area_code_found = area_code
-                    local_number = area_and_local[len(area_code):]
+                    local_number = area_and_local[len(area_code) :]
                     break
-            
+
             if area_code_found and local_number and len(local_number) >= 6:
                 # Transformar: 549 + AREA + NUMBER -> 54 + AREA + 15 + NUMBER
                 normalized = f"54{area_code_found}15{local_number}"

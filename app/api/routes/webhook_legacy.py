@@ -38,26 +38,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import Settings, get_settings
 from app.database.async_db import get_async_db
-from app.models.message import BotResponse, WhatsAppWebhookRequest
-from app.services.langgraph_chatbot_service import LangGraphChatbotService
 from app.integrations.whatsapp import WhatsAppService
+from app.models.message import BotResponse, WhatsAppWebhookRequest
 
 # LEGACY IMPORTS - These services are deprecated, kept for backward compatibility
 # TODO: Remove when endpoints are refactored to new architecture
 from app.services.domain_detector import get_domain_detector
 from app.services.domain_manager import get_domain_manager
+from app.services.langgraph_chatbot_service import LangGraphChatbotService
 from app.services.super_orchestrator_service import get_super_orchestrator
 from app.services.super_orchestrator_service_refactored import get_super_orchestrator_refactored
-from app.services.whatsapp_service import WhatsAppService
+from app.services.whatsapp_service import WhatsAppService  # noqa: F811
 
 router = APIRouter(tags=["webhook"])
 logger = logging.getLogger(__name__)
 
 # Emit deprecation warning for this module
 warnings.warn(
-    "webhook.py uses legacy architecture. Migrate to new Clean Architecture patterns.",
-    DeprecationWarning,
-    stacklevel=2
+    "webhook.py uses legacy architecture. Migrate to new Clean Architecture patterns.", DeprecationWarning, stacklevel=2
 )
 
 # Services (initialized lazily)
@@ -68,6 +66,7 @@ whatsapp_service = WhatsAppService()
 # TODO: Replace with SuperOrchestrator from app.orchestration
 domain_detector = get_domain_detector()
 domain_manager = get_domain_manager()
+
 
 # Super orchestrator - use refactored version if enabled
 def get_orchestrator():
@@ -81,6 +80,7 @@ def get_orchestrator():
     else:
         logger.info("Using SuperOrchestratorService (legacy)")
         return get_super_orchestrator()
+
 
 super_orchestrator = get_orchestrator()
 
@@ -257,4 +257,3 @@ def is_status_update(request: WhatsAppWebhookRequest) -> bool:
         return bool(request.entry[0].changes[0].value.get("statuses"))
     except (IndexError, AttributeError, KeyError):
         return False
-

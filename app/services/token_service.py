@@ -194,6 +194,7 @@ class TokenService:
             # - Token generado antes de implementar persistencia en Redis
             # - Ambiente de desarrollo sin persistencia Redis
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning(
                 f"Token válido pero no encontrado en Redis (usuario: {username}). "
@@ -203,6 +204,7 @@ class TokenService:
 
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"Error al verificar token: {str(e)}")
             return False

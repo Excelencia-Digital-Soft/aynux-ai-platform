@@ -28,11 +28,7 @@ class GetOrCreateCustomerUseCase:
     - Handle race conditions safely
     """
 
-    async def execute(
-        self,
-        phone_number: str,
-        profile_name: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+    async def execute(self, phone_number: str, profile_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Get or create a customer by phone number.
 
@@ -50,9 +46,7 @@ class GetOrCreateCustomerUseCase:
         try:
             with get_db_context() as db:
                 # Try to get existing customer
-                customer = db.query(Customer).filter(
-                    Customer.phone_number == phone_number
-                ).first()
+                customer = db.query(Customer).filter(Customer.phone_number == phone_number).first()
 
                 if not customer:
                     # Create new customer
@@ -72,9 +66,7 @@ class GetOrCreateCustomerUseCase:
                         # Handle race condition (duplicate key)
                         if "unique constraint" in str(e).lower() or "duplicate key" in str(e).lower():
                             db.rollback()
-                            customer = db.query(Customer).filter(
-                                Customer.phone_number == phone_number
-                            ).first()
+                            customer = db.query(Customer).filter(Customer.phone_number == phone_number).first()
                             if not customer:
                                 logger.error(f"Customer creation failed: {phone_number}")
                                 return None
@@ -91,10 +83,7 @@ class GetOrCreateCustomerUseCase:
                     db.refresh(customer)
 
                 # Convert to dictionary
-                customer_dict = {
-                    k: v for k, v in customer.__dict__.items()
-                    if not k.startswith("_")
-                }
+                customer_dict = {k: v for k, v in customer.__dict__.items() if not k.startswith("_")}
                 customer_dict["id"] = str(customer_dict["id"])
                 customer_dict.pop("created_at", None)
                 customer_dict.pop("updated_at", None)

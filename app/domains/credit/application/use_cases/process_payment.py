@@ -66,9 +66,7 @@ class ProcessPaymentUseCase:
         self.account_repo = credit_account_repository
         self.payment_repo = payment_repository
 
-    async def execute(
-        self, request: ProcessPaymentRequest
-    ) -> ProcessPaymentResponse:
+    async def execute(self, request: ProcessPaymentRequest) -> ProcessPaymentResponse:
         """
         Execute payment processing.
 
@@ -83,9 +81,7 @@ class ProcessPaymentUseCase:
             account = await self.account_repo.find_by_id(request.account_id)
 
             if not account:
-                return self._error_response(
-                    request, "Account not found"
-                )
+                return self._error_response(request, "Account not found")
 
             # 2. Validate payment
             validation = self._validate_payment(request.amount, account)
@@ -98,7 +94,7 @@ class ProcessPaymentUseCase:
 
             # 4. Create payment record
             payment_id = str(uuid.uuid4())
-            payment_data = {
+            {
                 "payment_id": payment_id,
                 "account_id": request.account_id,
                 "amount": request.amount,
@@ -132,9 +128,7 @@ class ProcessPaymentUseCase:
             logger.error(f"Error processing payment: {e}", exc_info=True)
             return self._error_response(request, str(e))
 
-    def _validate_payment(
-        self, amount: Decimal, account: Any
-    ) -> Dict[str, Any]:
+    def _validate_payment(self, amount: Decimal, account: Any) -> Dict[str, Any]:
         """
         Validate payment amount.
 
@@ -166,9 +160,7 @@ class ProcessPaymentUseCase:
 
         return {"valid": True}
 
-    def _error_response(
-        self, request: ProcessPaymentRequest, error: str
-    ) -> ProcessPaymentResponse:
+    def _error_response(self, request: ProcessPaymentRequest, error: str) -> ProcessPaymentResponse:
         """Generate error response"""
         return ProcessPaymentResponse(
             payment_id="",

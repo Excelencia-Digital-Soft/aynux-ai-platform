@@ -167,4 +167,3 @@ class DuxFactura(DuxBaseModel):
         for detalle in self.detalles:
             total += detalle.get_total_linea_decimal()
         return total
-

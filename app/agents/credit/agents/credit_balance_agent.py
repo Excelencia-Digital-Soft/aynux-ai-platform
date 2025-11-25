@@ -98,4 +98,3 @@ class CreditBalanceAgent(BaseCreditAgent):
             "closed": "Cerrado ❌",
         }
         return translations.get(status, status)
-

@@ -475,4 +475,3 @@ def detect_language(text: str, config: Optional[Dict[str, Any]] = None) -> Dict[
     """
     detector = get_language_detector(config)
     return detector.detect_language(text)
-

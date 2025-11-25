@@ -10,6 +10,7 @@ from pydantic import BaseModel, field_validator
 
 class DuxRubro(BaseModel):
     """Categoría/Rubro de producto en DUX"""
+
     id_rubro: int = -1
     rubro: str = "Sin categoría"
 
@@ -20,7 +21,7 @@ class DuxRubro(BaseModel):
         if v is None:
             return -1  # Valor por defecto para rubros sin ID
         return v
-    
+
     @field_validator("rubro", mode="before")
     @classmethod
     def validate_rubro(cls, v: Optional[str]) -> str:
@@ -32,18 +33,21 @@ class DuxRubro(BaseModel):
 
 class DuxSubRubro(BaseModel):
     """Subcategoría de producto en DUX"""
+
     id: Optional[int] = None
     nombre: Optional[str] = None
 
 
 class DuxMarca(BaseModel):
     """Marca de producto en DUX"""
+
     codigo_marca: Optional[str] = None
     marca: Optional[str] = None
 
 
 class DuxProveedor(BaseModel):
     """Proveedor de producto en DUX"""
+
     id_proveedor: Optional[int] = None
     proveedor: Optional[str] = None
     tipo_doc: Optional[str] = None

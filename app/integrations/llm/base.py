@@ -5,27 +5,24 @@ This module provides a convenient way to import LLM-related interfaces
 and create LLM instances without knowing implementation details.
 """
 
-from app.core.interfaces.llm import (
-    # Interfaces
+from app.core.interfaces.llm import (  # Interfaces; Enums; Exceptions
     ILLM,
-    IEmbeddingModel,
     IChatLLM,
-    IStructuredLLM,
+    IEmbeddingModel,
     ILLMFactory,
-    # Enums
-    LLMProvider,
-    # Exceptions
-    LLMError,
+    IStructuredLLM,
     LLMConnectionError,
+    LLMError,
     LLMGenerationError,
+    LLMProvider,
     LLMRateLimitError,
 )
 
 from .ollama import (
-    OllamaLLM,
     OllamaEmbeddingModel,
-    create_ollama_llm,
+    OllamaLLM,
     create_ollama_embedder,
+    create_ollama_llm,
 )
 
 __all__ = [
@@ -53,11 +50,7 @@ __all__ = [
 ]
 
 
-def create_llm(
-    provider: LLMProvider = LLMProvider.OLLAMA,
-    model_name: str = None,
-    **kwargs
-) -> ILLM:
+def create_llm(provider: LLMProvider = LLMProvider.OLLAMA, model_name: str = None, **kwargs) -> ILLM:
     """
     Factory function to create LLM instance based on provider.
 
@@ -96,11 +89,7 @@ def create_llm(
         raise ValueError(f"Unknown LLM provider: {provider}")
 
 
-def create_embedder(
-    provider: LLMProvider = LLMProvider.OLLAMA,
-    model_name: str = None,
-    **kwargs
-) -> IEmbeddingModel:
+def create_embedder(provider: LLMProvider = LLMProvider.OLLAMA, model_name: str = None, **kwargs) -> IEmbeddingModel:
     """
     Factory function to create embedding model based on provider.
 

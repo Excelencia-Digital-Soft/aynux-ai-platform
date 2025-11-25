@@ -274,4 +274,3 @@ class DatabaseSearchStrategy(BaseSearchStrategy):
         params["limit"] = max_results
 
         return params if len(params) > 1 else {}  # Return only if has more than just limit
-

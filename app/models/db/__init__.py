@@ -11,8 +11,8 @@ from .customers import Customer
 from .inquiries import ProductInquiry
 from .knowledge_base import CompanyKnowledge
 from .orders import Order, OrderItem
-from .prompts import Prompt, PromptVersion
 from .promotions import Promotion
+from .prompts import Prompt, PromptVersion
 from .reviews import ProductReview
 from .user import UserDB
 
@@ -56,4 +56,3 @@ __all__ = [
     # Authentication
     "UserDB",
 ]
-

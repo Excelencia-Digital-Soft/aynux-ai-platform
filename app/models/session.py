@@ -43,9 +43,7 @@ class UserSession(BaseModel):
             self.items[key].updated_at = datetime.now()
         else:
             # Crear nuevo
-            self.items[key] = SessionData(
-                created_at=datetime.now(), updated_at=datetime.now(), data=data
-            )
+            self.items[key] = SessionData(created_at=datetime.now(), updated_at=datetime.now(), data=data)
         self.updated_at = datetime.now()
 
     def delete_item(self, key: str) -> bool:

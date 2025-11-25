@@ -10,7 +10,7 @@ Note: This implementation uses mock data until CreditAccount model is created in
 import logging
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from app.core.interfaces.repository import IRepository
 

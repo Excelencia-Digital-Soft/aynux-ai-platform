@@ -43,13 +43,15 @@ async def get_tracing_status() -> Dict[str, Any]:
 
                 status["recent_runs"] = {
                     "count": len(runs),
-                    "latest": {
-                        "id": str(runs[0].id) if runs else None,
-                        "name": runs[0].name if runs else None,
-                        "status": runs[0].status if runs else None,
-                    }
-                    if runs
-                    else None,
+                    "latest": (
+                        {
+                            "id": str(runs[0].id) if runs else None,
+                            "name": runs[0].name if runs else None,
+                            "status": runs[0].status if runs else None,
+                        }
+                        if runs
+                        else None
+                    ),
                 }
             except Exception as e:
                 status["recent_runs"] = {"error": str(e)}
@@ -157,4 +159,3 @@ async def get_tracing_metrics() -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error getting metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
-

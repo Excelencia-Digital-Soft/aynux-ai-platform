@@ -247,7 +247,7 @@ class AgentTracer:
                 try:
                     # Extract message and state
                     message = args[1] if len(args) > 1 else ""
-                    
+
                     # Safely format message for logging
                     if isinstance(message, str):
                         message_preview = message[:100]

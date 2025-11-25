@@ -4,23 +4,24 @@ Ollama implementation of ILLM and IEmbeddingModel interfaces
 Provides local LLM capabilities using Ollama service.
 Implements standard interfaces for maximum flexibility and testability.
 """
+
 import logging
-from typing import List, Dict, Optional, AsyncIterator
+from typing import AsyncIterator, Dict, List, Optional
+
 import httpx
-
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama, OllamaEmbeddings
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
+from app.config.settings import get_settings
 from app.core.interfaces.llm import (
     ILLM,
-    IEmbeddingModel,
     IChatLLM,
-    LLMProvider,
-    LLMError,
+    IEmbeddingModel,
     LLMConnectionError,
-    LLMGenerationError
+    LLMError,
+    LLMGenerationError,
+    LLMProvider,
 )
-from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +53,7 @@ class OllamaLLM(ILLM, IChatLLM):
         ```
     """
 
-    def __init__(
-        self,
-        model_name: str = None,
-        base_url: str = None,
-        temperature: float = 0.7,
-        **kwargs
-    ):
+    def __init__(self, model_name: str = None, base_url: str = None, temperature: float = 0.7, **kwargs):
         """
         Initialize Ollama LLM.
 
@@ -105,13 +100,7 @@ class OllamaLLM(ILLM, IChatLLM):
         """Returns current model name"""
         return self._model_name
 
-    async def generate(
-        self,
-        prompt: str,
-        temperature: float = 0.7,
-        max_tokens: int = 500,
-        **kwargs
-    ) -> str:
+    async def generate(self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs) -> str:
         """
         Generate text from prompt.
 
@@ -140,21 +129,24 @@ class OllamaLLM(ILLM, IChatLLM):
             messages = [HumanMessage(content=prompt)]
             response = await self._llm.ainvoke(messages)
 
-            return response.content
+            # Ensure we always return str (response.content can be str | list)
+            if isinstance(response.content, str):
+                return response.content
+            elif isinstance(response.content, list):
+                # Convert list to string representation
+                return " ".join(str(item) for item in response.content)
+            else:
+                return str(response.content)
 
         except httpx.ConnectError as e:
             logger.error(f"Connection error to Ollama: {e}")
-            raise LLMConnectionError(f"Could not connect to Ollama at {self._base_url}")
+            raise LLMConnectionError(f"Could not connect to Ollama at {self._base_url}") from e
         except Exception as e:
             logger.error(f"Error generating text: {e}")
-            raise LLMGenerationError(f"Failed to generate text: {e}")
+            raise LLMGenerationError(f"Failed to generate text: {e}") from e
 
     async def generate_chat(
-        self,
-        messages: List[Dict[str, str]],
-        temperature: float = 0.7,
-        max_tokens: int = 500,
-        **kwargs
+        self, messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 500, **kwargs
     ) -> str:
         """
         Generate response in chat format.
@@ -195,18 +187,22 @@ class OllamaLLM(ILLM, IChatLLM):
 
             # Generate
             response = await self._llm.ainvoke(lc_messages)
-            return response.content
+
+            # Ensure we always return str (response.content can be str | list)
+            if isinstance(response.content, str):
+                return response.content
+            elif isinstance(response.content, list):
+                # Convert list to string representation
+                return " ".join(str(item) for item in response.content)
+            else:
+                return str(response.content)
 
         except Exception as e:
             logger.error(f"Error in chat generation: {e}")
-            raise LLMGenerationError(f"Failed to generate chat response: {e}")
+            raise LLMGenerationError(f"Failed to generate chat response: {e}") from e
 
-    async def generate_stream(
-        self,
-        prompt: str,
-        temperature: float = 0.7,
-        max_tokens: int = 500,
-        **kwargs
+    async def generate_stream(  # type: ignore[override]
+        self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs
     ) -> AsyncIterator[str]:
         """
         Generate text in streaming mode.
@@ -235,21 +231,22 @@ class OllamaLLM(ILLM, IChatLLM):
             # Stream
             messages = [HumanMessage(content=prompt)]
             async for chunk in self._llm.astream(messages):
-                if hasattr(chunk, 'content'):
-                    yield chunk.content
+                if hasattr(chunk, "content"):
+                    # Ensure we always yield str (chunk.content can be str | list)
+                    if isinstance(chunk.content, str):
+                        yield chunk.content
+                    elif isinstance(chunk.content, list):
+                        # Convert list to string representation
+                        yield " ".join(str(item) for item in chunk.content)
+                    else:
+                        yield str(chunk.content)
 
         except Exception as e:
             logger.error(f"Error in streaming generation: {e}")
-            raise LLMGenerationError(f"Failed to stream text: {e}")
+            raise LLMGenerationError(f"Failed to stream text: {e}") from e
 
     # IChatLLM implementation
-    async def chat(
-        self,
-        message: str,
-        conversation_id: str,
-        system_prompt: Optional[str] = None,
-        **kwargs
-    ) -> str:
+    async def chat(self, message: str, conversation_id: str, system_prompt: Optional[str] = None, **kwargs) -> str:
         """
         Chat with conversation history.
 
@@ -268,28 +265,16 @@ class OllamaLLM(ILLM, IChatLLM):
 
             # Add system prompt if provided
             if system_prompt:
-                self._conversations[conversation_id].append({
-                    "role": "system",
-                    "content": system_prompt
-                })
+                self._conversations[conversation_id].append({"role": "system", "content": system_prompt})
 
         # Add user message
-        self._conversations[conversation_id].append({
-            "role": "user",
-            "content": message
-        })
+        self._conversations[conversation_id].append({"role": "user", "content": message})
 
         # Generate response
-        response = await self.generate_chat(
-            messages=self._conversations[conversation_id],
-            **kwargs
-        )
+        response = await self.generate_chat(messages=self._conversations[conversation_id], **kwargs)
 
         # Add assistant response to history
-        self._conversations[conversation_id].append({
-            "role": "assistant",
-            "content": response
-        })
+        self._conversations[conversation_id].append({"role": "assistant", "content": response})
 
         return response
 
@@ -334,12 +319,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
         ```
     """
 
-    def __init__(
-        self,
-        model_name: str = None,
-        base_url: str = None,
-        embedding_dimension: int = 768
-    ):
+    def __init__(self, model_name: str = None, base_url: str = None, embedding_dimension: int = 768):
         """
         Initialize Ollama embedding model.
 
@@ -354,10 +334,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
         self._embedding_dimension = embedding_dimension
 
         # Initialize OllamaEmbeddings
-        self._embedder = OllamaEmbeddings(
-            model=self._model_name,
-            base_url=self._base_url
-        )
+        self._embedder = OllamaEmbeddings(model=self._model_name, base_url=self._base_url)
 
         logger.info(f"Initialized OllamaEmbeddingModel: model={self._model_name}")
 
@@ -386,7 +363,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
 
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")
-            raise LLMError(f"Failed to generate embedding: {e}")
+            raise LLMError(f"Failed to generate embedding: {e}") from e
 
     async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
@@ -408,15 +385,11 @@ class OllamaEmbeddingModel(IEmbeddingModel):
 
         except Exception as e:
             logger.error(f"Error in batch embedding: {e}")
-            raise LLMError(f"Failed to generate batch embeddings: {e}")
+            raise LLMError(f"Failed to generate batch embeddings: {e}") from e
 
 
 # Factory function for convenience
-def create_ollama_llm(
-    model_name: str = None,
-    temperature: float = 0.7,
-    **kwargs
-) -> OllamaLLM:
+def create_ollama_llm(model_name: str = None, temperature: float = 0.7, **kwargs) -> OllamaLLM:
     """
     Factory function to create OllamaLLM instance.
 
@@ -431,10 +404,7 @@ def create_ollama_llm(
     return OllamaLLM(model_name=model_name, temperature=temperature, **kwargs)
 
 
-def create_ollama_embedder(
-    model_name: str = None,
-    **kwargs
-) -> OllamaEmbeddingModel:
+def create_ollama_embedder(model_name: str = None, **kwargs) -> OllamaEmbeddingModel:
     """
     Factory function to create OllamaEmbeddingModel instance.
 

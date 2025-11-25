@@ -17,7 +17,7 @@ router = APIRouter(tags=["phone-normalization"])
 @router.post("/normalize", response_model=PhoneNumberResponse)
 async def normalize_phone_number(
     request: PhoneNumberRequest,
-    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),  # type: ignore
+    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),  # type: ignore  # noqa: B008
 ):
     """
     Normaliza un número de teléfono para WhatsApp
@@ -47,18 +47,18 @@ async def normalize_phone_number(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"error": "Validation error", "details": e.errors()},
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "Internal server error", "message": str(e)},
-        )
+        ) from e
 
 
 @router.post("/batch-normalize", response_model=List[PhoneNumberResponse])
 async def normalize_batch_phone_numbers(
     requests: List[PhoneNumberRequest],
-    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),
+    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),  # noqa: B008
 ):
     """
     Normaliza múltiples números de teléfono en lote
@@ -87,7 +87,7 @@ async def quick_validate(
     phone_number: str,
     country: SupportedCountry = None,
     test_mode: bool = True,
-    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),
+    normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer),  # noqa: B008
 ):
     """
     Validación rápida de un número de teléfono (GET request)
@@ -115,7 +115,7 @@ async def quick_validate(
 
 @router.post("/add-test-number")
 async def add_test_number(
-    phone_number: str, normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer)
+    phone_number: str, normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer)  # noqa: B008
 ):
     """
     Agrega un número a la lista de números de prueba autorizados
@@ -142,7 +142,7 @@ async def get_supported_countries():
 
 
 @router.get("/test-numbers")
-async def get_test_numbers(normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer)):
+async def get_test_numbers(normalizer: PydanticPhoneNumberNormalizer = Depends(lambda: pydantic_phone_normalizer)):  # noqa: B008
     """
     Obtiene la lista de números de prueba configurados
     """

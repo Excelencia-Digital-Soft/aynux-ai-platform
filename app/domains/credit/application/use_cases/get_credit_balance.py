@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from app.core.interfaces.repository import IRepository
 
@@ -56,9 +56,7 @@ class GetCreditBalanceUseCase:
         """
         self.account_repo = credit_account_repository
 
-    async def execute(
-        self, request: GetCreditBalanceRequest
-    ) -> GetCreditBalanceResponse:
+    async def execute(self, request: GetCreditBalanceRequest) -> GetCreditBalanceResponse:
         """
         Execute use case to get credit balance.
 

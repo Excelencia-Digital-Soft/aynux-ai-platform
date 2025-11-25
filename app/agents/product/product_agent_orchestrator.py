@@ -296,7 +296,7 @@ class ProductAgentOrchestrator:
         Returns:
             Health status dict
         """
-        health = {
+        health: Dict[str, Any] = {
             "healthy": True,
             "search_strategies": {},
             "response_generators": {},

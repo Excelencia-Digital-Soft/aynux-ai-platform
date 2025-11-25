@@ -10,7 +10,7 @@ Follows Clean Architecture:
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -56,9 +56,7 @@ class AgentSettingsUpdate(BaseModel):
 
     model: Optional[str] = Field(None, description="LLM model name")
     temperature: Optional[float] = Field(None, ge=0.0, le=1.0, description="Temperature")
-    max_response_length: Optional[int] = Field(
-        None, ge=100, le=2000, description="Max response length"
-    )
+    max_response_length: Optional[int] = Field(None, ge=100, le=2000, description="Max response length")
     use_rag: Optional[bool] = Field(None, description="Enable RAG")
     rag_max_results: Optional[int] = Field(None, ge=1, le=10, description="RAG results limit")
 
@@ -112,7 +110,7 @@ async def get_excelencia_config():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get agent configuration: {str(e)}",
-        )
+        ) from e
 
 
 @router.put(
@@ -154,10 +152,7 @@ async def update_excelencia_modules(request: UpdateModulesRequest):
     """
     try:
         # Convert Pydantic models to dicts
-        modules_dict = {
-            module_id: module_config.model_dump()
-            for module_id, module_config in request.modules.items()
-        }
+        modules_dict = {module_id: module_config.model_dump() for module_id, module_config in request.modules.items()}
 
         use_case = UpdateAgentModulesUseCase()
         result = await use_case.execute(
@@ -177,13 +172,13 @@ async def update_excelencia_modules(request: UpdateModulesRequest):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Error updating agent modules: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update agent modules: {str(e)}",
-        )
+        ) from e
 
 
 @router.patch(
@@ -219,9 +214,7 @@ async def update_excelencia_settings(request: AgentSettingsUpdate):
     """
     try:
         # Filter out None values
-        settings_dict = {
-            k: v for k, v in request.model_dump().items() if v is not None
-        }
+        settings_dict = {k: v for k, v in request.model_dump().items() if v is not None}
 
         use_case = UpdateAgentSettingsUseCase()
         result = await use_case.execute(settings=settings_dict)
@@ -237,13 +230,13 @@ async def update_excelencia_settings(request: AgentSettingsUpdate):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Error updating agent settings: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update agent settings: {str(e)}",
-        )
+        ) from e
 
 
 @router.get(
@@ -271,7 +264,7 @@ async def get_excelencia_modules():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get modules: {str(e)}",
-        )
+        ) from e
 
 
 @router.get(
@@ -298,4 +291,4 @@ async def get_excelencia_settings():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get settings: {str(e)}",
-        )
+        ) from e

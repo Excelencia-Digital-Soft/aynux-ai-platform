@@ -116,7 +116,8 @@ class BaseSearchStrategy(ABC):
             max_results: Maximum results requested
         """
         self.logger.info(
-            f"{self.strategy_name} search started: query='{query[:50]}', " f"intent={intent.intent}, max_results={max_results}"
+            f"{self.strategy_name} search started: query='{query[:50]}', "
+            f"intent={intent.intent}, max_results={max_results}"
         )
 
     def _log_search_result(self, result: SearchResult) -> None:

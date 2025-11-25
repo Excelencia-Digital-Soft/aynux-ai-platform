@@ -748,4 +748,3 @@ def get_evaluators_instance() -> AynuxEvaluators:
     if _evaluators_instance is None:
         _evaluators_instance = AynuxEvaluators()
     return _evaluators_instance
-

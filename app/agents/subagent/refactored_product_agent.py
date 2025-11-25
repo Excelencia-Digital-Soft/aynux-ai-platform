@@ -14,19 +14,19 @@ This agent is a thin wrapper that:
 import logging
 from typing import Any, Dict, Optional
 
-from app.config.settings import get_settings
 from app.agents.integrations.ollama_integration import OllamaIntegration
+from app.config.settings import get_settings
 
+from ..integrations.chroma_integration import ChromaDBIntegration
+from ..integrations.pgvector_integration import PgVectorIntegration
 from ..product.product_agent_orchestrator import ProductAgentOrchestrator
 from ..product.response import AIResponseGenerator
 from ..product.strategies import (
-    PgVectorSearchStrategy,
     ChromaDBSearchStrategy,
     DatabaseSearchStrategy,
+    PgVectorSearchStrategy,
     SQLGenerationSearchStrategy,
 )
-from ..integrations.pgvector_integration import PgVectorIntegration
-from ..integrations.chroma_integration import ChromaDBIntegration
 from ..tools.product_tool import ProductTool
 from ..utils.tracing import trace_async_method
 from .base_agent import BaseAgent
@@ -185,9 +185,7 @@ class RefactoredProductAgent(BaseAgent):
         metadata={"agent_type": "refactored_product", "uses_orchestrator": True},
         extract_state=True,
     )
-    async def _process_internal(
-        self, message: str, state_dict: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _process_internal(self, message: str, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process user message using orchestrator.
 
@@ -234,8 +232,7 @@ class RefactoredProductAgent(BaseAgent):
                     {
                         "role": "assistant",
                         "content": (
-                            "Disculpa, tuve un problema consultando los productos. "
-                            "¿Podrías reformular tu pregunta?"
+                            "Disculpa, tuve un problema consultando los productos. " "¿Podrías reformular tu pregunta?"
                         ),
                     }
                 ],

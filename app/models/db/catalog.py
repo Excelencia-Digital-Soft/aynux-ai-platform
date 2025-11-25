@@ -5,6 +5,7 @@ Product catalog models: Products, Categories, Brands, etc.
 import uuid
 from typing import TYPE_CHECKING, List, Optional
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -20,7 +21,6 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
-from pgvector.sqlalchemy import Vector
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, relationship
 
@@ -49,7 +49,7 @@ class Category(Base, TimestampMixin):
     description = Column(Text)
     active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
-    
+
     # External reference from DUX system
     external_id = Column(String(100), index=True)
 
@@ -97,7 +97,7 @@ class Brand(Base, TimestampMixin):
     warranty_years = Column(Integer, default=2)
     description = Column(Text)
     active = Column(Boolean, default=True)
-    
+
     # External reference from DUX system
     external_code = Column(String(100))
 
@@ -131,7 +131,7 @@ class Product(Base, TimestampMixin):
     stock = Column(Integer, default=0, index=True)
     min_stock = Column(Integer, default=5)  # Alerta de stock bajo
     sku = Column(String(50), unique=True, index=True)  # Código de producto
-    
+
     # Additional fields for DUX integration
     cost = Column(Float, default=0.0)  # Cost from DUX
     tax_percentage = Column(Float, default=0.0)  # Tax percentage from DUX

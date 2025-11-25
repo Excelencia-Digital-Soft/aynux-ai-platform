@@ -272,4 +272,3 @@ class SearchStrategyManager:
 
         self.min_results_threshold = threshold
         self.logger.info(f"Minimum results threshold updated to: {threshold}")
-

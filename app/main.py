@@ -136,39 +136,38 @@ def create_app() -> FastAPI:
             # Verificar configuración DUX
             if not settings.DUX_API_KEY:
                 logger.warning("DUX_API_KEY not configured - DUX sync will be disabled")
-            
+
             # Iniciar sincronización programada DUX si está habilitada
             if settings.DUX_SYNC_ENABLED and settings.DUX_API_KEY:
-                from app.domains.ecommerce.infrastructure.services import ScheduledSyncService
-                from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import get_scheduled_sync_service
+                from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import (
+                    get_scheduled_sync_service,
+                )
 
                 # Usar sincronización RAG integrada por defecto
                 sync_service = get_scheduled_sync_service(use_rag_sync=True)
                 await sync_service.start()
-                
+
                 # Verificar estado inicial
                 initial_status = await sync_service.get_sync_status()
                 logger.info(
                     f"DUX scheduled sync service started - Mode: {initial_status['sync_mode']}, "
                     f"Next sync: {initial_status['next_scheduled_sync']}"
                 )
-                
+
                 # Ejecutar sincronización inicial en background (no bloquear startup)
-                background_sync_task = asyncio.create_task(
-                    _run_background_initial_sync(sync_service)
-                )
+                background_sync_task = asyncio.create_task(_run_background_initial_sync(sync_service))
                 _background_tasks.add(background_sync_task)
                 background_sync_task.add_done_callback(_background_tasks.discard)
                 logger.info("Background initial sync task created and will run asynchronously")
-                    
+
             elif not settings.DUX_SYNC_ENABLED:
                 logger.info("DUX sync is disabled via DUX_SYNC_ENABLED=False")
-                
+
             # Verificar conectividad con servicios externos
             await _verify_external_services()
-            
+
             logger.info("Background services startup completed successfully")
-            
+
         except Exception as e:
             logger.error(f"Error during startup: {e}", exc_info=True)
             # No detener la aplicación por errores en servicios background
@@ -183,45 +182,48 @@ def create_app() -> FastAPI:
         try:
             # Detener sincronización programada DUX
             if settings.DUX_SYNC_ENABLED:
-                from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import get_scheduled_sync_service
+                from app.domains.ecommerce.infrastructure.services.scheduled_sync_service import (
+                    get_scheduled_sync_service,
+                )
 
                 sync_service = get_scheduled_sync_service()
                 await sync_service.stop()
                 logger.info("DUX scheduled sync service stopped")
-                
+
             # Cerrar conexiones de base de datos si es necesario
             # (SQLAlchemy async sessions se manejan automáticamente)
-            
+
             logger.info("Background services shutdown completed")
-            
+
         except Exception as e:
             logger.error(f"Error during shutdown: {e}", exc_info=True)
-            
+
     async def _verify_external_services():
         """Verifica conectividad con servicios externos críticos"""
         try:
             # Verificar conectividad DUX API
             if settings.DUX_API_KEY:
                 from app.clients.dux_api_client import DuxApiClientFactory
-                
+
                 async with DuxApiClientFactory.create_client() as client:
                     if await client.test_connection():
                         logger.info("✓ DUX API connectivity verified")
                     else:
                         logger.warning("⚠ DUX API connectivity failed")
-            
+
             # Verificar Ollama (para embeddings)
             try:
                 from app.services.embedding_update_service import EmbeddingUpdateService
+
                 embedding_service = EmbeddingUpdateService()
-                
+
                 # Test simple para verificar si Ollama responde
                 stats = embedding_service.get_collection_stats()
                 logger.info(f"✓ ChromaDB/Ollama connectivity verified - Collections: {len(stats)}")
-                
+
             except Exception as e:
                 logger.warning(f"⚠ ChromaDB/Ollama connectivity failed: {e}")
-                
+
         except Exception as e:
             logger.error(f"Error verifying external services: {e}")
 

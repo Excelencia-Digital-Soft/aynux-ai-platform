@@ -131,7 +131,7 @@ class SQLAlchemyInspector:
 
             # Process foreign keys
             for fk in foreign_keys:
-                for local_col, ref_col in zip(fk["constrained_columns"], fk["referred_columns"]):
+                for local_col, ref_col in zip(fk["constrained_columns"], fk["referred_columns"], strict=False):
                     fk_map[local_col] = f"{fk['referred_table']}.{ref_col}"
 
             # Process columns

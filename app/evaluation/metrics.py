@@ -852,4 +852,3 @@ def get_metrics_collector() -> AynuxMetrics:
     if _metrics_instance is None:
         _metrics_instance = AynuxMetrics()
     return _metrics_instance
-

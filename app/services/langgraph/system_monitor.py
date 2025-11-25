@@ -14,57 +14,59 @@ logger = logging.getLogger(__name__)
 
 class SystemMonitor:
     """Handles system health monitoring and conversation statistics"""
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.security_validator = SecurityValidator()
-    
+
     async def get_conversation_history_langgraph(
         self, graph_system: AynuxGraph, user_number: str, limit: int = 50
     ) -> Dict[str, Any]:
         """
         Obtiene el historial de conversación para un usuario usando LangGraph
-        
+
         Args:
             graph_system: Sistema de graph LangGraph
             user_number: Número de teléfono del usuario
             limit: Límite de mensajes a obtener
-            
+
         Returns:
             Dict con el historial de conversación
         """
         try:
             if not graph_system or not graph_system.app:
                 return {"error": "LangGraph system not initialized", "user_number": user_number, "messages": []}
-            
+
             # Intentar obtener el estado de la conversación
             config = {"configurable": {"thread_id": user_number}}
-            
+
             try:
                 current_state = await graph_system.app.aget_state(config)
-                
+
                 if current_state and current_state.values:
                     messages = current_state.values.get("messages", [])
-                    
+
                     # Limitar los mensajes
                     limited_messages = messages[-limit:] if len(messages) > limit else messages
-                    
+
                     # Convertir mensajes a formato serializable
                     serialized_messages = []
                     for msg in limited_messages:
                         try:
                             if hasattr(msg, "content"):
-                                serialized_messages.append({
-                                    "type": getattr(msg, "type", "unknown"),
-                                    "content": msg.content,
-                                    "timestamp": getattr(msg, "timestamp", None),
-                                })
+                                serialized_messages.append(
+                                    {
+                                        "type": getattr(msg, "type", "unknown"),
+                                        "content": msg.content,
+                                        "timestamp": getattr(msg, "timestamp", None),
+                                    }
+                                )
                             else:
                                 serialized_messages.append({"type": "unknown", "content": str(msg), "timestamp": None})
                         except Exception as e:
                             self.logger.warning(f"Error serializing message: {e}")
                             continue
-                    
+
                     return {
                         "user_number": user_number,
                         "messages": serialized_messages,
@@ -83,7 +85,7 @@ class SystemMonitor:
                         "total_messages": 0,
                         "note": "No conversation history found",
                     }
-                    
+
             except Exception as e:
                 self.logger.warning(f"Could not retrieve conversation state: {e}")
                 return {
@@ -92,7 +94,7 @@ class SystemMonitor:
                     "total_messages": 0,
                     "error": f"Could not retrieve conversation: {str(e)}",
                 }
-                
+
         except Exception as e:
             self.logger.error(f"Error getting conversation history: {e}")
             return {
@@ -100,38 +102,38 @@ class SystemMonitor:
                 "user_number": user_number,
                 "messages": [],
             }
-    
+
     async def get_conversation_stats(self, graph_system: AynuxGraph, user_number: str) -> Dict[str, Any]:
         """
         Obtiene estadísticas de conversación para un usuario
-        
+
         Args:
             graph_system: Sistema de graph LangGraph
             user_number: Número de teléfono del usuario
-            
+
         Returns:
             Dict con estadísticas de la conversación
         """
         try:
             if not graph_system or not graph_system.app:
                 return {"error": "LangGraph system not initialized", "user_number": user_number}
-            
+
             config = {"configurable": {"thread_id": user_number}}
-            
+
             try:
                 current_state = await graph_system.app.aget_state(config)
-                
+
                 if current_state and current_state.values:
                     state_values = current_state.values
                     messages = state_values.get("messages", [])
-                    
+
                     # Contar tipos de mensajes
                     human_messages = len([m for m in messages if hasattr(m, "type") and m.type == "human"])
                     ai_messages = len([m for m in messages if hasattr(m, "type") and m.type == "ai"])
-                    
+
                     # Obtener agentes utilizados
                     agent_history = state_values.get("agent_history", [])
-                    
+
                     return {
                         "user_number": user_number,
                         "total_messages": len(messages),
@@ -157,7 +159,7 @@ class SystemMonitor:
                         "conversation_active": False,
                         "note": "No conversation found",
                     }
-                    
+
             except Exception as e:
                 self.logger.warning(f"Could not retrieve conversation state for stats: {e}")
                 return {
@@ -165,50 +167,42 @@ class SystemMonitor:
                     "error": f"Could not retrieve stats: {str(e)}",
                     "conversation_active": False,
                 }
-                
+
         except Exception as e:
             self.logger.error(f"Error getting conversation stats: {e}")
             return {"error": f"Error retrieving conversation stats: {str(e)}", "user_number": user_number}
-    
-    async def get_system_health(
-        self, initialized: bool, graph_system: AynuxGraph
-    ) -> Dict[str, Any]:
+
+    async def get_system_health(self, initialized: bool, graph_system: AynuxGraph) -> Dict[str, Any]:
         """
         Obtiene el estado de salud del sistema LangGraph.
-        
+
         Args:
             initialized: Si el servicio está inicializado
             graph_system: Sistema de graph LangGraph
-            
+
         Returns:
             Diccionario con información del estado de salud
         """
         try:
-            health_status = {
+            components: Dict[str, Any] = {}
+
+            # Check integrations
+            if graph_system:
+                components["ollama"] = hasattr(graph_system, "ollama") and graph_system.ollama is not None
+                components["postgres"] = hasattr(graph_system, "postgres") and graph_system.postgres is not None
+                components["chroma"] = hasattr(graph_system, "chroma") and graph_system.chroma is not None
+                components["supervisor_agent"] = graph_system.agents.get(AgentType.SUPERVISOR.value) is not None
+
+            health_status: Dict[str, Any] = {
                 "service": "langgraph_chatbot",
                 "initialized": initialized,
                 "graph_system": graph_system is not None,
-                "components": {},
+                "components": components,
             }
-            
-            # Check integrations
-            if graph_system:
-                health_status["components"]["ollama"] = (
-                    hasattr(graph_system, "ollama") and graph_system.ollama is not None
-                )
-                health_status["components"]["postgres"] = (
-                    hasattr(graph_system, "postgres") and graph_system.postgres is not None
-                )
-                health_status["components"]["chroma"] = (
-                    hasattr(graph_system, "chroma") and graph_system.chroma is not None
-                )
-                health_status["components"]["supervisor_agent"] = (
-                    graph_system.agents.get(AgentType.SUPERVISOR.value) is not None
-                )
-            
+
             # Check database health
             health_status["database"] = await self.security_validator.check_database_health()
-            
+
             # Overall status
             if initialized and graph_system and health_status["database"]:
                 health_status["overall_status"] = "healthy"
@@ -216,9 +210,9 @@ class SystemMonitor:
                 health_status["overall_status"] = "degraded"
             else:
                 health_status["overall_status"] = "unhealthy"
-            
+
             return health_status
-            
+
         except Exception as e:
             self.logger.error(f"Error checking system health: {e}")
             return {"service": "langgraph_chatbot", "overall_status": "unhealthy", "error": str(e)}

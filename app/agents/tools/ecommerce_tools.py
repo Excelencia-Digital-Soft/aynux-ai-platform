@@ -216,7 +216,11 @@ async def get_promotions_tool(category: Optional[str] = None, active_only: bool 
         ]
 
     # Calcular ahorros totales disponibles
-    total_savings = sum(promo["discount_percentage"] for promo in promotions if promo["discount_percentage"] > 0)
+    total_savings = 0.0
+    for promo in promotions:
+        discount = promo.get("discount_percentage")
+        if isinstance(discount, (int, float)) and discount > 0:
+            total_savings += float(discount)
 
     return {
         "success": True,
@@ -253,7 +257,7 @@ async def calculate_shipping_tool(
 
     # Obtener información del método de envío
     shipping_info = SHIPPING_RATES[shipping_method]
-    base_cost = shipping_info["price"]
+    base_cost = float(shipping_info["price"])
 
     # Calcular costo ajustado por cantidad (descuento por volumen)
     if quantity > 1:
@@ -314,13 +318,20 @@ async def get_payment_methods_tool(order_amount: Optional[float] = None) -> Dict
     for method in PAYMENT_METHODS:
         # Verificar si el método es válido para el monto
         if order_amount:
-            if order_amount < method["min_amount"] or order_amount > method["max_amount"]:
+            min_amt = float(method["min_amount"]) if isinstance(method.get("min_amount"), (int, float, list)) else 0
+            max_amt = (
+                float(method["max_amount"])
+                if isinstance(method.get("max_amount"), (int, float, list))
+                else float("inf")
+            )
+            if order_amount < min_amt or order_amount > max_amt:
                 continue
 
         # Calcular comisión si aplica
         fee_amount = 0
-        if method["fees"] > 0 and order_amount:
-            fee_amount = round(order_amount * (method["fees"] / 100), 2)
+        method_fees = float(method.get("fees", 0)) if isinstance(method.get("fees"), (int, float, list)) else 0
+        if method_fees > 0 and order_amount:
+            fee_amount = round(order_amount * (method_fees / 100), 2)
 
         method_info = method.copy()
         method_info["calculated_fee"] = fee_amount
@@ -369,4 +380,3 @@ async def get_payment_methods_tool(order_amount: Optional[float] = None) -> Dict
             "Monitoreo antifraude",
         ],
     }
-

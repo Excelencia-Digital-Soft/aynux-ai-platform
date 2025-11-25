@@ -3,8 +3,6 @@ User authentication models for PostgreSQL persistence
 """
 
 import uuid
-from datetime import datetime
-from typing import List
 
 from sqlalchemy import Boolean, Column, Index, String
 from sqlalchemy.dialects.postgresql import ARRAY, UUID

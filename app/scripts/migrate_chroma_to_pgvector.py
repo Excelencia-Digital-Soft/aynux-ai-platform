@@ -21,7 +21,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -75,7 +75,7 @@ class ChromaToPgVectorMigration:
         self.chroma_collection = "products_all_products"
 
         # Migration statistics
-        self.stats = {
+        self.stats: Dict[str, Any] = {
             "total_products": 0,
             "products_with_chroma_embeddings": 0,
             "products_with_pgvector_embeddings": 0,
@@ -86,7 +86,7 @@ class ChromaToPgVectorMigration:
             "end_time": None,
         }
 
-    async def run(self) -> Dict[str, int]:
+    async def run(self) -> Dict[str, Any]:
         """
         Execute migration.
 
@@ -289,11 +289,8 @@ class ChromaToPgVectorMigration:
         final_embeddings = pgvector_stats.get("products_with_embeddings", 0)
 
         logger.info(f"  Products with pgvector embeddings after migration: {final_embeddings}")
-        logger.info(
-            f"  Expected embeddings: {
-                self.stats['successfully_migrated'] + self.stats['products_with_pgvector_embeddings']
-            }"
-        )
+        expected_embeddings = self.stats["successfully_migrated"] + self.stats["products_with_pgvector_embeddings"]
+        logger.info(f"  Expected embeddings: {expected_embeddings}")
 
         # Spot check: Query a few products to verify embeddings
         logger.info("  Running spot checks on random products...")
@@ -394,4 +391,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

@@ -73,7 +73,7 @@ async def get_laptops(
         if min_price is not None or max_price is not None:
             filtered_laptops = []
             for laptop in laptops:
-                price = laptop["price"]
+                price: int = int(laptop["price"])
                 if min_price is not None and price < min_price:
                     continue
                 if max_price is not None and price > max_price:
@@ -192,12 +192,17 @@ async def get_stock_report():
     Genera un reporte de stock por categorías
     """
     try:
-        report = {"laptops": {}, "desktops": {}, "components": {}, "peripherals": {"total_stock": 0, "products": []}}
+        report: Dict[str, Any] = {
+            "laptops": {},
+            "desktops": {},
+            "components": {},
+            "peripherals": {"total_stock": 0, "products": []},
+        }
 
         # Stock de laptops
         for category, laptops in PRODUCTS_CATALOG["laptops"].items():
-            total_stock = sum(laptop["stock"] for laptop in laptops)
-            low_stock = [laptop for laptop in laptops if laptop["stock"] <= 5]
+            total_stock = sum(int(laptop["stock"]) for laptop in laptops)
+            low_stock = [laptop for laptop in laptops if int(laptop["stock"]) <= 5]
             report["laptops"][category] = {
                 "total_stock": total_stock,
                 "products_count": len(laptops),
@@ -207,8 +212,8 @@ async def get_stock_report():
 
         # Stock de desktops
         for category, desktops in PRODUCTS_CATALOG["desktops"].items():
-            total_stock = sum(desktop["stock"] for desktop in desktops)
-            low_stock = [desktop for desktop in desktops if desktop["stock"] <= 5]
+            total_stock = sum(int(desktop["stock"]) for desktop in desktops)
+            low_stock = [desktop for desktop in desktops if int(desktop["stock"]) <= 5]
             report["desktops"][category] = {
                 "total_stock": total_stock,
                 "products_count": len(desktops),
@@ -218,8 +223,8 @@ async def get_stock_report():
 
         # Stock de componentes
         for comp_type, components in PRODUCTS_CATALOG["components"].items():
-            total_stock = sum(comp["stock"] for comp in components)
-            low_stock = [comp for comp in components if comp["stock"] <= 5]
+            total_stock = sum(int(comp["stock"]) for comp in components)
+            low_stock = [comp for comp in components if int(comp["stock"]) <= 5]
             report["components"][comp_type] = {
                 "total_stock": total_stock,
                 "products_count": len(components),
@@ -228,8 +233,8 @@ async def get_stock_report():
             }
 
         # Stock de periféricos
-        total_periph_stock = sum(item["stock"] for item in PRODUCTS_CATALOG["peripherals"])
-        low_stock_periph = [item for item in PRODUCTS_CATALOG["peripherals"] if item["stock"] <= 5]
+        total_periph_stock = sum(int(item["stock"]) for item in PRODUCTS_CATALOG["peripherals"])
+        low_stock_periph = [item for item in PRODUCTS_CATALOG["peripherals"] if int(item["stock"]) <= 5]
         report["peripherals"] = {
             "total_stock": total_periph_stock,
             "products_count": len(PRODUCTS_CATALOG["peripherals"]),

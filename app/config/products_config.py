@@ -220,43 +220,71 @@ BRANDS_INFO = {
 def get_products_by_category(category: str) -> List[Dict[str, Any]]:
     """Obtiene productos por categoría"""
     if category in PRODUCTS_CATALOG:
-        return PRODUCTS_CATALOG[category]
+        result = PRODUCTS_CATALOG[category]
+        # Return as list if it's a dict or list
+        if isinstance(result, list):
+            return result
+        elif isinstance(result, dict):
+            # Flatten dict values into list
+            all_products: List[Dict[str, Any]] = []
+            for value in result.values():
+                if isinstance(value, list):
+                    all_products.extend(value)
+            return all_products
     return []
 
 
 def get_products_by_price_range(min_price: int, max_price: int) -> List[Dict[str, Any]]:
     """Obtiene productos por rango de precio"""
-    products = []
+    products: List[Dict[str, Any]] = []
     for category in PRODUCTS_CATALOG.values():
         if isinstance(category, dict):
             for subcategory in category.values():
                 if isinstance(subcategory, list):
-                    products.extend([p for p in subcategory if min_price <= p["price"] <= max_price])
+                    for p in subcategory:
+                        price = p.get("price", 0)
+                        # Ensure price is numeric
+                        if isinstance(price, (int, float)) and min_price <= price <= max_price:
+                            products.append(p)
         elif isinstance(category, list):
-            products.extend([p for p in category if min_price <= p["price"] <= max_price])
+            for p in category:
+                price = p.get("price", 0)
+                # Ensure price is numeric
+                if isinstance(price, (int, float)) and min_price <= price <= max_price:
+                    products.append(p)
     return products
 
 
 def get_product_recommendations(user_profile: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Genera recomendaciones basadas en el perfil del usuario"""
-    recommendations = []
+    recommendations: List[Dict[str, Any]] = []
 
     # Lógica de recomendación basada en intereses
     interests = user_profile.get("interests", [])
     budget = user_profile.get("budget", 1000)
 
     if "gaming" in interests:
-        gaming_products = []
-        for subcategory in PRODUCTS_CATALOG["laptops"]["gaming"]:
-            if subcategory["price"] <= budget:
-                gaming_products.append(subcategory)
-        recommendations.extend(gaming_products[:3])
+        gaming_products: List[Dict[str, Any]] = []
+        laptops = PRODUCTS_CATALOG.get("laptops")
+        if isinstance(laptops, dict):
+            gaming = laptops.get("gaming")
+            if isinstance(gaming, list):
+                for product in gaming:
+                    price = product.get("price", 0)
+                    if isinstance(price, (int, float)) and price <= budget:
+                        gaming_products.append(product)
+                recommendations.extend(gaming_products[:3])
 
     if "work" in interests:
-        work_products = []
-        for subcategory in PRODUCTS_CATALOG["laptops"]["work"]:
-            if subcategory["price"] <= budget:
-                work_products.append(subcategory)
-        recommendations.extend(work_products[:3])
+        work_products: List[Dict[str, Any]] = []
+        laptops = PRODUCTS_CATALOG.get("laptops")
+        if isinstance(laptops, dict):
+            work = laptops.get("work")
+            if isinstance(work, list):
+                for product in work:
+                    price = product.get("price", 0)
+                    if isinstance(price, (int, float)) and price <= budget:
+                        work_products.append(product)
+                recommendations.extend(work_products[:3])
 
     return recommendations[:5]  # Máximo 5 recomendaciones

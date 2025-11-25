@@ -23,7 +23,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.settings import get_settings
 from app.core.container import DependencyContainer
 from app.database.async_db import get_async_db
-from app.integrations.vector_stores import KnowledgeEmbeddingService
 from app.models.knowledge_schemas import (
     ErrorResponse,
     KnowledgeCreate,
@@ -35,7 +34,6 @@ from app.models.knowledge_schemas import (
     KnowledgeUpdate,
     MessageResponse,
 )
-from app.repositories.knowledge_repository import KnowledgeRepository
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -65,8 +63,8 @@ router = APIRouter(
 )
 async def create_knowledge(
     knowledge: KnowledgeCreate,
-    auto_embed: bool = Query(True, description="Automatically generate embeddings"),
-    db: AsyncSession = Depends(get_async_db),
+    auto_embed: bool = Query(True, description="Automatically generate embeddings"),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Create a new knowledge document.
@@ -91,13 +89,13 @@ async def create_knowledge(
         )
         return result
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Error creating knowledge: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create knowledge document",
-        )
+        ) from e
 
 
 @router.get(
@@ -108,7 +106,7 @@ async def create_knowledge(
 )
 async def get_knowledge(
     knowledge_id: UUID,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Get a knowledge document by its UUID.
@@ -134,7 +132,7 @@ async def get_knowledge(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve knowledge document",
-        )
+        ) from e
 
 
 @router.get(
@@ -144,13 +142,13 @@ async def get_knowledge(
     description="List all knowledge documents with optional filtering and pagination",
 )
 async def list_knowledge(
-    document_type: Optional[str] = Query(None, description="Filter by document type"),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    tags: Optional[List[str]] = Query(None, description="Filter by tags (OR logic)"),
-    active_only: bool = Query(True, description="Only return active documents"),
-    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    db: AsyncSession = Depends(get_async_db),
+    document_type: Optional[str] = Query(None, description="Filter by document type"),  # noqa: B008
+    category: Optional[str] = Query(None, description="Filter by category"),  # noqa: B008
+    tags: Optional[List[str]] = Query(None, description="Filter by tags (OR logic)"),  # noqa: B008
+    active_only: bool = Query(True, description="Only return active documents"),  # noqa: B008
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),  # noqa: B008
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     List knowledge documents with optional filters and pagination.
@@ -181,7 +179,7 @@ async def list_knowledge(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list knowledge documents",
-        )
+        ) from e
 
 
 @router.put(
@@ -193,10 +191,8 @@ async def list_knowledge(
 async def update_knowledge(
     knowledge_id: UUID,
     knowledge: KnowledgeUpdate,
-    regenerate_embedding: bool = Query(
-        True, description="Regenerate embeddings if content changed"
-    ),
-    db: AsyncSession = Depends(get_async_db),
+    regenerate_embedding: bool = Query(True, description="Regenerate embeddings if content changed"),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Update a knowledge document.
@@ -235,13 +231,13 @@ async def update_knowledge(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Error updating knowledge {knowledge_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update knowledge document",
-        )
+        ) from e
 
 
 @router.delete(
@@ -252,8 +248,8 @@ async def update_knowledge(
 )
 async def delete_knowledge(
     knowledge_id: UUID,
-    hard_delete: bool = Query(False, description="Permanently delete (true) or deactivate (false)"),
-    db: AsyncSession = Depends(get_async_db),
+    hard_delete: bool = Query(False, description="Permanently delete (true) or deactivate (false)"),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Delete a knowledge document.
@@ -289,7 +285,7 @@ async def delete_knowledge(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete knowledge document",
-        )
+        ) from e
 
 
 # ============================================================================
@@ -305,7 +301,7 @@ async def delete_knowledge(
 )
 async def search_knowledge(
     search: KnowledgeSearch,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Search the knowledge base with various strategies.
@@ -342,7 +338,7 @@ async def search_knowledge(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to search knowledge base",
-        )
+        ) from e
 
 
 # ============================================================================
@@ -358,9 +354,9 @@ async def search_knowledge(
 )
 async def regenerate_embedding(
     knowledge_id: UUID,
-    update_pgvector: bool = Query(True, description="Update pgvector embeddings"),
-    update_chroma: bool = Query(True, description="Update ChromaDB embeddings"),
-    db: AsyncSession = Depends(get_async_db),
+    update_pgvector: bool = Query(True, description="Update pgvector embeddings"),  # noqa: B008
+    update_chroma: bool = Query(True, description="Update ChromaDB embeddings"),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Regenerate embeddings for a specific document.
@@ -398,7 +394,7 @@ async def regenerate_embedding(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
-        )
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -406,7 +402,7 @@ async def regenerate_embedding(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to regenerate embeddings",
-        )
+        ) from e
 
 
 @router.post(
@@ -416,9 +412,9 @@ async def regenerate_embedding(
     description="Regenerate embeddings for ALL documents in the knowledge base",
 )
 async def sync_all_embeddings(
-    update_pgvector: bool = Query(True, description="Update pgvector embeddings"),
-    update_chroma: bool = Query(True, description="Update ChromaDB embeddings"),
-    db: AsyncSession = Depends(get_async_db),
+    update_pgvector: bool = Query(True, description="Update pgvector embeddings"),  # noqa: B008
+    update_chroma: bool = Query(True, description="Update ChromaDB embeddings"),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Regenerate embeddings for ALL knowledge documents.
@@ -435,9 +431,7 @@ async def sync_all_embeddings(
     - Migrating to a new embedding model
     """
     try:
-        logger.info(
-            f"Starting full embedding sync (pgvector={update_pgvector}, chroma={update_chroma})"
-        )
+        logger.info(f"Starting full embedding sync (pgvector={update_pgvector}, chroma={update_chroma})")
 
         container = DependencyContainer()
         use_case = container.create_regenerate_knowledge_embeddings_use_case(db)
@@ -463,7 +457,7 @@ async def sync_all_embeddings(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to sync embeddings",
-        )
+        ) from e
 
 
 @router.get(
@@ -473,7 +467,7 @@ async def sync_all_embeddings(
     description="Retrieve statistics about the knowledge base",
 )
 async def get_stats(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Get comprehensive statistics about the knowledge base.
@@ -493,7 +487,7 @@ async def get_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve statistics",
-        )
+        ) from e
 
 
 # ============================================================================
@@ -508,7 +502,7 @@ async def get_stats(
     description="Check if the knowledge base API is operational",
 )
 async def health_check(
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Simple health check endpoint to verify API is running.
@@ -534,4 +528,4 @@ async def health_check(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Knowledge Base API is not operational",
-        )
+        ) from e

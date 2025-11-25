@@ -90,7 +90,7 @@ class OrchestratorAgent(BaseAgent):
                     "analysis_timestamp": self.get_current_timestamp(),
                 },
                 "needs_processing": True,  # Indica que el mensaje necesita ser procesado
-                "routing_attempts": conversation_data["routing_attempts"] + 1,
+                "routing_attempts": (conversation_data["routing_attempts"] or 0) + 1,
             }
 
         except Exception as e:
@@ -291,4 +291,3 @@ class OrchestratorAgent(BaseAgent):
             Lista de nombres de intenciones válidas
         """
         return self.intent_router.spacy_analyzer.get_supported_intents() if self.intent_router.spacy_analyzer else []
-

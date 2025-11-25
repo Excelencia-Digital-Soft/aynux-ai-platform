@@ -8,7 +8,7 @@ Implements ISearchableRepository interface for dependency inversion.
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, desc, func, or_
+from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.interfaces.repository import ISearchableRepository
@@ -18,7 +18,7 @@ from app.models.db import Brand, Category, Product, Subcategory
 logger = logging.getLogger(__name__)
 
 
-class ProductRepository(ISearchableRepository[Product, int]):
+class ProductRepository(ISearchableRepository[Product]):
     """
     Product Repository implementation.
 
@@ -172,7 +172,20 @@ class ProductRepository(ISearchableRepository[Product, int]):
 
     # ISearchableRepository methods
 
-    async def search(
+    async def search(self, query: str, limit: int = 10) -> List[Product]:
+        """
+        Search products (interface method).
+
+        Args:
+            query: Search query text
+            limit: Maximum results
+
+        Returns:
+            List of matching products
+        """
+        return await self.search_advanced(query=query, limit=limit)
+
+    async def search_advanced(
         self,
         query: str,
         filters: Optional[Dict[str, Any]] = None,
@@ -236,9 +249,7 @@ class ProductRepository(ISearchableRepository[Product, int]):
             logger.error(f"Error searching products: {e}", exc_info=True)
             return []
 
-    async def find_by_criteria(
-        self, criteria: Dict[str, Any], limit: int = 100
-    ) -> List[Product]:
+    async def find_by_criteria(self, criteria: Dict[str, Any], limit: int = 100) -> List[Product]:
         """
         Find products by criteria.
 
@@ -279,15 +290,11 @@ class ProductRepository(ISearchableRepository[Product, int]):
         """
         # Category filter
         if "category" in filters:
-            query = query.join(Category).filter(
-                Category.name == filters["category"].lower()
-            )
+            query = query.join(Category).filter(Category.name == filters["category"].lower())
 
         # Subcategory filter
         if "subcategory" in filters:
-            query = query.join(Subcategory).filter(
-                Subcategory.name == filters["subcategory"].lower()
-            )
+            query = query.join(Subcategory).filter(Subcategory.name == filters["subcategory"].lower())
 
         # Brand filter
         if "brand" in filters:
@@ -317,3 +324,15 @@ class ProductRepository(ISearchableRepository[Product, int]):
             query = query.filter(Product.on_sale == filters["on_sale"])
 
         return query
+
+    async def filter_by(self, **kwargs) -> List[Product]:
+        """
+        Filter products by specific criteria (interface method).
+
+        Args:
+            **kwargs: Key-value pairs for filtering
+
+        Returns:
+            List of products matching the criteria
+        """
+        return await self.find_by_criteria(criteria=kwargs)

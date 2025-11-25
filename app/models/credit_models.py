@@ -302,4 +302,3 @@ class CreditProduct(Base):
         Index("idx_credit_product_account", "account_id"),
         Index("idx_credit_product_date", "purchase_date"),
     )
-

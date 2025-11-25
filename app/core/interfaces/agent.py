@@ -3,13 +3,15 @@ Interfaces para agentes LangGraph
 
 Define contratos para todos los agentes del sistema multi-dominio.
 """
-from typing import Protocol, Dict, Any, Optional, List, runtime_checkable
+
 from abc import abstractmethod
 from enum import Enum
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 
 class AgentStatus(str, Enum):
     """Estados posibles de un agente"""
+
     IDLE = "idle"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -19,6 +21,7 @@ class AgentStatus(str, Enum):
 
 class AgentType(str, Enum):
     """Tipos de agentes en el sistema"""
+
     SUPERVISOR = "supervisor"
     PRODUCT_SEARCH = "product_search"
     ORDER_TRACKING = "order_tracking"
@@ -41,13 +44,13 @@ class IAgent(Protocol):
     Interface base para todos los agentes LangGraph.
 
     Todos los agentes (nodes) del sistema deben implementar esta interface.
-    Permite ejecutar agentes de forma uniforme sin conocer su implementación.
+    Permite ejecutar agentes de forma uniforme sin conocer su implementaciÃ³n.
 
     Example:
         ```python
         class ProductSearchAgent(IAgent):
             async def execute(self, state: dict) -> dict:
-                # Implementación específica
+                # ImplementaciÃ³n especÃ­fica
                 products = await self.search_products(state["query"])
                 return {"products": products, "status": AgentStatus.COMPLETED}
         ```
@@ -77,7 +80,7 @@ class IAgent(Protocol):
             Diccionario con actualizaciones al estado
 
         Raises:
-            AgentExecutionError: Si hay error en la ejecución
+            AgentExecutionError: Si hay error en la ejecuciÃ³n
         """
         ...
 
@@ -90,10 +93,10 @@ class IAgent(Protocol):
             state: Estado a validar
 
         Returns:
-            True si el estado es válido
+            True si el estado es vÃ¡lido
 
         Raises:
-            ValidationError: Si el estado no es válido
+            ValidationError: Si el estado no es vÃ¡lido
         """
         ...
 
@@ -103,19 +106,19 @@ class ISupervisorAgent(Protocol):
     """
     Interface para agentes supervisores.
 
-    Los supervisores deciden a qué agente especializado enrutar la conversación.
+    Los supervisores deciden a quÃ© agente especializado enrutar la conversaciÃ³n.
     """
 
     @abstractmethod
     async def route(self, state: Dict[str, Any]) -> str:
         """
-        Determina el próximo agente a ejecutar.
+        Determina el prÃ³ximo agente a ejecutar.
 
         Args:
             state: Estado actual
 
         Returns:
-            Nombre del próximo nodo/agente a ejecutar
+            Nombre del prÃ³ximo nodo/agente a ejecutar
 
         Example:
             ```python
@@ -133,7 +136,7 @@ class ISupervisorAgent(Protocol):
     @abstractmethod
     async def analyze_intent(self, message: str) -> Dict[str, Any]:
         """
-        Analiza la intención del mensaje de usuario.
+        Analiza la intenciÃ³n del mensaje de usuario.
 
         Args:
             message: Mensaje del usuario
@@ -149,21 +152,17 @@ class IConversationalAgent(Protocol):
     """
     Interface para agentes que generan respuestas conversacionales.
 
-    Agentes que interactúan directamente con usuarios vía chat.
+    Agentes que interactÃºan directamente con usuarios vÃ­a chat.
     """
 
     @abstractmethod
-    async def generate_response(
-        self,
-        query: str,
-        context: Optional[Dict[str, Any]] = None
-    ) -> str:
+    async def generate_response(self, query: str, context: Optional[Dict[str, Any]] = None) -> str:
         """
         Genera una respuesta natural para el usuario.
 
         Args:
             query: Mensaje/pregunta del usuario
-            context: Contexto adicional de la conversación
+            context: Contexto adicional de la conversaciÃ³n
 
         Returns:
             Respuesta en lenguaje natural
@@ -171,16 +170,12 @@ class IConversationalAgent(Protocol):
         ...
 
     @abstractmethod
-    async def format_results(
-        self,
-        results: List[Any],
-        language: str = "es"
-    ) -> str:
+    async def format_results(self, results: List[Any], language: str = "es") -> str:
         """
         Formatea resultados en una respuesta legible.
 
         Args:
-            results: Resultados a formatear (productos, órdenes, etc.)
+            results: Resultados a formatear (productos, Ã³rdenes, etc.)
             language: Idioma de la respuesta
 
         Returns:
@@ -189,22 +184,26 @@ class IConversationalAgent(Protocol):
         ...
 
 
-# Excepciones específicas de agentes
+# Excepciones especÃ­ficas de agentes
 class AgentError(Exception):
     """Error base para agentes"""
+
     pass
 
 
 class AgentExecutionError(AgentError):
-    """Error durante la ejecución de un agente"""
+    """Error durante la ejecuciÃ³n de un agente"""
+
     pass
 
 
 class AgentValidationError(AgentError):
-    """Error de validación de entrada"""
+    """Error de validaciÃ³n de entrada"""
+
     pass
 
 
 class AgentTimeoutError(AgentError):
     """Timeout ejecutando agente"""
+
     pass

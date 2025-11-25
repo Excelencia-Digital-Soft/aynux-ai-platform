@@ -111,8 +111,7 @@ class DomainClassifier:
         # If keyword confidence is high, return immediately
         if keyword_result.confidence >= 0.8:
             logger.debug(
-                f"High confidence keyword classification: "
-                f"{keyword_result.domain} ({keyword_result.confidence:.2f})"
+                f"High confidence keyword classification: " f"{keyword_result.domain} ({keyword_result.confidence:.2f})"
             )
             return keyword_result
 
@@ -267,7 +266,6 @@ IMPORTANTE:
             response = await llm.ainvoke(prompt)
 
             # Parse response
-            import json
 
             from app.utils import extract_json_from_text
 

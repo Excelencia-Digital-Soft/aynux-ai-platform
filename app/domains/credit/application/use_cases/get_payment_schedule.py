@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from app.core.interfaces.repository import IRepository
 
@@ -61,9 +61,7 @@ class GetPaymentScheduleUseCase:
         """
         self.account_repo = credit_account_repository
 
-    async def execute(
-        self, request: GetPaymentScheduleRequest
-    ) -> GetPaymentScheduleResponse:
+    async def execute(self, request: GetPaymentScheduleRequest) -> GetPaymentScheduleResponse:
         """
         Execute use case to get payment schedule.
 
@@ -112,9 +110,7 @@ class GetPaymentScheduleUseCase:
                 error=str(e),
             )
 
-    def _generate_schedule(
-        self, account: Any, months_ahead: int
-    ) -> List[PaymentScheduleItem]:
+    def _generate_schedule(self, account: Any, months_ahead: int) -> List[PaymentScheduleItem]:
         """
         Generate payment schedule for account.
 
@@ -133,14 +129,14 @@ class GetPaymentScheduleUseCase:
 
         for i in range(months_ahead):
             # Calculate payment date (add 30 days for each month)
-            payment_date = date(
-                current_date.year,
-                current_date.month + i,
-                current_date.day
-            ) if current_date.month + i <= 12 else date(
-                current_date.year + (current_date.month + i - 1) // 12,
-                (current_date.month + i - 1) % 12 + 1,
-                current_date.day
+            payment_date = (
+                date(current_date.year, current_date.month + i, current_date.day)
+                if current_date.month + i <= 12
+                else date(
+                    current_date.year + (current_date.month + i - 1) // 12,
+                    (current_date.month + i - 1) % 12 + 1,
+                    current_date.day,
+                )
             )
 
             # Determine status

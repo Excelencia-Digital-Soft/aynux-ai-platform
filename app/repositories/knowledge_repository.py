@@ -18,10 +18,10 @@ import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, delete, func, or_, select, text, update
+from sqlalchemy import and_, delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.db.knowledge_base import CompanyKnowledge, DOCUMENT_TYPES
+from app.models.db.knowledge_base import CompanyKnowledge
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ class KnowledgeRepository:
             # Build filters
             filters = []
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
             if category:
@@ -155,7 +155,10 @@ class KnowledgeRepository:
         """
         try:
             stmt = (
-                update(CompanyKnowledge).where(CompanyKnowledge.id == knowledge_id).values(**update_data).returning(CompanyKnowledge)
+                update(CompanyKnowledge)
+                .where(CompanyKnowledge.id == knowledge_id)
+                .values(**update_data)
+                .returning(CompanyKnowledge)
             )
             result = await self.db.execute(stmt)
             await self.db.flush()
@@ -239,7 +242,7 @@ class KnowledgeRepository:
             filters = [CompanyKnowledge.embedding.isnot(None)]
 
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
             if category:
@@ -311,16 +314,16 @@ class KnowledgeRepository:
             # Build full-text search query
             stmt = select(
                 CompanyKnowledge,
-                func.ts_rank(CompanyKnowledge.search_vector, func.plainto_tsquery("spanish", query_text)).label("text_rank"),
+                func.ts_rank(CompanyKnowledge.search_vector, func.plainto_tsquery("spanish", query_text)).label(
+                    "text_rank"
+                ),
             )
 
             # Build filters
-            filters = [
-                CompanyKnowledge.search_vector.op("@@")(func.plainto_tsquery("spanish", query_text))
-            ]
+            filters = [CompanyKnowledge.search_vector.op("@@")(func.plainto_tsquery("spanish", query_text))]
 
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
 
@@ -406,7 +409,7 @@ class KnowledgeRepository:
             ]
 
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
 
@@ -470,7 +473,7 @@ class KnowledgeRepository:
 
             filters = []
             if active_only:
-                filters.append(CompanyKnowledge.active == True)
+                filters.append(CompanyKnowledge.active)
             if document_type:
                 filters.append(CompanyKnowledge.document_type == document_type)
 
@@ -497,7 +500,7 @@ class KnowledgeRepository:
             stmt = select(CompanyKnowledge).where(CompanyKnowledge.embedding.is_(None))
 
             if active_only:
-                stmt = stmt.where(CompanyKnowledge.active == True)
+                stmt = stmt.where(CompanyKnowledge.active)
 
             result = await self.db.execute(stmt)
             return list(result.scalars().all())

@@ -164,9 +164,7 @@ class ProductFormatter:
 
         return "\n".join(summary_parts)
 
-    def format_catalog_confirmation(
-        self, product_count: int, intent_analysis: Dict[str, Any]
-    ) -> str:
+    def format_catalog_confirmation(self, product_count: int, intent_analysis: Dict[str, Any]) -> str:
         """
         Format confirmation text for catalog response.
 
@@ -235,9 +233,7 @@ class ProductFormatter:
 
         return message
 
-    def format_products_as_cards(
-        self, products: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def format_products_as_cards(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Format products as card-ready data structures for frontend rendering.
 

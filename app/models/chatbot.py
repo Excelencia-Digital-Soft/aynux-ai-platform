@@ -21,11 +21,4 @@ class ChatbotResponse(BaseModel):
     intent: str = "desconocido"
     confidence: float = 0.0
     mensaje: str
-    estado: Literal[
-        "inicio",
-        "clasificado", 
-        "procesando",
-        "completado",
-        "sin_clasificar",
-        "error"
-    ] = "inicio"
+    estado: Literal["inicio", "clasificado", "procesando", "completado", "sin_clasificar", "error"] = "inicio"

@@ -5,15 +5,14 @@ Use cases for uploading documents (PDF/text) to the knowledge base.
 """
 
 import logging
-from typing import Dict, Any, Optional
-from uuid import UUID
+from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.integrations.document_processing import PDFExtractor
 from app.domains.shared.application.use_cases.knowledge_use_cases import (
     CreateKnowledgeUseCase,
 )
+from app.integrations.document_processing import PDFExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +95,7 @@ class UploadPDFUseCase:
 
             # 2. Extract text and metadata from PDF
             logger.info("Extracting text from PDF...")
-            extraction_result = self.pdf_extractor.extract_text_from_bytes(
-                pdf_bytes, extract_metadata=True
-            )
+            extraction_result = self.pdf_extractor.extract_text_from_bytes(pdf_bytes, extract_metadata=True)
 
             extracted_text = extraction_result["text"]
             pdf_metadata = extraction_result["metadata"]
@@ -117,13 +114,15 @@ class UploadPDFUseCase:
 
             # Merge metadata
             combined_metadata = metadata or {}
-            combined_metadata.update({
-                "source": "pdf_upload",
-                "pdf_pages": page_count,
-                "pdf_title": pdf_metadata.get("title", ""),
-                "pdf_author": pdf_metadata.get("author", ""),
-                "pdf_subject": pdf_metadata.get("subject", ""),
-            })
+            combined_metadata.update(
+                {
+                    "source": "pdf_upload",
+                    "pdf_pages": page_count,
+                    "pdf_title": pdf_metadata.get("title", ""),
+                    "pdf_author": pdf_metadata.get("author", ""),
+                    "pdf_subject": pdf_metadata.get("subject", ""),
+                }
+            )
 
             knowledge_data = {
                 "title": doc_title,
@@ -142,10 +141,7 @@ class UploadPDFUseCase:
                 auto_embed=True,
             )
 
-            logger.info(
-                f"Successfully uploaded PDF: {doc_title} "
-                f"({page_count} pages, {len(extracted_text)} chars)"
-            )
+            logger.info(f"Successfully uploaded PDF: {doc_title} " f"({page_count} pages, {len(extracted_text)} chars)")
 
             return result
 
@@ -154,7 +150,7 @@ class UploadPDFUseCase:
             raise
         except Exception as e:
             logger.error(f"Error uploading PDF: {e}")
-            raise ValueError(f"Failed to upload PDF: {str(e)}")
+            raise ValueError(f"Failed to upload PDF: {str(e)}") from e
 
 
 class UploadTextUseCase:
@@ -227,9 +223,7 @@ class UploadTextUseCase:
                 raise ValueError("Title must be at least 3 characters")
 
             if not content or len(content.strip()) < 50:
-                raise ValueError(
-                    f"Content must be at least 50 characters (got {len(content.strip())})"
-                )
+                raise ValueError(f"Content must be at least 50 characters (got {len(content.strip())})")
 
             # 2. Prepare knowledge document data
             combined_metadata = metadata or {}
@@ -252,9 +246,7 @@ class UploadTextUseCase:
                 auto_embed=True,
             )
 
-            logger.info(
-                f"Successfully uploaded text: {title} ({len(content)} chars)"
-            )
+            logger.info(f"Successfully uploaded text: {title} ({len(content)} chars)")
 
             return result
 
@@ -263,7 +255,7 @@ class UploadTextUseCase:
             raise
         except Exception as e:
             logger.error(f"Error uploading text: {e}")
-            raise ValueError(f"Failed to upload text: {str(e)}")
+            raise ValueError(f"Failed to upload text: {str(e)}") from e
 
 
 class BatchUploadDocumentsUseCase:
@@ -298,9 +290,7 @@ class BatchUploadDocumentsUseCase:
         self.upload_pdf_uc = upload_pdf_uc or UploadPDFUseCase(db)
         self.upload_text_uc = upload_text_uc or UploadTextUseCase(db)
 
-    async def execute(
-        self, documents: list[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    async def execute(self, documents: list[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Upload multiple documents in batch.
 
@@ -388,8 +378,6 @@ class BatchUploadDocumentsUseCase:
             "errors": errors,
         }
 
-        logger.info(
-            f"Batch upload completed: {successful}/{len(documents)} successful"
-        )
+        logger.info(f"Batch upload completed: {successful}/{len(documents)} successful")
 
         return summary

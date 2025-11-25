@@ -660,19 +660,23 @@ Ejemplo: 3,1,7,2,5,4,8,6,10,9"""
             "stock": product.stock,
             "model": product.model,
             "active": product.active,
-            "category": {
-                "id": category.id if category else None,
-                "name": category.name if category else None,
-                "display_name": category.display_name if category else None,
-            }
-            if category
-            else None,
-            "brand": {
-                "id": brand.id if brand else None,
-                "name": brand.name if brand else None,
-            }
-            if brand
-            else None,
+            "category": (
+                {
+                    "id": category.id if category else None,
+                    "name": category.name if category else None,
+                    "display_name": category.display_name if category else None,
+                }
+                if category
+                else None
+            ),
+            "brand": (
+                {
+                    "id": brand.id if brand else None,
+                    "name": brand.name if brand else None,
+                }
+                if brand
+                else None
+            ),
             "created_at": product.created_at.isoformat() if product.created_at else None,
             "updated_at": product.updated_at.isoformat() if product.updated_at else None,
         }

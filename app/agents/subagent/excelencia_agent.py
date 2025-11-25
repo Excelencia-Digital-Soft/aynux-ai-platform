@@ -31,7 +31,13 @@ EXCELENCIA_MODULES = {
     "historia_clinica": {
         "name": "Historia Clínica Electrónica",
         "description": "Sistema completo de gestión de historias clínicas digitales con cumplimiento normativo",
-        "features": ["Registro de pacientes", "Consultas médicas", "Prescripciones", "Informes", "Cumplimiento normativo"],
+        "features": [
+            "Registro de pacientes",
+            "Consultas médicas",
+            "Prescripciones",
+            "Informes",
+            "Cumplimiento normativo",
+        ],
         "target": "Hospitales, Clínicas, Centros médicos",
     },
     "turnos_medicos": {
@@ -219,9 +225,7 @@ Responde solo con el JSON, sin texto adicional."""
             logger.error(f"Error in AI analysis: {e}")
             return self._create_fallback_analysis(message, query_type, mentioned_modules)
 
-    def _create_fallback_analysis(
-        self, message: str, query_type: str, modules: List[str]
-    ) -> Dict[str, Any]:
+    def _create_fallback_analysis(self, message: str, query_type: str, modules: List[str]) -> Dict[str, Any]:
         """Crea un análisis de fallback sin AI."""
         return {
             "query_type": query_type,
@@ -336,7 +340,8 @@ Principales módulos:
 
 ## INSTRUCCIONES:
 1. Responde de manera amigable y profesional
-2. **IMPORTANTE**: Si hay información en la Knowledge Base (sección "INFORMACIÓN CORPORATIVA RELEVANTE"), úsala como fuente principal y prioritaria
+2. **IMPORTANTE**: Si hay información en la Knowledge Base (sección "INFORMACIÓN CORPORATIVA RELEVANTE"),
+   úsala como fuente principal y prioritaria
 3. Si pregunta sobre demos: Menciona que pueden solicitar una demo personalizada
 4. Si pregunta sobre capacitación: Indica que ofrecen capacitación completa y soporte
 5. Si pregunta sobre un módulo específico: Detalla sus características principales
@@ -369,9 +374,7 @@ Genera tu respuesta ahora:"""
             logger.error(f"Error generating AI response: {e}")
             return self._generate_fallback_response(user_message, query_type, mentioned_modules)
 
-    def _generate_fallback_response(
-        self, _message: str, query_type: str, modules: List[str]
-    ) -> str:
+    def _generate_fallback_response(self, _message: str, query_type: str, modules: List[str]) -> str:
         """
         Genera respuesta de fallback sin AI.
 

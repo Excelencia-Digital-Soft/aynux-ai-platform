@@ -10,11 +10,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.config.settings import get_settings
+from app.integrations.whatsapp.service import WhatsAppService
 from app.models.whatsapp_advanced import (
     FlowDataResponse,
     WhatsAppApiResponse,
 )
-from app.integrations.whatsapp.service import WhatsAppService
 
 logger = logging.getLogger(__name__)
 
@@ -494,4 +494,3 @@ class DefaultOrderFormHandler(IFlowHandler):
             errors.append("Debe seleccionar al menos un producto")
 
         return len(errors) == 0, errors
-

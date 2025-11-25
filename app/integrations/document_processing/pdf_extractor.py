@@ -5,16 +5,18 @@ Service for extracting text content from PDF files.
 Follows SRP: Single responsibility for PDF text extraction.
 """
 
-import logging
-from typing import Dict, List, Optional
-from pathlib import Path
 import io
+import logging
+from pathlib import Path
+from typing import Dict, Optional
 
 try:
     from pypdf import PdfReader
+
     PYPDF_AVAILABLE = True
 except ImportError:
     PYPDF_AVAILABLE = False
+    PdfReader = None  # type: ignore  # noqa
     logging.warning("pypdf not installed. Install with: pip install pypdf")
 
 logger = logging.getLogger(__name__)
@@ -36,14 +38,9 @@ class PDFExtractor:
     def __init__(self):
         """Initialize PDF extractor."""
         if not PYPDF_AVAILABLE:
-            raise ImportError(
-                "pypdf is required for PDF extraction. "
-                "Install with: pip install pypdf"
-            )
+            raise ImportError("pypdf is required for PDF extraction. " "Install with: pip install pypdf")
 
-    def extract_text_from_bytes(
-        self, pdf_bytes: bytes, extract_metadata: bool = True
-    ) -> Dict[str, any]:
+    def extract_text_from_bytes(self, pdf_bytes: bytes, extract_metadata: bool = True) -> Dict[str, any]:
         """
         Extract text and metadata from PDF bytes.
 
@@ -64,7 +61,7 @@ class PDFExtractor:
         try:
             # Read PDF from bytes
             pdf_file = io.BytesIO(pdf_bytes)
-            reader = PdfReader(pdf_file)
+            reader = PdfReader(pdf_file)  # type: ignore  # PdfReader is checked in __init__
 
             # Extract text from all pages
             pages_text = []
@@ -103,11 +100,9 @@ class PDFExtractor:
 
         except Exception as e:
             logger.error(f"Error extracting text from PDF: {e}")
-            raise ValueError(f"Could not extract text from PDF: {str(e)}")
+            raise ValueError(f"Could not extract text from PDF: {str(e)}") from e
 
-    def extract_text_from_file(
-        self, file_path: str, extract_metadata: bool = True
-    ) -> Dict[str, any]:
+    def extract_text_from_file(self, file_path: str, extract_metadata: bool = True) -> Dict[str, any]:
         """
         Extract text and metadata from PDF file path.
 
@@ -136,7 +131,7 @@ class PDFExtractor:
             raise
         except Exception as e:
             logger.error(f"Error reading PDF file {file_path}: {e}")
-            raise ValueError(f"Could not read PDF file: {str(e)}")
+            raise ValueError(f"Could not read PDF file: {str(e)}") from e
 
     def validate_pdf(self, pdf_bytes: bytes) -> bool:
         """
@@ -150,7 +145,7 @@ class PDFExtractor:
         """
         try:
             pdf_file = io.BytesIO(pdf_bytes)
-            reader = PdfReader(pdf_file)
+            reader = PdfReader(pdf_file)  # type: ignore  # PdfReader is checked in __init__
             # Try to access pages to validate
             _ = len(reader.pages)
             return True
@@ -158,9 +153,7 @@ class PDFExtractor:
             logger.debug(f"PDF validation failed: {e}")
             return False
 
-    def extract_pages_range(
-        self, pdf_bytes: bytes, start_page: int = 1, end_page: Optional[int] = None
-    ) -> str:
+    def extract_pages_range(self, pdf_bytes: bytes, start_page: int = 1, end_page: Optional[int] = None) -> str:
         """
         Extract text from a specific range of pages.
 
@@ -195,4 +188,4 @@ class PDFExtractor:
             raise
         except Exception as e:
             logger.error(f"Error extracting page range: {e}")
-            raise ValueError(f"Could not extract pages: {str(e)}")
+            raise ValueError(f"Could not extract pages: {str(e)}") from e

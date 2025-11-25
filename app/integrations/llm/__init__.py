@@ -12,7 +12,7 @@ from app.integrations.llm.ai_data_pipeline import (
     create_ai_data_pipeline_service,
     get_user_context_for_agent,
 )
-from app.integrations.llm.ollama import create_ollama_llm, OllamaLLM
+from app.integrations.llm.ollama import OllamaLLM, create_ollama_llm
 
 __all__ = [
     # Ollama LLM

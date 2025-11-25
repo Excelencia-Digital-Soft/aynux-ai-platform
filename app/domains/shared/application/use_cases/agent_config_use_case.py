@@ -4,10 +4,9 @@ Agent Configuration Use Cases
 Use cases for managing agent configuration (Excelencia agent modules).
 """
 
-import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -141,14 +140,10 @@ class UpdateAgentModulesUseCase:
         for module_id, module_data in modules.items():
             missing_fields = required_fields - set(module_data.keys())
             if missing_fields:
-                raise ValueError(
-                    f"Module '{module_id}' missing required fields: {missing_fields}"
-                )
+                raise ValueError(f"Module '{module_id}' missing required fields: {missing_fields}")
 
             if not isinstance(module_data["features"], list):
-                raise ValueError(
-                    f"Module '{module_id}' features must be a list"
-                )
+                raise ValueError(f"Module '{module_id}' features must be a list")
 
         return True
 
@@ -180,9 +175,7 @@ class UpdateAgentModulesUseCase:
 
         return "\n".join(lines)
 
-    async def execute(
-        self, modules: Dict[str, Any], create_backup: bool = True
-    ) -> Dict[str, Any]:
+    async def execute(self, modules: Dict[str, Any], create_backup: bool = True) -> Dict[str, Any]:
         """
         Update agent modules configuration.
 
@@ -211,6 +204,8 @@ class UpdateAgentModulesUseCase:
                 }
             })
         """
+        backup_path = None  # Initialize early for exception handler
+
         try:
             # 1. Validate module structure
             self._validate_module_structure(modules)
@@ -223,7 +218,6 @@ class UpdateAgentModulesUseCase:
             original_content = file_path.read_text(encoding="utf-8")
 
             # 3. Create backup if requested
-            backup_path = None
             if create_backup:
                 backup_path = f"{self.config_path}.backup"
                 Path(backup_path).write_text(original_content, encoding="utf-8")
@@ -253,11 +247,7 @@ class UpdateAgentModulesUseCase:
                 raise ValueError("Could not find EXCELENCIA_MODULES in config file")
 
             # Replace the section
-            new_lines = (
-                lines[:start_idx]
-                + new_modules_code.split("\n")
-                + lines[end_idx + 1 :]
-            )
+            new_lines = lines[:start_idx] + new_modules_code.split("\n") + lines[end_idx + 1 :]
             new_content = "\n".join(new_lines)
 
             # 6. Write updated content
@@ -269,8 +259,7 @@ class UpdateAgentModulesUseCase:
                 "backup_path": backup_path,
                 "requires_restart": True,
                 "message": (
-                    "Configuration updated successfully. "
-                    "Please restart the application for changes to take effect."
+                    "Configuration updated successfully. " "Please restart the application for changes to take effect."
                 ),
             }
 
@@ -285,15 +274,12 @@ class UpdateAgentModulesUseCase:
             # Try to restore from backup if it exists
             if create_backup and backup_path and Path(backup_path).exists():
                 try:
-                    Path(self.config_path).write_text(
-                        Path(backup_path).read_text(encoding="utf-8"),
-                        encoding="utf-8"
-                    )
+                    Path(self.config_path).write_text(Path(backup_path).read_text(encoding="utf-8"), encoding="utf-8")
                     logger.info("Restored from backup after error")
                 except Exception as restore_error:
                     logger.error(f"Failed to restore from backup: {restore_error}")
 
-            raise ValueError(f"Failed to update agent modules: {str(e)}")
+            raise ValueError(f"Failed to update agent modules: {str(e)}") from e
 
 
 class UpdateAgentSettingsUseCase:
@@ -343,8 +329,7 @@ class UpdateAgentSettingsUseCase:
                 "success": True,
                 "settings": settings,
                 "message": (
-                    "Settings validated. For production use, implement "
-                    "database-backed configuration storage."
+                    "Settings validated. For production use, implement " "database-backed configuration storage."
                 ),
             }
 
@@ -352,4 +337,4 @@ class UpdateAgentSettingsUseCase:
             raise
         except Exception as e:
             logger.error(f"Error updating agent settings: {e}")
-            raise ValueError(f"Failed to update settings: {str(e)}")
+            raise ValueError(f"Failed to update settings: {str(e)}") from e

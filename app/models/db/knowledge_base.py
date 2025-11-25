@@ -7,10 +7,9 @@ capabilities using pgvector and ChromaDB.
 """
 
 import uuid
-from typing import Optional
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, Column, Index, Integer, String, Text, text
+from sqlalchemy import Boolean, Column, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, ENUM, JSONB, TSVECTOR, UUID
 
 from .base import Base, TimestampMixin

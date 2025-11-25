@@ -80,7 +80,9 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
 
             # Calculate dynamic similarity threshold based on query specificity
             dynamic_threshold = self._calculate_dynamic_threshold(intent)
-            self.logger.debug(f"Dynamic similarity threshold: {dynamic_threshold:.2f} (base: {self.similarity_threshold:.2f})")
+            self.logger.debug(
+                f"Dynamic similarity threshold: {dynamic_threshold:.2f} (base: {self.similarity_threshold:.2f})"
+            )
 
             # Execute vector similarity search
             search_results = await self.pgvector.search_similar_products(
@@ -115,7 +117,7 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
                     "image_url": product.image_url,
                     "featured": product.featured,
                     "on_sale": product.on_sale,
-                    "similarity_score": float(similarity)
+                    "similarity_score": float(similarity),
                 }
                 products.append(product_data)
                 similarities.append(similarity)

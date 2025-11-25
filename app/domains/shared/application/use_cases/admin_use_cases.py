@@ -66,24 +66,28 @@ class ListDomainsUseCase:
             domains_info = []
             for config in configs:
                 domain_info = config.to_dict()
-                domain_info.update({
-                    "available": config.domain in available_domains,
-                    "initialized": True,  # Simplified for now
-                })
+                domain_info.update(
+                    {
+                        "available": config.domain in available_domains,
+                        "initialized": True,  # Simplified for now
+                    }
+                )
                 domains_info.append(domain_info)
 
             # Add registered domains without database configuration
             configured_domains = {config.domain for config in configs}
             for domain in available_domains:
                 if domain not in configured_domains:
-                    domains_info.append({
-                        "domain": domain,
-                        "enabled": "true",
-                        "display_name": domain.title(),
-                        "available": True,
-                        "initialized": True,
-                        "note": "No database configuration found",
-                    })
+                    domains_info.append(
+                        {
+                            "domain": domain,
+                            "enabled": "true",
+                            "display_name": domain.title(),
+                            "available": True,
+                            "initialized": True,
+                            "note": "No database configuration found",
+                        }
+                    )
 
             return {
                 "domains": domains_info,
@@ -618,10 +622,9 @@ class GetDomainStatsUseCase:
         """
         try:
             # Query all contact-domain assignments
-            query = select(
-                ContactDomain.domain,
-                ContactDomain.assigned_method
-            ).order_by(ContactDomain.created_at.desc())
+            query = select(ContactDomain.domain, ContactDomain.assigned_method).order_by(
+                ContactDomain.created_at.desc()
+            )
 
             result = await self.db.execute(query)
             contact_data = result.all()

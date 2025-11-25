@@ -50,4 +50,3 @@ __all__ = [
     "get_agent_type_mapping",
     "get_non_supervisor_agents",
 ]
-

@@ -103,7 +103,7 @@ class ClassificationStatisticsTracker:
         """
         with self._lock:
             # Create a copy to avoid modification during iteration
-            stats_copy = {
+            stats_copy: dict[str, Any] = {
                 **self._stats,
                 "domain_distribution": dict(self._stats["domain_distribution"]),
                 "method_distribution": dict(self._stats["method_distribution"]),
@@ -111,13 +111,13 @@ class ClassificationStatisticsTracker:
             }
 
             # Add computed metrics
-            total = stats_copy["total_classifications"]
+            total: int = stats_copy["total_classifications"]
             if total > 0:
                 stats_copy["success_rate"] = stats_copy["successful_classifications"] / total
                 stats_copy["fallback_rate"] = stats_copy["fallback_classifications"] / total
 
                 # Calculate confidence percentages
-                conf_dist = stats_copy["confidence_distribution"]
+                conf_dist: dict[str, int] = stats_copy["confidence_distribution"]
                 stats_copy["confidence_percentages"] = {
                     "high": conf_dist["high"] / total if total > 0 else 0,
                     "medium": conf_dist["medium"] / total if total > 0 else 0,

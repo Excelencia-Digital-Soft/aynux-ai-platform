@@ -52,9 +52,7 @@ class GetProductsByCategoryUseCase:
         """
         self.product_repo = product_repository
 
-    async def execute(
-        self, request: GetProductsByCategoryRequest
-    ) -> GetProductsByCategoryResponse:
+    async def execute(self, request: GetProductsByCategoryRequest) -> GetProductsByCategoryResponse:
         """
         Execute use case to get products by category.
 

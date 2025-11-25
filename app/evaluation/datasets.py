@@ -618,4 +618,3 @@ def get_dataset_manager() -> DatasetManager:
     if _dataset_manager_instance is None:
         _dataset_manager_instance = DatasetManager()
     return _dataset_manager_instance
-

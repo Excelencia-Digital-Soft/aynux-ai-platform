@@ -176,9 +176,9 @@ class BatchRateLimiter:
             "wait_time_seconds": wait_time,
             "batch_request_count": self.batch_request_count,
             "batch_elapsed_minutes": elapsed.total_seconds() / 60,
-            "requests_per_minute": (self.batch_request_count / elapsed.total_seconds()) * 60
-            if elapsed.total_seconds() > 0
-            else 0,
+            "requests_per_minute": (
+                (self.batch_request_count / elapsed.total_seconds()) * 60 if elapsed.total_seconds() > 0 else 0
+            ),
         }
 
     def start_new_batch(self):
@@ -193,45 +193,46 @@ dux_rate_limiter = DuxApiRateLimiter()
 
 
 async def retry_with_rate_limit(
-    func, 
-    max_retries: int = 3, 
-    backoff_factor: float = 2.0,
-    logger: Optional[logging.Logger] = None
+    func, max_retries: int = 3, backoff_factor: float = 2.0, logger: Optional[logging.Logger] = None
 ):
     """
     Retry a function with exponential backoff for rate limit errors
-    
+
     Args:
         func: Async function to retry
         max_retries: Maximum number of retry attempts
         backoff_factor: Multiplier for backoff time
         logger: Optional logger for retry messages
-    
+
     Returns:
         Result of the successful function call
-        
+
     Raises:
         Last exception if all retries fail
     """
     from app.models.dux import DuxApiError
-    
+
     for attempt in range(max_retries + 1):
         try:
             return await func()
         except DuxApiError as e:
             if e.error_code == "RATE_LIMIT" and attempt < max_retries:
-                wait_time = backoff_factor ** attempt
+                wait_time = backoff_factor**attempt
                 if logger:
-                    logger.info(f"Rate limit hit, retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries + 1})")
+                    logger.info(
+                        f"Rate limit hit, retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries + 1})"
+                    )
                 await asyncio.sleep(wait_time)
                 continue
             raise
         except Exception as e:
             if attempt < max_retries and "rate limit" in str(e).lower():
-                wait_time = backoff_factor ** attempt
+                wait_time = backoff_factor**attempt
                 if logger:
-                    logger.info(f"Possible rate limit error, retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries + 1})")
+                    logger.info(
+                        f"Possible rate limit error, retrying in {wait_time:.1f}s "
+                        f"(attempt {attempt + 1}/{max_retries + 1})"
+                    )
                 await asyncio.sleep(wait_time)
                 continue
             raise
-
