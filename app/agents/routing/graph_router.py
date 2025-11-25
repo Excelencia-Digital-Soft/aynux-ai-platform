@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class GraphRouter:
     """Handles routing decisions and flow control in the graph"""
 
-    def __init__(self, enabled_agents: list[str] = None):
+    def __init__(self, enabled_agents: list[str] | None = None):
         """
         Initialize router with enabled agents configuration.
 
@@ -119,7 +119,7 @@ class GraphRouter:
             return "__end__"
 
         # Check conversation flow decision
-        conversation_flow = state.get("conversation_flow", {})
+        conversation_flow = state.get("conversation_flow") or {}
         flow_decision = conversation_flow.get("decision_type")
 
         if flow_decision in ["conversation_complete", "conversation_end", "human_handoff", "error_end"]:

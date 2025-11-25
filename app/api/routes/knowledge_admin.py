@@ -329,7 +329,7 @@ async def search_knowledge(
 
         return KnowledgeSearchResponse(
             query=search.query,
-            results=results,
+            results=results,  # type: ignore[arg-type]
             total_results=len(results),
             search_strategy=search.search_strategy or "hybrid",
         )

@@ -75,7 +75,7 @@ class SupervisorAgent(BaseAgent):
             quality_evaluation = await self._evaluate_response_quality(
                 user_message=message,
                 agent_response=last_response,
-                agent_name=current_agent,
+                agent_name=current_agent or "unknown",
                 conversation_context=state_dict,
             )
 

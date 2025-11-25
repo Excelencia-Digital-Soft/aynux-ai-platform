@@ -138,8 +138,9 @@ Detect the user's emotional state from their message tone:
 
             # Extract JSON from response
             required_keys = ["intent"]  # Minimum required key
+            response_text = response.content if isinstance(response.content, str) else str(response.content)
             extracted_json = extract_json_from_text(
-                response.content, default=default_intent_dict, required_keys=required_keys
+                response_text, default=default_intent_dict, required_keys=required_keys
             )
 
             # Ensure all expected keys are present with defaults

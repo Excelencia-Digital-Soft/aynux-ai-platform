@@ -24,7 +24,7 @@ router = APIRouter(prefix="/embeddings", tags=["embeddings"])
 async def update_embeddings(
     background_tasks: BackgroundTasks,
     product_id: Optional[int] = None,
-    current_user: User = Depends(get_current_user),  # type: ignore  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
 ):
     """
     Update product embeddings in the background
@@ -59,7 +59,7 @@ async def get_embedding_stats(
     logging.info(f"User {current_user.email} is retrieving embedding statistics")
     try:
         service = EmbeddingUpdateService()
-        stats = await service.get_embedding_stats()
+        stats = service.get_collection_stats()
 
         return {"status": "success", "stats": stats}
 

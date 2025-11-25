@@ -4,9 +4,10 @@ PostgreSQL Checkpointer para LangGraph usando la API oficial
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Optional, cast
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.types import RunnableConfig
 
 from app.config.settings import get_settings
 
@@ -42,8 +43,10 @@ class PostgresCheckpointerManager:
         try:
             async with AsyncPostgresSaver.from_conn_string(self.db_uri) as checkpointer:
                 # Hacer un test básico
-                config = {"configurable": {"thread_id": "health_check_test", "checkpoint_ns": "default"}}
-                result = await checkpointer.aget_tuple(config)
+                config: dict[str, Any] = {
+                    "configurable": {"thread_id": "health_check_test", "checkpoint_ns": "default"}
+                }
+                result = await checkpointer.aget_tuple(cast(RunnableConfig, config))
                 logger.debug("PostgreSQL checkpointer health check passed", result)
                 return True
         except Exception as e:

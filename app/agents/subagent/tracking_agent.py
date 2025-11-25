@@ -45,7 +45,7 @@ class TrackingAgent(BaseAgent):
             orders = self._get_orders_by_numbers_sync(order_numbers, customer_id)
         else:
             # Buscar órdenes recientes del cliente
-            orders = self.order_tool.get_recent_orders_sync(customer_id, limit=3)
+            orders = self.order_tool.get_recent_orders_sync(customer_id)
 
         if not orders:
             return self._handle_no_orders_found(order_numbers)

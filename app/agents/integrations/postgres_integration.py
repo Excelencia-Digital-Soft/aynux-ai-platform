@@ -7,7 +7,8 @@ from typing import Optional
 
 import asyncpg
 from langgraph.checkpoint.postgres import PostgresSaver
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # type: ignore[attr-defined]
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config.settings import get_settings
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class PostgreSQLIntegration:
     """Gestiona la integración con PostgreSQL para LangGraph y datos"""
 
-    def __init__(self, connection_string: str = None):
+    def __init__(self, connection_string: str | None = None):
         self.settings = get_settings()
         self.connection_string = connection_string or self.settings.database_url
 
@@ -69,7 +70,8 @@ class PostgreSQLIntegration:
             self._checkpoint_pool = await asyncpg.create_pool(asyncpg_url, min_size=2, max_size=10, command_timeout=60)
 
             # Crear checkpointer usando el pool
-            self._checkpointer = PostgresSaver(self._checkpoint_pool)
+            if self._checkpoint_pool is not None:
+                self._checkpointer = PostgresSaver(self._checkpoint_pool)  # type: ignore[arg-type]
 
             # Inicializar tablas de checkpointing
             self._checkpointer.setup()
@@ -131,7 +133,7 @@ class PostgreSQLIntegration:
                 return False
 
             async with self.async_session() as session:
-                result = await session.execute("SELECT 1")
+                result = await session.execute(text("SELECT 1"))
                 return result.scalar() == 1
 
         except Exception as e:
@@ -152,7 +154,7 @@ class PostgreSQLIntegration:
             logger.error(f"Checkpoint connection check failed: {e}")
             return False
 
-    async def execute_query(self, query: str, params: dict = None) -> list:
+    async def execute_query(self, query: str, params: dict[str, object] | None = None) -> list:
         """
         Ejecuta una query SQL y retorna resultados
 
@@ -169,11 +171,11 @@ class PostgreSQLIntegration:
         try:
             async with self.async_session() as session:
                 if params:
-                    result = await session.execute(query, params)
+                    result = await session.execute(text(query), params)
                 else:
-                    result = await session.execute(query)
+                    result = await session.execute(text(query))
 
-                return result.fetchall()
+                return list(result.fetchall())
 
         except Exception as e:
             logger.error(f"Error executing query: {e}")
@@ -318,8 +320,10 @@ class PostgreSQLIntegration:
                 },
                 "checkpoint_connection": {
                     "status": "initialized" if self._checkpoint_pool else "not_initialized",
-                    "pool_size": self._checkpoint_pool._maxsize if self._checkpoint_pool else 0,
-                    "current_size": self._checkpoint_pool._queue.qsize() if self._checkpoint_pool else 0,
+                    "pool_size": self._checkpoint_pool._maxsize if self._checkpoint_pool else 0,  # type: ignore[union-attr]
+                    "current_size": (
+                        self._checkpoint_pool._queue.qsize() if self._checkpoint_pool and self._checkpoint_pool._queue else 0  # type: ignore[union-attr]
+                    ),
                 },
             }
 
@@ -373,12 +377,12 @@ class PostgreSQLIntegration:
         try:
             async with self.async_session() as session:
                 # Usar raw SQL para hacer upsert correctamente
-                query = """
+                query = text("""
                 INSERT INTO conversation_metadata (thread_id, metadata, updated_at)
                 VALUES (:thread_id, :metadata, NOW())
-                ON CONFLICT (thread_id) 
+                ON CONFLICT (thread_id)
                 DO UPDATE SET metadata = :metadata, updated_at = NOW()
-                """
+                """)
 
                 await session.execute(query, {"thread_id": thread_id, "metadata": metadata})
                 await session.commit()
@@ -404,10 +408,10 @@ class PostgreSQLIntegration:
 
         try:
             async with self.async_session() as session:
-                query = """
-                SELECT metadata FROM conversation_metadata 
+                query = text("""
+                SELECT metadata FROM conversation_metadata
                 WHERE thread_id = :thread_id
-                """
+                """)
 
                 result = await session.execute(query, {"thread_id": thread_id})
                 row = result.fetchone()

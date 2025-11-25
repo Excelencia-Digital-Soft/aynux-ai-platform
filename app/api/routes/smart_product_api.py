@@ -70,7 +70,8 @@ router = APIRouter(prefix="/api/v1/smart-products", tags=["Smart Products"])
 async def get_redis_client() -> redis.Redis:
     """Obtiene cliente Redis para cache."""
     settings = get_settings()
-    return redis.from_url(settings.redis_url(), decode_responses=True)
+    redis_url = settings.redis_url() if callable(settings.redis_url) else str(settings.redis_url)
+    return redis.from_url(redis_url, decode_responses=True)
 
 
 async def get_product_agent() -> ProductAgent:
@@ -176,7 +177,7 @@ async def handle_whatsapp_message(
             "phone_number": request.from_number,
             "message_id": request.message_id,
             "conversation_history": conversation_context.get("history", []),
-            "timestamp": request.timestamp.isoformat(),
+            "timestamp": request.timestamp.isoformat() if request.timestamp else "",
         }
 
         # Procesar mensaje con el agente

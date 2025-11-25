@@ -74,14 +74,16 @@ async def force_sync(request: SyncRequest):
 
             if request.dry_run:
                 # Para dry run, usar el servicio directo para no tocar embeddings
-                if sync_service.use_rag_sync:
+                if sync_service.use_rag_sync and sync_service.rag_sync_service is not None:
                     result = await sync_service.rag_sync_service.sync_all_products_with_rag(
                         max_products=request.max_products, dry_run=True
                     )
-                else:
+                elif sync_service.sync_service is not None:
                     result = await sync_service.sync_service.sync_all_products(
                         max_products=request.max_products, dry_run=True
                     )
+                else:
+                    raise HTTPException(status_code=500, detail="Sync service not initialized")
 
                 return SyncResponse(
                     success=result.success,
@@ -170,7 +172,7 @@ async def sync_health_check():
         # Verificar RAG/embeddings si está habilitado
         if sync_service.use_rag_sync:
             try:
-                from app.services.embedding_update_service import EmbeddingUpdateService
+                from app.integrations.vector_stores.embedding_update_service import EmbeddingUpdateService
 
                 embedding_service = EmbeddingUpdateService()
 

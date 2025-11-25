@@ -100,10 +100,11 @@ class PgVectorSearchStrategy(BaseSearchStrategy):
 
             for product, similarity in search_results:
                 # Convert Product ORM object to dictionary
+                # Note: SQLAlchemy columns are cast to primitives for JSON serialization
                 product_data = {
                     "id": str(product.id),
                     "name": product.name,
-                    "price": float(product.price),
+                    "price": float(product.price) if product.price is not None else 0.0,  # type: ignore[arg-type]
                     "stock": product.stock,
                     "description": product.description,
                     "short_description": product.short_description,

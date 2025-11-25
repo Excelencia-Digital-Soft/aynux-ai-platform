@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph
-from langgraph.graph.graph import CompiledGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from app.agents.credit.agents.collection_agent import CollectionAgent
 from app.agents.credit.agents.credit_application_agent import CreditApplicationAgent
@@ -29,7 +29,7 @@ class CreditSystemGraph:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.graph: Optional[StateGraph] = None
-        self.compiled_graph: Optional[CompiledGraph] = None
+        self.compiled_graph: Optional[CompiledStateGraph] = None
         self.checkpointer: Optional[AsyncPostgresSaver] = None
 
         # Initialize agents
