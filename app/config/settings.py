@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     DB_PORT: int = Field(5432, description="Puerto de PostgreSQL")
     DB_NAME: str = Field("aynux", description="Nombre de la base de datos")
     DB_USER: str = Field("enzo", description="Usuario de PostgreSQL")
-    DB_PASSWORD: Optional[str] = Field(None, description="Contraseña de PostgreSQL")
+    DB_PASSWORD: str | None = Field(None, description="Contraseña de PostgreSQL")
     DB_ECHO: bool = Field(False, description="Log SQL queries (solo para debug)")
 
     # Database connection pool settings
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     REDIS_HOST: str = Field("localhost", description="Host de Redis")
     REDIS_PORT: int = Field(6379, description="Puerto de Redis")
     REDIS_DB: int = Field(0, description="Base de datos de Redis")
-    REDIS_PASSWORD: Optional[str] = Field(None, description="Contraseña de Redis")
+    REDIS_PASSWORD: str | None = Field(None, description="Contraseña de Redis")
 
     # File Upload Settings
     MAX_FILE_SIZE: int = Field(10 * 1024 * 1024, description="Tamaño máximo de archivo en bytes (10MB)")
@@ -105,9 +105,15 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(False, description="Modo de depuración")
     ENVIRONMENT: str = Field("production", description="Entorno de ejecución")
 
+    # Sentry Configuration
+    SENTRY_DSN: str | None = Field(
+        default="https://d44f9586fda96f0cb06a8e8bda42a3bb@o4509520816963584.ingest.us.sentry.io/4509520843243520",
+        description="Sentry DSN for error tracking",
+    )
+
     # External Service - DUX ERP Integration
     DUX_API_BASE_URL: str = Field("https://erp.duxsoftware.com.ar/WSERP/rest/services", description="URL base de Dux")
-    DUX_API_KEY: Optional[str] = Field(None, description="Clave de la aplicación de Dux")
+    DUX_API_KEY: str | None = Field(None, description="Clave de la aplicación de Dux")
     DUX_API_TIMEOUT: int = Field(30, description="Timeout para requests a la API de Dux en segundos")
     DUX_API_RATE_LIMIT_SECONDS: int = Field(5, description="Límite de rate limiting para la API de Dux")
     DUX_SYNC_BATCH_SIZE: int = Field(50, description="Tamaño del lote para sincronización de productos DUX")
@@ -135,15 +141,14 @@ class Settings(BaseSettings):
             "farewell_agent",
         ],
         description=(
-            "List of enabled agent names (from AgentType enum). "
-            "Orchestrator and Supervisor are always enabled."
+            "List of enabled agent names (from AgentType enum). " "Orchestrator and Supervisor are always enabled."
         ),
     )
 
     # LangSmith Configuration
     LANGSMITH_TRACING: bool = Field(True, description="Enable LangSmith tracing")
     LANGSMITH_ENDPOINT: str = Field("https://api.smith.langchain.com", description="LangSmith API endpoint")
-    LANGSMITH_API_KEY: Optional[str] = Field(None, description="LangSmith API key")
+    LANGSMITH_API_KEY: str | None = Field(None, description="LangSmith API key")
     LANGSMITH_PROJECT: str = Field("aynux-production", description="LangSmith project name")
     LANGSMITH_VERBOSE: bool = Field(False, description="Enable verbose LangSmith logging")
 
