@@ -342,13 +342,6 @@ class IVectorStoreFactory(Protocol):
                 "products",
                 config={"db_url": "postgresql://..."}
             )
-
-            # ChromaDB
-            chroma = factory.create_vector_store(
-                VectorStoreType.CHROMA,
-                "products",
-                config={"persist_directory": "./chroma_data"}
-            )
             ```
         """
         ...

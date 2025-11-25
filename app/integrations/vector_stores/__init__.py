@@ -4,9 +4,14 @@ Vector Store integrations
 Integrations para diferentes backends de vector stores:
 - pgvector: PostgreSQL with pgvector extension (ÚNICO vector store)
 - Knowledge embeddings: Knowledge base vector search
+- Product embeddings: Product catalog vector search
 - Metrics: pgvector performance monitoring
 """
 
+from app.integrations.vector_stores.embedding_update_service import (
+    EmbeddingUpdateService,
+    create_vector_ingestion_service,
+)
 from app.integrations.vector_stores.knowledge_embedding_service import (
     KnowledgeEmbeddingService,
 )
@@ -37,8 +42,10 @@ def create_pgvector_store(
 
 
 __all__ = [
+    "EmbeddingUpdateService",
     "KnowledgeEmbeddingService",
     "PgVectorMetricsService",
     "PgVectorStore",
     "create_pgvector_store",
+    "create_vector_ingestion_service",
 ]

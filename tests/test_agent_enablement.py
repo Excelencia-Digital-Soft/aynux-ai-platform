@@ -23,13 +23,13 @@ class TestAgentFactory:
         """Test that factory only creates agents in enabled_agents list"""
         # Setup mocks
         mock_ollama = MagicMock()
-        mock_chroma = MagicMock()
+        mock_pgvector = MagicMock()
         mock_postgres = MagicMock()
 
         # Test with only 2 agents enabled
         config = {"enabled_agents": ["greeting_agent", "fallback_agent"], "agents": {}}
 
-        factory = AgentFactory(ollama=mock_ollama, chroma=mock_chroma, postgres=mock_postgres, config=config)
+        factory = AgentFactory(ollama=mock_ollama, pgvector=mock_pgvector, postgres=mock_postgres, config=config)
         agents = factory.initialize_all_agents()
 
         # Should have orchestrator, supervisor, greeting_agent, and fallback_agent (4 total)
@@ -46,7 +46,7 @@ class TestAgentFactory:
     def test_factory_creates_all_agents_when_all_enabled(self):
         """Test that factory creates all agents when all are enabled"""
         mock_ollama = MagicMock()
-        mock_chroma = MagicMock()
+        mock_pgvector = MagicMock()
         mock_postgres = MagicMock()
 
         # All agents enabled
@@ -66,7 +66,7 @@ class TestAgentFactory:
             "agents": {},
         }
 
-        factory = AgentFactory(ollama=mock_ollama, chroma=mock_chroma, postgres=mock_postgres, config=config)
+        factory = AgentFactory(ollama=mock_ollama, pgvector=mock_pgvector, postgres=mock_postgres, config=config)
         agents = factory.initialize_all_agents()
 
         # Should have all 12 agents (10 specialized + orchestrator + supervisor)
@@ -75,12 +75,12 @@ class TestAgentFactory:
     def test_factory_get_enabled_agent_names(self):
         """Test get_enabled_agent_names method"""
         mock_ollama = MagicMock()
-        mock_chroma = MagicMock()
+        mock_pgvector = MagicMock()
         mock_postgres = MagicMock()
 
         config = {"enabled_agents": ["greeting_agent", "product_agent"], "agents": {}}
 
-        factory = AgentFactory(ollama=mock_ollama, chroma=mock_chroma, postgres=mock_postgres, config=config)
+        factory = AgentFactory(ollama=mock_ollama, pgvector=mock_pgvector, postgres=mock_postgres, config=config)
         factory.initialize_all_agents()
 
         enabled = factory.get_enabled_agent_names()
@@ -94,12 +94,12 @@ class TestAgentFactory:
     def test_factory_get_disabled_agent_names(self):
         """Test get_disabled_agent_names method"""
         mock_ollama = MagicMock()
-        mock_chroma = MagicMock()
+        mock_pgvector = MagicMock()
         mock_postgres = MagicMock()
 
         config = {"enabled_agents": ["greeting_agent"], "agents": {}}
 
-        factory = AgentFactory(ollama=mock_ollama, chroma=mock_chroma, postgres=mock_postgres, config=config)
+        factory = AgentFactory(ollama=mock_ollama, pgvector=mock_pgvector, postgres=mock_postgres, config=config)
         factory.initialize_all_agents()
 
         disabled = factory.get_disabled_agent_names()
@@ -112,12 +112,12 @@ class TestAgentFactory:
     def test_factory_is_agent_enabled(self):
         """Test is_agent_enabled method"""
         mock_ollama = MagicMock()
-        mock_chroma = MagicMock()
+        mock_pgvector = MagicMock()
         mock_postgres = MagicMock()
 
         config = {"enabled_agents": ["greeting_agent", "product_agent"], "agents": {}}
 
-        factory = AgentFactory(ollama=mock_ollama, chroma=mock_chroma, postgres=mock_postgres, config=config)
+        factory = AgentFactory(ollama=mock_ollama, pgvector=mock_pgvector, postgres=mock_postgres, config=config)
         factory.initialize_all_agents()
 
         assert factory.is_agent_enabled("greeting_agent") is True
@@ -204,7 +204,7 @@ class TestAynuxGraphAgentManagement:
     @pytest.fixture
     def mock_graph(self):
         """Create a mock AynuxGraph for testing"""
-        with patch("app.agents.graph.OllamaIntegration"), patch("app.agents.graph.ChromaDBIntegration"), patch(
+        with patch("app.agents.graph.OllamaIntegration"), patch("app.agents.graph.PgVectorStore"), patch(
             "app.agents.graph.PostgreSQLIntegration"
         ), patch("app.agents.graph.AgentFactory") as mock_factory:
 

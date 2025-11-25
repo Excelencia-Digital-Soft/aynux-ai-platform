@@ -99,7 +99,6 @@ class SearchStrategyType(str, Enum):
     """Available search strategy types."""
 
     PGVECTOR = "pgvector"
-    CHROMA = "chroma"
     DATABASE = "database"
 
     def __str__(self) -> str:

@@ -48,7 +48,7 @@ def mock_embedding_service():
     service.update_knowledge_embeddings = AsyncMock()
     service.search_knowledge = AsyncMock(return_value=[])
     service.delete_knowledge_embeddings = AsyncMock()
-    service.get_chroma_collection_stats = MagicMock(return_value={})
+    service.get_embedding_stats = MagicMock(return_value={})
     service.embedding_model = "nomic-embed-text"
     return service
 

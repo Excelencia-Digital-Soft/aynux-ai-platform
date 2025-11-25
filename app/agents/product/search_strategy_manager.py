@@ -146,7 +146,7 @@ class SearchStrategyManager:
         """
         Execute fallback strategy chain.
 
-        Tries strategies in order: primary → chroma → database
+        Tries strategies in order: primary → database
 
         Args:
             query: Search query
@@ -158,7 +158,6 @@ class SearchStrategyManager:
         """
         # Define fallback order (excluding primary which already failed)
         fallback_order = [
-            SearchStrategyType.CHROMA,
             SearchStrategyType.DATABASE,
         ]
 

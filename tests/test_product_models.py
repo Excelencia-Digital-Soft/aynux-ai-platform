@@ -135,11 +135,11 @@ class TestSearchResult:
 
     def test_create_failed_result(self):
         """Test creating failed search result."""
-        result = SearchResult(success=False, products=[], source="chroma", error="Connection timeout")
+        result = SearchResult(success=False, products=[], source="pgvector", error="Connection timeout")
 
         assert result.success is False
         assert len(result.products) == 0
-        assert result.source == "chroma"
+        assert result.source == "pgvector"
         assert result.error == "Connection timeout"
 
     def test_empty_metadata(self):
@@ -165,13 +165,11 @@ class TestSearchStrategyType:
     def test_enum_values(self):
         """Test enum has expected values."""
         assert SearchStrategyType.PGVECTOR.value == "pgvector"
-        assert SearchStrategyType.CHROMA.value == "chroma"
         assert SearchStrategyType.DATABASE.value == "database"
 
     def test_enum_string_conversion(self):
         """Test enum converts to string properly."""
         assert str(SearchStrategyType.PGVECTOR) == "pgvector"
-        assert str(SearchStrategyType.CHROMA) == "chroma"
         assert str(SearchStrategyType.DATABASE) == "database"
 
     def test_enum_iteration(self):
@@ -179,12 +177,11 @@ class TestSearchStrategyType:
         strategy_names = [strategy.value for strategy in SearchStrategyType]
 
         assert "pgvector" in strategy_names
-        assert "chroma" in strategy_names
         assert "database" in strategy_names
-        assert len(strategy_names) == 3
+        assert len(strategy_names) == 2
 
     def test_enum_comparison(self):
         """Test enum member comparison."""
         assert SearchStrategyType.PGVECTOR == SearchStrategyType.PGVECTOR
-        assert SearchStrategyType.PGVECTOR != SearchStrategyType.CHROMA
+        assert SearchStrategyType.PGVECTOR != SearchStrategyType.DATABASE
         assert SearchStrategyType("pgvector") == SearchStrategyType.PGVECTOR

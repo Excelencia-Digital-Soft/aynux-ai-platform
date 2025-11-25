@@ -74,7 +74,7 @@ now_utc = datetime.now(UTC)
 - **docs/STREAMLIT_VISUALIZER.md**: Interactive agent visualization and debugging tool
 - **docs/PGVECTOR_MIGRATION.md**: Vector search implementation with pgvector
 - **docs/PDF_VECTOR_STORAGE_SERVICE.md**: PDF/text upload and agent configuration management
-- **docs/IMPLEMENTATION_SUMMARY.md**: ChromaDB to pgvector migration details
+- **docs/IMPLEMENTATION_SUMMARY.md**: pgvector implementation details
 - **docs/PHASE_4_COMPLETION_SUMMARY.md**: Recent system enhancements
 - **docs/QUICKSTART_TESTING.md**: Quick testing setup guide
 
@@ -247,7 +247,7 @@ async def search_products(
 
 ### Key Integrations
 - **AI Models**: Ollama local LLM (typically `deepseek-r1:7b`)
-- **Vector Store**: pgvector (primary) + ChromaDB (legacy) for semantic search
+- **Vector Store**: pgvector for semantic search
 - **Database**: PostgreSQL for persistent data, Redis for caching
 - **External APIs**: WhatsApp Business API, DUX ERP system
 - **Background Sync**: Automated DUX → PostgreSQL → RAG pipeline
@@ -260,7 +260,7 @@ The e-commerce domain automatically synchronizes data from DUX ERP to PostgreSQL
 
 > **Note**: This integration is specific to the e-commerce domain. Other domains can implement similar RAG integrations with their respective data sources. Future versions will support user-configurable RAG data uploads.
 
-**Pipeline Flow**: `DUX API → PostgreSQL → Vector Embeddings → pgvector/ChromaDB`
+**Pipeline Flow**: `DUX API → PostgreSQL → Vector Embeddings → pgvector`
 
 **Key Services** (New Architecture Locations):
 - **DuxRagSyncService** (`app/domains/ecommerce/infrastructure/services/dux_rag_sync_service.py`): Integrated sync DB + RAG
@@ -307,7 +307,7 @@ python tests/test_dux_rag_integration.py
 1. **DUX API**: Products, invoices, categories fetched via HTTP clients
 2. **PostgreSQL Storage**: Structured data with relationships and indexes
 3. **Vector Processing**: Products converted to embeddings using Ollama (`nomic-embed-text`)
-4. **ChromaDB Storage**: Semantic search capabilities for AI agents
+4. **pgvector Storage**: Semantic search capabilities for AI agents
 5. **Agent Access**: Real-time semantic search during conversations
 
 ## Key Configuration Files
@@ -596,7 +596,7 @@ app/
 
   integrations/              # Infrastructure - External Systems
     llm/                     # Ollama LLM, AI Data Pipeline
-    vector_stores/           # PgVector, ChromaDB, Embeddings
+    vector_stores/           # pgvector, Embeddings
     whatsapp/                # WhatsApp Business API
     databases/               # Database connectors
     monitoring/              # LangSmith, Sentry
@@ -881,16 +881,13 @@ When migrating from deprecated services to new architecture:
 - **accounts**: Financial accounts (credit domain)
 - **collections**: Collection records (credit domain)
 
-### Vector Search (pgvector + ChromaDB)
+### Vector Search (pgvector)
 - **pgvector**: PostgreSQL extension for vector similarity search
   - Native SQL integration with HNSW indexing
   - Product embeddings stored directly in database
   - See **docs/PGVECTOR_MIGRATION.md** for implementation details
-- **ChromaDB**: Legacy semantic search (being phased out)
-  - Collections for domain-specific semantic search
   - Automatic embedding updates via `embedding_update_service.py`
-- **Embedding models**: `nomic-embed-text` (1024 dimensions) via Ollama
-- **Migration**: Ongoing transition from ChromaDB to pgvector for better performance
+- **Embedding models**: `nomic-embed-text` (768 dimensions) via Ollama
 
 ## Error Handling & Monitoring
 
@@ -909,10 +906,9 @@ When migrating from deprecated services to new architecture:
 ## Deployment Notes
 
 ### Required Services
-- PostgreSQL database
+- PostgreSQL database (with pgvector extension)
 - Redis server
 - Ollama with required models
-- ChromaDB (embedded mode)
 
 ### Production Considerations
 - Set `ENVIRONMENT=production` in .env
