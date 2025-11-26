@@ -8,10 +8,10 @@ Tests:
 
 import pytest
 
-from app.agents.integrations.ollama_integration import OllamaIntegration
-from app.agents.product.generators.base_generator import BaseResponseGenerator
-from app.agents.product.models import SearchResult, UserIntent
-from app.agents.product.strategies.base_strategy import BaseSearchStrategy
+from app.integrations.llm import OllamaLLM as OllamaIntegration
+from app.domains.ecommerce.agents.product.generators.base_generator import BaseResponseGenerator
+from app.domains.ecommerce.agents.product.models import SearchResult, UserIntent
+from app.domains.ecommerce.agents.product.strategies.base_strategy import BaseSearchStrategy
 
 
 class ConcreteSearchStrategy(BaseSearchStrategy):

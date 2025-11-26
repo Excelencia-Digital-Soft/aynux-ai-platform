@@ -45,7 +45,7 @@ class ExtractedData(BaseModel):
     """Container for extracted table data with metadata."""
 
     table_name: str
-    table_schema: TableSchema
+    table_schema: Optional[TableSchema] = None
     data: List[Dict[str, Any]]
     extraction_timestamp: datetime = Field(default_factory=datetime.now)
     total_records: int
@@ -124,7 +124,7 @@ class SQLAlchemyInspector:
             columns = self.inspector.get_columns(table_name)
             indexes = self.inspector.get_indexes(table_name)
             foreign_keys = self.inspector.get_foreign_keys(table_name)
-            primary_keys = self.inspector.get_primary_keys(table_name)  # type: ignore
+            primary_keys = self.inspector.get_pk_constraint(table_name).get("constrained_columns", [])
 
             column_info = []
             fk_map = {}
@@ -148,7 +148,10 @@ class SQLAlchemyInspector:
                 )
 
             return TableSchema(
-                name=table_name, columns=column_info, indexes=[idx["name"] for idx in indexes], foreign_keys=fk_map
+                name=table_name,
+                columns=column_info,
+                indexes=[idx["name"] for idx in indexes if idx["name"] is not None],
+                foreign_keys=fk_map,
             )
 
         except Exception as e:
@@ -199,7 +202,8 @@ class SQLAlchemyExtractor:
                 for row in result:
                     row_dict = {}
                     for i, value in enumerate(row):
-                        row_dict[columns[i]] = self._serialize_value(value)  # type: ignore
+                        col_key = list(columns)[i]
+                        row_dict[col_key] = self._serialize_value(value)
                     data.append(row_dict)
 
                 return data
@@ -243,9 +247,9 @@ class JSONDataSerializer(DataSerializer):
 
     def serialize(self, data: ExtractedData) -> Dict[str, Any]:
         """Serialize extracted data to JSON format."""
-        return {
-            "table_name": data.table_name,
-            "schema": {
+        schema_dict: Dict[str, Any] | None = None
+        if data.table_schema is not None:
+            schema_dict = {
                 "name": data.table_schema.name,
                 "columns": [
                     {
@@ -259,7 +263,11 @@ class JSONDataSerializer(DataSerializer):
                 ],
                 "indexes": data.table_schema.indexes,
                 "foreign_keys": data.table_schema.foreign_keys,
-            },
+            }
+
+        return {
+            "table_name": data.table_name,
+            "schema": schema_dict,
             "data": data.data,
             "metadata": {
                 "extraction_timestamp": data.extraction_timestamp.isoformat(),

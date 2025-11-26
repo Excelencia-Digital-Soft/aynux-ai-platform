@@ -13,8 +13,8 @@ import redis.asyncio as redis
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.agents.integrations.ollama_integration import OllamaIntegration
-from app.agents.subagent import ProductAgent  # RefactoredProductAgent (SOLID-compliant)
+from app.integrations.llm import OllamaLLM
+from app.domains.ecommerce.agents.nodes.product_node import ProductNode as ProductAgent
 from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ async def get_redis_client() -> redis.Redis:
 
 async def get_product_agent() -> ProductAgent:
     """Dependency para obtener instancia del agente (RefactoredProductAgent)."""
-    ollama = OllamaIntegration()
+    ollama = OllamaLLM()
     return ProductAgent(ollama=ollama)
 
 

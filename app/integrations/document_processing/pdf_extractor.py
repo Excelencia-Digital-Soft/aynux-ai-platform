@@ -8,7 +8,7 @@ Follows SRP: Single responsibility for PDF text extraction.
 import io
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 try:
     from pypdf import PdfReader
@@ -16,7 +16,7 @@ try:
     PYPDF_AVAILABLE = True
 except ImportError:
     PYPDF_AVAILABLE = False
-    PdfReader = None  # type: ignore  # noqa
+    PdfReader = None  # noqa: N806
     logging.warning("pypdf not installed. Install with: pip install pypdf")
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class PDFExtractor:
         if not PYPDF_AVAILABLE:
             raise ImportError("pypdf is required for PDF extraction. " "Install with: pip install pypdf")
 
-    def extract_text_from_bytes(self, pdf_bytes: bytes, extract_metadata: bool = True) -> Dict[str, any]:
+    def extract_text_from_bytes(self, pdf_bytes: bytes, extract_metadata: bool = True) -> Dict[str, Any]:
         """
         Extract text and metadata from PDF bytes.
 
@@ -102,7 +102,7 @@ class PDFExtractor:
             logger.error(f"Error extracting text from PDF: {e}")
             raise ValueError(f"Could not extract text from PDF: {str(e)}") from e
 
-    def extract_text_from_file(self, file_path: str, extract_metadata: bool = True) -> Dict[str, any]:
+    def extract_text_from_file(self, file_path: str, extract_metadata: bool = True) -> Dict[str, Any]:
         """
         Extract text and metadata from PDF file path.
 

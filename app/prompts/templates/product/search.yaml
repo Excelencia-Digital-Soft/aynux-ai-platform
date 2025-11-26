@@ -151,3 +151,72 @@ prompts:
     metadata:
       temperature: 0.5
       max_tokens: 200
+
+  - key: product.search.simple_intent
+    name: Product Simple Intent Analysis
+    description: Quick intent classification for product queries
+    version: "1.0.0"
+    template: |
+      Analyze this product query and return ONLY the intent type:
+
+      Query: "{message}"
+
+      Intent types:
+      - search: General product search
+      - category_browse: Browsing a specific category
+      - featured: Asking for featured/highlighted products
+
+      Return ONLY one word: search, category_browse, or featured
+    metadata:
+      temperature: 0.2
+      max_tokens: 10
+      model: "deepseek-r1:7b"
+      variables:
+        required:
+          - message
+
+  - key: product.category.response
+    name: Product Category Response
+    description: Generates response for category browsing
+    version: "1.0.0"
+    template: |
+      Responde sobre productos de una categoría:
+
+      Categoría: {category}
+      Total productos: {product_count}
+
+      Principales productos:
+      {products_text}
+
+      Genera respuesta breve y amigable (máximo 4 líneas)
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      model: "deepseek-r1:7b"
+      variables:
+        required:
+          - category
+          - product_count
+          - products_text
+
+  - key: product.featured.response
+    name: Featured Products Response
+    description: Generates response for featured products
+    version: "1.0.0"
+    template: |
+      Presenta productos destacados:
+
+      Total: {product_count}
+
+      Productos:
+      {products_text}
+
+      Genera respuesta atractiva (máximo 4 líneas)
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      model: "deepseek-r1:7b"
+      variables:
+        required:
+          - product_count
+          - products_text

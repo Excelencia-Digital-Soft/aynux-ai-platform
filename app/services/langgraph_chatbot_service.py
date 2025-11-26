@@ -5,8 +5,8 @@ Servicio integrado de chatbot usando LangGraph multi-agente
 import logging
 from typing import Any, AsyncGenerator, Dict
 
-from app.agents.graph import AynuxGraph
-from app.agents.schemas.customer import CustomerContext
+from app.core.graph import AynuxGraph
+from app.core.schemas import CustomerContext
 from app.config.langgraph_config import get_langgraph_config
 from app.config.settings import get_settings
 from app.core.container import DependencyContainer

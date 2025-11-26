@@ -9,7 +9,7 @@ Tests:
 
 import pytest
 
-from app.agents.product.models import SearchResult, SearchStrategyType, UserIntent
+from app.domains.ecommerce.agents.product.models import SearchResult, SearchStrategyType, UserIntent
 
 
 class TestUserIntent:

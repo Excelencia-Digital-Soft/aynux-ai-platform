@@ -3,6 +3,7 @@ Product Agent for E-commerce Domain
 
 Clean architecture agent that delegates to use cases.
 Follows SOLID principles and implements IAgent interface.
+Uses centralized YAML-based prompt management.
 """
 
 import logging
@@ -20,6 +21,8 @@ from app.domains.ecommerce.application.use_cases import (
     SearchProductsRequest,
     SearchProductsUseCase,
 )
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,9 @@ class ProductAgent(IAgent):
         self._vector_store = vector_store
         self._llm = llm
 
+        # Initialize prompt manager for centralized prompt handling
+        self._prompt_manager = PromptManager()
+
         # Initialize use cases (dependency injection)
         self._search_use_case = SearchProductsUseCase(
             product_repository=product_repository,
@@ -63,7 +69,7 @@ class ProductAgent(IAgent):
         self._category_use_case = GetProductsByCategoryUseCase(product_repository=product_repository)
         self._featured_use_case = GetFeaturedProductsUseCase(product_repository=product_repository)
 
-        logger.info("ProductAgent initialized with use cases")
+        logger.info("ProductAgent initialized with use cases and prompt manager")
 
     @property
     def agent_type(self) -> AgentType:
@@ -137,7 +143,7 @@ class ProductAgent(IAgent):
 
     async def _analyze_intent(self, message: str) -> str:
         """
-        Analyze user intent using LLM.
+        Analyze user intent using LLM with centralized prompt management.
 
         Args:
             message: User message
@@ -146,18 +152,30 @@ class ProductAgent(IAgent):
             Intent string ('search', 'category_browse', 'featured', etc.)
         """
         try:
-            prompt = f"""Analyze this product query and return ONLY the intent type:
+            # Load prompt from YAML
+            prompt = await self._prompt_manager.get_prompt(
+                PromptRegistry.PRODUCT_SEARCH_SIMPLE_INTENT,
+                variables={"message": message},
+            )
 
-Query: "{message}"
+            # Get metadata for LLM configuration
+            template = await self._prompt_manager.get_template(
+                PromptRegistry.PRODUCT_SEARCH_SIMPLE_INTENT
+            )
+            temperature = (
+                template.metadata.get("temperature", 0.2)
+                if template and template.metadata
+                else 0.2
+            )
+            max_tokens = (
+                template.metadata.get("max_tokens", 10)
+                if template and template.metadata
+                else 10
+            )
 
-Intent types:
-- search: General product search
-- category_browse: Browsing a specific category
-- featured: Asking for featured/highlighted products
-
-Return ONLY one word: search, category_browse, or featured"""
-
-            response = await self._llm.generate(prompt, temperature=0.2, max_tokens=10)
+            response = await self._llm.generate(
+                prompt, temperature=temperature, max_tokens=max_tokens
+            )
             intent = response.strip().lower()
 
             if intent in ["search", "category_browse", "featured"]:
@@ -303,58 +321,82 @@ Return ONLY one word: search, category_browse, or featured"""
             return self._error_response(str(e), state)
 
     async def _generate_product_response(self, query: str, products: list, search_method: str) -> str:
-        """Generate AI response for product search"""
+        """Generate AI response for product search using centralized prompts"""
         try:
             if not products:
-                return f"No encontré productos para '{query}'. ¿Podrías ser más específico?"
+                # Use no results template
+                try:
+                    prompt = await self._prompt_manager.get_prompt(
+                        PromptRegistry.PRODUCT_SEARCH_NO_RESULTS,
+                        variables={"user_query": query},
+                    )
+                    template = await self._prompt_manager.get_template(
+                        PromptRegistry.PRODUCT_SEARCH_NO_RESULTS
+                    )
+                    temperature = template.metadata.get("temperature", 0.8) if template and template.metadata else 0.8
+                    max_tokens = template.metadata.get("max_tokens", 400) if template and template.metadata else 400
+
+                    response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
+                    return response.strip()
+                except Exception:
+                    return f"No encontr\u00e9 productos para '{query}'. \u00bfPodr\u00edas ser m\u00e1s espec\u00edfico?"
 
             # Format products for context
             products_text = "\n".join(
                 [f"{i+1}. {p['name']} - ${p['price']:,.2f} (Stock: {p['stock']})" for i, p in enumerate(products[:5])]
             )
 
-            prompt = f"""Genera una respuesta amigable para esta búsqueda de productos:
+            # Determine stock info
+            in_stock = sum(1 for p in products if p.get("stock", 0) > 0)
+            out_of_stock = len(products) - in_stock
+            stock_info = f"\nCon stock: {in_stock}, Sin stock: {out_of_stock}" if out_of_stock > 0 else ""
 
-Consulta: "{query}"
-Método: {search_method}
-Productos encontrados: {len(products)}
+            # Load prompt from YAML
+            prompt = await self._prompt_manager.get_prompt(
+                PromptRegistry.PRODUCT_SEARCH_RESPONSE,
+                variables={
+                    "user_query": query,
+                    "intent": search_method,
+                    "product_count": str(len(products)),
+                    "formatted_products": products_text,
+                    "stock_info": stock_info,
+                },
+            )
 
-Productos principales:
-{products_text}
+            template = await self._prompt_manager.get_template(PromptRegistry.PRODUCT_SEARCH_RESPONSE)
+            temperature = template.metadata.get("temperature", 0.7) if template and template.metadata else 0.7
+            max_tokens = template.metadata.get("max_tokens", 600) if template and template.metadata else 600
 
-Genera una respuesta:
-- Amigable y profesional
-- Destaca los productos más relevantes
-- Menciona precios y disponibilidad
-- Máximo 5 líneas
-- Usa emojis apropiados pero sin exceso"""
-
-            response = await self._llm.generate(prompt, temperature=0.7, max_tokens=200)
+            response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()
 
         except Exception as e:
             logger.error(f"Error generating response: {e}")
-            return f"Encontré {len(products)} productos que podrían interesarte."
+            return f"Encontr\u00e9 {len(products)} productos que podr\u00edan interesarte."
 
     async def _generate_category_response(self, category: str, products: list) -> str:
-        """Generate AI response for category browse"""
+        """Generate AI response for category browse using centralized prompts"""
         if not products:
-            return f"No encontré productos en la categoría '{category}'."
+            return f"No encontr\u00e9 productos en la categor\u00eda '{category}'."
 
         products_text = "\n".join([f"{i+1}. {p['name']} - ${p['price']:,.2f}" for i, p in enumerate(products[:5])])
 
         try:
-            prompt = f"""Responde sobre productos de una categoría:
+            # Load prompt from YAML
+            prompt = await self._prompt_manager.get_prompt(
+                PromptRegistry.PRODUCT_CATEGORY_RESPONSE,
+                variables={
+                    "category": category,
+                    "product_count": str(len(products)),
+                    "products_text": products_text,
+                },
+            )
 
-Categoría: {category}
-Total productos: {len(products)}
+            template = await self._prompt_manager.get_template(PromptRegistry.PRODUCT_CATEGORY_RESPONSE)
+            temperature = template.metadata.get("temperature", 0.7) if template and template.metadata else 0.7
+            max_tokens = template.metadata.get("max_tokens", 150) if template and template.metadata else 150
 
-Principales productos:
-{products_text}
-
-Genera respuesta breve y amigable (máximo 4 líneas)"""
-
-            response = await self._llm.generate(prompt, temperature=0.7, max_tokens=150)
+            response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()
 
         except Exception as e:
@@ -362,23 +404,27 @@ Genera respuesta breve y amigable (máximo 4 líneas)"""
             return f"Tenemos {len(products)} productos en {category}."
 
     async def _generate_featured_response(self, products: list) -> str:
-        """Generate AI response for featured products"""
+        """Generate AI response for featured products using centralized prompts"""
         if not products:
             return "No hay productos destacados en este momento."
 
         try:
             products_text = "\n".join([f"{i+1}. {p['name']} - ${p['price']:,.2f}" for i, p in enumerate(products[:5])])
 
-            prompt = f"""Presenta productos destacados:
+            # Load prompt from YAML
+            prompt = await self._prompt_manager.get_prompt(
+                PromptRegistry.PRODUCT_FEATURED_RESPONSE,
+                variables={
+                    "product_count": str(len(products)),
+                    "products_text": products_text,
+                },
+            )
 
-Total: {len(products)}
+            template = await self._prompt_manager.get_template(PromptRegistry.PRODUCT_FEATURED_RESPONSE)
+            temperature = template.metadata.get("temperature", 0.7) if template and template.metadata else 0.7
+            max_tokens = template.metadata.get("max_tokens", 150) if template and template.metadata else 150
 
-Productos:
-{products_text}
-
-Genera respuesta atractiva (máximo 4 líneas)"""
-
-            response = await self._llm.generate(prompt, temperature=0.7, max_tokens=150)
+            response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()
 
         except Exception as e:

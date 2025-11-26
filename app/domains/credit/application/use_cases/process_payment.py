@@ -94,21 +94,20 @@ class ProcessPaymentUseCase:
 
             # 4. Create payment record
             payment_id = str(uuid.uuid4())
-            {
-                "payment_id": payment_id,
-                "account_id": request.account_id,
-                "amount": request.amount,
-                "payment_type": request.payment_type,
-                "payment_method": request.payment_method,
-                "status": "success",
-                "transaction_date": datetime.now(UTC),
-            }
-
-            # 5. Save payment (this would be a Payment entity)
+            # TODO: Save payment record when Payment entity is implemented
+            # payment_data = {
+            #     "payment_id": payment_id,
+            #     "account_id": request.account_id,
+            #     "amount": request.amount,
+            #     "payment_type": request.payment_type,
+            #     "payment_method": request.payment_method,
+            #     "status": "success",
+            #     "transaction_date": datetime.now(UTC),
+            # }
             # await self.payment_repo.save(payment_data)
 
             # 6. Update account balance
-            account.used_credit = new_used_credit  # type: ignore
+            account.used_credit = new_used_credit
             await self.account_repo.save(account)
 
             return ProcessPaymentResponse(

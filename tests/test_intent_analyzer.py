@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from app.agents.product.intent_analyzer import IntentAnalyzer
-from app.agents.product.models import UserIntent
+from app.domains.ecommerce.agents.product.intent_analyzer import IntentAnalyzer
+from app.domains.ecommerce.agents.product.models import UserIntent
 
 
 class TestIntentAnalyzer:

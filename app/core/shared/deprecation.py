@@ -88,14 +88,18 @@ def deprecated(
                 warnings.warn(warning_message, category=category, stacklevel=2)
                 return obj(*args, **kwargs)
 
-            # Agregar atributos
-            wrapper._is_deprecated = True
-            wrapper._deprecation_info = {
-                "reason": reason,
-                "replacement": replacement,
-                "removal_version": removal_version,
-                "message": warning_message,
-            }
+            # Agregar atributos usando setattr para evitar errores de tipo
+            setattr(wrapper, "_is_deprecated", True)
+            setattr(
+                wrapper,
+                "_deprecation_info",
+                {
+                    "reason": reason,
+                    "replacement": replacement,
+                    "removal_version": removal_version,
+                    "message": warning_message,
+                },
+            )
 
             # Actualizar docstring
             if wrapper.__doc__:

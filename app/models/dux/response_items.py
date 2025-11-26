@@ -56,7 +56,11 @@ class DuxItemsResponse(DuxBaseModel):
 
     def find_items_by_marca(self, marca_nombre: str) -> List[DuxItem]:
         """Obtiene items filtrados por marca"""
-        return [item for item in self.results if item.marca.marca.lower() == marca_nombre.lower()]
+        return [
+            item
+            for item in self.results
+            if item.marca.marca and item.marca.marca.lower() == marca_nombre.lower()
+        ]
 
     def get_available_items(self) -> List[DuxItem]:
         """Obtiene solo los items disponibles (con stock y precio)"""

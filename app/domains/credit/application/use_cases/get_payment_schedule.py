@@ -89,7 +89,7 @@ class GetPaymentScheduleUseCase:
             schedule = self._generate_schedule(account, request.months_ahead)
 
             # Calculate totals
-            total_amount = sum(item.amount for item in schedule)
+            total_amount = sum((item.amount for item in schedule), Decimal("0"))
 
             return GetPaymentScheduleResponse(
                 account_id=request.account_id,

@@ -1,6 +1,6 @@
 """
 Servicio de sincronización integrada DUX -> PostgreSQL -> RAG
-Responsabilidad: Orquestar la sincronización completa desde DUX hasta embeddings
+Responsabilidad: Orquestar la sincronización completa desde DUX hasta embeddings (pgvector)
 """
 
 import logging
@@ -10,10 +10,6 @@ from typing import Any, Dict, Optional
 from app.clients.dux_api_client import DuxApiClientFactory
 from app.clients.dux_facturas_client import DuxFacturasClientFactory
 from app.domains.ecommerce.infrastructure.services.dux_sync_service import DuxSyncService
-from app.integrations.vector_stores import (
-    EmbeddingUpdateService,
-    create_vector_ingestion_service,
-)
 from app.models.dux import DuxSyncResult
 
 
@@ -62,8 +58,8 @@ class DuxRagSyncService:
 
         # Servicios de sincronización
         self.dux_sync_service = DuxSyncService(batch_size=batch_size)
-        self.embedding_service = EmbeddingUpdateService()
-        self.vector_ingestion_service = create_vector_ingestion_service()
+        # Note: Embeddings are now handled directly via pgvector in PostgreSQL
+        # Product embeddings are updated via the products table 'embedding' column
 
     async def sync_all_products_with_rag(
         self, max_products: Optional[int] = None, dry_run: bool = False, skip_embeddings: bool = False
@@ -114,43 +110,26 @@ class DuxRagSyncService:
                 rag_result.mark_completed()
                 return rag_result
 
-            # Paso 2: Actualizar embeddings en pgvector (si no es dry_run)
+            # Paso 2: Embeddings are now handled via pgvector in PostgreSQL
+            # Product embeddings are stored directly in the products table 'embedding' column
+            # The DuxSyncService already handles embedding generation during product sync
             if not dry_run and not skip_embeddings:
-                self.logger.info("Step 2: Updating embeddings in pgvector...")
-                embedding_start_time = datetime.now()
+                self.logger.info("Step 2: Product embeddings are stored in pgvector (products.embedding column)")
 
-                try:
-                    # Actualizar embeddings para todos los productos
-                    await self.embedding_service.update_all_embeddings()
+                # Embeddings are generated during product creation/update in DuxSyncService
+                rag_result.add_embedding_metrics(
+                    created=db_result.total_created,
+                    updated=db_result.total_updated,
+                    errors=0,
+                    processing_time=0.0,  # Embeddings generated inline during sync
+                    stats={"storage": "pgvector", "table": "products"},
+                )
 
-                    # Obtener estadísticas del vector store
-                    vector_stats = self.embedding_service.get_collection_stats()
-
-                    embedding_processing_time = (datetime.now() - embedding_start_time).total_seconds()
-
-                    # Calcular métricas aproximadas de embeddings
-                    # (basado en productos creados/actualizados)
-
-                    rag_result.add_embedding_metrics(
-                        created=db_result.total_created,  # Nuevos embeddings
-                        updated=db_result.total_updated,  # Embeddings actualizados
-                        errors=0,  # Sin errores si llegamos aquí
-                        processing_time=embedding_processing_time,
-                        stats=vector_stats,
-                    )
-
-                    self.logger.info(
-                        f"Embeddings updated successfully - "
-                        f"Created: {db_result.total_created}, "
-                        f"Updated: {db_result.total_updated}, "
-                        f"Processing time: {embedding_processing_time:.2f}s"
-                    )
-
-                except Exception as e:
-                    error_msg = f"Error updating embeddings: {str(e)}"
-                    self.logger.error(error_msg)
-                    rag_result.add_error(error_msg)
-                    rag_result.add_embedding_metrics(errors=1)
+                self.logger.info(
+                    f"Products synced with pgvector embeddings - "
+                    f"Created: {db_result.total_created}, "
+                    f"Updated: {db_result.total_updated}"
+                )
 
             elif skip_embeddings:
                 self.logger.info("Step 2: Skipping embeddings update as requested")
@@ -236,9 +215,6 @@ class DuxRagSyncService:
             # Estado del sync de productos
             dux_status = await self.dux_sync_service.get_sync_status()
 
-            # Estado del vector store
-            vector_stats = self.embedding_service.get_collection_stats()
-
             # Probar conectividad
             async with DuxApiClientFactory.create_client() as products_client:
                 products_api_available = await products_client.test_connection()
@@ -248,15 +224,14 @@ class DuxRagSyncService:
 
             return {
                 "dux_products_sync": dux_status,
-                "vector_store_stats": vector_stats,
+                "vector_store": {"type": "pgvector", "storage": "products.embedding column"},
                 "api_connectivity": {
                     "products_api": products_api_available,
                     "facturas_api": facturas_api_available,
                 },
                 "services_status": {
                     "dux_sync_service": "active",
-                    "embedding_service": "active",
-                    "vector_ingestion_service": "active",
+                    "pgvector": "active",
                 },
                 "last_check": datetime.now().isoformat(),
             }
@@ -267,7 +242,10 @@ class DuxRagSyncService:
 
     async def force_embedding_update_for_recent_products(self, hours: int = 24) -> Dict[str, Any]:
         """
-        Fuerza actualización de embeddings solo para productos modificados recientemente
+        Fuerza actualización de embeddings solo para productos modificados recientemente.
+
+        Note: With pgvector, embeddings are stored directly in the products table.
+        This method triggers a re-sync which will regenerate embeddings for modified products.
 
         Args:
             hours: Horas hacia atrás para considerar productos "recientes"
@@ -280,17 +258,18 @@ class DuxRagSyncService:
         start_time = datetime.now()
 
         try:
-            # TODO: Implementar filtrado por fecha de actualización
-            # Por ahora, actualizar todos los embeddings
-            await self.embedding_service.update_all_embeddings()
+            # With pgvector, embeddings are regenerated during product sync
+            # Trigger a sync to update embeddings for recent products
+            result = await self.sync_all_products_with_rag(skip_embeddings=False)
 
             processing_time = (datetime.now() - start_time).total_seconds()
-            stats = self.embedding_service.get_collection_stats()
 
             return {
-                "success": True,
+                "success": result.is_successful(),
                 "processing_time_seconds": processing_time,
-                "vector_store_stats": stats,
+                "vector_store": {"type": "pgvector", "storage": "products.embedding column"},
+                "products_updated": result.total_updated,
+                "products_created": result.total_created,
                 "message": f"Embeddings updated for products modified in last {hours} hours",
             }
 

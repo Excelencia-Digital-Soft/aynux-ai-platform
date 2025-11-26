@@ -53,7 +53,13 @@ class OllamaLLM(ILLM, IChatLLM):
         ```
     """
 
-    def __init__(self, model_name: str = None, base_url: str = None, temperature: float = 0.7, **kwargs):
+    def __init__(
+        self,
+        model_name: str | None = None,
+        base_url: str | None = None,
+        temperature: float = 0.7,
+        **kwargs,
+    ):
         """
         Initialize Ollama LLM.
 
@@ -68,22 +74,18 @@ class OllamaLLM(ILLM, IChatLLM):
         self._base_url = base_url or self.settings.OLLAMA_API_URL
         self._temperature = temperature
 
-        # Configuration for ChatOllama
-        self._config = {
-            "model": self._model_name,
-            "base_url": self._base_url,
-            "temperature": temperature,
-            "num_gpu": kwargs.get("num_gpu", 1),
-            "num_thread": kwargs.get("num_thread", 4),
-            "repeat_penalty": kwargs.get("repeat_penalty", 1.1),
-            "top_k": kwargs.get("top_k", 40),
-            "top_p": kwargs.get("top_p", 0.9),
-            "request_timeout": kwargs.get("request_timeout", 60.0),
-            "keep_alive": kwargs.get("keep_alive", "5m"),
-        }
-
-        # Initialize ChatOllama instance
-        self._llm = ChatOllama(**self._config)
+        # Initialize ChatOllama instance with explicit parameters
+        self._llm = ChatOllama(
+            model=self._model_name,
+            base_url=self._base_url,
+            temperature=temperature,
+            num_gpu=kwargs.get("num_gpu", 1),
+            num_thread=kwargs.get("num_thread", 4),
+            repeat_penalty=kwargs.get("repeat_penalty", 1.1),
+            top_k=kwargs.get("top_k", 40),
+            top_p=kwargs.get("top_p", 0.9),
+            keep_alive=kwargs.get("keep_alive", "5m"),
+        )
 
         # Conversation history storage (for IChatLLM)
         self._conversations: Dict[str, List[Dict[str, str]]] = {}
@@ -299,6 +301,95 @@ class OllamaLLM(ILLM, IChatLLM):
             logger.error(f"Ollama health check failed: {e}")
             return False
 
+    # Backward-compatible methods for migration from OllamaIntegration
+    def get_llm(self, temperature: float = 0.7, model: str | None = None, **kwargs) -> ChatOllama:
+        """
+        Get a ChatOllama instance (backward-compatible with OllamaIntegration).
+
+        This method provides compatibility with code that was using OllamaIntegration.get_llm().
+        For new code, prefer using generate() or generate_chat() methods directly.
+
+        Args:
+            temperature: Generation temperature (0.0-1.0)
+            model: Optional model name override
+            **kwargs: Additional parameters for ChatOllama
+
+        Returns:
+            ChatOllama instance
+        """
+        model_to_use = model or self._model_name
+
+        # Create a new ChatOllama instance with the specified parameters
+        return ChatOllama(
+            model=model_to_use,
+            base_url=self._base_url,
+            temperature=temperature,
+            num_gpu=kwargs.get("num_gpu", 1),
+            num_thread=kwargs.get("num_thread", 4),
+            repeat_penalty=kwargs.get("repeat_penalty", 1.1),
+            top_k=kwargs.get("top_k", 40),
+            top_p=kwargs.get("top_p", 0.9),
+            keep_alive=kwargs.get("keep_alive", "5m"),
+            num_predict=kwargs.get("num_predict"),
+        )
+
+    def get_embeddings(self, model: str | None = None) -> OllamaEmbeddings:
+        """
+        Get an OllamaEmbeddings instance (backward-compatible with OllamaIntegration).
+
+        This method provides compatibility with code that was using OllamaIntegration.get_embeddings().
+        For new code, prefer using OllamaEmbeddingModel class directly.
+
+        Args:
+            model: Optional embedding model name override
+
+        Returns:
+            OllamaEmbeddings instance
+        """
+        embedding_model = model or self.settings.OLLAMA_API_MODEL_EMBEDDING
+        return OllamaEmbeddings(model=embedding_model, base_url=self._base_url)
+
+    async def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+    ) -> str:
+        """
+        Generate a response using system and user prompts (backward-compatible).
+
+        This method provides compatibility with code that was using OllamaIntegration.generate_response().
+        For new code, prefer using generate_chat() with proper message formatting.
+
+        Args:
+            system_prompt: System prompt
+            user_prompt: User prompt
+            model: Optional model name override
+            temperature: Temperature for generation
+            max_tokens: Maximum tokens to generate
+
+        Returns:
+            Generated response text
+        """
+        try:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+
+            # Use generate_chat for proper message handling
+            return await self.generate_chat(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens or 500,
+            )
+
+        except Exception as e:
+            logger.error(f"Error generating response: {e}")
+            return "Lo siento, no pude procesar tu solicitud en este momento."
+
 
 class OllamaEmbeddingModel(IEmbeddingModel):
     """
@@ -319,7 +410,12 @@ class OllamaEmbeddingModel(IEmbeddingModel):
         ```
     """
 
-    def __init__(self, model_name: str = None, base_url: str = None, embedding_dimension: int = 768):
+    def __init__(
+        self,
+        model_name: str | None = None,
+        base_url: str | None = None,
+        embedding_dimension: int = 768,
+    ):
         """
         Initialize Ollama embedding model.
 
@@ -389,7 +485,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
 
 
 # Factory function for convenience
-def create_ollama_llm(model_name: str = None, temperature: float = 0.7, **kwargs) -> OllamaLLM:
+def create_ollama_llm(model_name: str | None = None, temperature: float = 0.7, **kwargs) -> OllamaLLM:
     """
     Factory function to create OllamaLLM instance.
 
@@ -404,7 +500,7 @@ def create_ollama_llm(model_name: str = None, temperature: float = 0.7, **kwargs
     return OllamaLLM(model_name=model_name, temperature=temperature, **kwargs)
 
 
-def create_ollama_embedder(model_name: str = None, **kwargs) -> OllamaEmbeddingModel:
+def create_ollama_embedder(model_name: str | None = None, **kwargs) -> OllamaEmbeddingModel:
     """
     Factory function to create OllamaEmbeddingModel instance.
 

@@ -14,21 +14,28 @@ from pydantic import ValidationError
 logger = logging.getLogger(__name__)
 
 
-async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle HTTPException with consistent response format."""
+    http_exc = exc if isinstance(exc, HTTPException) else HTTPException(status_code=500, detail=str(exc))
     return JSONResponse(
-        status_code=exc.status_code,
+        status_code=http_exc.status_code,
         content={
             "error": True,
-            "message": exc.detail,
-            "status_code": exc.status_code,
+            "message": http_exc.detail,
+            "status_code": http_exc.status_code,
         },
-        headers=exc.headers,
+        headers=http_exc.headers,
     )
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle request validation errors with detailed error messages."""
+    if not isinstance(exc, RequestValidationError):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"error": True, "message": str(exc), "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY},
+        )
+
     errors = []
     for error in exc.errors():
         errors.append(
@@ -52,8 +59,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-async def pydantic_validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
+async def pydantic_validation_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle Pydantic validation errors."""
+    if not isinstance(exc, ValidationError):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"error": True, "message": str(exc), "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY},
+        )
+
     errors = []
     for error in exc.errors():
         errors.append(

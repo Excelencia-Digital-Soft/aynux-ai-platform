@@ -112,9 +112,11 @@ class AynuxEvaluators:
         and routed to the appropriate specialized agent.
         """
         # Extract routing information from run metadata
-        routing_decision = run.outputs.get("routing_decision", {})
-        expected_agent = example.outputs.get("expected_agent")
-        actual_agent = run.outputs.get("next_agent") or run.outputs.get("current_agent")
+        run_outputs = run.outputs or {}
+        example_outputs = example.outputs or {}
+        routing_decision = run_outputs.get("routing_decision", {})
+        expected_agent = example_outputs.get("expected_agent")
+        actual_agent = run_outputs.get("next_agent") or run_outputs.get("current_agent")
 
         if not expected_agent or not actual_agent:
             return EvaluationResult(
@@ -159,7 +161,8 @@ class AynuxEvaluators:
         Checks for appropriate escalation to support, fallback handling, and
         conversation flow management.
         """
-        agent_history = run.outputs.get("agent_history", [])
+        run_outputs = run.outputs or {}
+        agent_history = run_outputs.get("agent_history", [])
         transitions = len(agent_history) - 1 if len(agent_history) > 1 else 0
 
         # Calculate transition quality score
@@ -197,11 +200,13 @@ class AynuxEvaluators:
         - Language quality and clarity
         - Professional tone and helpfulness
         """
-        user_message = run.inputs.get("message", "")
+        run_inputs = run.inputs or {}
+        run_outputs = run.outputs or {}
+        user_message = run_inputs.get("message", "")
         assistant_response = ""
 
         # Extract assistant response from messages
-        messages = run.outputs.get("messages", [])
+        messages = run_outputs.get("messages", [])
         for msg in messages:
             if isinstance(msg, dict) and msg.get("role") == "assistant":
                 assistant_response = msg.get("content", "")
@@ -320,9 +325,10 @@ class AynuxEvaluators:
         - Support issues resolved
         - Questions answered satisfactorily
         """
-        is_complete = run.outputs.get("is_complete", False)
-        human_handoff = run.outputs.get("human_handoff_requested", False)
-        agent_used = run.outputs.get("current_agent", "")
+        run_outputs = run.outputs or {}
+        is_complete = run_outputs.get("is_complete", False)
+        human_handoff = run_outputs.get("human_handoff_requested", False)
+        agent_used = run_outputs.get("current_agent", "")
 
         # Base completion score
         if is_complete and not human_handoff:
@@ -380,12 +386,13 @@ class AynuxEvaluators:
         - Language sentiment
         """
         # Get conversation metrics
-        processing_time = run.outputs.get("processing_time_ms", 0) / 1000.0  # Convert to seconds
-        agent_transitions = len(run.outputs.get("agent_history", []))
-        is_complete = run.outputs.get("is_complete", False)
+        run_outputs = run.outputs or {}
+        processing_time = run_outputs.get("processing_time_ms", 0) / 1000.0  # Convert to seconds
+        agent_transitions = len(run_outputs.get("agent_history", []))
+        is_complete = run_outputs.get("is_complete", False)
 
         # Extract last user message to check for satisfaction indicators
-        messages = run.outputs.get("messages", [])
+        messages = run_outputs.get("messages", [])
         user_messages = [msg for msg in messages if isinstance(msg, dict) and msg.get("role") == "user"]
         last_user_message = user_messages[-1].get("content", "") if user_messages else ""
 
@@ -454,11 +461,13 @@ class AynuxEvaluators:
 
         Looks for buying signals, product interest, and engagement indicators.
         """
-        user_message = run.inputs.get("message", "").lower()
+        run_inputs = run.inputs or {}
+        run_outputs = run.outputs or {}
+        user_message = run_inputs.get("message", "").lower()
         assistant_response = ""
 
         # Extract assistant response
-        messages = run.outputs.get("messages", [])
+        messages = run_outputs.get("messages", [])
         for msg in messages:
             if isinstance(msg, dict) and msg.get("role") == "assistant":
                 assistant_response = msg.get("content", "")
@@ -485,7 +494,7 @@ class AynuxEvaluators:
         score_components["buying_intent"] = min(1.0, buying_signals * 0.3)
 
         # 2. Product information provided (30%)
-        agent_used = run.outputs.get("current_agent", "")
+        agent_used = run_outputs.get("current_agent", "")
         if agent_used in ["product_agent", "smart_product_agent"]:
             # Check if product details were provided
             product_indicators = ["precio", "$", "stock", "disponible", "caracteristica"]
@@ -541,11 +550,13 @@ class AynuxEvaluators:
 
         Ensures the system correctly identifies Spanish input and responds in Spanish.
         """
-        user_message = run.inputs.get("message", "")
+        run_inputs = run.inputs or {}
+        run_outputs = run.outputs or {}
+        user_message = run_inputs.get("message", "")
         assistant_response = ""
 
         # Extract assistant response
-        messages = run.outputs.get("messages", [])
+        messages = run_outputs.get("messages", [])
         for msg in messages:
             if isinstance(msg, dict) and msg.get("role") == "assistant":
                 assistant_response = msg.get("content", "")

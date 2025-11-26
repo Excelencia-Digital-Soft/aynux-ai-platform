@@ -11,10 +11,10 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from app.agents.product.models import SearchResult, SearchStrategyType, UserIntent
-from app.agents.product.search_strategy_manager import SearchStrategyManager
-from app.agents.product.strategies.database_strategy import DatabaseSearchStrategy
-from app.agents.product.strategies.pgvector_strategy import PgVectorSearchStrategy
+from app.domains.ecommerce.agents.product.models import SearchResult, SearchStrategyType, UserIntent
+from app.domains.ecommerce.agents.product.search_strategy_manager import SearchStrategyManager
+from app.domains.ecommerce.agents.product.strategies.database_strategy import DatabaseSearchStrategy
+from app.domains.ecommerce.agents.product.strategies.pgvector_strategy import PgVectorSearchStrategy
 
 
 class TestPgVectorSearchStrategy:

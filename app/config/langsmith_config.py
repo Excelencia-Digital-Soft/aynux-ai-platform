@@ -15,7 +15,6 @@ from typing import Any, Dict, Optional
 from langchain_core.tracers.context import tracing_v2_enabled
 from langsmith import Client
 from langsmith.run_helpers import traceable
-from langsmith.schemas import Example
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -192,7 +191,7 @@ class LangSmithTracer:
             )
             async def wrapper(*args, **kwargs):
                 # Add agent metadata
-                metadata = {
+                metadata: dict[str, Any] = {
                     "agent_name": agent_name,
                     "agent_type": agent_type,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -201,8 +200,10 @@ class LangSmithTracer:
                 # Extract state if available
                 if len(args) > 1 and isinstance(args[1], dict):
                     state = args[1]
-                    metadata["conversation_id"] = state.get("conversation_id")
-                    metadata["user_id"] = state.get("user_id")
+                    if conv_id := state.get("conversation_id"):
+                        metadata["conversation_id"] = conv_id
+                    if user_id := state.get("user_id"):
+                        metadata["user_id"] = user_id
 
                 try:
                     result = await func(*args, **kwargs)
@@ -305,15 +306,11 @@ class LangSmithTracer:
             return
 
         try:
-            example = Example(
+            self.client.create_example(
                 inputs=inputs,
                 outputs=outputs,
                 metadata=metadata,
-            )
-
-            self.client.create_example(
                 dataset_name=dataset_name,
-                example=example,
             )
         except Exception as e:
             logger.error(f"Failed to add example to dataset: {e}")

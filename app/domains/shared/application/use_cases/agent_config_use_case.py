@@ -36,7 +36,7 @@ class GetAgentConfigUseCase:
 
     def _get_default_config_path(self) -> str:
         """Get default path to Excelencia agent module."""
-        return "app/agents/subagent/excelencia_agent.py"
+        return "app/domains/excelencia/agents/nodes/excelencia_node.py"
 
     async def execute(self) -> Dict[str, Any]:
         """
@@ -54,9 +54,9 @@ class GetAgentConfigUseCase:
         """
         try:
             # Import Excelencia agent to get current configuration
-            from app.agents.subagent.excelencia_agent import (
+            from app.domains.excelencia.agents.nodes.excelencia_node import (
                 EXCELENCIA_MODULES,
-                ExcelenciaAgent,
+                ExcelenciaNode as ExcelenciaAgent,
             )
 
             # Create temporary instance to get settings
@@ -120,7 +120,7 @@ class UpdateAgentModulesUseCase:
 
     def _get_default_config_path(self) -> str:
         """Get default path to Excelencia agent module."""
-        return "app/agents/subagent/excelencia_agent.py"
+        return "app/domains/excelencia/agents/nodes/excelencia_node.py"
 
     def _validate_module_structure(self, modules: Dict[str, Any]) -> bool:
         """

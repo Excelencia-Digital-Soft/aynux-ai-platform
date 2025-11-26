@@ -9,10 +9,10 @@ import asyncio
 import logging
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config.settings import get_settings
+from app.database.async_db import get_async_database_url
 from app.models.db.base import Base
 
 logger = logging.getLogger(__name__)
@@ -52,8 +52,8 @@ class DatabaseSetup:
 
     def __init__(self):
         self.settings = get_settings()
-        self.engine = create_async_engine(self.settings.database_config)
-        self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
+        self.engine = create_async_engine(get_async_database_url(), **self.settings.database_config)
+        self.async_session = async_sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
     async def create_tables(self) -> None:
         """Crea todas las tablas en la base de datos."""

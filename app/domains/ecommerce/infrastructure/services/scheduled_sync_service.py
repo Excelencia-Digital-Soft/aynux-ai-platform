@@ -58,8 +58,8 @@ class ScheduledSyncService:
 
         # Estado de sincronización
         self._sync_state = SyncState.IDLE
-        self._current_sync_task: Optional[asyncio.Task] = None
-        self._sync_progress = {
+        self._current_sync_task: Optional[asyncio.Task[None]] = None
+        self._sync_progress: Dict[str, Any] = {
             "total_items": 0,
             "processed_items": 0,
             "current_batch": 0,
@@ -187,7 +187,7 @@ class ScheduledSyncService:
             logger.info("Starting comprehensive DUX synchronization...")
 
             # Sincronizar productos (con o sin RAG según configuración)
-            if self.use_rag_sync:
+            if self.use_rag_sync and self.rag_sync_service:
                 logger.info("Executing integrated DUX-RAG product sync...")
                 products_result = await self.rag_sync_service.sync_all_products_with_rag()
 
@@ -197,7 +197,7 @@ class ScheduledSyncService:
                     f"{products_result.total_errors} errors | RAG: {products_result.total_embeddings_created} "
                     f"embeddings created, {products_result.total_embeddings_updated} updated"
                 )
-            else:
+            elif self.sync_service:
                 logger.info("Executing traditional DUX product sync...")
                 products_result = await self.sync_service.sync_all_products()
 
@@ -206,6 +206,8 @@ class ScheduledSyncService:
                     f"Created: {products_result.total_created}, Updated: {products_result.total_updated}, "
                     f"Errors: {products_result.total_errors}"
                 )
+            else:
+                raise RuntimeError("No sync service available")
 
             # Guardar resultado de productos
             self._last_sync_results["products"] = {
@@ -219,7 +221,7 @@ class ScheduledSyncService:
             }
 
             # Sincronizar facturas si está habilitada la sincronización RAG
-            if self.use_rag_sync:
+            if self.use_rag_sync and self.rag_sync_service:
                 try:
                     logger.info("Executing facturas sync...")
                     facturas_result = await self.rag_sync_service.sync_facturas_with_rag(limit=200)
@@ -344,7 +346,7 @@ class ScheduledSyncService:
         logger.info(f"Forcing immediate products sync (max: {max_products})")
 
         try:
-            if self.use_rag_sync:
+            if self.use_rag_sync and self.rag_sync_service:
                 result = await self.rag_sync_service.sync_all_products_with_rag(max_products=max_products)
 
                 return {
@@ -358,7 +360,7 @@ class ScheduledSyncService:
                     "embeddings_updated": result.total_embeddings_updated,
                     "duration_seconds": result.duration_seconds,
                 }
-            else:
+            elif self.sync_service:
                 result = await self.sync_service.sync_all_products(max_products=max_products)
 
                 return {
@@ -370,6 +372,8 @@ class ScheduledSyncService:
                     "errors": result.total_errors,
                     "duration_seconds": result.duration_seconds,
                 }
+            else:
+                return {"success": False, "error": "No sync service available"}
 
         except Exception as e:
             logger.error(f"Error during forced sync: {e}")
@@ -382,7 +386,7 @@ class ScheduledSyncService:
         Returns:
             Dict con resultado de la operación
         """
-        if not self.use_rag_sync:
+        if not self.use_rag_sync or not self.rag_sync_service:
             return {"success": False, "error": "RAG sync is disabled - cannot update embeddings"}
 
         logger.info("Forcing immediate embeddings update")

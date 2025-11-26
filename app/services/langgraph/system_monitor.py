@@ -5,8 +5,8 @@ System monitoring and health checking for LangGraph chatbot service
 import logging
 from typing import Any, Dict
 
-from app.agents.graph import AynuxGraph
-from app.agents.schemas import AgentType
+from app.core.graph import AynuxGraph
+from app.core.schemas import AgentType
 from app.services.langgraph.security_validator import SecurityValidator
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ import asyncio
 import logging
 from typing import Dict, Any
 
-from app.agents.subagent.greeting_agent import GreetingAgent
+from app.domains.shared.agents import GreetingAgent
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)

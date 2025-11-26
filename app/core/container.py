@@ -31,6 +31,25 @@ from app.domains.ecommerce.application.use_cases import (
     SearchProductsUseCase,
 )
 
+# Healthcare Domain
+from app.domains.healthcare.agents import HealthcareAgent
+from app.domains.healthcare.application.use_cases import (
+    BookAppointmentUseCase,
+    GetPatientRecordsUseCase,
+    TriagePatientUseCase,
+)
+from app.domains.healthcare.infrastructure.repositories import (
+    SQLAlchemyAppointmentRepository,
+    SQLAlchemyPatientRepository,
+)
+
+# Excelencia Domain
+from app.domains.excelencia.agents import ExcelenciaAgent
+from app.domains.excelencia.application.use_cases import (
+    ScheduleDemoUseCase,
+    ShowModulesUseCase,
+)
+
 # E-commerce Domain
 from app.domains.ecommerce.infrastructure.repositories import ProductRepository
 
@@ -124,7 +143,7 @@ class DependencyContainer:
         Returns:
             ProductRepository instance
         """
-        return ProductRepository()  # type: ignore[abstract]
+        return ProductRepository()
 
     def create_credit_account_repository(self) -> IRepository:
         """
@@ -147,6 +166,30 @@ class DependencyContainer:
         """
         # TODO: Replace with actual PaymentRepository
         return CreditAccountRepository()
+
+    def create_patient_repository(self, db) -> SQLAlchemyPatientRepository:
+        """
+        Create Patient Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyPatientRepository instance
+        """
+        return SQLAlchemyPatientRepository(session=db)
+
+    def create_appointment_repository(self, db) -> SQLAlchemyAppointmentRepository:
+        """
+        Create Appointment Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyAppointmentRepository instance
+        """
+        return SQLAlchemyAppointmentRepository(session=db)
 
     # ============================================================
     # USE CASES (Business Logic)
@@ -186,6 +229,39 @@ class DependencyContainer:
     def create_get_payment_schedule_use_case(self) -> GetPaymentScheduleUseCase:
         """Create GetPaymentScheduleUseCase with dependencies"""
         return GetPaymentScheduleUseCase(credit_account_repository=self.create_credit_account_repository())
+
+    # Healthcare Use Cases
+
+    def create_book_appointment_use_case(self, db) -> BookAppointmentUseCase:
+        """Create BookAppointmentUseCase with dependencies"""
+        return BookAppointmentUseCase(
+            patient_repository=self.create_patient_repository(db),
+            appointment_repository=self.create_appointment_repository(db),
+        )
+
+    def create_get_patient_records_use_case(self, db) -> GetPatientRecordsUseCase:
+        """Create GetPatientRecordsUseCase with dependencies"""
+        return GetPatientRecordsUseCase(
+            patient_repository=self.create_patient_repository(db),
+            appointment_repository=self.create_appointment_repository(db),
+        )
+
+    def create_triage_patient_use_case(self, db) -> TriagePatientUseCase:
+        """Create TriagePatientUseCase with dependencies"""
+        return TriagePatientUseCase(
+            patient_repository=self.create_patient_repository(db),
+            appointment_repository=self.create_appointment_repository(db),
+        )
+
+    # Excelencia Use Cases
+
+    def create_show_modules_use_case(self) -> ShowModulesUseCase:
+        """Create ShowModulesUseCase"""
+        return ShowModulesUseCase()
+
+    def create_schedule_demo_use_case(self) -> ScheduleDemoUseCase:
+        """Create ScheduleDemoUseCase"""
+        return ScheduleDemoUseCase()
 
     # Shared Use Cases
 
@@ -394,6 +470,30 @@ class DependencyContainer:
             config=agent_config,
         )
 
+    def create_healthcare_agent(self) -> IAgent:
+        """
+        Create Healthcare Agent with all dependencies.
+
+        Returns:
+            HealthcareAgent instance
+        """
+        agent_config = self.config.get("healthcare_agent", {})
+
+        logger.info("Creating HealthcareAgent")
+        return HealthcareAgent(config=agent_config)
+
+    def create_excelencia_agent(self) -> IAgent:
+        """
+        Create Excelencia Agent with all dependencies.
+
+        Returns:
+            ExcelenciaAgent instance
+        """
+        agent_config = self.config.get("excelencia_agent", {})
+
+        logger.info("Creating ExcelenciaAgent")
+        return ExcelenciaAgent(config=agent_config)
+
     # ============================================================
     # SUPER ORCHESTRATOR (Multi-Domain Router)
     # ============================================================
@@ -411,9 +511,8 @@ class DependencyContainer:
         domain_agents = {
             "ecommerce": self.create_product_agent(),
             "credit": self.create_credit_agent(),
-            # Add more domains as they're implemented:
-            # "healthcare": self.create_healthcare_agent(),
-            # "excelencia": self.create_excelencia_agent(),
+            "healthcare": self.create_healthcare_agent(),
+            "excelencia": self.create_excelencia_agent(),
         }
 
         logger.info(f"Creating SuperOrchestrator with {len(domain_agents)} domains: " f"{list(domain_agents.keys())}")
@@ -434,7 +533,7 @@ class DependencyContainer:
             "llm_model": self.config.get("llm_model", "deepseek-r1:7b"),
             "vector_collection": self.config.get("vector_collection", "products"),
             "embedding_dimension": self.config.get("embedding_dimension", 768),
-            "domains": ["ecommerce", "credit"],
+            "domains": ["ecommerce", "credit", "healthcare", "excelencia"],
         }
 
 
@@ -512,3 +611,23 @@ def get_credit_agent() -> IAgent:
         CreditAgent instance
     """
     return get_container().create_credit_agent()
+
+
+def get_healthcare_agent() -> IAgent:
+    """
+    Convenience function to get HealthcareAgent.
+
+    Returns:
+        HealthcareAgent instance
+    """
+    return get_container().create_healthcare_agent()
+
+
+def get_excelencia_agent() -> IAgent:
+    """
+    Convenience function to get ExcelenciaAgent.
+
+    Returns:
+        ExcelenciaAgent instance
+    """
+    return get_container().create_excelencia_agent()

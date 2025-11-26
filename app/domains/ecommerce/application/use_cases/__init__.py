@@ -10,6 +10,11 @@ from .get_featured_products import (
     GetFeaturedProductsResponse,
     GetFeaturedProductsUseCase,
 )
+from .get_product_by_id import (
+    GetProductByIdRequest,
+    GetProductByIdResponse,
+    GetProductByIdUseCase,
+)
 from .get_products_by_category import (
     GetProductsByCategoryRequest,
     GetProductsByCategoryResponse,
@@ -26,6 +31,10 @@ __all__ = [
     "SearchProductsUseCase",
     "SearchProductsRequest",
     "SearchProductsResponse",
+    # Get by ID
+    "GetProductByIdUseCase",
+    "GetProductByIdRequest",
+    "GetProductByIdResponse",
     # Get by category
     "GetProductsByCategoryUseCase",
     "GetProductsByCategoryRequest",

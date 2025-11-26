@@ -323,14 +323,13 @@ async def search_knowledge(
             document_type=search.document_type,
             category=search.category,
             tags=search.tags,
-            search_strategy=search.search_strategy,
         )
 
         return KnowledgeSearchResponse(
             query=search.query,
             results=results,  # type: ignore[arg-type]
             total_results=len(results),
-            search_strategy=search.search_strategy or "hybrid",
+            search_strategy="pgvector",
         )
     except Exception as e:
         logger.error(f"Error searching knowledge: {e}")

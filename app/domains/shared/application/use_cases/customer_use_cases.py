@@ -77,7 +77,7 @@ class GetOrCreateCustomerUseCase:
                     # Update existing customer
                     customer.last_contact = datetime.now(timezone.utc)  # type: ignore
                     customer.total_interactions = (customer.total_interactions or 0) + 1  # type: ignore
-                    if profile_name and not customer.profile_name:
+                    if profile_name and customer.profile_name is None:
                         customer.profile_name = profile_name  # type: ignore
                     db.commit()
                     db.refresh(customer)

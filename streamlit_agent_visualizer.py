@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from app.agents.graph import AynuxGraph
+from app.core.graph import AynuxGraph
 from app.config.settings import Settings
 from app.visualization.graph_visualizer import GraphVisualizer
 from app.visualization.metrics_tracker import MetricsTracker

@@ -357,7 +357,7 @@ class DefaultCatalogRepository(ICatalogRepository):
 
     def __init__(self):
         # Import here to avoid circular dependency
-        from app.agents.tools.product_tool import ProductTool
+        from app.core.tools import ProductTool
 
         self.product_tool = ProductTool()
 

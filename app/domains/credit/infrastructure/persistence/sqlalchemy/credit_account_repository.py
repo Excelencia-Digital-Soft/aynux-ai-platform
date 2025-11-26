@@ -143,8 +143,9 @@ class CreditAccountRepository(IRepository[CreditAccount, str]):
             #     db.refresh(entity)
             #     return entity
 
-            self._mock_accounts[entity.account_id] = entity
-            logger.info(f"Saved credit account: {entity.account_id}")
+            account_id = entity.account_id or str(entity.id)
+            self._mock_accounts[account_id] = entity
+            logger.info(f"Saved credit account: {account_id}")
             return entity
 
         except Exception as e:

@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, Literal, Optional, Pattern, Set, TypedDict
+from typing import Dict, Literal, Optional, Pattern, Set, TypedDict, cast
 
 logger = logging.getLogger(__name__)
 
@@ -112,10 +112,13 @@ class PhoneNumberNormalizer:
         logger.debug(f"Normalizando número {country}: {phone_number} -> {clean_number}")
 
         # Obtener patrones del país específico
-        patterns = self.COUNTRY_PATTERNS.get(country.lower(), {})
-        if not patterns:
+        patterns_raw = self.COUNTRY_PATTERNS.get(country.lower())
+        if not patterns_raw:
             supported_countries = ", ".join(self.COUNTRY_PATTERNS.keys())
             raise ValueError(f"❗️País '{country}' no soportado. Países disponibles: {supported_countries}")
+
+        # Cast to CountryPattern since we validated it exists
+        patterns = cast(CountryPattern, patterns_raw)
 
         # Lógica específica para Argentina
         if country == "argentina":

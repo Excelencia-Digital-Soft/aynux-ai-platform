@@ -5,7 +5,7 @@ Responsabilidad: Manejar las comunicaciones HTTP específicas para facturas
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -75,8 +75,8 @@ class DuxFacturasClient:
 
         url = f"{self.base_url}/facturas"
 
-        # Construir parámetros de query
-        params = {
+        # Construir parámetros de query con tipo explícito para valores mixtos
+        params: dict[str, int | str] = {
             "offset": offset,
             "limit": limit,
         }
@@ -110,6 +110,7 @@ class DuxFacturasClient:
                     data = await response.json()
 
                     # Manejar diferentes formatos de respuesta
+                    wrapped_data: dict[str, Any] = {"facturas": []}
                     if isinstance(data, list):
                         # Si es una lista directa, envolver
                         wrapped_data = {"facturas": data}
@@ -118,13 +119,12 @@ class DuxFacturasClient:
                         if "facturas" in data:
                             wrapped_data = data
                         elif "results" in data:
-                            # Formato con paginación
-                            wrapped_data = {"facturas": data["results"], "paging": data.get("paging")}
+                            # Formato con paginación - asegurar que facturas no sea None
+                            facturas_data = data.get("results") or []
+                            wrapped_data = {"facturas": facturas_data, "paging": data.get("paging")}
                         else:
                             # Asumir que todo el objeto es la lista de facturas
                             wrapped_data = {"facturas": [data]}
-                    else:
-                        wrapped_data = {"facturas": []}
 
                     # Validar y parsear la respuesta
                     try:

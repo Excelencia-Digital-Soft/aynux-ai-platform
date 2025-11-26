@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from urllib.parse import quote_plus
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # type: ignore[attr-defined]
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool, QueuePool
 
 from app.config.settings import get_settings

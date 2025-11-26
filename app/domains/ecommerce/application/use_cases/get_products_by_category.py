@@ -63,28 +63,19 @@ class GetProductsByCategoryUseCase:
             Response with products
         """
         try:
-            # Build filters
-            filters = {
+            # Build filters for filter_by method
+            filter_kwargs: dict[str, Any] = {
                 "category": request.category.lower(),
             }
 
             if request.subcategory:
-                filters["subcategory"] = request.subcategory.lower()
+                filter_kwargs["subcategory"] = request.subcategory.lower()
 
             if request.active_only:
-                filters["active"] = True
+                filter_kwargs["active"] = True
 
-            # Determine sort order
-            sort_params = self._get_sort_params(request.sort_by)
-
-            # Query products
-            products = await self.product_repo.search(
-                query="",  # Empty query for category browsing
-                filters=filters,
-                limit=request.limit,
-                sort_by=sort_params["field"],
-                sort_order=sort_params["order"],
-            )
+            # Query products using filter_by (ISearchableRepository method)
+            products = await self.product_repo.filter_by(**filter_kwargs)
 
             # Convert to dicts
             product_dicts = [self._product_to_dict(p) for p in products]
@@ -108,26 +99,7 @@ class GetProductsByCategoryUseCase:
                 error=str(e),
             )
 
-    def _get_sort_params(self, sort_by: str) -> Dict[str, str]:
-        """
-        Get sort parameters based on sort_by string.
-
-        Args:
-            sort_by: Sort option
-
-        Returns:
-            Dict with field and order
-        """
-        sort_mapping = {
-            "featured": {"field": "featured", "order": "desc"},
-            "price_asc": {"field": "price", "order": "asc"},
-            "price_desc": {"field": "price", "order": "desc"},
-            "name": {"field": "name", "order": "asc"},
-        }
-
-        return sort_mapping.get(sort_by, sort_mapping["featured"])
-
-    def _product_to_dict(self, product: Any) -> Dict[str, Any]:
+    def _product_to_dict(self, product: Any) -> dict[str, Any]:
         """Convert product to dictionary"""
         if isinstance(product, dict):
             return product

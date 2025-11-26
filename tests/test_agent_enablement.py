@@ -11,9 +11,9 @@ Tests verify:
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.agents.factories.agent_factory import AgentFactory
-from app.agents.routing.graph_router import GraphRouter
-from app.agents.schemas import AgentType
+from app.core.graph.factories.agent_factory import AgentFactory
+from app.core.graph.routing.graph_router import GraphRouter
+from app.core.schemas import AgentType
 
 
 class TestAgentFactory:
@@ -229,7 +229,7 @@ class TestAynuxGraphAgentManagement:
             }
             mock_factory.return_value = mock_factory_instance
 
-            from app.agents.graph import AynuxGraph
+            from app.core.graph import AynuxGraph
 
             config = {"enabled_agents": ["greeting_agent", "product_agent"], "integrations": {}}
 

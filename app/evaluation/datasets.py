@@ -31,7 +31,7 @@ class ConversationExample(BaseModel):
     intent_category: str = Field(..., description="Category of user intent")
     language: str = Field(default="es", description="Language of the conversation")
     complexity: str = Field(default="simple", description="Complexity level: simple, moderate, complex")
-    business_context: Optional[str] = Field(None, description="Business context or scenario")
+    business_context: Optional[str] = Field(default=None, description="Business context or scenario")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
     def to_langsmith_example(self, dataset_name: str) -> Example:
@@ -519,43 +519,40 @@ class DatasetManager:
             if not examples:
                 return {"error": "Dataset not found or empty"}
 
-            stats = {
+            stats: Dict[str, Any] = {
                 "total_examples": len(examples),
                 "created_at": datetime.now().isoformat(),
                 "dataset_name": dataset_name,
             }
 
             # Analyze by categories
-            intent_categories = {}
-            agents = {}
-            complexity_levels = {}
-            languages = {}
+            intent_categories: Dict[str, int] = {}
+            agents: Dict[str, int] = {}
+            complexity_levels: Dict[str, int] = {}
+            languages: Dict[str, int] = {}
 
             for example in examples:
+                outputs = example.outputs or {}
                 # Intent categories
-                intent = example.outputs.get("intent_category", "unknown")
+                intent = outputs.get("intent_category", "unknown")
                 intent_categories[intent] = intent_categories.get(intent, 0) + 1
 
                 # Expected agents
-                agent = example.outputs.get("expected_agent", "unknown")
+                agent = outputs.get("expected_agent", "unknown")
                 agents[agent] = agents.get(agent, 0) + 1
 
                 # Complexity levels
-                complexity = example.outputs.get("complexity", "unknown")
+                complexity = outputs.get("complexity", "unknown")
                 complexity_levels[complexity] = complexity_levels.get(complexity, 0) + 1
 
                 # Languages
-                language = example.outputs.get("language", "unknown")
+                language = outputs.get("language", "unknown")
                 languages[language] = languages.get(language, 0) + 1
 
-            stats.update(
-                {
-                    "intent_distribution": intent_categories,
-                    "agent_distribution": agents,
-                    "complexity_distribution": complexity_levels,
-                    "language_distribution": languages,
-                }
-            )
+            stats["intent_distribution"] = intent_categories
+            stats["agent_distribution"] = agents
+            stats["complexity_distribution"] = complexity_levels
+            stats["language_distribution"] = languages
 
             return stats
 
@@ -583,17 +580,18 @@ class DatasetManager:
             examples = list(self.client.list_examples(dataset_name=dataset_name))
 
             # Convert to exportable format
-            export_data = {
+            examples_list: List[Dict[str, Any]] = []
+            for example in examples:
+                examples_list.append(
+                    {"inputs": example.inputs, "outputs": example.outputs, "metadata": example.metadata}
+                )
+
+            export_data: Dict[str, Any] = {
                 "dataset_name": dataset_name,
                 "export_date": datetime.now().isoformat(),
                 "total_examples": len(examples),
-                "examples": [],
+                "examples": examples_list,
             }
-
-            for example in examples:
-                export_data["examples"].append(
-                    {"inputs": example.inputs, "outputs": example.outputs, "metadata": example.metadata}
-                )
 
             # Save to file
             export_path.parent.mkdir(parents=True, exist_ok=True)

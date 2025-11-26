@@ -8,7 +8,7 @@ mensajes en dominios de negocio usando múltiples estrategias.
 import logging
 from typing import Any
 
-from app.agents.integrations.ollama_integration import OllamaIntegration
+from app.integrations.llm import OllamaLLM
 from app.models.message import Contact
 from app.services.orchestration.domain_pattern_repository import DomainPatternRepository
 
@@ -68,7 +68,7 @@ class DomainClassifier:
     def __init__(
         self,
         pattern_repository: DomainPatternRepository,
-        ollama: OllamaIntegration | None = None,
+        ollama: OllamaLLM | None = None,
         model: str = "deepseek-r1:7b",
     ):
         """
@@ -76,11 +76,11 @@ class DomainClassifier:
 
         Args:
             pattern_repository: Repository for domain patterns
-            ollama: Ollama integration for AI classification
+            ollama: OllamaLLM instance for AI classification
             model: LLM model to use for AI classification
         """
         self.pattern_repository = pattern_repository
-        self.ollama = ollama or OllamaIntegration()
+        self.ollama = ollama or OllamaLLM()
         self.model = model
 
     async def classify(

@@ -31,11 +31,15 @@ class AgentType(str, Enum):
     FAREWELL = "farewell"
     FALLBACK = "fallback"
     # Credit domain
+    CREDIT = "credit_agent"
     CREDIT_BALANCE = "credit_balance"
     PAYMENT = "payment"
     # Healthcare domain
     APPOINTMENT = "appointment"
     CONSULTATION = "consultation"
+    HEALTHCARE = "healthcare"
+    # Excelencia domain
+    EXCELENCIA = "excelencia"
 
 
 @runtime_checkable

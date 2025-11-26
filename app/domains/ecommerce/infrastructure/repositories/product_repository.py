@@ -18,7 +18,7 @@ from app.models.db import Brand, Category, Product, Subcategory
 logger = logging.getLogger(__name__)
 
 
-class ProductRepository(ISearchableRepository[Product]):
+class ProductRepository(ISearchableRepository[Product, int]):
     """
     Product Repository implementation.
 

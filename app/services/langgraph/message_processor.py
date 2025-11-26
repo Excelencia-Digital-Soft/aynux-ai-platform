@@ -6,8 +6,8 @@ import logging
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict
 
-from app.agents.graph import AynuxGraph
-from app.agents.schemas import ConversationContext, CustomerContext
+from app.core.graph import AynuxGraph
+from app.core.schemas import ConversationContext, CustomerContext
 from app.models.chat import ChatStreamEvent, StreamEventType
 from app.models.message import WhatsAppMessage
 from app.utils.language_detector import get_language_detector

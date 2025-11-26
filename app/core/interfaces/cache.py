@@ -359,7 +359,7 @@ class IMultiLayerCache(Protocol):
     """
 
     @abstractmethod
-    async def get_with_fallback(self, key: str, layers: List[str] = None) -> Optional[Any]:
+    async def get_with_fallback(self, key: str, layers: List[str] | None = None) -> Optional[Any]:
         """
         Obtiene valor probando múltiples capas.
 

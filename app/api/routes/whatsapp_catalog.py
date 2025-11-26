@@ -155,11 +155,20 @@ async def send_catalog_message(
         )
 
         if response.success:
+            # Convert data to dict if it's a Pydantic model
+            data_dict: dict[str, Any] | None = None
+            if response.data is not None:
+                if isinstance(response.data, BaseModel):
+                    data_dict = response.data.model_dump()
+                elif isinstance(response.data, dict):
+                    data_dict = response.data
             return WhatsAppResponse(
-                success=True, message=f"Catalog sent successfully to {normalized_phone}", data=response.data
+                success=True, message=f"Catalog sent successfully to {normalized_phone}", data=data_dict
             )
         else:
-            return WhatsAppResponse(success=False, message="Failed to send catalog", error=response.error)
+            # Convert error to string if it's not already
+            error_str = str(response.error) if response.error else None
+            return WhatsAppResponse(success=False, message="Failed to send catalog", error=error_str)
 
     except HTTPException:
         raise
@@ -238,11 +247,20 @@ async def send_flow_message(
         )
 
         if response.success:
+            # Convert data to dict if it's a Pydantic model
+            data_dict: dict[str, Any] | None = None
+            if response.data is not None:
+                if isinstance(response.data, BaseModel):
+                    data_dict = response.data.model_dump()
+                elif isinstance(response.data, dict):
+                    data_dict = response.data
             return WhatsAppResponse(
-                success=True, message=f"Flow sent successfully to {normalized_phone}", data=response.data
+                success=True, message=f"Flow sent successfully to {normalized_phone}", data=data_dict
             )
         else:
-            return WhatsAppResponse(success=False, message="Failed to send flow", error=response.error)
+            # Convert error to string if it's not already
+            error_str = str(response.error) if response.error else None
+            return WhatsAppResponse(success=False, message="Failed to send flow", error=error_str)
 
     except HTTPException:
         raise

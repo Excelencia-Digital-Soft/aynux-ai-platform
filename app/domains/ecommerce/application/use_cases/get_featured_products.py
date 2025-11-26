@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from app.core.interfaces.repository import IRepository
+from app.core.interfaces.repository import ISearchableRepository
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +38,12 @@ class GetFeaturedProductsUseCase:
     Single Responsibility: Only handles featured products retrieval
     """
 
-    def __init__(self, product_repository: IRepository):
+    def __init__(self, product_repository: ISearchableRepository):
         """
         Initialize use case.
 
         Args:
-            product_repository: Repository for product data access
+            product_repository: Repository for product data access (must support search and base operations)
         """
         self.product_repo = product_repository
 

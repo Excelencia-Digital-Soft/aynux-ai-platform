@@ -59,10 +59,10 @@ class CatalogProductAction(BaseModel):
 class ProductListInteractive(BaseModel):
     """Interactive configuration for product list"""
 
-    type: InteractiveType = Field(InteractiveType.PRODUCT_LIST, description="Interactive type")
-    header: Optional[WhatsAppHeaderText] = Field(None, description="Optional header")
+    type: InteractiveType = Field(default=InteractiveType.PRODUCT_LIST, description="Interactive type")
+    header: Optional[WhatsAppHeaderText] = Field(default=None, description="Optional header")
     body: WhatsAppBody = Field(..., description="Message body")
-    footer: Optional[Dict[str, str]] = Field(None, description="Optional footer")
+    footer: Optional[Dict[str, str]] = Field(default=None, description="Optional footer")
     action: CatalogProductAction = Field(..., description="Catalog action configuration")
 
 
@@ -86,11 +86,11 @@ class FlowData(BaseModel):
     """Flow data configuration"""
 
     flow_message_version: str = Field(default="1", description="Flow message version")
-    flow_token: Optional[str] = Field(None, description="Flow token for data passing")
+    flow_token: Optional[str] = Field(default=None, description="Flow token for data passing")
     flow_id: str = Field(..., description="WhatsApp Flow ID")
     flow_cta: str = Field(..., max_length=20, description="Call to action text (max 20 chars)")
-    flow_action: FlowAction = Field(FlowAction.NAVIGATE, description="Flow action type")
-    flow_action_payload: Optional[Dict[str, Any]] = Field(None, description="Additional flow data")
+    flow_action: FlowAction = Field(default=FlowAction.NAVIGATE, description="Flow action type")
+    flow_action_payload: Optional[Dict[str, Any]] = Field(default=None, description="Additional flow data")
 
     @field_validator("flow_cta", mode="after")
     @classmethod

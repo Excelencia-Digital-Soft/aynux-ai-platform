@@ -263,10 +263,9 @@ The e-commerce domain automatically synchronizes data from DUX ERP to PostgreSQL
 **Pipeline Flow**: `DUX API → PostgreSQL → Vector Embeddings → pgvector`
 
 **Key Services** (New Architecture Locations):
-- **DuxRagSyncService** (`app/domains/ecommerce/infrastructure/services/dux_rag_sync_service.py`): Integrated sync DB + RAG
+- **DuxRagSyncService** (`app/domains/ecommerce/infrastructure/services/dux_rag_sync_service.py`): Integrated sync DB + pgvector
 - **ScheduledSyncService** (`app/domains/ecommerce/infrastructure/services/scheduled_sync_service.py`): Background automation
-- **EmbeddingUpdateService** (`app/integrations/vector_stores/embedding_update_service.py`): Vector processing
-- **KnowledgeEmbeddingService** (`app/integrations/vector_stores/knowledge_embedding_service.py`): Knowledge base embeddings
+- **KnowledgeEmbeddingService** (`app/integrations/vector_stores/knowledge_embedding_service.py`): Knowledge base embeddings (pgvector)
 
 **Synchronization Schedule**:
 - **Automatic**: Every 12 hours (2:00 AM, 2:00 PM)

@@ -24,6 +24,9 @@ class PromptRegistry:
     PRODUCT_SEARCH_RESPONSE = "product.search.response"
     PRODUCT_SEARCH_NO_RESULTS = "product.search.no_results"
     PRODUCT_SEARCH_ERROR = "product.search.error"
+    PRODUCT_SEARCH_SIMPLE_INTENT = "product.search.simple_intent"
+    PRODUCT_CATEGORY_RESPONSE = "product.category.response"
+    PRODUCT_FEATURED_RESPONSE = "product.featured.response"
 
     PRODUCT_SQL_COMPLEXITY = "product.sql.complexity_analysis"
     PRODUCT_SQL_GENERATION = "product.sql.generation"

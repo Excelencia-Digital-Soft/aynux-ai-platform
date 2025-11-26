@@ -8,7 +8,6 @@ from app.api.routes import (
     document_upload,
     domain_admin,
     dux_sync_admin,
-    embeddings,
     knowledge_admin,
     langsmith_status,
     phone_normalization,
@@ -16,6 +15,7 @@ from app.api.routes import (
     webhook,
     whatsapp_catalog,
 )
+from app.api.routes.admin import prompts as admin_prompts
 
 api_router = APIRouter()
 
@@ -24,7 +24,6 @@ api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(webhook.router, tags=["webhook"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(phone_normalization.router, prefix="/phone", tags=["phone"])
-api_router.include_router(embeddings.router, tags=["embeddings"])
 api_router.include_router(sync_status.router, prefix="/dux", tags=["sync"])
 api_router.include_router(dux_sync_admin.router, prefix="/admin/dux", tags=["dux-admin"])
 api_router.include_router(agents_admin.router, tags=["agents-admin"])
@@ -34,3 +33,6 @@ api_router.include_router(knowledge_admin.router, tags=["Knowledge Base"])
 api_router.include_router(document_upload.router, tags=["Document Upload"])
 api_router.include_router(agent_config.router, tags=["Agent Configuration"])
 api_router.include_router(whatsapp_catalog.router, tags=["WhatsApp Catalog & Flows"])
+
+# Admin routes - Prompt Management
+api_router.include_router(admin_prompts.router)

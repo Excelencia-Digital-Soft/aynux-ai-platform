@@ -121,9 +121,9 @@ class SearchKnowledgeUseCase:
             # Fallback to SQL search if no results from vector search
             if not results:
                 try:
-                    sql_results = await self.repository.search_by_keywords(
-                        query=query,
-                        limit=max_results,
+                    sql_results = await self.repository.search_by_text(
+                        query_text=query,
+                        max_results=max_results,
                         document_type=document_type,
                     )
                     results.extend(sql_results)

@@ -62,15 +62,18 @@ class EmbeddingUpdateService:
         Returns:
             String content for embedding generation
         """
-        content_parts = [product.name or ""]
+        content_parts: list[str] = []
+
+        if product.name:
+            content_parts.append(str(product.name))
 
         if product.description:
-            content_parts.append(product.description)
+            content_parts.append(str(product.description))
 
         if product.sku:
             content_parts.append(f"SKU: {product.sku}")
 
-        return " ".join(filter(None, content_parts))
+        return " ".join(content_parts)
 
     async def generate_embedding(self, text: str) -> list[float]:
         """
@@ -96,12 +99,11 @@ class EmbeddingUpdateService:
         Returns:
             Dictionary with update statistics
         """
-        stats = {
-            "total_processed": 0,
-            "successful": 0,
-            "errors": 0,
-            "start_time": datetime.now(UTC).isoformat(),
-        }
+        total_processed = 0
+        successful = 0
+        errors = 0
+        start_time = datetime.now(UTC).isoformat()
+        end_time: str | None = None
 
         async for db in get_async_db():
             try:
@@ -113,7 +115,7 @@ class EmbeddingUpdateService:
                 logger.info(f"Updating pgvector embeddings for {len(products)} products")
 
                 for product in products:
-                    stats["total_processed"] += 1
+                    total_processed += 1
                     try:
                         # Create content for embedding
                         content = self._create_product_content(product)
@@ -140,34 +142,40 @@ class EmbeddingUpdateService:
                             {"embedding": embedding_str, "product_id": product.id},
                         )
 
-                        stats["successful"] += 1
+                        successful += 1
 
-                        if stats["successful"] % 50 == 0:
-                            logger.info(f"Progress: {stats['successful']}/{len(products)} embeddings updated")
+                        if successful % 50 == 0:
+                            logger.info(f"Progress: {successful}/{len(products)} embeddings updated")
 
                     except Exception as e:
                         logger.error(f"Error updating embedding for product {product.id}: {e}")
-                        stats["errors"] += 1
+                        errors += 1
                         continue
 
                 # Commit all updates
                 await db.commit()
 
-                stats["end_time"] = datetime.now(UTC).isoformat()
+                end_time = datetime.now(UTC).isoformat()
                 logger.info(
                     f"Embedding update completed - "
-                    f"Processed: {stats['total_processed']}, "
-                    f"Successful: {stats['successful']}, "
-                    f"Errors: {stats['errors']}"
+                    f"Processed: {total_processed}, "
+                    f"Successful: {successful}, "
+                    f"Errors: {errors}"
                 )
 
             except Exception as e:
                 logger.error(f"Error updating product embeddings: {e}")
                 await db.rollback()
-                stats["errors"] += 1
+                errors += 1
                 raise
 
-        return stats
+        return {
+            "total_processed": total_processed,
+            "successful": successful,
+            "errors": errors,
+            "start_time": start_time,
+            "end_time": end_time,
+        }
 
     async def update_product_embedding(self, product_id: int) -> bool:
         """

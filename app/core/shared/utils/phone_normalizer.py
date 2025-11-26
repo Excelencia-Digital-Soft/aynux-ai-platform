@@ -216,13 +216,18 @@ class PydanticPhoneNumberNormalizer(BaseModel):
                 success=True,
                 phone_info=normalized,
                 normalized_number=normalized.normalized_number,
+                error_message=None,
                 warnings=normalized.validation_errors if normalized.validation_errors else [],
             )
 
         except Exception as e:
             logger.error(f"Error normalizando número {request.phone_number}: {e}")
             return PhoneNumberResponse(
-                success=False, error_message=str(e), warnings=[f"Error durante la normalización: {str(e)}"]
+                success=False,
+                phone_info=None,
+                normalized_number=None,
+                error_message=str(e),
+                warnings=[f"Error durante la normalización: {str(e)}"],
             )
 
     def _detect_country(self, clean_number: str, specified_country: Optional[SupportedCountry]) -> SupportedCountry:
@@ -255,7 +260,10 @@ class PydanticPhoneNumberNormalizer(BaseModel):
             normalized_number=clean_number,  # Se actualizará después
             country=country,
             country_code=country_config["country_code"],
+            area_code=None,  # Se actualizará después
+            local_number=None,  # Se actualizará después
             formatted_display=f"+{clean_number}",  # Se mejorará después
+            is_mobile=False,  # Se actualizará después
             is_valid=False,  # Se actualizará después
             is_test_compatible=clean_number in self.test_numbers,
         )
@@ -366,7 +374,7 @@ class PydanticPhoneNumberNormalizer(BaseModel):
     def add_test_number(self, phone_number: str) -> bool:
         """Agrega un número a la lista de prueba"""
         try:
-            request = PhoneNumberRequest(phone_number=phone_number, force_test_mode=False)
+            request = PhoneNumberRequest(phone_number=phone_number, country=None, force_test_mode=False)
             response = self.normalize_phone_number(request)
 
             if response.success and response.phone_info:
@@ -384,10 +392,15 @@ class PydanticPhoneNumberNormalizer(BaseModel):
     def validate_for_whatsapp(self, phone_number: str, test_mode: bool = True) -> PhoneNumberResponse:
         """Método de conveniencia para validar números para WhatsApp"""
         try:
-            request = PhoneNumberRequest(phone_number=phone_number, force_test_mode=test_mode)
+            request = PhoneNumberRequest(phone_number=phone_number, country=None, force_test_mode=test_mode)
             return self.normalize_phone_number(request)
         except Exception as e:
-            return PhoneNumberResponse(success=False, error_message=f"Error de validación: {str(e)}")
+            return PhoneNumberResponse(
+                success=False,
+                phone_info=None,
+                normalized_number=None,
+                error_message=f"Error de validación: {str(e)}",
+            )
 
     @classmethod
     def get_supported_countries(cls) -> List[SupportedCountry]:

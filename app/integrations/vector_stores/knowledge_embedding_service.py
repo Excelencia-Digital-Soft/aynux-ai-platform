@@ -64,10 +64,13 @@ class KnowledgeEmbeddingService:
             String content for embedding generation
         """
         # Build comprehensive document content for embedding
-        content_parts = [
-            f"# {knowledge.title}",
+        title = str(knowledge.title) if knowledge.title else ""
+        content = str(knowledge.content) if knowledge.content else ""
+
+        content_parts: list[str] = [
+            f"# {title}",
             "",
-            knowledge.content,
+            content,
         ]
 
         if knowledge.category is not None:
@@ -239,6 +242,9 @@ class KnowledgeEmbeddingService:
             logger.error(f"Error searching knowledge: {e}")
             return []
 
+        # Return empty list if async for didn't yield any db sessions
+        return []
+
     async def get_embedding_stats(self) -> Dict[str, Any]:
         """
         Get statistics about knowledge embeddings in pgvector.
@@ -280,6 +286,9 @@ class KnowledgeEmbeddingService:
             except Exception as e:
                 logger.error(f"Error getting embedding stats: {e}")
                 return {}
+
+        # Return empty dict if async for didn't yield any db sessions
+        return {}
 
     async def delete_knowledge_embeddings(self, knowledge_id: str):
         """

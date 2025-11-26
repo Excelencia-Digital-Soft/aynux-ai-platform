@@ -6,10 +6,11 @@ del sistema, siguiendo el patrón Repository y Dependency Inversion Principle.
 """
 
 from abc import abstractmethod
+from collections.abc import Awaitable, Callable
 from typing import Generic, List, Optional, Protocol, TypeVar, runtime_checkable
 
 T = TypeVar("T")  # Entity type
-ID = TypeVar("ID")  # ID type (int, str, UUID, etc.)
+ID = TypeVar("ID", contravariant=True)  # ID type (int, str, UUID, etc.) - contravariant for Protocol input params
 
 
 @runtime_checkable
@@ -140,13 +141,46 @@ class IReadOnlyRepository(Protocol, Generic[T, ID]):
 
 
 @runtime_checkable
-class ISearchableRepository(Protocol, Generic[T]):
+class ISearchableRepository(Protocol, Generic[T, ID]):
     """
     Interface para repositorios con capacidad de búsqueda.
 
     Extiende IRepository agregando métodos de búsqueda y filtrado.
+    Includes all base IRepository methods plus search capabilities.
     """
 
+    # Base IRepository methods
+    @abstractmethod
+    async def find_by_id(self, id: ID) -> Optional[T]:
+        """Encuentra entidad por ID"""
+        ...
+
+    @abstractmethod
+    async def find_all(self, skip: int = 0, limit: int = 100) -> List[T]:
+        """Obtiene todas las entidades"""
+        ...
+
+    @abstractmethod
+    async def save(self, entity: T) -> T:
+        """Persiste una entidad"""
+        ...
+
+    @abstractmethod
+    async def delete(self, id: ID) -> bool:
+        """Elimina una entidad por su ID"""
+        ...
+
+    @abstractmethod
+    async def exists(self, id: ID) -> bool:
+        """Verifica si existe una entidad"""
+        ...
+
+    @abstractmethod
+    async def count(self) -> int:
+        """Cuenta el número total de entidades"""
+        ...
+
+    # Search-specific methods
     @abstractmethod
     async def search(self, query: str, limit: int = 10) -> List[T]:
         """
@@ -288,7 +322,7 @@ class ICacheRepository(Protocol, Generic[T]):
         ...
 
     @abstractmethod
-    async def get_or_fetch(self, key: str, fetch_fn: callable, ttl: int = 3600) -> T:
+    async def get_or_fetch(self, key: str, fetch_fn: Callable[[], Awaitable[T]], ttl: int = 3600) -> T:
         """
         Obtiene del cache o ejecuta función de fetch si no existe.
 

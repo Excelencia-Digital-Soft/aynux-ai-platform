@@ -320,7 +320,7 @@ def mock_agent_state():
 @pytest.fixture
 def mock_base_agent():
     """Create a mock base agent."""
-    from app.agents.subagent.base_agent import BaseAgent
+    from app.core.agents import BaseAgent
 
     mock = AsyncMock(spec=BaseAgent)
     mock.process = AsyncMock(return_value={})

@@ -42,7 +42,7 @@ class ProductService:
 **Interfaces disponibles**:
 - `IRepository[T, ID]` - CRUD básico
 - `IReadOnlyRepository[T, ID]` - Solo lectura
-- `ISearchableRepository[T]` - Con búsqueda y filtros
+- `ISearchableRepository[T, ID]` - Extiende IRepository con búsqueda y filtros
 - `IKnowledgeRepository` - Knowledge base con embeddings
 - `ICacheRepository[T]` - Con caching integrado
 

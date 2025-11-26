@@ -174,23 +174,27 @@ class SearchProductsUseCase:
             Search response
         """
         try:
-            # Build filters
-            filters = {}
+            # Build filter kwargs for filter_by method
+            filter_kwargs: dict[str, Any] = {}
             if request.category:
-                filters["category"] = request.category
+                filter_kwargs["category"] = request.category
             if request.brand:
-                filters["brand"] = request.brand
+                filter_kwargs["brand"] = request.brand
             if request.min_price is not None:
-                filters["min_price"] = request.min_price
+                filter_kwargs["min_price"] = request.min_price
             if request.max_price is not None:
-                filters["max_price"] = request.max_price
+                filter_kwargs["max_price"] = request.max_price
 
-            # Search using repository
-            products = await self.product_repo.search(
-                query=request.query,
-                filters=filters,
-                limit=request.limit,
-            )
+            # Use search for text query or filter_by for filters only
+            if request.query and request.query.strip():
+                # Use search method for text queries (limit is the only extra param)
+                products = await self.product_repo.search(
+                    query=request.query,
+                    limit=request.limit,
+                )
+            else:
+                # Use filter_by for filtering without text query
+                products = await self.product_repo.filter_by(**filter_kwargs)
 
             # Convert ORM models to dicts
             product_dicts = [self._product_to_dict(p) for p in products]
@@ -200,7 +204,7 @@ class SearchProductsUseCase:
                 total_count=len(product_dicts),
                 search_method="database",
                 metadata={
-                    "filters": filters,
+                    "filters": filter_kwargs,
                     "query": request.query,
                 },
                 success=True,

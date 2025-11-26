@@ -3,7 +3,14 @@ from typing import Any, Dict
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
+from app.core.shared.deprecation import deprecated
 
+
+@deprecated(
+    reason="Legacy monolithic prompt service no longer maintained",
+    replacement="Use PromptManager from app.prompts.manager with YAML templates",
+    removal_version="3.0.0",
+)
 class PromptService:
     def __init__(self):
         self.output_parser = StrOutputParser()

@@ -288,11 +288,42 @@ psql -h localhost -U usuario -d database -f app/scripts/migrations/002_create_pr
 - `prompts`: Almacena prompts activos
 - `prompt_versions`: Historial de versiones
 
-## 📚 Documentación Adicional
+## 🚀 Producción
 
-- [API Reference](./api_reference.md) - Documentación completa de la API
-- [Migration Guide](./migration_guide.md) - Guía detallada de migración
-- [Best Practices](./best_practices.md) - Mejores prácticas de uso
+### Consideraciones de Despliegue
+
+1. **Ejecutar migración de BD**: `002_create_prompts_tables.sql`
+2. **Configurar caché**: Ajustar `cache_size` y `cache_ttl` según carga esperada
+3. **Monitorear performance**: Revisar `/api/v1/admin/prompts/system/stats`
+4. **Backup de prompts**: Implementar respaldo para prompts dinámicos
+5. **Permisos API**: Los endpoints admin requieren autenticación apropiada
+
+### Migración Gradual
+
+- **No rompe código existente**: Sistema compatible con código antiguo
+- **Migrar por servicios**: Actualizar servicios uno por uno
+- **Testing exhaustivo**: Verificar cada servicio migrado
+- **Rollback disponible**: Versionado permite revertir cambios
+
+## 📈 Estado de Migración
+
+### Agentes Migrados (~90%)
+
+| Agente | Estado | Fecha |
+|--------|--------|-------|
+| ProductAgent | ✅ Migrado | 2025-01 |
+| SuperOrchestrator | ✅ Migrado | 2025-01 |
+| FarewellAgent | ✅ Creado con PromptManager | 2025-01 |
+| FallbackAgent | ✅ Creado con PromptManager | 2025-01 |
+| ExcelenciaAgent | ✅ Creado con PromptManager | 2025-01 |
+| SupervisorAgent | ✅ Creado con PromptManager | 2025-01 |
+| CreditAgent | ✅ Ya usaba PromptManager | - |
+
+### Pendiente
+
+- [ ] Migrar agentes restantes según se necesiten
+- [ ] Implementar A/B testing de prompts
+- [ ] Dashboard de métricas de prompts
 
 ## 🤝 Contribuir
 
@@ -300,7 +331,7 @@ Para agregar nuevos prompts:
 
 1. Crear archivo YAML en `templates/{domain}/`
 2. Agregar clave en `PromptRegistry`
-3. Documentar uso
+3. Documentar uso en este README
 4. Crear tests
 
 ## 📞 Soporte
@@ -312,5 +343,5 @@ Para preguntas o issues:
 
 ---
 
-**Versión**: 1.0.0
-**Última actualización**: 2025-01-16
+**Versión**: 2.0.0
+**Última actualización**: 2025-01

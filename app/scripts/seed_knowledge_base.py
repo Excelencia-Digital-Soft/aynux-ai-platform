@@ -425,10 +425,8 @@ async def seed_knowledge_base():
             logger.info(f"  Embedding coverage: {stats_after['database']['embedding_coverage']:.1f}%")
             logger.info(f"  Embedding model: {stats_after['embedding_model']}")
 
-            # Show ChromaDB statistics
-            logger.info("\nChromaDB collections:")
-            for collection, count in stats_after["chromadb_collections"].items():
-                logger.info(f"  {collection}: {count} documents")
+            # pgvector is now the only vector store
+            logger.info("\nVector store: pgvector (embeddings stored in PostgreSQL)")
 
             logger.info("\n✅ Knowledge base seeding completed successfully!")
 

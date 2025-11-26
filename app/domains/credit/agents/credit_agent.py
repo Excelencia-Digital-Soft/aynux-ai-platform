@@ -158,8 +158,8 @@ class CreditAgent(IAgent):
 
             # Get metadata for LLM configuration
             template = await self._prompt_manager.get_template(PromptRegistry.CREDIT_INTENT_ANALYSIS)
-            temperature = template.metadata.get("temperature", 0.2)
-            max_tokens = template.metadata.get("max_tokens", 10)
+            temperature = template.metadata.get("temperature", 0.2) if template and template.metadata else 0.2
+            max_tokens = template.metadata.get("max_tokens", 10) if template and template.metadata else 10
 
             response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             intent = response.strip().lower()
@@ -293,8 +293,8 @@ class CreditAgent(IAgent):
 
             # Get metadata for LLM configuration
             template = await self._prompt_manager.get_template(PromptRegistry.CREDIT_BALANCE_RESPONSE)
-            temperature = template.metadata.get("temperature", 0.7)
-            max_tokens = template.metadata.get("max_tokens", 200)
+            temperature = template.metadata.get("temperature", 0.7) if template and template.metadata else 0.7
+            max_tokens = template.metadata.get("max_tokens", 200) if template and template.metadata else 200
 
             response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()
@@ -319,8 +319,8 @@ class CreditAgent(IAgent):
 
             # Get metadata for LLM configuration
             template = await self._prompt_manager.get_template(PromptRegistry.CREDIT_PAYMENT_CONFIRMATION)
-            temperature = template.metadata.get("temperature", 0.7)
-            max_tokens = template.metadata.get("max_tokens", 150)
+            temperature = template.metadata.get("temperature", 0.7) if template and template.metadata else 0.7
+            max_tokens = template.metadata.get("max_tokens", 150) if template and template.metadata else 150
 
             response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()
@@ -347,8 +347,8 @@ class CreditAgent(IAgent):
 
             # Get metadata for LLM configuration
             template = await self._prompt_manager.get_template(PromptRegistry.CREDIT_SCHEDULE_RESPONSE)
-            temperature = template.metadata.get("temperature", 0.7)
-            max_tokens = template.metadata.get("max_tokens", 150)
+            temperature = template.metadata.get("temperature", 0.7) if template and template.metadata else 0.7
+            max_tokens = template.metadata.get("max_tokens", 150) if template and template.metadata else 150
 
             response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()

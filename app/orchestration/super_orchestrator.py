@@ -3,6 +3,7 @@ Super Orchestrator - Multi-Domain Router
 
 Routes conversations to appropriate domain agents based on context and intent.
 Follows Clean Architecture and SOLID principles.
+Uses centralized YAML-based prompt management.
 """
 
 import inspect
@@ -11,6 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from app.core.interfaces.agent import IAgent
 from app.core.interfaces.llm import ILLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +45,15 @@ class SuperOrchestrator:
         self.llm = llm
         self.config = config or {}
 
+        # Initialize prompt manager for centralized prompt handling
+        self._prompt_manager = PromptManager()
+
         # Default domain if detection fails
         self.default_domain = self.config.get("default_domain", "ecommerce")
 
         logger.info(
-            f"SuperOrchestrator initialized with {len(domain_agents)} domains: " f"{list(domain_agents.keys())}"
+            f"SuperOrchestrator initialized with {len(domain_agents)} domains: "
+            f"{list(domain_agents.keys())} and prompt manager"
         )
 
     async def route_message(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -105,7 +112,7 @@ class SuperOrchestrator:
 
     async def _detect_domain(self, message: str, state: Dict[str, Any]) -> str:
         """
-        Detect domain from message using LLM.
+        Detect domain from message using LLM with centralized prompt management.
 
         Args:
             message: User message
@@ -125,28 +132,42 @@ class SuperOrchestrator:
             available_domains = list(self.domain_agents.keys())
             domains_list = ", ".join(available_domains)
 
-            prompt = f"""Analyze this user message and determine which business domain it belongs to.
+            # Load prompt from YAML
+            prompt = await self._prompt_manager.get_prompt(
+                PromptRegistry.ORCHESTRATOR_DOMAIN_DETECTION,
+                variables={
+                    "message": message,
+                    "domains_list": domains_list,
+                    "default_domain": self.default_domain,
+                },
+            )
 
-Message: "{message}"
+            # Get metadata for LLM configuration
+            template = await self._prompt_manager.get_template(
+                PromptRegistry.ORCHESTRATOR_DOMAIN_DETECTION
+            )
+            temperature = (
+                template.metadata.get("temperature", 0.2)
+                if template and template.metadata
+                else 0.2
+            )
+            max_tokens = (
+                template.metadata.get("max_tokens", 10)
+                if template and template.metadata
+                else 10
+            )
 
-Available domains:
-- ecommerce: Products, shopping, orders, promotions, inventory
-- credit: Credit accounts, payments, balances, collections, loans
-- healthcare: Patients, appointments, medical records, prescriptions
-- excelencia: Company services, quotes, portfolio, contact sales
-
-Return ONLY the domain name (one word): {domains_list}
-
-If unclear, return: {self.default_domain}"""
-
-            response = await self.llm.generate(prompt, temperature=0.2, max_tokens=10)
+            response = await self.llm.generate(
+                prompt, temperature=temperature, max_tokens=max_tokens
+            )
 
             detected_domain = response.strip().lower()
 
             # Validate detected domain
             if detected_domain not in available_domains:
                 logger.warning(
-                    f"LLM returned invalid domain '{detected_domain}', " f"using default: {self.default_domain}"
+                    f"LLM returned invalid domain '{detected_domain}', "
+                    f"using default: {self.default_domain}"
                 )
                 return self.default_domain
 
