@@ -7,7 +7,7 @@ Use Cases compartidos entre múltiples dominios:
 - Admin and domain management use cases
 """
 
-from app.domains.shared.application.use_cases.admin_use_cases import (
+from app.domains.shared.application.use_cases.admin import (
     AssignContactDomainUseCase,
     ClearDomainAssignmentsUseCase,
     DisableDomainUseCase,
@@ -26,7 +26,7 @@ from app.domains.shared.application.use_cases.agent_config_use_case import (
 from app.domains.shared.application.use_cases.customer_use_cases import (
     GetOrCreateCustomerUseCase,
 )
-from app.domains.shared.application.use_cases.knowledge_use_cases import (
+from app.domains.shared.application.use_cases.knowledge import (
     CreateKnowledgeUseCase,
     DeleteKnowledgeUseCase,
     GetKnowledgeStatisticsUseCase,

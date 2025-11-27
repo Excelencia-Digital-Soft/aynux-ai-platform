@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from app.config.langsmith_config import get_tracer
-from app.evaluation.langsmith_evaluators import get_evaluators_instance
+from app.evaluation.evaluators import get_evaluators_instance
 from app.evaluation.metrics import MetricsSummary, MetricTrend, get_metrics_collector
 
 logger = logging.getLogger(__name__)

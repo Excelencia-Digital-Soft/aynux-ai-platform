@@ -122,7 +122,7 @@ class AppFactory:
         """Add health check endpoint."""
 
         @app.get("/health", tags=["health"])
-        async def health_check() -> dict[str, str]:
+        async def helth_check() -> dict[str, str]:
             """
             Verify application health status.
 

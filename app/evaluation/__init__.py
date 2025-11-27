@@ -8,7 +8,7 @@ This module provides comprehensive evaluation capabilities including:
 """
 
 from .datasets import ConversationExample, DatasetManager, get_dataset_manager
-from .langsmith_evaluators import (
+from .evaluators import (
     AynuxEvaluators,
     EvaluationResult,
     create_langsmith_evaluators,

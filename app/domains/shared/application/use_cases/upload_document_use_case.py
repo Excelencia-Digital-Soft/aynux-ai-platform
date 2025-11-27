@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.shared.application.use_cases.knowledge_use_cases import (
+from app.domains.shared.application.use_cases.knowledge import (
     CreateKnowledgeUseCase,
 )
 from app.integrations.document_processing import PDFExtractor

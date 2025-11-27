@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 # Import agents directly to avoid circular imports
 from app.core.graph.agents.orchestrator_agent import OrchestratorAgent
-from app.core.graph.agents.supervisor_agent import SupervisorAgent
+from app.core.graph.agents.supervisor import SupervisorAgent
 from app.domains.shared.agents import (
     DataInsightsAgent,
     FallbackAgent,

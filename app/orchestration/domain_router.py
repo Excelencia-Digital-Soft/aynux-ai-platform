@@ -6,13 +6,13 @@ Routes incoming messages to appropriate domain services based on intent analysis
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any, TypedDict
 
 from app.orchestration.strategies import (
+    AIBasedRoutingStrategy,
     HybridRoutingStrategy,
     KeywordRoutingStrategy,
-    AIBasedRoutingStrategy,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,10 +96,7 @@ class DomainRouter:
             "by_strategy": {"keyword": 0, "ai": 0, "hybrid": 0},
         }
 
-        logger.info(
-            f"DomainRouter initialized with strategy={strategy}, "
-            f"domains={self.enabled_domains}"
-        )
+        logger.info(f"DomainRouter initialized with strategy={strategy}, domains={self.enabled_domains}")
 
     def _init_strategy(self) -> None:
         """Initialize routing strategy based on configuration."""
@@ -163,8 +160,7 @@ class DomainRouter:
             )
 
             logger.debug(
-                f"Routed message to {domain} "
-                f"(confidence={result.confidence:.2f}, strategy={decision.strategy_used})"
+                f"Routed message to {domain} (confidence={result.confidence:.2f}, strategy={decision.strategy_used})"
             )
 
             return decision

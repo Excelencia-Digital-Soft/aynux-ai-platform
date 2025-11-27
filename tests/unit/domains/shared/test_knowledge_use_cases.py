@@ -13,7 +13,7 @@ import pytest
 from uuid import UUID, uuid4
 from unittest.mock import AsyncMock, MagicMock
 
-from app.domains.shared.application.use_cases.knowledge_use_cases import (
+from app.domains.shared.application.use_cases.knowledge import (
     CreateKnowledgeUseCase,
     SearchKnowledgeUseCase,
     GetKnowledgeUseCase,

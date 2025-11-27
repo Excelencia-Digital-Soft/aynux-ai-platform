@@ -10,11 +10,10 @@ Integrations para diferentes backends de vector stores:
 from app.integrations.vector_stores.knowledge_embedding_service import (
     KnowledgeEmbeddingService,
 )
-from app.integrations.vector_stores.pgvector import PgVectorStore
+from app.integrations.vector_stores.pgvector import PgVectorStore, PgVectorIntegration
 from app.integrations.vector_stores.pgvector_metrics_service import (
     PgVectorMetricsService,
 )
-from app.integrations.vector_stores.pgvector_integration import PgVectorIntegration
 
 
 def create_pgvector_store(
