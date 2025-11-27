@@ -24,11 +24,44 @@ from app.domains.credit.application.use_cases import (
 
 # Credit Domain
 from app.domains.credit.infrastructure.persistence.sqlalchemy import CreditAccountRepository
+
+# Credit Domain Repositories
+from app.domains.credit.infrastructure.repositories import (
+    SQLAlchemyCreditAccountRepository,
+    SQLAlchemyPaymentRepository,
+    SQLAlchemyPaymentScheduleRepository,
+)
 from app.domains.ecommerce.agents import ProductAgent
+
+# E-commerce Order Use Cases
 from app.domains.ecommerce.application.use_cases import (
+    CreateOrderUseCase,
+    GetCustomerOrdersUseCase,
     GetFeaturedProductsUseCase,
     GetProductsByCategoryUseCase,
     SearchProductsUseCase,
+    TrackOrderUseCase,
+)
+
+# E-commerce Domain
+from app.domains.ecommerce.infrastructure.repositories import (
+    ProductRepository,
+    SQLAlchemyCategoryRepository,
+    SQLAlchemyOrderRepository,
+    SQLAlchemyPromotionRepository,
+)
+
+# Excelencia Domain
+from app.domains.excelencia.agents import ExcelenciaAgent
+from app.domains.excelencia.application.use_cases import (
+    ScheduleDemoUseCase,
+    ShowModulesUseCase,
+)
+
+# Excelencia Domain Repositories
+from app.domains.excelencia.infrastructure.repositories import (
+    SQLAlchemyDemoRepository,
+    SQLAlchemyModuleRepository,
 )
 
 # Healthcare Domain
@@ -40,24 +73,18 @@ from app.domains.healthcare.application.use_cases import (
 )
 from app.domains.healthcare.infrastructure.repositories import (
     SQLAlchemyAppointmentRepository,
+    SQLAlchemyDoctorRepository,
     SQLAlchemyPatientRepository,
 )
-
-# Excelencia Domain
-from app.domains.excelencia.agents import ExcelenciaAgent
-from app.domains.excelencia.application.use_cases import (
-    ScheduleDemoUseCase,
-    ShowModulesUseCase,
-)
-
-# E-commerce Domain
-from app.domains.ecommerce.infrastructure.repositories import ProductRepository
 
 # Shared Domain Use Cases
 from app.domains.shared.application.use_cases import (
     GetOrCreateCustomerUseCase,
     SearchKnowledgeUseCase,
 )
+
+# Shared Domain Infrastructure
+from app.domains.shared.infrastructure.repositories import SQLAlchemyCustomerRepository
 
 # Integrations (Implementations)
 from app.integrations.llm import create_ollama_llm
@@ -191,6 +218,134 @@ class DependencyContainer:
         """
         return SQLAlchemyAppointmentRepository(session=db)
 
+    def create_doctor_repository(self, db) -> SQLAlchemyDoctorRepository:
+        """
+        Create Doctor Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyDoctorRepository instance
+        """
+        return SQLAlchemyDoctorRepository(session=db)
+
+    # E-commerce Repositories (New)
+
+    def create_order_repository(self, db) -> SQLAlchemyOrderRepository:
+        """
+        Create Order Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyOrderRepository instance
+        """
+        return SQLAlchemyOrderRepository(session=db)
+
+    def create_category_repository(self, db) -> SQLAlchemyCategoryRepository:
+        """
+        Create Category Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyCategoryRepository instance
+        """
+        return SQLAlchemyCategoryRepository(session=db)
+
+    def create_promotion_repository(self, db) -> SQLAlchemyPromotionRepository:
+        """
+        Create Promotion Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyPromotionRepository instance
+        """
+        return SQLAlchemyPromotionRepository(session=db)
+
+    # Credit Domain Repositories (New SQLAlchemy)
+
+    def create_credit_account_repository_sqlalchemy(self, db) -> SQLAlchemyCreditAccountRepository:
+        """
+        Create Credit Account Repository (SQLAlchemy).
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyCreditAccountRepository instance
+        """
+        return SQLAlchemyCreditAccountRepository(session=db)
+
+    def create_payment_repository_sqlalchemy(self, db) -> SQLAlchemyPaymentRepository:
+        """
+        Create Payment Repository (SQLAlchemy).
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyPaymentRepository instance
+        """
+        return SQLAlchemyPaymentRepository(session=db)
+
+    def create_payment_schedule_repository(self, db) -> SQLAlchemyPaymentScheduleRepository:
+        """
+        Create Payment Schedule Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyPaymentScheduleRepository instance
+        """
+        return SQLAlchemyPaymentScheduleRepository(session=db)
+
+    # Excelencia Domain Repositories
+
+    def create_module_repository(self, db) -> SQLAlchemyModuleRepository:
+        """
+        Create Module Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyModuleRepository instance
+        """
+        return SQLAlchemyModuleRepository(session=db)
+
+    def create_demo_repository(self, db) -> SQLAlchemyDemoRepository:
+        """
+        Create Demo Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyDemoRepository instance
+        """
+        return SQLAlchemyDemoRepository(session=db)
+
+    # Shared Domain Repositories
+
+    def create_customer_repository(self, db) -> SQLAlchemyCustomerRepository:
+        """
+        Create Customer Repository.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SQLAlchemyCustomerRepository instance
+        """
+        return SQLAlchemyCustomerRepository(session=db)
+
     # ============================================================
     # USE CASES (Business Logic)
     # ============================================================
@@ -212,6 +367,53 @@ class DependencyContainer:
     def create_get_featured_products_use_case(self) -> GetFeaturedProductsUseCase:
         """Create GetFeaturedProductsUseCase with dependencies"""
         return GetFeaturedProductsUseCase(product_repository=self.create_product_repository())
+
+    # E-commerce Order Use Cases
+
+    def create_create_order_use_case(self, db) -> CreateOrderUseCase:
+        """
+        Create CreateOrderUseCase with dependencies.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            CreateOrderUseCase instance
+        """
+        return CreateOrderUseCase(
+            order_repository=self.create_order_repository(db),
+            # ProductRepository returns SQLAlchemy models, not domain entities
+            # TODO: Implement mapper between SQLAlchemy models and domain entities
+            product_repository=self.create_product_repository(),  # type: ignore[arg-type]
+        )
+
+    def create_track_order_use_case(self, db) -> TrackOrderUseCase:
+        """
+        Create TrackOrderUseCase with dependencies.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            TrackOrderUseCase instance
+        """
+        return TrackOrderUseCase(
+            order_repository=self.create_order_repository(db),
+        )
+
+    def create_get_customer_orders_use_case(self, db) -> GetCustomerOrdersUseCase:
+        """
+        Create GetCustomerOrdersUseCase with dependencies.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            GetCustomerOrdersUseCase instance
+        """
+        return GetCustomerOrdersUseCase(
+            order_repository=self.create_order_repository(db),
+        )
 
     # Credit Use Cases
 
@@ -265,14 +467,19 @@ class DependencyContainer:
 
     # Shared Use Cases
 
-    def create_get_or_create_customer_use_case(self) -> GetOrCreateCustomerUseCase:
+    def create_get_or_create_customer_use_case(self, db) -> GetOrCreateCustomerUseCase:
         """
-        Create GetOrCreateCustomerUseCase.
+        Create GetOrCreateCustomerUseCase with dependencies.
+
+        Args:
+            db: Async database session
 
         Returns:
             GetOrCreateCustomerUseCase instance
         """
-        return GetOrCreateCustomerUseCase()
+        return GetOrCreateCustomerUseCase(
+            customer_repository=self.create_customer_repository(db),
+        )
 
     def create_search_knowledge_use_case(self, db) -> SearchKnowledgeUseCase:
         """

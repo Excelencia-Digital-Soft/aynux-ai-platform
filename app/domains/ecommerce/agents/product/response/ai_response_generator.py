@@ -6,7 +6,7 @@ Single Responsibility: AI-powered response generation.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.integrations.llm import OllamaLLM
 from app.prompts.product_response import (

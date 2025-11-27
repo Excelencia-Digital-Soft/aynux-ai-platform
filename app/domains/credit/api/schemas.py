@@ -38,7 +38,7 @@ class PaymentRequest(BaseModel):
 class PaymentResponse(BaseModel):
     """Payment response schema."""
 
-    id: int
+    id: str
     account_id: int
     amount: Decimal
     payment_date: datetime

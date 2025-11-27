@@ -8,11 +8,11 @@ blocking requests to failing services.
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -266,8 +266,8 @@ class CircuitBreaker:
             await self._record_failure(exc_val)
         return False  # Don't suppress exceptions
 
-    def __call__(self, func: Callable[..., T]) -> Callable[..., T]:
-        """Decorator for functions."""
+    def __call__(self, func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+        """Decorator for async functions."""
 
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
@@ -313,12 +313,17 @@ class CircuitBreakerRegistry:
     """
 
     _instance: "CircuitBreakerRegistry | None" = None
+    _initialized: bool = False
 
     def __new__(cls) -> "CircuitBreakerRegistry":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._breakers: dict[str, CircuitBreaker] = {}
         return cls._instance
+
+    def __init__(self) -> None:
+        if not CircuitBreakerRegistry._initialized:
+            self._breakers: dict[str, CircuitBreaker] = {}
+            CircuitBreakerRegistry._initialized = True
 
     def get_or_create(
         self,
@@ -362,7 +367,7 @@ def circuit_breaker(
     failure_threshold: int = 5,
     success_threshold: int = 3,
     timeout_seconds: float = 30.0,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """
     Decorator to add circuit breaker to a function.
 
@@ -380,7 +385,7 @@ def circuit_breaker(
         ```
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         breaker_name = name or func.__name__
         config = CircuitBreakerConfig(
             failure_threshold=failure_threshold,

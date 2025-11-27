@@ -158,7 +158,7 @@ class EcommerceGraph:
     def _create_node_executor(self, node_instance):
         """Create async executor wrapper for a node."""
 
-        async def executor(state: dict[str, Any]) -> dict[str, Any]:
+        async def executor(state: EcommerceState) -> dict[str, Any]:
             try:
                 # Extract user message
                 messages = state.get("messages", [])
@@ -189,7 +189,7 @@ class EcommerceGraph:
 
         return executor
 
-    async def _route_query(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def _route_query(self, state: EcommerceState) -> dict[str, Any]:
         """
         Route incoming query to appropriate e-commerce node.
 
@@ -201,9 +201,8 @@ class EcommerceGraph:
                 return {"next_agent": "__end__", "is_complete": True}
 
             last_message = messages[-1]
-            message_content = (
-                last_message.content if hasattr(last_message, "content") else str(last_message)
-            ).lower()
+            raw_content = last_message.content if hasattr(last_message, "content") else str(last_message)
+            message_content = str(raw_content).lower()
 
             # Simple keyword-based routing
             intent_type, next_node = self._detect_intent(message_content)
@@ -278,7 +277,7 @@ class EcommerceGraph:
         # Default to product search
         return "product_search", EcommerceNodeType.PRODUCT
 
-    def _get_next_node(self, state: dict[str, Any]) -> str:
+    def _get_next_node(self, state: EcommerceState) -> str:
         """Get the next node from state for conditional routing."""
         next_node = state.get("next_agent")
 

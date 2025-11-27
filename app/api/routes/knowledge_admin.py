@@ -30,6 +30,7 @@ from app.models.knowledge_schemas import (
     KnowledgeResponse,
     KnowledgeSearch,
     KnowledgeSearchResponse,
+    KnowledgeSearchResult,
     KnowledgeStats,
     KnowledgeUpdate,
     MessageResponse,
@@ -325,10 +326,13 @@ async def search_knowledge(
             tags=search.tags,
         )
 
+        # Convert dict results to KnowledgeSearchResult objects
+        search_results = [KnowledgeSearchResult(**result) for result in results]
+
         return KnowledgeSearchResponse(
             query=search.query,
-            results=results,  # type: ignore[arg-type]
-            total_results=len(results),
+            results=search_results,
+            total_results=len(search_results),
             search_strategy="pgvector",
         )
     except Exception as e:

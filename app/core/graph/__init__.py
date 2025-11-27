@@ -9,7 +9,12 @@ This module provides:
 - AgentFactory: Agent instantiation
 """
 
+from typing import TYPE_CHECKING
+
 from app.core.graph.state_schema import GraphState, LangGraphState
+
+if TYPE_CHECKING:
+    from app.core.graph.graph import AynuxGraph as AynuxGraph
 
 __all__ = [
     "AynuxGraph",
@@ -18,9 +23,10 @@ __all__ = [
 ]
 
 
-def __getattr__(name):
+def __getattr__(name: str):
     """Lazy import for AynuxGraph to avoid circular imports."""
     if name == "AynuxGraph":
         from app.core.graph.graph import AynuxGraph
+
         return AynuxGraph
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

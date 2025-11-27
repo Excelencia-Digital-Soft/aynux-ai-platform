@@ -5,7 +5,7 @@ Common validation utilities for the application.
 """
 
 import re
-from typing import Any
+from typing import Any, Callable
 
 
 class ValidationError(Exception):
@@ -229,7 +229,7 @@ class CUITValidator:
         return int(cuit[10]) == expected_check
 
 
-def validate_all(validations: list[tuple[callable, tuple, dict]]) -> list[ValidationError]:
+def validate_all(validations: list[tuple[Callable[..., Any], tuple, dict]]) -> list[ValidationError]:
     """
     Run multiple validations and collect all errors.
 

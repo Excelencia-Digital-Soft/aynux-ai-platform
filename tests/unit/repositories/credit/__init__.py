@@ -1,0 +1,1 @@
+"""Credit domain repository tests."""

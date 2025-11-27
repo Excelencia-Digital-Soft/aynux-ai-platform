@@ -4,6 +4,8 @@ Credit API Routes
 FastAPI router for credit domain endpoints.
 """
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.domains.credit.api.dependencies import (
@@ -29,18 +31,23 @@ async def get_payment_schedule(
     use_case: GetPaymentScheduleUseCase = Depends(get_payment_schedule_use_case),
 ):
     """Get payment schedule for an account."""
-    result = await use_case.execute(account_id=account_id)
+    from app.domains.credit.application.use_cases.get_payment_schedule import (
+        GetPaymentScheduleRequest,
+    )
+
+    request = GetPaymentScheduleRequest(account_id=str(account_id))
+    result = await use_case.execute(request)
 
     if not result.success:
-        raise HTTPException(status_code=404, detail=result.message)
+        raise HTTPException(status_code=404, detail=result.error or "Unknown error")
 
     return [
         PaymentScheduleResponse(
-            installment_number=item.installment_number,
+            installment_number=item.payment_number,
             due_date=item.due_date,
             amount=item.amount,
-            principal=item.principal,
-            interest=item.interest,
+            principal=item.amount,  # Simplified - full breakdown not in current DTO
+            interest=Decimal("0"),  # Simplified - full breakdown not in current DTO
             status=item.status,
         )
         for item in result.schedule
@@ -53,23 +60,27 @@ async def process_payment(
     use_case: ProcessPaymentUseCase = Depends(get_process_payment_use_case),
 ):
     """Process a payment."""
-    result = await use_case.execute(
-        account_id=request.account_id,
-        amount=request.amount,
-        payment_method=request.payment_method,
-        reference=request.reference,
+    from app.domains.credit.application.use_cases.process_payment import (
+        ProcessPaymentRequest,
     )
 
+    payment_request = ProcessPaymentRequest(
+        account_id=str(request.account_id),
+        amount=request.amount,
+        payment_method=request.payment_method,
+    )
+    result = await use_case.execute(payment_request)
+
     if not result.success:
-        raise HTTPException(status_code=400, detail=result.message)
+        raise HTTPException(status_code=400, detail=result.error or "Unknown error")
 
     return PaymentResponse(
-        id=result.payment.id,
-        account_id=result.payment.account_id,
-        amount=result.payment.amount,
-        payment_date=result.payment.payment_date,
-        status=result.payment.status.value,
-        reference=result.payment.reference,
+        id=result.payment_id,  # UUID string from use case
+        account_id=int(result.account_id),
+        amount=result.amount,
+        payment_date=result.transaction_date,
+        status=result.status,
+        reference=result.receipt_url,
     )
 
 

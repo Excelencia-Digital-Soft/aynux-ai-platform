@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -394,9 +394,9 @@ def timed(
     metric_name: str | None = None,
     labels: dict[str, str] | None = None,
     collector: MetricsCollector | None = None,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """
-    Decorator to time function execution.
+    Decorator to time async function execution.
 
     Args:
         metric_name: Name for the metric (defaults to function name)
@@ -411,16 +411,14 @@ def timed(
         ```
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         name = metric_name or f"{func.__name__}_duration_seconds"
 
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             start = time.perf_counter()
             try:
-                if asyncio.iscoroutinefunction(func):
-                    return await func(*args, **kwargs)
-                return func(*args, **kwargs)
+                return await func(*args, **kwargs)
             finally:
                 duration = time.perf_counter() - start
                 if collector:

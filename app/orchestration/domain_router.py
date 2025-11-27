@@ -7,7 +7,7 @@ Routes incoming messages to appropriate domain services based on intent analysis
 import logging
 from dataclasses import dataclass
 from datetime import datetime, UTC
-from typing import Any
+from typing import Any, TypedDict
 
 from app.orchestration.strategies import (
     HybridRoutingStrategy,
@@ -16,6 +16,14 @@ from app.orchestration.strategies import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class RouterStats(TypedDict):
+    """Type definition for router statistics."""
+
+    total_requests: int
+    by_domain: dict[str, int]
+    by_strategy: dict[str, int]
 
 
 @dataclass
@@ -82,7 +90,7 @@ class DomainRouter:
         self._init_strategy()
 
         # Statistics
-        self._stats = {
+        self._stats: RouterStats = {
             "total_requests": 0,
             "by_domain": {d: 0 for d in self.SUPPORTED_DOMAINS},
             "by_strategy": {"keyword": 0, "ai": 0, "hybrid": 0},
@@ -138,7 +146,8 @@ class DomainRouter:
 
             # Update statistics
             self._stats["by_domain"][domain] = self._stats["by_domain"].get(domain, 0) + 1
-            self._stats["by_strategy"][getattr(result, "strategy_used", "keyword")] += 1
+            strategy_used = getattr(result, "strategy_used", "keyword")
+            self._stats["by_strategy"][strategy_used] = self._stats["by_strategy"].get(strategy_used, 0) + 1
 
             decision = RoutingDecision(
                 domain=domain,

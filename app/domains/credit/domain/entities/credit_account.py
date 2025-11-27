@@ -5,7 +5,7 @@ Aggregate root for credit accounts with balance management and credit lifecycle.
 """
 
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -236,8 +236,9 @@ class CreditAccount(AggregateRoot[int]):
 
         if amount > self.available_credit:
             raise CreditLimitExceededException(
-                requested_amount=float(amount),
-                available_credit=float(self.available_credit),
+                account_id=self.id or 0,
+                requested=float(amount),
+                available=float(self.available_credit),
             )
 
         self.used_credit += amount

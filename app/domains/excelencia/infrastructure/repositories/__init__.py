@@ -1,17 +1,22 @@
 """
 Excelencia Infrastructure Repositories
 
-Concrete implementations of repository interfaces.
+SQLAlchemy implementations of repository interfaces.
 """
 
 from app.domains.excelencia.infrastructure.repositories.demo_repository import (
-    InMemoryDemoRepository,
+    SQLAlchemyDemoRepository,
+    InMemoryDemoRepository,  # Backward compatibility alias
 )
 from app.domains.excelencia.infrastructure.repositories.module_repository import (
-    InMemoryModuleRepository,
+    SQLAlchemyModuleRepository,
+    InMemoryModuleRepository,  # Backward compatibility alias
 )
 
 __all__ = [
+    "SQLAlchemyDemoRepository",
+    "SQLAlchemyModuleRepository",
+    # Backward compatibility aliases
     "InMemoryDemoRepository",
     "InMemoryModuleRepository",
 ]

@@ -11,11 +11,12 @@ import logging
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Awaitable, Callable, Protocol, TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
 
 
 @dataclass
@@ -285,13 +286,22 @@ class MemoryCache:
         }
 
 
+class CachedFunction(Protocol[T_co]):
+    """Protocol for cached function with cache control attributes."""
+
+    cache: MemoryCache
+    invalidate: Callable[..., bool]
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Awaitable[T_co]: ...
+
+
 def cached(
     ttl: float | None = None,
     key_prefix: str = "",
     cache: MemoryCache | None = None,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
+) -> Callable[[Callable[..., Awaitable[T]]], CachedFunction[T]]:
     """
-    Decorator to cache function results.
+    Decorator to cache async function results.
 
     Args:
         ttl: Time-to-live in seconds
@@ -311,7 +321,7 @@ def cached(
     """
     _cache = cache or MemoryCache()
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Awaitable[T]]) -> CachedFunction[T]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             # Generate cache key
@@ -323,20 +333,19 @@ def cached(
                 return cached_value
 
             # Execute function
-            if asyncio.iscoroutinefunction(func):
-                result = await func(*args, **kwargs)
-            else:
-                result = func(*args, **kwargs)
+            result = await func(*args, **kwargs)
 
             # Store in cache
             await _cache.async_set(key, result, ttl)
             return result
 
         # Attach cache instance for manual control
-        wrapper.cache = _cache
-        wrapper.invalidate = lambda *a, **kw: _cache.delete(_make_cache_key(func.__name__, key_prefix, a, kw))
+        wrapper.cache = _cache  # type: ignore[attr-defined]
+        wrapper.invalidate = lambda *a, **kw: _cache.delete(  # type: ignore[attr-defined]
+            _make_cache_key(func.__name__, key_prefix, a, kw)
+        )
 
-        return wrapper
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 

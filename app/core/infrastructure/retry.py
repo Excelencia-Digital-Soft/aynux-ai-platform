@@ -8,10 +8,9 @@ for transient failure recovery.
 import asyncio
 import logging
 import random
-import time
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Sequence, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -230,8 +229,8 @@ class Retryer:
             attempts=self.config.max_attempts,
         )
 
-    def __call__(self, func: Callable[..., T]) -> Callable[..., T]:
-        """Decorator for functions."""
+    def __call__(self, func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+        """Decorator for async functions."""
 
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
@@ -252,9 +251,9 @@ def retry(
     jitter: bool = True,
     retryable_exceptions: tuple | None = None,
     non_retryable_exceptions: tuple | None = None,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """
-    Decorator to add retry logic to a function.
+    Decorator to add retry logic to an async function.
 
     Args:
         max_attempts: Maximum number of attempts
@@ -281,7 +280,7 @@ def retry(
         ```
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         retryer = Retryer(
             max_attempts=max_attempts,
             initial_delay=initial_delay,

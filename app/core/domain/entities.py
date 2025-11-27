@@ -5,7 +5,7 @@ Entities are domain objects with identity and lifecycle.
 They maintain their identity regardless of their attributes.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar

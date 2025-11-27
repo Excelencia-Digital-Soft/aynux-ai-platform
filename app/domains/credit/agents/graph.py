@@ -72,7 +72,8 @@ class CreditGraph:
 
     def _init_integrations(self):
         """Initialize integrations."""
-        integrations_config = self.config.get("integrations", {})
+        # integrations_config reserved for future LLM configuration options
+        _ = self.config.get("integrations", {})
         self.ollama = OllamaLLM()
 
     def _init_nodes(self):
@@ -141,7 +142,7 @@ class CreditGraph:
     def _create_node_executor(self, node_instance):
         """Create async executor wrapper for a node."""
 
-        async def executor(state: dict[str, Any]) -> dict[str, Any]:
+        async def executor(state: CreditState) -> dict[str, Any]:
             try:
                 messages = state.get("messages", [])
                 if not messages:
@@ -169,7 +170,7 @@ class CreditGraph:
 
         return executor
 
-    async def _route_query(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def _route_query(self, state: CreditState) -> dict[str, Any]:
         """Route incoming query to appropriate credit node."""
         try:
             messages = state.get("messages", [])
@@ -177,9 +178,8 @@ class CreditGraph:
                 return {"next_agent": "__end__", "is_complete": True}
 
             last_message = messages[-1]
-            message_content = (
-                last_message.content if hasattr(last_message, "content") else str(last_message)
-            ).lower()
+            raw_content = last_message.content if hasattr(last_message, "content") else str(last_message)
+            message_content = str(raw_content).lower()
 
             intent_type, next_node = self._detect_intent(message_content)
 
@@ -247,7 +247,7 @@ class CreditGraph:
         # Default to balance for credit queries
         return "balance", CreditNodeType.BALANCE
 
-    def _get_next_node(self, state: dict[str, Any]) -> str:
+    def _get_next_node(self, state: CreditState) -> str:
         """Get the next node from state for conditional routing."""
         next_node = state.get("next_agent")
 

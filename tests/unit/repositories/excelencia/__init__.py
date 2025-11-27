@@ -1,0 +1,1 @@
+"""Excelencia domain repository tests."""

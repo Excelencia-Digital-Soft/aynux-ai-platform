@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
-from typing import Any, Self
+from typing import Self
 
 
 @dataclass(frozen=True)
@@ -38,9 +38,10 @@ class ValueObject(ABC):
         """Override to add validation logic."""
         self._validate()
 
+    @abstractmethod
     def _validate(self) -> None:
         """Validate the value object. Override in subclasses."""
-        pass
+        ...
 
 
 @dataclass(frozen=True)

@@ -1,146 +1,182 @@
 """
 Module Repository Implementation
 
-In-memory implementation of module repository for Excelencia ERP.
-Can be replaced with SQLAlchemy implementation when database is needed.
+SQLAlchemy implementation of module repository for Excelencia ERP.
 """
 
 import logging
-from datetime import UTC, datetime
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.domains.excelencia.application.ports import IModuleRepository
 from app.domains.excelencia.domain.entities.module import (
     ERPModule,
     ModuleCategory,
     ModuleStatus,
 )
+from app.domains.excelencia.infrastructure.persistence.sqlalchemy.models import (
+    ErpModuleModel,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class InMemoryModuleRepository:
+class SQLAlchemyModuleRepository(IModuleRepository):
     """
-    In-memory implementation of IModuleRepository.
+    SQLAlchemy implementation of IModuleRepository.
 
-    Uses predefined module data for the Excelencia ERP system.
-    Can be extended to use database in the future.
+    Handles all module data persistence operations.
     """
 
-    def __init__(self):
-        self._modules: dict[str, ERPModule] = {}
-        self._initialize_default_modules()
+    def __init__(self, session: AsyncSession):
+        """
+        Initialize repository.
 
-    def _initialize_default_modules(self) -> None:
-        """Initialize with default Excelencia ERP modules"""
-        default_modules = [
-            ERPModule(
-                id="mod-001",
-                code="FIN-001",
-                name="Contabilidad",
-                description="Gestion contable completa con plan de cuentas configurable",
-                category=ModuleCategory.FINANCE,
-                status=ModuleStatus.ACTIVE,
-                features=["Plan de cuentas", "Asientos automaticos", "Balance", "Estado de resultados"],
-                pricing_tier="standard",
-            ),
-            ERPModule(
-                id="mod-002",
-                code="INV-001",
-                name="Inventario",
-                description="Control de stock en tiempo real con multiples depositos",
-                category=ModuleCategory.INVENTORY,
-                status=ModuleStatus.ACTIVE,
-                features=["Multi-deposito", "Trazabilidad", "Alertas de stock", "Codigos de barras"],
-                pricing_tier="standard",
-            ),
-            ERPModule(
-                id="mod-003",
-                code="VTA-001",
-                name="Ventas",
-                description="Gestion de ventas, cotizaciones y facturacion electronica",
-                category=ModuleCategory.SALES,
-                status=ModuleStatus.ACTIVE,
-                features=["Cotizaciones", "Facturacion electronica", "Notas de credito", "Reportes"],
-                pricing_tier="standard",
-            ),
-            ERPModule(
-                id="mod-004",
-                code="CMP-001",
-                name="Compras",
-                description="Gestion de compras y proveedores",
-                category=ModuleCategory.PURCHASING,
-                status=ModuleStatus.ACTIVE,
-                features=["Ordenes de compra", "Gestion proveedores", "Recepcion", "Control de pagos"],
-                pricing_tier="standard",
-            ),
-            ERPModule(
-                id="mod-005",
-                code="RH-001",
-                name="Recursos Humanos",
-                description="Gestion de personal, nomina y asistencia",
-                category=ModuleCategory.HR,
-                status=ModuleStatus.ACTIVE,
-                features=["Legajos", "Liquidacion sueldos", "Asistencia", "Vacaciones"],
-                pricing_tier="premium",
-            ),
-            ERPModule(
-                id="mod-006",
-                code="CRM-001",
-                name="CRM",
-                description="Gestion de relaciones con clientes y oportunidades",
-                category=ModuleCategory.CRM,
-                status=ModuleStatus.BETA,
-                features=["Pipeline ventas", "Seguimiento clientes", "Campanas", "Reportes"],
-                pricing_tier="premium",
-            ),
-            ERPModule(
-                id="mod-007",
-                code="PRD-001",
-                name="Produccion",
-                description="Control de produccion y ordenes de trabajo",
-                category=ModuleCategory.PRODUCTION,
-                status=ModuleStatus.ACTIVE,
-                features=["Ordenes produccion", "Formula/BOM", "Control calidad", "Costos"],
-                pricing_tier="enterprise",
-            ),
-            ERPModule(
-                id="mod-008",
-                code="RPT-001",
-                name="Business Intelligence",
-                description="Reportes avanzados y dashboards ejecutivos",
-                category=ModuleCategory.REPORTING,
-                status=ModuleStatus.ACTIVE,
-                features=["Dashboards", "KPIs", "Reportes personalizados", "Exportacion"],
-                pricing_tier="premium",
-            ),
-        ]
-
-        for module in default_modules:
-            self._modules[module.id] = module
-
-        logger.info(f"Initialized {len(self._modules)} default modules")
+        Args:
+            session: SQLAlchemy async session
+        """
+        self.session = session
 
     async def get_all(self) -> list[ERPModule]:
-        """Get all modules"""
-        return list(self._modules.values())
+        """Get all modules."""
+        result = await self.session.execute(select(ErpModuleModel))
+        models = result.scalars().all()
+        return [self._to_entity(m) for m in models]
 
     async def get_by_id(self, module_id: str) -> ERPModule | None:
-        """Get module by ID"""
-        return self._modules.get(module_id)
+        """Get module by ID."""
+        # ID in entity is string like 'mod-001', but DB uses integer
+        # Try to extract numeric part or use code field
+        result = await self.session.execute(
+            select(ErpModuleModel).where(ErpModuleModel.code == module_id)
+        )
+        model = result.scalar_one_or_none()
+
+        if not model:
+            # Try parsing as integer ID
+            try:
+                int_id = int(module_id.replace("mod-", "")) if module_id.startswith("mod-") else int(module_id)
+                result = await self.session.execute(
+                    select(ErpModuleModel).where(ErpModuleModel.id == int_id)
+                )
+                model = result.scalar_one_or_none()
+            except ValueError:
+                return None
+
+        return self._to_entity(model) if model else None
 
     async def get_by_code(self, code: str) -> ERPModule | None:
-        """Get module by code"""
-        for module in self._modules.values():
-            if module.code == code:
-                return module
-        return None
+        """Get module by code."""
+        result = await self.session.execute(
+            select(ErpModuleModel).where(ErpModuleModel.code == code)
+        )
+        model = result.scalar_one_or_none()
+        return self._to_entity(model) if model else None
 
     async def get_by_category(self, category: ModuleCategory) -> list[ERPModule]:
-        """Get modules by category"""
-        return [m for m in self._modules.values() if m.category == category]
+        """Get modules by category."""
+        result = await self.session.execute(
+            select(ErpModuleModel).where(ErpModuleModel.category == category.value)
+        )
+        models = result.scalars().all()
+        return [self._to_entity(m) for m in models]
 
     async def save(self, module: ERPModule) -> ERPModule:
-        """Save a module"""
-        module.updated_at = datetime.now(UTC)
-        self._modules[module.id] = module
-        logger.info(f"Saved module: {module.code}")
-        return module
+        """Save or update a module."""
+        # Try to find existing by code
+        result = await self.session.execute(
+            select(ErpModuleModel).where(ErpModuleModel.code == module.code)
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            # Update existing
+            self._update_model(existing, module)
+            model = existing
+        else:
+            # Create new
+            model = self._to_model(module)
+            self.session.add(model)
+
+        await self.session.commit()
+        await self.session.refresh(model)
+
+        logger.info(f"Saved module: {model.code}")
+        return self._to_entity(model)
+
+    async def delete(self, module_id: str) -> bool:
+        """Delete a module."""
+        module = await self.get_by_id(module_id)
+        if not module:
+            return False
+
+        result = await self.session.execute(
+            select(ErpModuleModel).where(ErpModuleModel.code == module.code)
+        )
+        model = result.scalar_one_or_none()
+
+        if model:
+            await self.session.delete(model)
+            await self.session.commit()
+            logger.info(f"Deleted module: {module_id}")
+            return True
+        return False
+
+    async def count(self) -> int:
+        """Get total module count."""
+        from sqlalchemy import func
+        result = await self.session.execute(
+            select(func.count()).select_from(ErpModuleModel)
+        )
+        return result.scalar_one()
+
+    async def exists(self, code: str) -> bool:
+        """Check if module with code exists."""
+        from sqlalchemy import func
+        result = await self.session.execute(
+            select(func.count()).where(ErpModuleModel.code == code)
+        )
+        return result.scalar_one() > 0
+
+    # Mapping methods
+
+    def _to_entity(self, model: ErpModuleModel) -> ERPModule:
+        """Convert model to entity."""
+        return ERPModule(
+            id=f"mod-{model.id:03d}",
+            code=model.code,
+            name=model.name,
+            description=model.description or "",
+            category=ModuleCategory(model.category),
+            status=ModuleStatus(model.status),
+            features=model.features or [],
+            pricing_tier=model.pricing_tier or "standard",
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
+
+    def _to_model(self, module: ERPModule) -> ErpModuleModel:
+        """Convert entity to model."""
+        return ErpModuleModel(
+            code=module.code,
+            name=module.name,
+            description=module.description,
+            category=module.category.value,
+            status=module.status.value,
+            features=module.features,
+            pricing_tier=module.pricing_tier,
+        )
+
+    def _update_model(self, model: ErpModuleModel, module: ERPModule) -> None:
+        """Update model from entity."""
+        model.name = module.name
+        model.description = module.description
+        model.category = module.category.value
+        model.status = module.status.value
+        model.features = module.features
+        model.pricing_tier = module.pricing_tier
+
+
+# Keep backward compatibility alias
+InMemoryModuleRepository = SQLAlchemyModuleRepository

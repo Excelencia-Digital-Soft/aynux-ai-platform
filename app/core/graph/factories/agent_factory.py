@@ -15,7 +15,6 @@ from app.domains.shared.agents import (
     GreetingAgent,
     SupportAgent,
 )
-from app.domains.ecommerce.agents import ProductAgent
 from app.domains.ecommerce.agents.nodes import (
     InvoiceNode as InvoiceAgent,
     PromotionsNode as PromotionsAgent,
@@ -57,11 +56,16 @@ class AgentFactory:
 
             # Agent builder registry - maps agent names to their initialization functions
             # This allows lazy initialization of only enabled agents
+            # Note: ProductAgent requires Clean Architecture dependencies (repository, vector_store, llm)
+            # which should be provided via DependencyContainer. For now, we skip it here and
+            # create it via the container instead.
             agent_builders = {
-                "greeting_agent": lambda: GreetingAgent(ollama=self.ollama, postgres=self.postgres, config={}),
-                "product_agent": lambda: ProductAgent(
-                    ollama=self.ollama, postgres=self.postgres, config=self._extract_config(agent_configs, "product")
+                "greeting_agent": lambda: GreetingAgent(
+                    ollama=self.ollama, postgres=self.postgres, config={}
                 ),
+                # ProductAgent requires: product_repository, vector_store, llm
+                # It should be created via DependencyContainer.create_product_agent()
+                "product_agent": lambda: None,  # Placeholder - use DependencyContainer
                 "data_insights_agent": lambda: DataInsightsAgent(
                     ollama=self.ollama,
                     postgres=self.postgres,
@@ -80,12 +84,14 @@ class AgentFactory:
                     ollama=self.ollama, config=self._extract_config(agent_configs, "invoice")
                 ),
                 "excelencia_agent": lambda: ExcelenciaAgent(
-                    ollama=self.ollama,
-                    postgres=self.postgres,
                     config=self._extract_config(agent_configs, "excelencia"),
                 ),
-                "fallback_agent": lambda: FallbackAgent(ollama=self.ollama, postgres=self.postgres, config={}),
-                "farewell_agent": lambda: FarewellAgent(ollama=self.ollama, postgres=self.postgres, config={}),
+                "fallback_agent": lambda: FallbackAgent(
+                    ollama=self.ollama, postgres=self.postgres, config={}
+                ),
+                "farewell_agent": lambda: FarewellAgent(
+                    ollama=self.ollama, postgres=self.postgres, config={}
+                ),
             }
 
             # Initialize only enabled agents

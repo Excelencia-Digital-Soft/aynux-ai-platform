@@ -6,7 +6,7 @@ Implements ISearchableRepository interface for dependency inversion.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session, joinedload
@@ -26,7 +26,7 @@ class ProductRepository(ISearchableRepository[Product, int]):
     Dependency Inversion: Implements ISearchableRepository interface
     """
 
-    def __init__(self, db_session: Optional[Session] = None):
+    def __init__(self, db_session: Session | None = None):
         """
         Initialize repository.
 
@@ -41,7 +41,7 @@ class ProductRepository(ISearchableRepository[Product, int]):
             return self.db_session
         return get_db_context().__enter__()
 
-    async def find_by_id(self, id: int) -> Optional[Product]:
+    async def find_by_id(self, id: int) -> Product | None:
         """
         Find product by ID.
 
@@ -67,7 +67,7 @@ class ProductRepository(ISearchableRepository[Product, int]):
             logger.error(f"Error finding product by ID {id}: {e}", exc_info=True)
             return None
 
-    async def find_all(self, skip: int = 0, limit: int = 100) -> List[Product]:
+    async def find_all(self, skip: int = 0, limit: int = 100) -> list[Product]:
         """
         Find all products with pagination.
 
@@ -170,29 +170,159 @@ class ProductRepository(ISearchableRepository[Product, int]):
             logger.error(f"Error counting products: {e}", exc_info=True)
             return 0
 
+    # IProductRepository methods (Protocol compliance)
+
+    async def get_by_id(self, product_id: int) -> Product | None:
+        """
+        Get product by ID (IProductRepository interface).
+
+        Args:
+            product_id: Product ID
+
+        Returns:
+            Product or None if not found
+        """
+        return await self.find_by_id(product_id)
+
+    async def get_by_code(self, code: str) -> Product | None:
+        """
+        Get product by code (IProductRepository interface).
+
+        Args:
+            code: Product code/model
+
+        Returns:
+            Product or None if not found
+        """
+        try:
+            with get_db_context() as db:
+                return (
+                    db.query(Product)
+                    .options(
+                        joinedload(Product.category),
+                        joinedload(Product.subcategory),
+                        joinedload(Product.brand),
+                    )
+                    .filter(Product.model == code)
+                    .first()
+                )
+        except Exception as e:
+            logger.error(f"Error finding product by code {code}: {e}", exc_info=True)
+            return None
+
+    async def get_by_category(
+        self, category_id: int, limit: int = 20, offset: int = 0
+    ) -> list[Product]:
+        """
+        Get products by category (IProductRepository interface).
+
+        Args:
+            category_id: Category ID
+            limit: Maximum results
+            offset: Number of records to skip
+
+        Returns:
+            List of products in the category
+        """
+        try:
+            with get_db_context() as db:
+                return (
+                    db.query(Product)
+                    .options(
+                        joinedload(Product.category),
+                        joinedload(Product.subcategory),
+                        joinedload(Product.brand),
+                    )
+                    .filter(Product.category_id == category_id, Product.active)
+                    .order_by(desc(Product.featured), Product.name)
+                    .offset(offset)
+                    .limit(limit)
+                    .all()
+                )
+        except Exception as e:
+            logger.error(f"Error finding products by category {category_id}: {e}", exc_info=True)
+            return []
+
+    async def get_featured(self, limit: int = 10) -> list[Product]:
+        """
+        Get featured products (IProductRepository interface).
+
+        Args:
+            limit: Maximum results
+
+        Returns:
+            List of featured products
+        """
+        try:
+            with get_db_context() as db:
+                return (
+                    db.query(Product)
+                    .options(
+                        joinedload(Product.category),
+                        joinedload(Product.subcategory),
+                        joinedload(Product.brand),
+                    )
+                    .filter(Product.featured, Product.active)
+                    .order_by(Product.name)
+                    .limit(limit)
+                    .all()
+                )
+        except Exception as e:
+            logger.error(f"Error finding featured products: {e}", exc_info=True)
+            return []
+
+    async def count_by_query(self, query: str) -> int:
+        """
+        Count products matching query (IProductRepository interface).
+
+        Args:
+            query: Search query text
+
+        Returns:
+            Count of matching products
+        """
+        try:
+            with get_db_context() as db:
+                db_query = db.query(func.count(Product.id)).filter(Product.active)
+
+                if query and query.strip():
+                    search_filter = or_(
+                        Product.name.ilike(f"%{query}%"),
+                        Product.specs.ilike(f"%{query}%"),
+                        Product.description.ilike(f"%{query}%"),
+                    )
+                    db_query = db_query.filter(search_filter)
+
+                return db_query.scalar() or 0
+        except Exception as e:
+            logger.error(f"Error counting products by query: {e}", exc_info=True)
+            return 0
+
     # ISearchableRepository methods
 
-    async def search(self, query: str, limit: int = 10) -> List[Product]:
+    async def search(self, query: str, limit: int = 10, offset: int = 0) -> list[Product]:
         """
         Search products (interface method).
 
         Args:
             query: Search query text
             limit: Maximum results
+            offset: Number of records to skip
 
         Returns:
             List of matching products
         """
-        return await self.search_advanced(query=query, limit=limit)
+        return await self.search_advanced(query=query, limit=limit, offset=offset)
 
     async def search_advanced(
         self,
         query: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         limit: int = 20,
-        sort_by: Optional[str] = None,
+        offset: int = 0,
+        sort_by: str | None = None,
         sort_order: str = "asc",
-    ) -> List[Product]:
+    ) -> list[Product]:
         """
         Search products with filters.
 
@@ -200,6 +330,7 @@ class ProductRepository(ISearchableRepository[Product, int]):
             query: Search query text
             filters: Optional filters dict
             limit: Maximum results
+            offset: Number of records to skip
             sort_by: Field to sort by
             sort_order: Sort order ('asc' or 'desc')
 
@@ -243,13 +374,13 @@ class ProductRepository(ISearchableRepository[Product, int]):
                     # Default sort: featured first, then name
                     db_query = db_query.order_by(desc(Product.featured), Product.name)
 
-                return db_query.limit(limit).all()
+                return db_query.offset(offset).limit(limit).all()
 
         except Exception as e:
             logger.error(f"Error searching products: {e}", exc_info=True)
             return []
 
-    async def find_by_criteria(self, criteria: Dict[str, Any], limit: int = 100) -> List[Product]:
+    async def find_by_criteria(self, criteria: dict[str, Any], limit: int = 100) -> list[Product]:
         """
         Find products by criteria.
 
@@ -277,7 +408,7 @@ class ProductRepository(ISearchableRepository[Product, int]):
             logger.error(f"Error finding by criteria: {e}", exc_info=True)
             return []
 
-    def _apply_filters(self, query: Any, filters: Dict[str, Any]) -> Any:
+    def _apply_filters(self, query: Any, filters: dict[str, Any]) -> Any:
         """
         Apply filters to query.
 
@@ -325,7 +456,7 @@ class ProductRepository(ISearchableRepository[Product, int]):
 
         return query
 
-    async def filter_by(self, **kwargs) -> List[Product]:
+    async def filter_by(self, **kwargs: Any) -> list[Product]:
         """
         Filter products by specific criteria (interface method).
 

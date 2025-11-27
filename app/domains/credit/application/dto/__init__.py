@@ -4,7 +4,7 @@ Credit Application DTOs
 Data Transfer Objects for the Credit domain.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
