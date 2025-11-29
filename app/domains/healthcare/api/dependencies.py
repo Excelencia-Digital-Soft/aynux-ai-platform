@@ -4,10 +4,12 @@ Healthcare API Dependencies
 FastAPI dependencies for the healthcare domain.
 """
 
+from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.container import DependencyContainer, get_container
+from app.core.container import get_container
 from app.database.async_db import get_async_db
 from app.domains.healthcare.application.use_cases import (
     BookAppointmentUseCase,
@@ -15,26 +17,23 @@ from app.domains.healthcare.application.use_cases import (
     TriagePatientUseCase,
 )
 
+# Type alias for database session dependency
+DbSession = Annotated[AsyncSession, Depends(get_async_db)]
 
-def get_book_appointment_use_case(
-    db: AsyncSession = Depends(get_async_db),
-) -> BookAppointmentUseCase:
+
+def get_book_appointment_use_case(db: DbSession) -> BookAppointmentUseCase:
     """Get BookAppointmentUseCase instance with database session."""
     container = get_container()
     return container.create_book_appointment_use_case(db)
 
 
-def get_patient_records_use_case(
-    db: AsyncSession = Depends(get_async_db),
-) -> GetPatientRecordsUseCase:
+def get_patient_records_use_case(db: DbSession) -> GetPatientRecordsUseCase:
     """Get GetPatientRecordsUseCase instance with database session."""
     container = get_container()
     return container.create_get_patient_records_use_case(db)
 
 
-def get_triage_patient_use_case(
-    db: AsyncSession = Depends(get_async_db),
-) -> TriagePatientUseCase:
+def get_triage_patient_use_case(db: DbSession) -> TriagePatientUseCase:
     """Get TriagePatientUseCase instance with database session."""
     container = get_container()
     return container.create_triage_patient_use_case(db)
