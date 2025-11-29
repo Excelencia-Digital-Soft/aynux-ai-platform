@@ -23,6 +23,15 @@ from app.domains.ecommerce.application.use_cases import (
     GetProductsByCategoryUseCase,
     SearchProductsUseCase,
 )
+from app.domains.ecommerce.application.use_cases.get_featured_products import (
+    GetFeaturedProductsRequest,
+)
+from app.domains.ecommerce.application.use_cases.get_products_by_category import (
+    GetProductsByCategoryRequest,
+)
+from app.domains.ecommerce.application.use_cases.search_products import (
+    SearchProductsRequest,
+)
 
 router = APIRouter(prefix="/ecommerce", tags=["E-commerce"])
 
@@ -33,14 +42,15 @@ async def search_products(
     use_case: SearchProductsUseCase = Depends(get_search_products_use_case),
 ):
     """Search products by query."""
-    result = await use_case.execute(
+    use_case_request = SearchProductsRequest(
         query=request.query,
         limit=request.limit,
     )
+    result = await use_case.execute(use_case_request)
     return ProductSearchResponse(
-        products=[ProductResponse.model_validate(p) for p in result.products],
-        total=result.total_found,
-        query=result.query,
+        products=[ProductResponse.model_validate(prod) for prod in result.products],
+        total=result.total_count,
+        query=request.query,
     )
 
 
@@ -56,15 +66,19 @@ async def get_product(
     return ProductResponse.model_validate(result.product)
 
 
-@router.get("/products/category/{category_id}", response_model=list[ProductResponse])
+@router.get("/products/category/{category_name}", response_model=list[ProductResponse])
 async def get_products_by_category(
-    category_id: int,
+    category_name: str,
     limit: int = 20,
     use_case: GetProductsByCategoryUseCase = Depends(get_products_by_category_use_case),
 ):
-    """Get products by category."""
-    result = await use_case.execute(category_id=category_id, limit=limit)
-    return [ProductResponse.model_validate(p) for p in result.products]
+    """Get products by category name."""
+    use_case_request = GetProductsByCategoryRequest(
+        category=category_name,
+        limit=limit,
+    )
+    result = await use_case.execute(use_case_request)
+    return [ProductResponse.model_validate(prod) for prod in result.products]
 
 
 @router.get("/products/featured", response_model=list[ProductResponse])
@@ -73,8 +87,9 @@ async def get_featured_products(
     use_case: GetFeaturedProductsUseCase = Depends(get_featured_products_use_case),
 ):
     """Get featured products."""
-    result = await use_case.execute(limit=limit)
-    return [ProductResponse.model_validate(p) for p in result.products]
+    use_case_request = GetFeaturedProductsRequest(limit=limit)
+    result = await use_case.execute(use_case_request)
+    return [ProductResponse.model_validate(prod) for prod in result.products]
 
 
 __all__ = ["router"]

@@ -66,7 +66,8 @@ class ExcelenciaGraph:
 
     def _init_integrations(self):
         """Initialize integrations."""
-        integrations_config = self.config.get("integrations", {})
+        # integrations_config reserved for future use (e.g., external calendar API)
+        _ = self.config.get("integrations", {})
         self.ollama = OllamaLLM()
 
     def _init_nodes(self):
@@ -118,7 +119,7 @@ class ExcelenciaGraph:
     def _create_node_executor(self, node_instance):
         """Create async executor wrapper for a node."""
 
-        async def executor(state: dict[str, Any]) -> dict[str, Any]:
+        async def executor(state: ExcelenciaState) -> dict[str, Any]:
             try:
                 messages = state.get("messages", [])
                 if not messages:
@@ -146,7 +147,7 @@ class ExcelenciaGraph:
 
         return executor
 
-    async def _route_query(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def _route_query(self, state: ExcelenciaState) -> dict[str, Any]:
         """Route incoming query to appropriate Excelencia node."""
         try:
             messages = state.get("messages", [])
@@ -154,9 +155,12 @@ class ExcelenciaGraph:
                 return {"next_agent": "__end__", "is_complete": True}
 
             last_message = messages[-1]
-            message_content = (
-                last_message.content if hasattr(last_message, "content") else str(last_message)
-            ).lower()
+            raw_content = last_message.content if hasattr(last_message, "content") else str(last_message)
+            # Handle case where content might be a list (e.g., multimodal messages)
+            if isinstance(raw_content, list):
+                message_content = " ".join(str(item) for item in raw_content).lower()
+            else:
+                message_content = str(raw_content).lower()
 
             intent_type = self._detect_intent(message_content)
 
@@ -225,28 +229,53 @@ class ExcelenciaGraph:
 
     async def invoke(
         self,
-        message: str,
+        input_data: str | dict[str, Any],
         conversation_id: str | None = None,
         **kwargs,
     ) -> dict[str, Any]:
-        """Process a message through the Excelencia graph."""
+        """
+        Process input through the Excelencia graph.
+
+        Args:
+            input_data: Either a message string or a full state dict
+            conversation_id: Optional conversation ID for threading
+            **kwargs: Additional state fields
+
+        Returns:
+            Processed state dict
+        """
         if not self.app:
             raise RuntimeError("Graph not initialized. Call initialize() first")
 
         try:
-            initial_state = {
-                "messages": [HumanMessage(content=message)],
-                "conversation_id": conversation_id,
-                "timestamp": datetime.now().isoformat(),
-                "is_complete": False,
-                "error_count": 0,
-                "max_errors": self.config.get("max_errors", 3),
-                **kwargs,
-            }
+            # Handle both string messages and full state dicts
+            if isinstance(input_data, str):
+                initial_state: dict[str, Any] = {
+                    "messages": [HumanMessage(content=input_data)],
+                    "conversation_id": conversation_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "is_complete": False,
+                    "error_count": 0,
+                    "max_errors": self.config.get("max_errors", 3),
+                    **kwargs,
+                }
+            else:
+                # Use provided state dict, ensuring required fields
+                initial_state = {
+                    "timestamp": datetime.now().isoformat(),
+                    "is_complete": False,
+                    "error_count": 0,
+                    "max_errors": self.config.get("max_errors", 3),
+                    **input_data,
+                    **kwargs,
+                }
+                if conversation_id:
+                    initial_state["conversation_id"] = conversation_id
 
             config: dict[str, Any] = {}
-            if conversation_id:
-                config["configurable"] = {"thread_id": conversation_id}
+            thread_id = conversation_id or initial_state.get("conversation_id")
+            if thread_id:
+                config["configurable"] = {"thread_id": thread_id}
 
             result = await self.app.ainvoke(initial_state, cast(RunnableConfig, config))
             return result

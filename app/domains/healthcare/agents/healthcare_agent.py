@@ -5,6 +5,8 @@ IAgent wrapper for the Healthcare domain graph.
 Implements the standard agent interface for integration with SuperOrchestrator.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Any
 
@@ -61,8 +63,16 @@ class HealthcareAgent(IAgent):
         try:
             logger.debug(f"HealthcareAgent executing with state keys: {list(state.keys())}")
 
-            # Invoke the healthcare graph
-            result = await self._graph.invoke(state)
+            # Extract message from state for the graph
+            messages = state.get("messages", [])
+            if messages:
+                last_msg = messages[-1]
+                message = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
+            else:
+                message = ""
+
+            # Invoke the healthcare graph with the message string
+            result = await self._graph.invoke(message)
 
             logger.debug("HealthcareAgent execution completed")
             return result

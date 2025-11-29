@@ -5,14 +5,13 @@ IAgent wrapper for the Excelencia ERP domain graph.
 Implements the standard agent interface for integration with SuperOrchestrator.
 """
 
-import logging
+from __future__ import annotations
+
 from typing import Any
 
 from app.core.interfaces.agent import AgentType, IAgent
 
 from .graph import ExcelenciaGraph
-
-logger = logging.getLogger(__name__)
 
 
 class ExcelenciaAgent(IAgent):
@@ -36,8 +35,6 @@ class ExcelenciaAgent(IAgent):
         # Initialize the compiled graph
         self._graph.initialize()
 
-        logger.info("ExcelenciaAgent initialized")
-
     @property
     def agent_type(self) -> AgentType:
         """Return agent type."""
@@ -59,21 +56,15 @@ class ExcelenciaAgent(IAgent):
             Updated state after processing
         """
         try:
-            logger.debug(f"ExcelenciaAgent executing with state keys: {list(state.keys())}")
-
             # Invoke the excelencia graph
-            result = await self._graph.invoke(state)
+            return await self._graph.invoke(state)
 
-            logger.debug("ExcelenciaAgent execution completed")
-            return result
-
-        except Exception as e:
-            logger.error(f"Error in ExcelenciaAgent execution: {e}", exc_info=True)
+        except Exception as exc:
             # Return error state
             return {
                 **state,
-                "error": str(e),
-                "agent_response": f"Lo siento, hubo un error procesando tu consulta sobre Excelencia ERP: {e}",
+                "error": str(exc),
+                "agent_response": f"Lo siento, hubo un error procesando tu consulta sobre Excelencia ERP: {exc}",
             }
 
     async def validate_input(self, state: dict[str, Any]) -> bool:
@@ -88,12 +79,10 @@ class ExcelenciaAgent(IAgent):
         """
         # Check required fields
         if "messages" not in state:
-            logger.warning("ExcelenciaAgent: 'messages' field missing from state")
             return False
 
         messages = state.get("messages", [])
         if not messages:
-            logger.warning("ExcelenciaAgent: 'messages' list is empty")
             return False
 
         return True
@@ -112,11 +101,11 @@ class ExcelenciaAgent(IAgent):
                 "agent": self.agent_name,
                 "graph": graph_health,
             }
-        except Exception as e:
+        except Exception as exc:
             return {
                 "status": "unhealthy",
                 "agent": self.agent_name,
-                "error": str(e),
+                "error": str(exc),
             }
 
 

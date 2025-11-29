@@ -179,7 +179,7 @@ class SQLAlchemyCategoryRepository(ICategoryRepository):
             "subcategories": [
                 self._subcategory_to_dict(sub)
                 for sub in (model.subcategories or [])
-                if sub.active
+                if sub.active is True
             ],
             "meta_data": model.meta_data,
         }

@@ -5,7 +5,6 @@ Represents the lifecycle states of an order with transition rules.
 """
 
 from dataclasses import dataclass
-from enum import Enum
 
 from app.core.domain import StatusEnum
 
@@ -34,18 +33,21 @@ class OrderStatus(StatusEnum):
     RETURNED = "returned"
     REFUNDED = "refunded"
 
-    # Transition rules: status -> list of valid next statuses
-    _transitions: dict[str, list[str]] = {
-        "pending": ["confirmed", "cancelled"],
-        "confirmed": ["processing", "cancelled"],
-        "processing": ["shipped", "cancelled"],
-        "shipped": ["delivered", "returned"],
-        "delivered": ["returned", "completed"],
-        "completed": [],  # Terminal state
-        "cancelled": [],  # Terminal state
-        "returned": ["refunded"],
-        "refunded": [],  # Terminal state
-    }
+    # Transition rules defined as class-level constant (not as enum member)
+    @classmethod
+    def _get_transitions(cls) -> dict[str, list[str]]:
+        """Get transition rules: status -> list of valid next statuses."""
+        return {
+            "pending": ["confirmed", "cancelled"],
+            "confirmed": ["processing", "cancelled"],
+            "processing": ["shipped", "cancelled"],
+            "shipped": ["delivered", "returned"],
+            "delivered": ["returned", "completed"],
+            "completed": [],  # Terminal state
+            "cancelled": [],  # Terminal state
+            "returned": ["refunded"],
+            "refunded": [],  # Terminal state
+        }
 
     def can_transition_to(self, new_status: "OrderStatus") -> bool:
         """
@@ -57,7 +59,8 @@ class OrderStatus(StatusEnum):
         Returns:
             True if transition is allowed
         """
-        allowed = self._transitions.get(self.value, [])
+        transitions = self._get_transitions()
+        allowed = transitions.get(self.value, [])
         return new_status.value in allowed
 
     def get_valid_transitions(self) -> list["OrderStatus"]:
@@ -67,12 +70,14 @@ class OrderStatus(StatusEnum):
         Returns:
             List of OrderStatus that can be transitioned to
         """
-        allowed_values = self._transitions.get(self.value, [])
+        transitions = self._get_transitions()
+        allowed_values = transitions.get(self.value, [])
         return [OrderStatus(v) for v in allowed_values]
 
     def is_terminal(self) -> bool:
         """Check if this is a terminal (final) state."""
-        return len(self._transitions.get(self.value, [])) == 0
+        transitions = self._get_transitions()
+        return len(transitions.get(self.value, [])) == 0
 
     def is_active(self) -> bool:
         """Check if order is still active (can be modified)."""

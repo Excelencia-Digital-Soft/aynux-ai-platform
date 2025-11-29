@@ -9,15 +9,9 @@ This module provides:
 - AgentFactory: Agent instantiation
 """
 
-from typing import TYPE_CHECKING
-
 from app.core.graph.state_schema import GraphState, LangGraphState
 
-if TYPE_CHECKING:
-    from app.core.graph.graph import AynuxGraph as AynuxGraph
-
 __all__ = [
-    "AynuxGraph",
     "LangGraphState",
     "GraphState",
 ]

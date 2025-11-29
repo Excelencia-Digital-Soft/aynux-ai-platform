@@ -18,14 +18,12 @@ def get_container() -> DependencyContainer:
 
 def get_payment_schedule_use_case() -> GetPaymentScheduleUseCase:
     """Get GetPaymentScheduleUseCase instance."""
-    container = get_container()
-    return container.create_get_payment_schedule_use_case()
+    return get_container().create_get_payment_schedule_use_case()
 
 
 def get_process_payment_use_case() -> ProcessPaymentUseCase:
     """Get ProcessPaymentUseCase instance."""
-    container = get_container()
-    return container.create_process_payment_use_case()
+    return get_container().create_process_payment_use_case()
 
 
 __all__ = [

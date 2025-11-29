@@ -10,7 +10,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from ..entities.customer import Customer, CustomerTier
-from ..entities.order import Order, OrderItem
+from ..entities.order import Order
 from ..entities.product import Product
 from ..value_objects.price import Price
 
@@ -129,12 +129,14 @@ class PricingService:
         # 1. Apply product sale discount (if any)
         if product.on_sale and product.original_price:
             sale_discount = product.original_price.amount - product.price.amount
-            discounts.append({
-                "type": "sale",
-                "description": f"Sale price",
-                "percentage": product.get_discount_percentage(),
-                "amount": sale_discount * quantity,
-            })
+            discounts.append(
+                {
+                    "type": "sale",
+                    "description": "Sale price",
+                    "percentage": product.get_discount_percentage(),
+                    "amount": sale_discount * quantity,
+                }
+            )
 
         # 2. Apply quantity discount
         if context.quantity_discount_enabled and not context.is_wholesale:
@@ -142,12 +144,14 @@ class PricingService:
             if qty_discount > 0:
                 discount_amount = current_price * Decimal(str(qty_discount / 100))
                 current_price -= discount_amount
-                discounts.append({
-                    "type": "quantity",
-                    "description": f"Quantity discount ({quantity}+ items)",
-                    "percentage": qty_discount,
-                    "amount": discount_amount,
-                })
+                discounts.append(
+                    {
+                        "type": "quantity",
+                        "description": f"Quantity discount ({quantity}+ items)",
+                        "percentage": qty_discount,
+                        "amount": discount_amount,
+                    }
+                )
 
         # 3. Apply wholesale discount (exclusive with quantity discount)
         if context.is_wholesale:
@@ -155,12 +159,14 @@ class PricingService:
             if wholesale_discount > 0:
                 discount_amount = current_price * Decimal(str(wholesale_discount / 100))
                 current_price -= discount_amount
-                discounts.append({
-                    "type": "wholesale",
-                    "description": f"Wholesale discount",
-                    "percentage": wholesale_discount,
-                    "amount": discount_amount,
-                })
+                discounts.append(
+                    {
+                        "type": "wholesale",
+                        "description": "Wholesale discount",
+                        "percentage": wholesale_discount,
+                        "amount": discount_amount,
+                    }
+                )
 
         # 4. Apply customer tier discount
         if context.customer_tier:
@@ -168,34 +174,40 @@ class PricingService:
             if tier_discount > 0:
                 discount_amount = current_price * Decimal(str(tier_discount / 100))
                 current_price -= discount_amount
-                discounts.append({
-                    "type": "tier",
-                    "description": f"{context.customer_tier.value.title()} member discount",
-                    "percentage": tier_discount,
-                    "amount": discount_amount,
-                })
+                discounts.append(
+                    {
+                        "type": "tier",
+                        "description": f"{context.customer_tier.value.title()} member discount",
+                        "percentage": tier_discount,
+                        "amount": discount_amount,
+                    }
+                )
 
         # 5. Apply coupon discount
         if context.coupon_code and context.coupon_discount > 0:
             discount_amount = current_price * Decimal(str(context.coupon_discount / 100))
             current_price -= discount_amount
-            discounts.append({
-                "type": "coupon",
-                "description": f"Coupon: {context.coupon_code}",
-                "percentage": context.coupon_discount,
-                "amount": discount_amount,
-            })
+            discounts.append(
+                {
+                    "type": "coupon",
+                    "description": f"Coupon: {context.coupon_code}",
+                    "percentage": context.coupon_discount,
+                    "amount": discount_amount,
+                }
+            )
 
         # 6. Apply loyalty points
         if context.loyalty_points > 0:
             points_value = Decimal(str(context.loyalty_points * self.loyalty_point_value))
             points_discount = min(points_value, current_price * Decimal("0.5"))  # Max 50% off with points
             current_price -= points_discount
-            discounts.append({
-                "type": "loyalty_points",
-                "description": f"{context.loyalty_points} loyalty points",
-                "amount": points_discount,
-            })
+            discounts.append(
+                {
+                    "type": "loyalty_points",
+                    "description": f"{context.loyalty_points} loyalty points",
+                    "amount": points_discount,
+                }
+            )
 
         # Ensure price doesn't go below zero
         current_price = max(Decimal("0"), current_price)
@@ -247,12 +259,14 @@ class PricingService:
             if item.discount_applied > 0:
                 item_discount = item_total * Decimal(str(item.discount_applied / 100))
                 item_total -= item_discount
-                all_discounts.append({
-                    "type": "item_discount",
-                    "product": item.product_name,
-                    "percentage": item.discount_applied,
-                    "amount": item_discount,
-                })
+                all_discounts.append(
+                    {
+                        "type": "item_discount",
+                        "product": item.product_name,
+                        "percentage": item.discount_applied,
+                        "amount": item_discount,
+                    }
+                )
             subtotal += item_total
 
         # Apply order-level discounts
@@ -264,34 +278,40 @@ class PricingService:
             if tier_discount > 0:
                 discount_amount = current_total * Decimal(str(tier_discount / 100))
                 current_total -= discount_amount
-                all_discounts.append({
-                    "type": "tier",
-                    "description": f"{context.customer_tier.value.title()} discount",
-                    "percentage": tier_discount,
-                    "amount": discount_amount,
-                })
+                all_discounts.append(
+                    {
+                        "type": "tier",
+                        "description": f"{context.customer_tier.value.title()} discount",
+                        "percentage": tier_discount,
+                        "amount": discount_amount,
+                    }
+                )
 
         # Coupon discount
         if context.coupon_code and context.coupon_discount > 0:
             discount_amount = current_total * Decimal(str(context.coupon_discount / 100))
             current_total -= discount_amount
-            all_discounts.append({
-                "type": "coupon",
-                "code": context.coupon_code,
-                "percentage": context.coupon_discount,
-                "amount": discount_amount,
-            })
+            all_discounts.append(
+                {
+                    "type": "coupon",
+                    "code": context.coupon_code,
+                    "percentage": context.coupon_discount,
+                    "amount": discount_amount,
+                }
+            )
 
         # Loyalty points
         if context.loyalty_points > 0:
             points_value = Decimal(str(context.loyalty_points * self.loyalty_point_value))
             points_discount = min(points_value, current_total)
             current_total -= points_discount
-            all_discounts.append({
-                "type": "loyalty_points",
-                "points_used": context.loyalty_points,
-                "amount": points_discount,
-            })
+            all_discounts.append(
+                {
+                    "type": "loyalty_points",
+                    "points_used": context.loyalty_points,
+                    "amount": points_discount,
+                }
+            )
 
         # Add shipping
         shipping = order.shipping_cost.amount

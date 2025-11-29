@@ -7,6 +7,7 @@ SQLAlchemy implementation of IPromotionRepository.
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -189,15 +190,20 @@ class SQLAlchemyPromotionRepository(IPromotionRepository):
 
     def _is_valid(self, model: PromotionModel) -> bool:
         """Check if promotion is currently valid."""
-        if not model.active:
+        if model.active is not True:
             return False
 
         now = datetime.now(timezone.utc)
-        if model.valid_from and model.valid_from > now:
+        valid_from = cast(datetime | None, model.valid_from)
+        valid_until = cast(datetime | None, model.valid_until)
+        max_uses = cast(int | None, model.max_uses)
+        current_uses = cast(int | None, model.current_uses)
+
+        if valid_from is not None and valid_from > now:
             return False
-        if model.valid_until and model.valid_until < now:
+        if valid_until is not None and valid_until < now:
             return False
-        if model.max_uses is not None and model.current_uses >= model.max_uses:
+        if max_uses is not None and current_uses is not None and current_uses >= max_uses:
             return False
 
         return True
@@ -211,8 +217,8 @@ class SQLAlchemyPromotionRepository(IPromotionRepository):
             "discount_percentage": model.discount_percentage,
             "discount_amount": model.discount_amount,
             "promo_code": model.promo_code,
-            "valid_from": model.valid_from.isoformat() if model.valid_from else None,
-            "valid_until": model.valid_until.isoformat() if model.valid_until else None,
+            "valid_from": model.valid_from.isoformat() if model.valid_from is not None else None,
+            "valid_until": model.valid_until.isoformat() if model.valid_until is not None else None,
             "max_uses": model.max_uses,
             "current_uses": model.current_uses,
             "min_purchase_amount": model.min_purchase_amount,
@@ -220,5 +226,5 @@ class SQLAlchemyPromotionRepository(IPromotionRepository):
             "active": model.active,
             "is_valid": self._is_valid(model),
             "product_count": len(model.products) if model.products else 0,
-            "created_at": model.created_at.isoformat() if model.created_at else None,
+            "created_at": model.created_at.isoformat() if model.created_at is not None else None,
         }

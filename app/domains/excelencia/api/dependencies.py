@@ -18,14 +18,12 @@ def get_container() -> DependencyContainer:
 
 def get_show_modules_use_case() -> ShowModulesUseCase:
     """Get ShowModulesUseCase instance."""
-    container = get_container()
-    return container.create_show_modules_use_case()
+    return get_container().create_show_modules_use_case()
 
 
 def get_schedule_demo_use_case() -> ScheduleDemoUseCase:
     """Get ScheduleDemoUseCase instance."""
-    container = get_container()
-    return container.create_schedule_demo_use_case()
+    return get_container().create_schedule_demo_use_case()
 
 
 __all__ = [

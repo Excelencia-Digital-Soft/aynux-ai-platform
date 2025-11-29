@@ -5,6 +5,8 @@ LangGraph StateGraph implementation for the healthcare domain.
 Handles patient appointments, medical records, triage, and healthcare queries.
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from typing import Any, Hashable, cast
@@ -85,7 +87,7 @@ class HealthcareGraph:
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph StateGraph for healthcare domain."""
-        workflow = StateGraph(HealthcareState)
+        workflow: StateGraph[HealthcareState] = StateGraph(HealthcareState)
 
         # Add router node
         workflow.add_node(HealthcareNodeType.ROUTER, self._route_query)
@@ -133,7 +135,7 @@ class HealthcareGraph:
 
         return workflow
 
-    async def _route_query(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def _route_query(self, state: HealthcareState) -> dict[str, Any]:
         """Route incoming query to appropriate healthcare node."""
         try:
             messages = state.get("messages", [])
@@ -141,9 +143,10 @@ class HealthcareGraph:
                 return {"next_agent": "__end__", "is_complete": True}
 
             last_message = messages[-1]
-            message_content = (
+            raw_content = (
                 last_message.content if hasattr(last_message, "content") else str(last_message)
-            ).lower()
+            )
+            message_content = str(raw_content).lower()
 
             intent_type, next_node, is_emergency = self._detect_intent(message_content)
 
@@ -212,7 +215,7 @@ class HealthcareGraph:
 
         return "appointment", HealthcareNodeType.APPOINTMENT, False
 
-    def _get_next_node(self, state: dict[str, Any]) -> str:
+    def _get_next_node(self, state: HealthcareState) -> str:
         """Get the next node from state for conditional routing."""
         next_node = state.get("next_agent")
 
@@ -224,7 +227,7 @@ class HealthcareGraph:
 
         return HealthcareNodeType.APPOINTMENT
 
-    async def _handle_appointment(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def _handle_appointment(self, state: HealthcareState) -> dict[str, Any]:
         """Handle appointment-related queries."""
         try:
             messages = state.get("messages", [])
@@ -263,7 +266,7 @@ class HealthcareGraph:
                 }],
             }
 
-    async def _handle_patient_records(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def _handle_patient_records(self, state: HealthcareState) -> dict[str, Any]:
         """Handle patient records queries."""
         try:
             messages = state.get("messages", [])
@@ -296,7 +299,7 @@ class HealthcareGraph:
             logger.error(f"Error in patient records handler: {e}")
             return {"error_count": state.get("error_count", 0) + 1}
 
-    async def _handle_triage(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def _handle_triage(self, state: HealthcareState) -> dict[str, Any]:
         """Handle triage and symptom assessment."""
         try:
             messages = state.get("messages", [])
@@ -349,7 +352,7 @@ Tu salud es lo primero. Busca atencion medica de inmediato."""
                 }],
             }
 
-    async def _handle_doctor_search(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def _handle_doctor_search(self, state: HealthcareState) -> dict[str, Any]:
         """Handle doctor search queries."""
         try:
             messages = state.get("messages", [])
@@ -392,7 +395,7 @@ Tu salud es lo primero. Busca atencion medica de inmediato."""
 
     async def invoke(
         self,
-        message: str,
+        input_data: str | dict[str, Any],
         conversation_id: str | None = None,
         **kwargs,
     ) -> dict[str, Any]:
@@ -401,7 +404,21 @@ Tu salud es lo primero. Busca atencion medica de inmediato."""
             raise RuntimeError("Graph not initialized. Call initialize() first")
 
         try:
-            initial_state = {
+            # Handle both string and dict inputs
+            if isinstance(input_data, str):
+                message = input_data
+            elif isinstance(input_data, dict):
+                # Extract message from state dict
+                messages = input_data.get("messages", [])
+                if messages:
+                    last_msg = messages[-1]
+                    message = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
+                else:
+                    message = ""
+            else:
+                message = str(input_data)
+
+            initial_state: dict[str, Any] = {
                 "messages": [HumanMessage(content=message)],
                 "conversation_id": conversation_id,
                 "timestamp": datetime.now().isoformat(),

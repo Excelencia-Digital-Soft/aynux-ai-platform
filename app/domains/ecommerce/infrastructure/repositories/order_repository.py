@@ -6,8 +6,8 @@ SQLAlchemy implementation of IOrderRepository.
 
 import logging
 import uuid
-from decimal import Decimal
-from typing import Any
+from datetime import datetime
+from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +18,6 @@ from app.domains.ecommerce.domain.entities.order import Order, OrderItem
 from app.domains.ecommerce.domain.value_objects.order_status import (
     OrderStatus,
     PaymentStatus,
-    ShipmentStatus,
 )
 from app.domains.ecommerce.domain.value_objects.price import Price
 from app.models.db.orders import Order as OrderModel
@@ -108,7 +107,7 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             if not model:
                 return None
 
-            model.status = status
+            setattr(model, "status", status)
             await self.session.commit()
             await self.session.refresh(model)
             return self._to_entity(model)
@@ -131,14 +130,16 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             if not model:
                 return None
 
+            expected_dt = cast(datetime | None, model.expected_delivery)
+            delivered_dt = cast(datetime | None, model.delivered_at)
             return {
                 "order_id": str(model.id),
                 "order_number": model.order_number,
                 "status": model.status,
                 "tracking_number": model.tracking_number,
                 "shipping_method": model.shipping_method,
-                "expected_delivery": model.expected_delivery.isoformat() if model.expected_delivery else None,
-                "delivered_at": model.delivered_at.isoformat() if model.delivered_at else None,
+                "expected_delivery": expected_dt.isoformat() if expected_dt else None,
+                "delivered_at": delivered_dt.isoformat() if delivered_dt else None,
             }
         except ValueError:
             logger.warning(f"Invalid order_id format: {order_id}")
@@ -194,29 +195,61 @@ class SQLAlchemyOrderRepository(IOrderRepository):
 
     def _to_entity(self, model: OrderModel) -> Order:
         """Convert model to entity."""
-        # Convert items
+        # Convert items - extract Python values from SQLAlchemy columns using cast
         items = []
-        for item_model in model.items:
+        model_items = model.items or []
+        for item_model in model_items:
+            product_name = cast(str, item_model.product_name) or ""
+            product_sku = cast(str | None, item_model.product_sku)
+            quantity = cast(int, item_model.quantity) or 0
+            unit_price_val = cast(float | None, item_model.unit_price) or 0.0
+
             items.append(
                 OrderItem(
                     product_id=0,  # UUID to int not possible, use 0 as placeholder
-                    product_name=item_model.product_name,
-                    sku=item_model.product_sku,
-                    quantity=item_model.quantity,
-                    unit_price=Price.from_float(item_model.unit_price),
+                    product_name=product_name,
+                    sku=product_sku,
+                    quantity=quantity,
+                    unit_price=Price.from_float(unit_price_val),
                 )
             )
 
         # Map status strings to enums
+        status_str = cast(str | None, model.status) or "pending"
         try:
-            order_status = OrderStatus(model.status)
+            order_status = OrderStatus(status_str)
         except ValueError:
             order_status = OrderStatus.PENDING
 
+        payment_status_str = cast(str | None, model.payment_status)
         try:
-            payment_status = PaymentStatus(model.payment_status) if model.payment_status else PaymentStatus.PENDING
+            payment_status = (
+                PaymentStatus(payment_status_str) if payment_status_str else PaymentStatus.PENDING
+            )
         except ValueError:
             payment_status = PaymentStatus.PENDING
+
+        # Extract values from model columns using cast
+        subtotal_val = cast(float | None, model.subtotal) or 0.0
+        shipping_val = cast(float | None, model.shipping_amount) or 0.0
+        tax_val = cast(float | None, model.tax_amount) or 0.0
+        discount_val = cast(float | None, model.discount_amount) or 0.0
+        total_val = cast(float | None, model.total_amount) or 0.0
+
+        # Cast string fields
+        payment_method = cast(str | None, model.payment_method)
+        payment_ref = cast(str | None, model.payment_reference)
+        shipping_method = cast(str | None, model.shipping_method)
+        tracking_number = cast(str | None, model.tracking_number)
+        notes = cast(str | None, model.notes)
+        internal_notes = cast(str | None, model.internal_notes)
+        order_number = cast(str | None, model.order_number)
+
+        # Cast datetime fields
+        expected_delivery = cast(datetime | None, model.expected_delivery)
+        delivered_at = cast(datetime | None, model.delivered_at)
+        created_at = cast(datetime | None, model.created_at)
+        updated_at = cast(datetime | None, model.updated_at)
 
         order = Order(
             customer_id=0,  # UUID to int not possible
@@ -224,29 +257,32 @@ class SQLAlchemyOrderRepository(IOrderRepository):
             items=items,
             status=order_status,
             payment_status=payment_status,
-            subtotal=Price.from_float(model.subtotal or 0),
-            shipping_cost=Price.from_float(model.shipping_amount or 0),
-            tax_amount=Price.from_float(model.tax_amount or 0),
-            discount_amount=Price.from_float(model.discount_amount or 0),
-            total=Price.from_float(model.total_amount or 0),
-            payment_method=model.payment_method,
-            payment_id=model.payment_reference,
-            shipping_method=model.shipping_method,
-            tracking_number=model.tracking_number,
-            estimated_delivery=model.expected_delivery,
-            delivered_at=model.delivered_at,
-            customer_notes=model.notes,
-            internal_notes=model.internal_notes,
-            order_number=model.order_number,
+            subtotal=Price.from_float(subtotal_val),
+            shipping_cost=Price.from_float(shipping_val),
+            tax_amount=Price.from_float(tax_val),
+            discount_amount=Price.from_float(discount_val),
+            total=Price.from_float(total_val),
+            payment_method=payment_method,
+            payment_id=payment_ref,
+            shipping_method=shipping_method,
+            tracking_number=tracking_number,
+            estimated_delivery=expected_delivery,
+            delivered_at=delivered_at,
+            customer_notes=notes,
+            internal_notes=internal_notes,
+            order_number=order_number,
         )
 
-        # Set ID using uuid string stored as internal attribute
-        order._db_id = model.id  # Store UUID for reference
+        # Store DB UUID in order's id field as int hash (for reference only)
+        model_id = cast(uuid.UUID | None, model.id)
+        if model_id is not None:
+            uuid_int = int(model_id)  # Convert UUID to int
+            order.id = uuid_int % (2**31)
 
-        if model.created_at:
-            order.created_at = model.created_at
-        if model.updated_at:
-            order.updated_at = model.updated_at
+        if created_at is not None:
+            order.created_at = created_at
+        if updated_at is not None:
+            order.updated_at = updated_at
 
         return order
 
@@ -276,6 +312,8 @@ class SQLAlchemyOrderRepository(IOrderRepository):
         )
 
         # Convert items
+        if model.items is None:
+            model.items = []
         for item in order.items:
             item_model = OrderItemModel(
                 product_id=uuid.uuid4(),  # Need actual product UUID

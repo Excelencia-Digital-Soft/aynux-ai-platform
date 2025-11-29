@@ -204,11 +204,16 @@ class ShowModulesUseCase:
                 info = self.MODULE_DESCRIPTIONS.get(module_type, {})
                 is_available = module_type in available_types
 
+                # Extract values with proper type handling
+                display_name = info.get("name", module_type.get_display_name())
+                description_val = info.get("description", "")
+                features_val = info.get("features", [])
+
                 module_info = ModuleInfo(
                     module_type=module_type,
-                    display_name=info.get("name", module_type.get_display_name()),
-                    description=info.get("description", "") if request.include_description else "",
-                    features=info.get("features", []) if request.include_description else [],
+                    display_name=str(display_name) if display_name else module_type.get_display_name(),
+                    description=str(description_val) if request.include_description else "",
+                    features=list(features_val) if request.include_description and isinstance(features_val, list) else [],
                     is_available=is_available,
                 )
                 modules.append(module_info)

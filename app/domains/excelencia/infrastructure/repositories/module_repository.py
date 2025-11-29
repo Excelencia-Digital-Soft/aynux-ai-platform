@@ -4,7 +4,11 @@ Module Repository Implementation
 SQLAlchemy implementation of module repository for Excelencia ERP.
 """
 
+from __future__ import annotations
+
 import logging
+from datetime import datetime
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -143,17 +147,29 @@ class SQLAlchemyModuleRepository(IModuleRepository):
 
     def _to_entity(self, model: ErpModuleModel) -> ERPModule:
         """Convert model to entity."""
+        # Cast SQLAlchemy Column types to Python types
+        model_id = cast(int, model.id)
+        code = cast(str, model.code)
+        name = cast(str, model.name)
+        description = cast(str | None, model.description) or ""
+        category_str = cast(str, model.category)
+        status_str = cast(str, model.status)
+        features = cast(list[Any] | None, model.features) or []
+        pricing_tier = cast(str | None, model.pricing_tier) or "standard"
+        created_at = cast(datetime, model.created_at)
+        updated_at = cast(datetime, model.updated_at)
+
         return ERPModule(
-            id=f"mod-{model.id:03d}",
-            code=model.code,
-            name=model.name,
-            description=model.description or "",
-            category=ModuleCategory(model.category),
-            status=ModuleStatus(model.status),
-            features=model.features or [],
-            pricing_tier=model.pricing_tier or "standard",
-            created_at=model.created_at,
-            updated_at=model.updated_at,
+            id=f"mod-{model_id:03d}",
+            code=code,
+            name=name,
+            description=description,
+            category=ModuleCategory(category_str),
+            status=ModuleStatus(status_str),
+            features=features,
+            pricing_tier=pricing_tier,
+            created_at=created_at,
+            updated_at=updated_at,
         )
 
     def _to_model(self, module: ERPModule) -> ErpModuleModel:
@@ -170,12 +186,12 @@ class SQLAlchemyModuleRepository(IModuleRepository):
 
     def _update_model(self, model: ErpModuleModel, module: ERPModule) -> None:
         """Update model from entity."""
-        model.name = module.name
-        model.description = module.description
-        model.category = module.category.value
-        model.status = module.status.value
-        model.features = module.features
-        model.pricing_tier = module.pricing_tier
+        setattr(model, "name", module.name)
+        setattr(model, "description", module.description)
+        setattr(model, "category", module.category.value)
+        setattr(model, "status", module.status.value)
+        setattr(model, "features", module.features)
+        setattr(model, "pricing_tier", module.pricing_tier)
 
 
 # Keep backward compatibility alias

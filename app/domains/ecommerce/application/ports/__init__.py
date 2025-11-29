@@ -5,11 +5,10 @@ Interface definitions (ports) for the Ecommerce domain.
 Uses Protocol for structural typing.
 """
 
-from decimal import Decimal
 from typing import Protocol, runtime_checkable
 
+from app.domains.ecommerce.domain.entities.order import Order
 from app.domains.ecommerce.domain.entities.product import Product
-from app.domains.ecommerce.domain.entities.order import Order, OrderItem
 
 
 @runtime_checkable

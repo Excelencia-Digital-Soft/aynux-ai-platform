@@ -7,8 +7,6 @@ Follows Clean Architecture and SOLID principles.
 
 import logging
 from dataclasses import dataclass
-from datetime import date, time
-from datetime import datetime, UTC
 
 from app.core.domain import EntityNotFoundException
 from app.domains.healthcare.application.ports.appointment_repository import IAppointmentRepository
@@ -141,8 +139,7 @@ class TriagePatientUseCase:
             )
 
             logger.info(
-                f"Triage completed for patient {patient.id}: "
-                f"Priority={priority.value}, Wait time={wait_time}min"
+                f"Triage completed for patient {patient.id}: Priority={priority.value}, Wait time={wait_time}min"
             )
 
             return TriagePatientResponse(
@@ -230,7 +227,7 @@ class TriagePatientUseCase:
     ) -> Appointment:
         """Create emergency appointment."""
         appointment = Appointment.create_emergency(
-            patient_id=patient.id,
+            patient_id=patient.id or 0,
             patient_name=patient.full_name,
             priority=priority,
             symptoms=symptoms,

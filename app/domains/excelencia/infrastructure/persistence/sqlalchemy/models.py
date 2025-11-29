@@ -5,10 +5,8 @@ Database models for Excelencia ERP domain persistence.
 """
 
 from datetime import UTC, datetime
-from typing import Any
 
 from sqlalchemy import (
-    Boolean,
     Column,
     DateTime,
     ForeignKey,

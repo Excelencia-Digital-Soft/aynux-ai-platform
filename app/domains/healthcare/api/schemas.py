@@ -4,7 +4,7 @@ Healthcare API Schemas
 Pydantic schemas for API request/response validation.
 """
 
-from datetime import date, datetime, time
+from datetime import date, time
 
 from pydantic import BaseModel, Field
 

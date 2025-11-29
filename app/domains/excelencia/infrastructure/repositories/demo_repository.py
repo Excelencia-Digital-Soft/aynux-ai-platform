@@ -4,8 +4,11 @@ Demo Repository Implementation
 SQLAlchemy implementation of demo repository for Excelencia ERP.
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
+from typing import cast
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -172,27 +175,44 @@ class SQLAlchemyDemoRepository(IDemoRepository):
 
     def _to_entity(self, model: DemoModel) -> Demo:
         """Convert model to entity."""
+        # Cast SQLAlchemy Column types to Python types
+        company_name = cast(str, model.company_name)
+        contact_name = cast(str, model.contact_name)
+        contact_email = cast(str, model.contact_email)
+        contact_phone = cast(str | None, model.contact_phone)
+        modules_of_interest = cast(list[str] | None, model.modules_of_interest) or []
+        demo_type_str = cast(str | None, model.demo_type)
+        request_notes = cast(str | None, model.request_notes) or ""
+        scheduled_at = cast(datetime | None, model.scheduled_at)
+        duration_minutes = cast(int | None, model.duration_minutes) or 60
+        status_str = cast(str, model.status)
+        assigned_to = cast(str | None, model.assigned_to)
+        meeting_link = cast(str | None, model.meeting_link)
+        created_at = cast(datetime, model.created_at)
+        updated_at = cast(datetime, model.updated_at)
+        model_id = cast(int, model.id)
+
         # Reconstruct DemoRequest value object
         request = DemoRequest(
-            company_name=model.company_name,
-            contact_name=model.contact_name,
-            contact_email=model.contact_email,
-            contact_phone=model.contact_phone,
-            modules_of_interest=model.modules_of_interest or [],
-            demo_type=DemoType(model.demo_type) if model.demo_type else DemoType.GENERAL,
-            notes=model.request_notes or "",
+            company_name=company_name,
+            contact_name=contact_name,
+            contact_email=contact_email,
+            contact_phone=contact_phone,
+            modules_of_interest=modules_of_interest,
+            demo_type=DemoType(demo_type_str) if demo_type_str else DemoType.GENERAL,
+            notes=request_notes,
         )
 
         return Demo(
-            id=f"demo-{model.id:03d}",
+            id=f"demo-{model_id:03d}",
             request=request,
-            scheduled_at=model.scheduled_at,
-            duration_minutes=model.duration_minutes or 60,
-            status=DemoStatus(model.status),
-            assigned_to=model.assigned_to,
-            meeting_link=model.meeting_link,
-            created_at=model.created_at,
-            updated_at=model.updated_at,
+            scheduled_at=scheduled_at,
+            duration_minutes=duration_minutes,
+            status=DemoStatus(status_str),
+            assigned_to=assigned_to,
+            meeting_link=meeting_link,
+            created_at=created_at,
+            updated_at=updated_at,
         )
 
     def _to_model(self, demo: Demo) -> DemoModel:
@@ -215,20 +235,20 @@ class SQLAlchemyDemoRepository(IDemoRepository):
     def _update_model(self, model: DemoModel, demo: Demo) -> None:
         """Update model from entity."""
         # Update request information
-        model.company_name = demo.request.company_name
-        model.contact_name = demo.request.contact_name
-        model.contact_email = demo.request.contact_email
-        model.contact_phone = demo.request.contact_phone
-        model.modules_of_interest = demo.request.modules_of_interest
-        model.demo_type = demo.request.demo_type.value
-        model.request_notes = demo.request.notes
+        model.company_name = demo.request.company_name  # type: ignore[assignment]
+        model.contact_name = demo.request.contact_name  # type: ignore[assignment]
+        model.contact_email = demo.request.contact_email  # type: ignore[assignment]
+        model.contact_phone = demo.request.contact_phone  # type: ignore[assignment]
+        model.modules_of_interest = demo.request.modules_of_interest  # type: ignore[assignment]
+        model.demo_type = demo.request.demo_type.value  # type: ignore[assignment]
+        model.request_notes = demo.request.notes  # type: ignore[assignment]
 
         # Update scheduling information
-        model.scheduled_at = demo.scheduled_at
-        model.duration_minutes = demo.duration_minutes
-        model.status = demo.status.value
-        model.assigned_to = demo.assigned_to
-        model.meeting_link = demo.meeting_link
+        model.scheduled_at = demo.scheduled_at  # type: ignore[assignment]
+        model.duration_minutes = demo.duration_minutes  # type: ignore[assignment]
+        model.status = demo.status.value  # type: ignore[assignment]
+        model.assigned_to = demo.assigned_to  # type: ignore[assignment]
+        model.meeting_link = demo.meeting_link  # type: ignore[assignment]
 
 
 # Keep backward compatibility alias

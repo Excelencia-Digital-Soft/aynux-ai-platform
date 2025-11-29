@@ -12,8 +12,8 @@ from typing import Any
 from app.core.domain import EntityNotFoundException
 from app.domains.healthcare.application.ports.appointment_repository import IAppointmentRepository
 from app.domains.healthcare.application.ports.patient_repository import IPatientRepository
-from app.domains.healthcare.domain.entities.patient import Patient
 from app.domains.healthcare.domain.entities.appointment import Appointment
+from app.domains.healthcare.domain.entities.patient import Patient
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class GetPatientRecordsUseCase:
             appointments: list[Appointment] = []
             if request.include_appointments and self.appointment_repo:
                 appointments = await self.appointment_repo.find_by_patient(
-                    patient_id=patient.id,
+                    patient_id=patient.id or 0,
                     include_past=True,
                     limit=request.appointments_limit,
                 )

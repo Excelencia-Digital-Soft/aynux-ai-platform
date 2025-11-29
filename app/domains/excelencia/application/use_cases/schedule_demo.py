@@ -6,9 +6,8 @@ Follows Clean Architecture and SOLID principles.
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from typing import Any
 
 from app.domains.excelencia.domain.value_objects.erp_types import LicenseType, ModuleType
 
@@ -275,6 +274,10 @@ class ScheduleDemoUseCase:
 
         demo_id = str(uuid.uuid4())[:8].upper()
 
+        # Assert preferred_date and preferred_time are set (validated before calling this method)
+        assert request.preferred_date is not None, "preferred_date must be set"
+        assert request.preferred_time is not None, "preferred_time must be set"
+
         demo = ScheduledDemo(
             demo_id=f"DEMO-{demo_id}",
             company_name=request.company_name,
@@ -295,6 +298,26 @@ class ScheduleDemoUseCase:
         )
 
         return demo
+
+    async def get_available_slots(
+        self,
+        target_date: date,
+        duration_minutes: int = 45,
+    ) -> list[DemoSlot]:
+        """
+        Get available demo slots for a given date.
+
+        Args:
+            target_date: Date to get slots for
+            duration_minutes: Duration of demo in minutes
+
+        Returns:
+            List of available DemoSlot objects
+        """
+        return await self._get_available_slots(
+            preferred_date=target_date,
+            duration_minutes=duration_minutes,
+        )
 
     def get_confirmation_text(self, response: ScheduleDemoResponse) -> str:
         """

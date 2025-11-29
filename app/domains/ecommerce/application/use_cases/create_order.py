@@ -171,7 +171,7 @@ class CreateOrderUseCase:
             order_item = OrderItem(
                 product_id=product.id or item.product_id,
                 product_name=product.name,
-                sku=product.sku,
+                sku=product.sku.value if product.sku else None,
                 quantity=item.quantity,
                 unit_price=product.price if product.price else Price.zero(),
                 notes=item.notes,

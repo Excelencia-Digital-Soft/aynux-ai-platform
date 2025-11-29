@@ -20,26 +20,22 @@ def get_container() -> DependencyContainer:
 
 def get_search_products_use_case() -> SearchProductsUseCase:
     """Get SearchProductsUseCase instance."""
-    container = get_container()
-    return container.create_search_products_use_case()
+    return get_container().create_search_products_use_case()
 
 
 def get_product_by_id_use_case() -> GetProductByIdUseCase:
     """Get GetProductByIdUseCase instance."""
-    container = get_container()
-    return container.create_get_product_by_id_use_case()
+    return get_container().create_get_product_by_id_use_case()
 
 
 def get_products_by_category_use_case() -> GetProductsByCategoryUseCase:
     """Get GetProductsByCategoryUseCase instance."""
-    container = get_container()
-    return container.create_get_products_by_category_use_case()
+    return get_container().create_get_products_by_category_use_case()
 
 
 def get_featured_products_use_case() -> GetFeaturedProductsUseCase:
     """Get GetFeaturedProductsUseCase instance."""
-    container = get_container()
-    return container.create_get_featured_products_use_case()
+    return get_container().create_get_featured_products_use_case()
 
 
 __all__ = [

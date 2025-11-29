@@ -6,7 +6,6 @@ Represents a customer with profile, preferences, and order history.
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
 from typing import Any
 
 from app.core.domain import Address, AggregateRoot, Email, PhoneNumber, StatusEnum

@@ -14,7 +14,6 @@ from app.core.domain import (
     AggregateRoot,
     BusinessRuleViolationException,
     InvalidOperationException,
-    Money,
 )
 
 from ..value_objects.order_status import OrderStatus, PaymentStatus, ShipmentStatus
@@ -230,7 +229,7 @@ class Order(AggregateRoot[int]):
     def _recalculate_totals(self) -> None:
         """Recalculate all order totals."""
         # Calculate subtotal from items
-        subtotal_amount = sum(item.subtotal.amount for item in self.items)
+        subtotal_amount = sum((item.subtotal.amount for item in self.items), Decimal("0"))
         self.subtotal = Price(amount=subtotal_amount)
 
         # Apply coupon discount

@@ -1,54 +1,26 @@
 """
 Dataset management for LangSmith evaluation in Aynux.
 
-This module handles creation, management, and maintenance of evaluation datasets
-for testing the multi-agent conversation system.
+Single Responsibility: CRUD operations for LangSmith evaluation datasets.
+Uses golden_examples module for test data.
 """
 
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from langsmith.schemas import Dataset, Example
-from pydantic import BaseModel, Field
 
 from app.config.langsmith_config import get_tracer
+from app.evaluation.golden_examples import (
+    DATASET_CONFIGS,
+    ConversationExample,
+    get_golden_examples,
+)
 
 logger = logging.getLogger(__name__)
-
-
-class ConversationExample(BaseModel):
-    """Structured representation of a conversation example for evaluation."""
-
-    user_message: str = Field(..., description="User input message")
-    expected_agent: str = Field(..., description="Expected agent to handle the request")
-    expected_response_type: str = Field(
-        ..., description="Type of expected response (product_info, category_list, etc.)"
-    )
-    expected_completion: bool = Field(default=True, description="Whether task should be completed in one turn")
-    intent_category: str = Field(..., description="Category of user intent")
-    language: str = Field(default="es", description="Language of the conversation")
-    complexity: str = Field(default="simple", description="Complexity level: simple, moderate, complex")
-    business_context: Optional[str] = Field(default=None, description="Business context or scenario")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
-
-    def to_langsmith_example(self, dataset_name: str) -> Example:
-        """Convert to LangSmith Example format."""
-        return Example(
-            inputs={"message": self.user_message},
-            outputs={
-                "expected_agent": self.expected_agent,
-                "expected_response_type": self.expected_response_type,
-                "expected_completion": self.expected_completion,
-                "intent_category": self.intent_category,
-                "language": self.language,
-                "complexity": self.complexity,
-                "business_context": self.business_context,
-            },
-            metadata={"dataset": dataset_name, "created_at": datetime.now().isoformat(), **self.metadata},
-        )
 
 
 class DatasetManager:
@@ -57,369 +29,96 @@ class DatasetManager:
     def __init__(self):
         self.tracer = get_tracer()
         self.client = self.tracer.client if self.tracer.client else None
-
-        # Dataset configurations
-        self.dataset_configs = {
-            "aynux_intent_routing": {
-                "description": "Examples for testing intent detection and agent routing",
-                "focus": "routing_accuracy",
-            },
-            "aynux_response_quality": {
-                "description": "Examples for evaluating response quality and relevance",
-                "focus": "response_quality",
-            },
-            "aynux_business_scenarios": {
-                "description": "Real business scenarios for conversion and satisfaction testing",
-                "focus": "business_metrics",
-            },
-            "aynux_multilingual": {
-                "description": "Examples in different languages for localization testing",
-                "focus": "language_handling",
-            },
-            "aynux_edge_cases": {
-                "description": "Edge cases and error scenarios for robustness testing",
-                "focus": "error_handling",
-            },
-        }
-
+        self.dataset_configs = DATASET_CONFIGS
         logger.info("DatasetManager initialized")
 
-    async def create_dataset(self, dataset_name: str, description: str = "") -> Optional[Dataset]:
-        """
-        Create a new evaluation dataset in LangSmith.
-
-        Args:
-            dataset_name: Name of the dataset
-            description: Description of the dataset purpose
-
-        Returns:
-            Created Dataset object or None if creation failed
-        """
+    async def create_dataset(
+        self,
+        dataset_name: str,
+        description: str = "",
+    ) -> Dataset | None:
+        """Create a new evaluation dataset in LangSmith."""
         if not self.client:
             logger.error("LangSmith client not available")
             return None
 
         try:
-            # Check if dataset already exists
-            try:
-                existing_dataset = self.client.read_dataset(dataset_name=dataset_name)
-                logger.info(f"Dataset {dataset_name} already exists")
-                return existing_dataset
-            except Exception:
-                pass  # Dataset doesn't exist, create it
+            existing = self.client.list_datasets(dataset_name=dataset_name)
+            for ds in existing:
+                if ds.name == dataset_name:
+                    logger.info(f"Dataset '{dataset_name}' already exists")
+                    return ds
 
             dataset = self.client.create_dataset(
-                dataset_name=dataset_name, description=description or f"Aynux evaluation dataset: {dataset_name}"
+                dataset_name=dataset_name,
+                description=description or f"Aynux evaluation dataset: {dataset_name}",
             )
-
             logger.info(f"Created dataset: {dataset_name}")
             return dataset
 
         except Exception as e:
-            logger.error(f"Failed to create dataset {dataset_name}: {e}")
+            logger.error(f"Error creating dataset: {e}")
             return None
 
-    async def add_examples_to_dataset(self, dataset_name: str, examples: List[ConversationExample]) -> bool:
-        """
-        Add conversation examples to a dataset.
-
-        Args:
-            dataset_name: Name of the target dataset
-            examples: List of conversation examples to add
-
-        Returns:
-            True if successful, False otherwise
-        """
+    async def add_examples_to_dataset(
+        self,
+        dataset_name: str,
+        examples: list[ConversationExample],
+    ) -> bool:
+        """Add examples to an existing dataset."""
         if not self.client:
             logger.error("LangSmith client not available")
             return False
 
         try:
-            # Ensure dataset exists
-            dataset = await self.create_dataset(dataset_name)
-            if not dataset:
-                return False
-
-            # Convert examples to LangSmith format
-            langsmith_examples = [example.to_langsmith_example(dataset_name) for example in examples]
-
-            # Add examples to dataset
-            for example in langsmith_examples:
+            for example in examples:
+                langsmith_example = self._convert_to_langsmith_example(
+                    example, dataset_name
+                )
                 self.client.create_example(
-                    dataset_name=dataset_name, inputs=example.inputs, outputs=example.outputs, metadata=example.metadata
+                    inputs=langsmith_example.inputs,
+                    outputs=langsmith_example.outputs,
+                    metadata=langsmith_example.metadata,
+                    dataset_name=dataset_name,
                 )
 
-            logger.info(f"Added {len(examples)} examples to dataset {dataset_name}")
+            logger.info(f"Added {len(examples)} examples to '{dataset_name}'")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to add examples to dataset {dataset_name}: {e}")
+            logger.error(f"Error adding examples: {e}")
             return False
 
-    def get_golden_examples(self) -> Dict[str, List[ConversationExample]]:
-        """
-        Get curated golden examples for all evaluation categories.
+    def _convert_to_langsmith_example(
+        self,
+        example: ConversationExample,
+        dataset_name: str,
+    ) -> Example:
+        """Convert ConversationExample to LangSmith Example."""
+        return Example(
+            inputs={"message": example.user_message},
+            outputs={
+                "expected_agent": example.expected_agent,
+                "expected_response_type": example.expected_response_type,
+                "expected_completion": example.expected_completion,
+                "intent_category": example.intent_category,
+                "language": example.language,
+                "complexity": example.complexity,
+                "business_context": example.business_context,
+            },
+            metadata={
+                "dataset": dataset_name,
+                "created_at": datetime.now().isoformat(),
+                **example.metadata,
+            },
+        )
 
-        Returns:
-            Dictionary mapping dataset names to lists of examples
-        """
-        golden_examples = {}
+    def get_golden_examples(self) -> dict[str, list[ConversationExample]]:
+        """Get curated golden examples (delegated to module)."""
+        return get_golden_examples()
 
-        # =====================================================
-        # INTENT ROUTING AND AGENT SELECTION EXAMPLES
-        # =====================================================
-
-        golden_examples["aynux_intent_routing"] = [
-            # Product queries - should route to product_agent
-            ConversationExample(
-                user_message="¿Qué productos tienen disponibles?",
-                expected_agent="product_agent",
-                expected_response_type="product_list",
-                intent_category="product_inquiry",
-                complexity="simple",
-                metadata={"scenario": "general_product_query"},
-            ),
-            ConversationExample(
-                user_message="Busco una laptop para trabajo, ¿qué me recomiendan?",
-                expected_agent="smart_product_agent",
-                expected_response_type="product_recommendation",
-                intent_category="product_search",
-                complexity="moderate",
-                business_context="high_value_product",
-                metadata={"scenario": "specific_product_search", "category": "electronics"},
-            ),
-            # Category browsing - should route to category_agent
-            ConversationExample(
-                user_message="¿Qué categorías de productos manejan?",
-                expected_agent="category_agent",
-                expected_response_type="category_list",
-                intent_category="category_browse",
-                complexity="simple",
-                metadata={"scenario": "category_exploration"},
-            ),
-            ConversationExample(
-                user_message="Muéstrame todos los productos de tecnología",
-                expected_agent="category_agent",
-                expected_response_type="category_products",
-                intent_category="category_filter",
-                complexity="moderate",
-                metadata={"scenario": "category_filtering", "category": "technology"},
-            ),
-            # Support queries - should route to support_agent
-            ConversationExample(
-                user_message="Tengo un problema con mi pedido",
-                expected_agent="support_agent",
-                expected_response_type="support_assistance",
-                intent_category="support_request",
-                complexity="moderate",
-                expected_completion=False,  # May need escalation
-                metadata={"scenario": "order_issue"},
-            ),
-            ConversationExample(
-                user_message="¿Cómo puedo cambiar mi dirección de envío?",
-                expected_agent="support_agent",
-                expected_response_type="procedural_help",
-                intent_category="support_inquiry",
-                complexity="simple",
-                metadata={"scenario": "account_management"},
-            ),
-            # Tracking queries - should route to tracking_agent
-            ConversationExample(
-                user_message="¿Dónde está mi pedido #12345?",
-                expected_agent="tracking_agent",
-                expected_response_type="tracking_info",
-                intent_category="order_tracking",
-                complexity="simple",
-                metadata={"scenario": "order_status", "order_id": "12345"},
-            ),
-            # Promotions queries - should route to promotions_agent
-            ConversationExample(
-                user_message="¿Hay algún descuento disponible?",
-                expected_agent="promotions_agent",
-                expected_response_type="promotion_info",
-                intent_category="promotion_inquiry",
-                complexity="simple",
-                metadata={"scenario": "discount_inquiry"},
-            ),
-            # Billing queries - should route to invoice_agent
-            ConversationExample(
-                user_message="Necesito mi factura del mes pasado",
-                expected_agent="invoice_agent",
-                expected_response_type="invoice_info",
-                intent_category="billing_inquiry",
-                complexity="moderate",
-                metadata={"scenario": "invoice_request"},
-            ),
-            # Goodbye/farewell - should route to farewell_agent
-            ConversationExample(
-                user_message="Muchas gracias, eso es todo",
-                expected_agent="farewell_agent",
-                expected_response_type="farewell",
-                intent_category="conversation_end",
-                complexity="simple",
-                expected_completion=True,
-                metadata={"scenario": "conversation_closure"},
-            ),
-            # Complex/ambiguous - might route to fallback_agent
-            ConversationExample(
-                user_message="No sé qué necesito exactamente",
-                expected_agent="fallback_agent",
-                expected_response_type="clarification_request",
-                intent_category="unclear_intent",
-                complexity="complex",
-                expected_completion=False,
-                metadata={"scenario": "ambiguous_request"},
-            ),
-        ]
-
-        # =====================================================
-        # RESPONSE QUALITY EXAMPLES
-        # =====================================================
-
-        golden_examples["aynux_response_quality"] = [
-            ConversationExample(
-                user_message="¿Cuánto cuesta el iPhone 15?",
-                expected_agent="product_agent",
-                expected_response_type="price_info",
-                intent_category="price_inquiry",
-                complexity="simple",
-                metadata={
-                    "expected_elements": ["price", "availability", "specifications"],
-                    "quality_criteria": "specific_product_details",
-                },
-            ),
-            ConversationExample(
-                user_message="Estoy buscando un regalo para mi mamá, algo especial",
-                expected_agent="smart_product_agent",
-                expected_response_type="personalized_recommendations",
-                intent_category="gift_search",
-                complexity="moderate",
-                metadata={
-                    "expected_elements": ["questions_for_clarification", "category_suggestions", "price_ranges"],
-                    "quality_criteria": "personalized_approach",
-                },
-            ),
-            ConversationExample(
-                user_message="Mi pedido llegó dañado, ¿qué hago?",
-                expected_agent="support_agent",
-                expected_response_type="problem_resolution",
-                intent_category="damage_claim",
-                complexity="complex",
-                metadata={
-                    "expected_elements": ["empathy", "solution_steps", "policy_explanation"],
-                    "quality_criteria": "professional_problem_solving",
-                },
-            ),
-        ]
-
-        # =====================================================
-        # BUSINESS SCENARIO EXAMPLES
-        # =====================================================
-
-        golden_examples["aynux_business_scenarios"] = [
-            ConversationExample(
-                user_message="¿Tienen laptops Dell en oferta?",
-                expected_agent="product_agent",
-                expected_response_type="product_offer",
-                intent_category="promotional_product_inquiry",
-                complexity="moderate",
-                business_context="high_conversion_potential",
-                metadata={
-                    "conversion_signals": ["specific_brand", "price_sensitivity", "purchase_intent"],
-                    "expected_outcome": "product_presentation_with_pricing",
-                },
-            ),
-            ConversationExample(
-                user_message="Necesito comprar 10 sillas para mi oficina",
-                expected_agent="product_agent",
-                expected_response_type="bulk_quote",
-                intent_category="bulk_purchase",
-                complexity="complex",
-                business_context="high_value_b2b_sale",
-                metadata={
-                    "conversion_signals": ["quantity_specified", "immediate_need", "business_context"],
-                    "expected_outcome": "bulk_pricing_and_business_terms",
-                },
-            ),
-            ConversationExample(
-                user_message="Solo estoy mirando productos, gracias",
-                expected_agent="category_agent",
-                expected_response_type="browsing_assistance",
-                intent_category="browsing",
-                complexity="simple",
-                business_context="low_conversion_but_engagement_opportunity",
-                metadata={
-                    "conversion_signals": ["low_purchase_intent", "exploration_mode"],
-                    "expected_outcome": "helpful_browsing_facilitation",
-                },
-            ),
-        ]
-
-        # =====================================================
-        # MULTILINGUAL AND EDGE CASES
-        # =====================================================
-
-        golden_examples["aynux_multilingual"] = [
-            ConversationExample(
-                user_message="Hello, do you have any laptops?",
-                expected_agent="product_agent",
-                expected_response_type="language_switch_product_info",
-                intent_category="product_inquiry",
-                language="en",
-                complexity="simple",
-                metadata={"language_handling": "english_input_spanish_response", "scenario": "tourist_customer"},
-            ),
-            ConversationExample(
-                user_message="Bonjour, avez-vous des ordinateurs?",
-                expected_agent="fallback_agent",
-                expected_response_type="language_limitation_explanation",
-                intent_category="unsupported_language",
-                language="fr",
-                complexity="moderate",
-                expected_completion=False,
-                metadata={"language_handling": "unsupported_language_graceful_handling"},
-            ),
-        ]
-
-        golden_examples["aynux_edge_cases"] = [
-            ConversationExample(
-                user_message="",
-                expected_agent="fallback_agent",
-                expected_response_type="clarification_request",
-                intent_category="empty_input",
-                complexity="simple",
-                expected_completion=False,
-                metadata={"scenario": "empty_message_handling"},
-            ),
-            ConversationExample(
-                user_message="asdkjfaslkdjf laksjdf lkasjdflk",
-                expected_agent="fallback_agent",
-                expected_response_type="clarification_request",
-                intent_category="gibberish",
-                complexity="simple",
-                expected_completion=False,
-                metadata={"scenario": "nonsense_input_handling"},
-            ),
-            ConversationExample(
-                user_message="¿Venden drogas ilegales?",
-                expected_agent="fallback_agent",
-                expected_response_type="policy_clarification",
-                intent_category="inappropriate_request",
-                complexity="simple",
-                expected_completion=True,
-                metadata={"scenario": "inappropriate_content_handling", "policy_enforcement": True},
-            ),
-        ]
-
-        return golden_examples
-
-    async def initialize_all_datasets(self) -> Dict[str, bool]:
-        """
-        Initialize all standard datasets with golden examples.
-
-        Returns:
-            Dictionary mapping dataset names to creation success status
-        """
+    async def initialize_all_datasets(self) -> dict[str, bool]:
+        """Initialize all standard datasets with golden examples."""
         results = {}
         golden_examples = self.get_golden_examples()
 
@@ -427,178 +126,152 @@ class DatasetManager:
             config = self.dataset_configs.get(dataset_name, {})
             description = config.get("description", f"Evaluation dataset: {dataset_name}")
 
-            # Create dataset
             dataset = await self.create_dataset(dataset_name, description)
-            if not dataset:
-                results[dataset_name] = False
-                continue
-
-            # Add examples
-            success = await self.add_examples_to_dataset(dataset_name, examples)
-            results[dataset_name] = success
-
-            if success:
-                logger.info(f"Successfully initialized dataset {dataset_name} with {len(examples)} examples")
+            if dataset:
+                success = await self.add_examples_to_dataset(dataset_name, examples)
+                results[dataset_name] = success
             else:
-                logger.error(f"Failed to initialize dataset {dataset_name}")
+                results[dataset_name] = False
 
+        logger.info(f"Dataset initialization: {results}")
         return results
 
     async def update_dataset_from_production(
-        self, dataset_name: str, conversation_runs: List[Dict[str, Any]], quality_threshold: float = 0.8
+        self,
+        dataset_name: str,
+        production_examples: list[dict[str, Any]],
+        max_examples: int = 100,
     ) -> int:
-        """
-        Update dataset with high-quality examples from production conversations.
-
-        Args:
-            dataset_name: Target dataset name
-            conversation_runs: List of conversation run data
-            quality_threshold: Minimum quality score to include
-
-        Returns:
-            Number of examples added
-        """
+        """Update dataset with production conversation examples."""
         if not self.client:
             logger.error("LangSmith client not available")
             return 0
 
         added_count = 0
-
         try:
-            for run_data in conversation_runs:
-                # Extract conversation quality metrics
-                quality_score = run_data.get("quality_score", 0.0)
-                if quality_score < quality_threshold:
-                    continue
+            for prod_example in production_examples[:max_examples]:
+                try:
+                    example = ConversationExample(
+                        user_message=prod_example.get("message", ""),
+                        expected_agent=prod_example.get("routed_agent", "unknown"),
+                        expected_response_type=prod_example.get("response_type", "unknown"),
+                        intent_category=prod_example.get("detected_intent", "unknown"),
+                        complexity=prod_example.get("complexity", "moderate"),
+                        metadata={
+                            "source": "production",
+                            "timestamp": prod_example.get("timestamp"),
+                            "session_id": prod_example.get("session_id"),
+                            "user_satisfaction": prod_example.get("satisfaction_score"),
+                        },
+                    )
 
-                # Create example from production run
-                example = ConversationExample(
-                    user_message=run_data.get("user_message", ""),
-                    expected_agent=run_data.get("agent_used", ""),
-                    expected_response_type=run_data.get("response_type", ""),
-                    expected_completion=run_data.get("is_complete", True),
-                    intent_category=run_data.get("intent", ""),
-                    complexity=run_data.get("complexity", "moderate"),
-                    metadata={
-                        "source": "production",
-                        "quality_score": quality_score,
-                        "conversation_id": run_data.get("conversation_id", ""),
-                        "timestamp": run_data.get("timestamp", datetime.now().isoformat()),
-                    },
-                )
-
-                # Add to dataset
-                success = await self.add_examples_to_dataset(dataset_name, [example])
-                if success:
+                    langsmith_example = self._convert_to_langsmith_example(
+                        example, dataset_name
+                    )
+                    self.client.create_example(
+                        inputs=langsmith_example.inputs,
+                        outputs=langsmith_example.outputs,
+                        metadata=langsmith_example.metadata,
+                        dataset_name=dataset_name,
+                    )
                     added_count += 1
 
-            logger.info(f"Added {added_count} production examples to {dataset_name}")
+                except Exception as e:
+                    logger.warning(f"Skipping invalid example: {e}")
+                    continue
+
+            logger.info(f"Added {added_count} production examples to '{dataset_name}'")
             return added_count
 
         except Exception as e:
             logger.error(f"Error updating dataset from production: {e}")
             return added_count
 
-    def get_dataset_statistics(self, dataset_name: str) -> Dict[str, Any]:
-        """
-        Get statistics and analysis for a dataset.
-
-        Args:
-            dataset_name: Name of the dataset to analyze
-
-        Returns:
-            Dictionary containing dataset statistics
-        """
+    def get_dataset_statistics(self, dataset_name: str) -> dict[str, Any]:
+        """Get statistics for a specific dataset."""
         if not self.client:
             return {"error": "LangSmith client not available"}
 
         try:
-            # Get dataset examples
+            datasets = list(self.client.list_datasets(dataset_name=dataset_name))
+            if not datasets:
+                return {"error": f"Dataset '{dataset_name}' not found"}
+
+            dataset = datasets[0]
             examples = list(self.client.list_examples(dataset_name=dataset_name))
 
-            if not examples:
-                return {"error": "Dataset not found or empty"}
+            # Analyze examples with properly typed counters
+            agents: dict[str, int] = {}
+            intents: dict[str, int] = {}
+            complexity_counts: dict[str, int] = {"simple": 0, "moderate": 0, "complex": 0}
+            languages: dict[str, int] = {}
 
-            stats: Dict[str, Any] = {
-                "total_examples": len(examples),
-                "created_at": datetime.now().isoformat(),
-                "dataset_name": dataset_name,
-            }
+            for ex in examples:
+                outputs = ex.outputs or {}
 
-            # Analyze by categories
-            intent_categories: Dict[str, int] = {}
-            agents: Dict[str, int] = {}
-            complexity_levels: Dict[str, int] = {}
-            languages: Dict[str, int] = {}
-
-            for example in examples:
-                outputs = example.outputs or {}
-                # Intent categories
-                intent = outputs.get("intent_category", "unknown")
-                intent_categories[intent] = intent_categories.get(intent, 0) + 1
-
-                # Expected agents
+                # Count agents
                 agent = outputs.get("expected_agent", "unknown")
                 agents[agent] = agents.get(agent, 0) + 1
 
-                # Complexity levels
-                complexity = outputs.get("complexity", "unknown")
-                complexity_levels[complexity] = complexity_levels.get(complexity, 0) + 1
+                # Count intents
+                intent = outputs.get("intent_category", "unknown")
+                intents[intent] = intents.get(intent, 0) + 1
 
-                # Languages
-                language = outputs.get("language", "unknown")
-                languages[language] = languages.get(language, 0) + 1
+                # Count complexity
+                complexity = outputs.get("complexity", "moderate")
+                if complexity in complexity_counts:
+                    complexity_counts[complexity] += 1
 
-            stats["intent_distribution"] = intent_categories
-            stats["agent_distribution"] = agents
-            stats["complexity_distribution"] = complexity_levels
-            stats["language_distribution"] = languages
+                # Count languages
+                lang = outputs.get("language", "es")
+                languages[lang] = languages.get(lang, 0) + 1
 
-            return stats
+            return {
+                "dataset_name": dataset_name,
+                "total_examples": len(examples),
+                "created_at": dataset.created_at.isoformat() if dataset.created_at else None,
+                "agents": agents,
+                "intents": intents,
+                "complexity": complexity_counts,
+                "languages": languages,
+            }
 
         except Exception as e:
-            logger.error(f"Error getting dataset statistics: {e}")
+            logger.error(f"Error getting statistics: {e}")
             return {"error": str(e)}
 
-    async def export_dataset(self, dataset_name: str, export_path: Path) -> bool:
-        """
-        Export dataset to JSON file for backup or sharing.
-
-        Args:
-            dataset_name: Name of dataset to export
-            export_path: Path to save the exported file
-
-        Returns:
-            True if export successful, False otherwise
-        """
+    async def export_dataset(
+        self,
+        dataset_name: str,
+        export_path: Path,
+    ) -> bool:
+        """Export dataset to JSON file."""
         if not self.client:
             logger.error("LangSmith client not available")
             return False
 
         try:
-            # Get all examples
             examples = list(self.client.list_examples(dataset_name=dataset_name))
 
-            # Convert to exportable format
-            examples_list: List[Dict[str, Any]] = []
-            for example in examples:
-                examples_list.append(
-                    {"inputs": example.inputs, "outputs": example.outputs, "metadata": example.metadata}
-                )
-
-            export_data: Dict[str, Any] = {
+            export_data = {
                 "dataset_name": dataset_name,
-                "export_date": datetime.now().isoformat(),
-                "total_examples": len(examples),
-                "examples": examples_list,
+                "exported_at": datetime.now().isoformat(),
+                "example_count": len(examples),
+                "examples": [
+                    {
+                        "inputs": ex.inputs,
+                        "outputs": ex.outputs,
+                        "metadata": ex.metadata,
+                    }
+                    for ex in examples
+                ],
             }
 
-            # Save to file
             export_path.parent.mkdir(parents=True, exist_ok=True)
             with open(export_path, "w", encoding="utf-8") as f:
                 json.dump(export_data, f, indent=2, ensure_ascii=False)
 
-            logger.info(f"Exported dataset {dataset_name} to {export_path}")
+            logger.info(f"Exported {len(examples)} examples to {export_path}")
             return True
 
         except Exception as e:
@@ -606,13 +279,6 @@ class DatasetManager:
             return False
 
 
-# Global singleton instance
-_dataset_manager_instance: Optional[DatasetManager] = None
-
-
 def get_dataset_manager() -> DatasetManager:
-    """Get a singleton instance of DatasetManager."""
-    global _dataset_manager_instance
-    if _dataset_manager_instance is None:
-        _dataset_manager_instance = DatasetManager()
-    return _dataset_manager_instance
+    """Get singleton DatasetManager instance."""
+    return DatasetManager()

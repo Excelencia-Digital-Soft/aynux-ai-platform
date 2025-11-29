@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 EXCELENCIA_MODULES = {
     "historia_clinica": {
         "name": "Historia Cl\u00ednica Electr\u00f3nica",
-        "emoji": "\U0001F3E5",
-        "description": "Sistema completo de gesti\u00f3n de historias cl\u00ednicas digitales con cumplimiento normativo.",
+        "emoji": "\U0001f3e5",
+        "description": "Sistema completo de gesti\u00f3n de historias cl\u00ednicas digitales \
+            con cumplimiento normativo.",
         "features": [
             "Registro de pacientes",
             "Consultas m\u00e9dicas",
@@ -33,7 +34,7 @@ EXCELENCIA_MODULES = {
     },
     "turnos": {
         "name": "Sistema de Turnos M\u00e9dicos",
-        "emoji": "\U0001F4C5",
+        "emoji": "\U0001f4c5",
         "description": "Gesti\u00f3n automatizada de agendas y turnos m\u00e9dicos.",
         "features": [
             "Agendas m\u00faltiples",
@@ -45,7 +46,7 @@ EXCELENCIA_MODULES = {
     },
     "hospitalaria": {
         "name": "Gesti\u00f3n Hospitalaria",
-        "emoji": "\U0001F3E8",
+        "emoji": "\U0001f3e8",
         "description": "Administraci\u00f3n completa de hospitales y centros de salud.",
         "features": [
             "Internaciones",
@@ -57,7 +58,7 @@ EXCELENCIA_MODULES = {
     },
     "obras_sociales": {
         "name": "Obras Sociales",
-        "emoji": "\U0001F4CB",
+        "emoji": "\U0001f4cb",
         "description": "Gesti\u00f3n de prestaciones y facturaci\u00f3n para obras sociales.",
         "features": [
             "Autorizaciones",
@@ -69,7 +70,7 @@ EXCELENCIA_MODULES = {
     },
     "hoteleria": {
         "name": "Gesti\u00f3n Hotelera",
-        "emoji": "\U0001F3E8",
+        "emoji": "\U0001f3e8",
         "description": "Software completo de gesti\u00f3n para hoteles y alojamientos.",
         "features": [
             "Reservas",
@@ -81,7 +82,7 @@ EXCELENCIA_MODULES = {
     },
     "farmacia": {
         "name": "Sistema de Farmacia",
-        "emoji": "\U0001F48A",
+        "emoji": "\U0001f48a",
         "description": "Sistema especializado para gesti\u00f3n de farmacias.",
         "features": [
             "Stock",
@@ -159,9 +160,7 @@ class ExcelenciaAgent(IAgent):
             rag_context = await self._get_rag_context(user_message)
 
             # Generate response based on intent
-            response = await self._generate_response(
-                user_message, intent_data, rag_context
-            )
+            response = await self._generate_response(user_message, intent_data, rag_context)
 
             return {
                 "messages": [{"role": "assistant", "content": response}],
@@ -209,23 +208,11 @@ class ExcelenciaAgent(IAgent):
                 variables={"message": message},
             )
 
-            template = await self._prompt_manager.get_template(
-                PromptRegistry.EXCELENCIA_QUERY_INTENT
-            )
-            temperature = (
-                template.metadata.get("temperature", 0.3)
-                if template and template.metadata
-                else 0.3
-            )
-            max_tokens = (
-                template.metadata.get("max_tokens", 300)
-                if template and template.metadata
-                else 300
-            )
+            template = await self._prompt_manager.get_template(PromptRegistry.EXCELENCIA_QUERY_INTENT)
+            temperature = template.metadata.get("temperature", 0.3) if template and template.metadata else 0.3
+            max_tokens = template.metadata.get("max_tokens", 300) if template and template.metadata else 300
 
-            response = await self._llm.generate(
-                prompt, temperature=temperature, max_tokens=max_tokens
-            )
+            response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
 
             # Parse JSON response
             try:
@@ -263,9 +250,7 @@ class ExcelenciaAgent(IAgent):
             return ""
 
         try:
-            results = await self._knowledge_service.search(
-                query=message, limit=3, threshold=0.7
-            )
+            results = await self._knowledge_service.search(query=message, limit=3, threshold=0.7)
 
             if not results:
                 return ""
@@ -304,9 +289,7 @@ class ExcelenciaAgent(IAgent):
                 return await self._get_demo_response()
 
             # Build modules context
-            modules_context = self._build_modules_context(
-                intent_data.get("specific_modules", [])
-            )
+            modules_context = self._build_modules_context(intent_data.get("specific_modules", []))
 
             prompt = await self._prompt_manager.get_prompt(
                 PromptRegistry.EXCELENCIA_RESPONSE_GENERAL,
@@ -320,23 +303,11 @@ class ExcelenciaAgent(IAgent):
                 },
             )
 
-            template = await self._prompt_manager.get_template(
-                PromptRegistry.EXCELENCIA_RESPONSE_GENERAL
-            )
-            temperature = (
-                template.metadata.get("temperature", 0.7)
-                if template and template.metadata
-                else 0.7
-            )
-            max_tokens = (
-                template.metadata.get("max_tokens", 500)
-                if template and template.metadata
-                else 500
-            )
+            template = await self._prompt_manager.get_template(PromptRegistry.EXCELENCIA_RESPONSE_GENERAL)
+            temperature = template.metadata.get("temperature", 0.7) if template and template.metadata else 0.7
+            max_tokens = template.metadata.get("max_tokens", 500) if template and template.metadata else 500
 
-            response = await self._llm.generate(
-                prompt, temperature=temperature, max_tokens=max_tokens
-            )
+            response = await self._llm.generate(prompt, temperature=temperature, max_tokens=max_tokens)
             return response.strip()
 
         except Exception as e:
@@ -346,15 +317,13 @@ class ExcelenciaAgent(IAgent):
     async def _get_demo_response(self) -> str:
         """Get demo request response"""
         try:
-            template = await self._prompt_manager.get_template(
-                PromptRegistry.EXCELENCIA_DEMO_REQUEST
-            )
+            template = await self._prompt_manager.get_template(PromptRegistry.EXCELENCIA_DEMO_REQUEST)
             if template:
                 return template.template
         except Exception:
             pass
 
-        return """\u00a1Hola! \U0001F44B Con gusto te puedo mostrar una demo de Excelencia ERP.
+        return """\u00a1Hola! \U0001f44b Con gusto te puedo mostrar una demo de Excelencia ERP.
 
 Ofrecemos demostraciones personalizadas de nuestros sistemas:
 - Historia Cl\u00ednica Electr\u00f3nica
@@ -385,13 +354,13 @@ Ofrecemos demostraciones personalizadas de nuestros sistemas:
 
     def _get_default_response(self) -> str:
         """Get default response when LLM fails"""
-        return """\u00a1Hola! Soy el asistente de Excelencia ERP. \U0001F60A
+        return """\u00a1Hola! Soy el asistente de Excelencia ERP. \U0001f60a
 
 Excelencia es un sistema ERP modular especializado en:
-\u2022 \U0001F3E5 Gesti\u00f3n Hospitalaria
-\u2022 \U0001F4C5 Sistema de Turnos M\u00e9dicos
-\u2022 \U0001F3E8 Gesti\u00f3n Hotelera
-\u2022 \U0001F48A Sistema de Farmacia
+\u2022 \U0001f3e5 Gesti\u00f3n Hospitalaria
+\u2022 \U0001f4c5 Sistema de Turnos M\u00e9dicos
+\u2022 \U0001f3e8 Gesti\u00f3n Hotelera
+\u2022 \U0001f48a Sistema de Farmacia
 
 \u00bfSobre qu\u00e9 m\u00f3dulo te gustar\u00eda saber m\u00e1s?"""
 
@@ -401,7 +370,8 @@ Excelencia es un sistema ERP modular especializado en:
             "messages": [
                 {
                     "role": "assistant",
-                    "content": "Disculpa, tuve un problema procesando tu consulta sobre Excelencia. \u00bfPodr\u00edas reformularla?",
+                    "content": "Disculpa, tuve un problema procesando tu consulta sobre \
+                            Excelencia. \u00bfPodr\u00edas reformularla?",
                 }
             ],
             "current_agent": self.agent_name,

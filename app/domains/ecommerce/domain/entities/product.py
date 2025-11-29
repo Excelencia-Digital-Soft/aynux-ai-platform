@@ -5,7 +5,6 @@ Represents a product in the catalog with business logic.
 """
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import Any
 
 from app.core.domain import AggregateRoot, InsufficientStockException, Quantity
@@ -88,10 +87,7 @@ class Product(AggregateRoot[int]):
         Returns:
             True if stock is available and product is active
         """
-        return (
-            self.status == ProductStatus.ACTIVE
-            and self.get_available_stock() >= quantity
-        )
+        return self.status == ProductStatus.ACTIVE and self.get_available_stock() >= quantity
 
     def get_available_stock(self) -> int:
         """Get stock available for sale (total - reserved)."""

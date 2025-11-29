@@ -5,6 +5,7 @@ FastAPI router for Excelencia ERP domain endpoints.
 """
 
 from datetime import date
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
@@ -24,13 +25,16 @@ from app.domains.excelencia.application.use_cases import (
     ShowModulesRequest,
     ShowModulesUseCase,
 )
+from app.domains.excelencia.application.use_cases.schedule_demo import (
+    ScheduleDemoRequest,
+)
 
 router = APIRouter(prefix="/excelencia", tags=["Excelencia ERP"])
 
 
 @router.get("/modules", response_model=ModulesListResponse)
 async def get_modules(
-    use_case: ShowModulesUseCase = Depends(get_show_modules_use_case),
+    use_case: Annotated[ShowModulesUseCase, Depends(get_show_modules_use_case)],
 ):
     """Get available ERP modules."""
     # Create request with default values
@@ -39,11 +43,11 @@ async def get_modules(
 
     modules = [
         ModuleResponse(
-            name=m.display_name,
-            description=m.description,
-            features=m.features,
+            name=module.display_name,
+            description=module.description,
+            features=module.features,
         )
-        for m in result.modules
+        for module in result.modules
     ]
 
     return ModulesListResponse(
@@ -55,33 +59,39 @@ async def get_modules(
 @router.post("/demo", response_model=DemoResponse)
 async def schedule_demo(
     request: DemoRequest,
-    use_case: ScheduleDemoUseCase = Depends(get_schedule_demo_use_case),
+    use_case: Annotated[ScheduleDemoUseCase, Depends(get_schedule_demo_use_case)],
 ):
     """Schedule a demo session."""
-    result = await use_case.execute(
+    # Create use case request from API request
+    use_case_request = ScheduleDemoRequest(
         contact_name=request.contact_name,
         company_name=request.company_name,
-        email=request.email,
-        phone=request.phone,
+        contact_email=request.email,
+        contact_phone=request.phone,
         preferred_date=request.preferred_date,
         preferred_time=request.preferred_time,
-        modules_of_interest=request.modules_of_interest,
         notes=request.notes,
     )
+    result = await use_case.execute(use_case_request)
+
+    # Map response fields
+    demo_id = result.scheduled_demo.demo_id if result.scheduled_demo else None
+    scheduled_date = result.scheduled_demo.scheduled_date if result.scheduled_demo else None
+    scheduled_time = result.scheduled_demo.scheduled_time if result.scheduled_demo else None
 
     return DemoResponse(
         success=result.success,
-        message=result.message,
-        demo_id=result.demo_id,
-        scheduled_date=result.scheduled_date,
-        scheduled_time=result.scheduled_time,
+        message=result.message or result.error or "",
+        demo_id=demo_id,
+        scheduled_date=scheduled_date,
+        scheduled_time=scheduled_time,
     )
 
 
 @router.get("/demo/slots", response_model=list[AvailableSlotResponse])
 async def get_available_slots(
     target_date: date,
-    use_case: ScheduleDemoUseCase = Depends(get_schedule_demo_use_case),
+    use_case: Annotated[ScheduleDemoUseCase, Depends(get_schedule_demo_use_case)],
 ):
     """Get available demo slots for a date."""
     slots = await use_case.get_available_slots(target_date)
@@ -89,7 +99,7 @@ async def get_available_slots(
     return [
         AvailableSlotResponse(
             date=slot.date,
-            time=slot.time,
+            time=slot.start_time,
             is_available=slot.is_available,
         )
         for slot in slots
