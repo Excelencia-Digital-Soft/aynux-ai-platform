@@ -89,6 +89,7 @@ class PromptRegistry:
     AGENTS_FALLBACK_DEFAULT_RESPONSE = "agents.fallback.default_response"
     AGENTS_FALLBACK_ERROR_RESPONSE = "agents.fallback.error_response"
     AGENTS_SUPERVISOR_ENHANCEMENT = "agents.supervisor.enhancement"
+    AGENTS_SERVICES_CONFIG = "agents.services.config"
 
     # === ORCHESTRATOR (additional) ===
     ORCHESTRATOR_DOMAIN_DETECTION = "orchestrator.domain.detection"

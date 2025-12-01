@@ -144,8 +144,8 @@ class SQLAlchemyCreditAccountRepository(ICreditAccountRepository):
         """Find overdue accounts."""
         result = await self.session.execute(
             select(CreditAccountModel)
-            .where(CreditAccountModel.days_overdue >= min_days)
-            .order_by(CreditAccountModel.days_overdue.desc())
+            .where(CreditAccountModel.days_overdue >= min_days)  # type: ignore[operator]
+            .order_by(CreditAccountModel.days_overdue.desc())  # type: ignore[union-attr]
             .limit(limit)
         )
         models = result.scalars().all()
@@ -204,8 +204,8 @@ class SQLAlchemyCreditAccountRepository(ICreditAccountRepository):
 
         account = CreditAccount(
             id=model.id,
-            account_number=model.account_number,
-            customer_id=model.customer_id,
+            account_number=model.account_number or "",
+            customer_id=model.customer_id or 0,
             customer_name=model.customer_name or "",
             credit_limit=CreditLimit(credit_limit_val),
             interest_rate=InterestRate(interest_rate_val),

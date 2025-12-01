@@ -5,7 +5,7 @@ Represents a medical professional with schedule and specialties.
 """
 
 from dataclasses import dataclass, field
-from datetime import date, time
+from datetime import time
 from typing import Any
 
 from app.core.domain import AggregateRoot, Email, PhoneNumber

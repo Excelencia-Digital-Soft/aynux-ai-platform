@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from pydantic import ValidationError
 
@@ -5,6 +7,8 @@ from app.core.shared.utils.phone_normalizer import (
     PhoneNumberRequest,
     PydanticPhoneNumberNormalizer,
 )
+
+API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
 
 
 class TestPhoneNumberRequest:
@@ -283,7 +287,7 @@ def example_fastapi_client():
         async with httpx.AsyncClient() as client:
             # Test normalización individual
             response = await client.post(
-                "http://localhost:8000/api/v1/phone/normalize",
+                f"http://localhost:8001{API_V1_STR}/phone/normalize",
                 json={"phone_number": "+54 9 11 2345-6789", "country": "argentina", "force_test_mode": False},
             )
 

@@ -8,11 +8,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
-from app.core.domain import AppointmentConflictException
-
 from ..entities.appointment import Appointment
 from ..entities.doctor import Doctor
-from ..value_objects.appointment_status import AppointmentStatus, DoctorSpecialty, TimeSlot
+from ..value_objects.appointment_status import AppointmentStatus, DoctorSpecialty
 
 
 @dataclass

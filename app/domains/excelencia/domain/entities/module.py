@@ -21,6 +21,8 @@ class ModuleCategory(str, Enum):
     PRODUCTION = "production"
     CRM = "crm"
     REPORTING = "reporting"
+    HEALTHCARE = "healthcare"
+    HOSPITALITY = "hospitality"
 
 
 class ModuleStatus(str, Enum):

@@ -1,13 +1,21 @@
 """
 Agente especializado en saludos y presentacion de capacidades del sistema (Multi-Dominio)
+
+Este agente genera saludos dinamicos basados en los agentes habilitados en el sistema,
+con soporte multilenguaje (es, en, pt).
 """
 
 import logging
 from typing import Any
 
+from app.config.agent_capabilities import (
+    SupportedLanguage,
+    format_service_list,
+    get_service_names,
+)
 from app.core.agents import BaseAgent
-from app.integrations.llm import OllamaLLM
 from app.core.utils.tracing import trace_async_method
+from app.integrations.llm import OllamaLLM
 from app.prompts.loader import PromptLoader
 from app.prompts.registry import PromptRegistry
 from app.utils.language_detector import LanguageDetector
@@ -15,25 +23,22 @@ from app.utils.language_detector import LanguageDetector
 logger = logging.getLogger(__name__)
 
 
-# Mapeo de dominios a capacidades/servicios
-DOMAIN_CAPABILITIES = {
+# Mapeo de dominios a contextos (sin servicios hardcodeados)
+# Los servicios ahora se obtienen dinamicamente de enabled_agents
+DOMAIN_CONTEXTS = {
     "ecommerce": {
-        "services": ["productos", "pedidos", "promociones", "soporte"],
         "context": "consultas de tienda online",
         "hint": "e-commerce",
     },
     "hospital": {
-        "services": ["citas", "especialistas", "emergencias", "informacion"],
         "context": "servicios medicos",
         "hint": "salud",
     },
     "credit": {
-        "services": ["prestamos", "creditos", "tasas", "consultoria"],
         "context": "servicios financieros",
         "hint": "finanzas",
     },
     "excelencia": {
-        "services": ["demos", "modulos", "soporte", "capacitacion"],
         "context": "software empresarial",
         "hint": "ERP",
     },
@@ -50,6 +55,10 @@ class GreetingAgent(BaseAgent):
         # Configuracion especifica del agente
         self.model = "llama3.1"  # Modelo rapido para saludos
         self.temperature = 0.7  # Un poco de creatividad para respuestas amigables
+
+        # Store enabled agents for dynamic service suggestions
+        self.enabled_agents: list[str] = (config or {}).get("enabled_agents", [])
+        logger.debug(f"GreetingAgent initialized with enabled_agents: {self.enabled_agents}")
 
         # Inicializar detector de idioma
         self.language_detector = LanguageDetector(
@@ -133,8 +142,15 @@ class GreetingAgent(BaseAgent):
         business_domain = state_dict.get("business_domain", "ecommerce")
         logger.info(f"Generating greeting for domain: {business_domain}")
 
-        # Obtener capacidades del dominio
-        domain_config = DOMAIN_CAPABILITIES.get(business_domain, DOMAIN_CAPABILITIES["ecommerce"])
+        # Obtener contexto del dominio (sin servicios hardcodeados)
+        domain_context = DOMAIN_CONTEXTS.get(business_domain, DOMAIN_CONTEXTS["ecommerce"])
+
+        # Get dynamic services based on enabled agents and detected language
+        # Cast to SupportedLanguage (default to "es" if not supported)
+        lang: SupportedLanguage = detected_language if detected_language in ("es", "en", "pt") else "es"
+        dynamic_services = get_service_names(self.enabled_agents, lang)
+
+        logger.debug(f"Dynamic services for greeting: {dynamic_services}")
 
         # Cargar prompt desde YAML
         try:
@@ -144,15 +160,15 @@ class GreetingAgent(BaseAgent):
 
             if not prompt_template:
                 logger.warning("Could not load greeting prompt from YAML, using fallback")
-                return self._get_fallback_greeting(detected_language, domain_config)
+                return self._get_fallback_greeting(lang)
 
-            # Preparar variables para el prompt
+            # Preparar variables para el prompt con servicios dinamicos
             prompt_variables = {
                 "domain_type": business_domain,
-                "primary_services": ", ".join(domain_config["services"]),
+                "primary_services": ", ".join(dynamic_services) if dynamic_services else "asistencia general",
                 "language": detected_language,
-                "domain_hint": domain_config["hint"],
-                "domain_context": domain_config["context"],
+                "domain_hint": domain_context["hint"],
+                "domain_context": domain_context["context"],
             }
 
             # Renderizar el prompt con variables
@@ -181,40 +197,40 @@ class GreetingAgent(BaseAgent):
 
         except Exception as e:
             logger.error(f"Error generating greeting with YAML prompt: {str(e)}")
-            # Fallback generico
-            return self._get_fallback_greeting(detected_language, domain_config)
+            # Fallback generico con servicios dinamicos
+            return self._get_fallback_greeting(lang)
 
-    def _get_fallback_greeting(self, language: str, domain_config: dict[str, Any]) -> str:
+    def _get_fallback_greeting(self, language: SupportedLanguage = "es") -> str:
         """
-        Genera un greeting fallback generico basado en idioma y dominio.
+        Genera un greeting fallback generico basado en idioma y agentes habilitados.
 
         Args:
             language: Idioma detectado (es, en, pt)
-            domain_config: Configuracion del dominio
 
         Returns:
-            Greeting fallback apropiado
+            Greeting fallback apropiado con servicios dinamicos
         """
-        services_list = ", ".join(domain_config["services"])
+        # Generar lista de servicios dinamica basada en agentes habilitados
+        service_list = format_service_list(self.enabled_agents, language)
 
         if language == "en":
             return (
                 f"Hello! Welcome to Aynux.\n\n"
-                f"I'm your virtual assistant for {domain_config['context']}. "
-                f"I can help you with: {services_list}.\n\n"
+                f"I'm your virtual assistant. I can help you with:\n"
+                f"{service_list}\n\n"
                 f"How can I help you today?"
             )
         elif language == "pt":
             return (
                 f"Ola! Bem-vindo ao Aynux.\n\n"
-                f"Sou seu assistente virtual para {domain_config['context']}. "
-                f"Posso ajuda-lo com: {services_list}.\n\n"
+                f"Sou seu assistente virtual. Posso ajuda-lo com:\n"
+                f"{service_list}\n\n"
                 f"Como posso ajuda-lo hoje?"
             )
         else:  # Spanish (default)
             return (
                 f"Hola! Bienvenido a Aynux.\n\n"
-                f"Soy tu asistente virtual para {domain_config['context']}. "
-                f"Puedo ayudarte con: {services_list}.\n\n"
+                f"Soy tu asistente virtual. Puedo ayudarte con:\n"
+                f"{service_list}\n\n"
                 f"En que te puedo ayudar hoy?"
             )

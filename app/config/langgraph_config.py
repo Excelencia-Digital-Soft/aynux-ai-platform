@@ -77,7 +77,7 @@ class LangGraphConfig(BaseModel):
             environment=os.getenv("ENVIRONMENT", "development"),
             debug_mode=os.getenv("DEBUG", "false").lower() == "true",
             use_checkpointing=os.getenv("USE_CHECKPOINTING", "true").lower() == "true",
-            enabled_agents=settings.ENABLED_AGENTS,  # Load from Settings
+            enabled_agents=settings.effective_enabled_agents,  # Uses computed field that excludes product_agent when DUX disabled
             integrations=IntegrationConfig(
                 ollama_url=os.getenv("OLLAMA_API_URL", "http://localhost:11434"),
                 ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1:8b"),

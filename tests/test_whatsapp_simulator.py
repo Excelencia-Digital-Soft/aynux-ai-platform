@@ -10,7 +10,7 @@ import json
 import os
 import sys
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 from uuid import uuid4
 
 import httpx
@@ -21,15 +21,17 @@ from rich.table import Table
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
+
 console = Console()
 
 
 class WhatsAppSimulator:
     """Simulador de mensajes WhatsApp para testing"""
 
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = "http://localhost:8001"):
         self.base_url = base_url
-        self.webhook_url = f"{base_url}/api/v1/webhook/"
+        self.webhook_url = f"{base_url}{API_V1_STR}/webhook/"
         self.message_count = 0
 
     def generate_whatsapp_payload(
@@ -131,7 +133,7 @@ class WhatsAppSimulator:
                     result = response.json()
 
                     # Mostrar respuesta
-                    console.print(f"\n[bold green]✅ Respuesta del Bot:[/bold green]")
+                    console.print("\n[bold green]✅ Respuesta del Bot:[/bold green]")
 
                     if "result" in result and isinstance(result["result"], dict):
                         bot_message = result["result"].get("message", "Sin respuesta")
@@ -277,7 +279,7 @@ class WhatsAppSimulator:
         # Verificar que el servidor esté activo
         try:
             async with httpx.AsyncClient() as client:
-                health = await client.get(f"{self.base_url}/api/v1/webhook/health")
+                health = await client.get(f"{self.base_url}{API_V1_STR}/webhook/health")
                 if health.status_code == 200:
                     console.print("[green]✅ Servidor activo y listo[/green]\n")
                 else:
@@ -370,8 +372,8 @@ async def main():
     parser = argparse.ArgumentParser(description="WhatsApp Webhook Simulator")
     parser.add_argument(
         "--url",
-        default="http://localhost:8000",
-        help="Base URL del servidor (default: http://localhost:8000)",
+        default="http://localhost:8001",
+        help="Base URL del servidor (default: http://localhost:8001)",
     )
     parser.add_argument(
         "--scenario",

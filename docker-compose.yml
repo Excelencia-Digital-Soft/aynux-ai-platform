@@ -1,0 +1,244 @@
+# =============================================================================
+# Aynux Docker Compose - Development Environment
+# =============================================================================
+# Usage:
+#   docker compose up -d              # Start all services
+#   docker compose up -d --build      # Rebuild and start
+#   docker compose logs -f app        # Follow app logs
+#   docker compose down               # Stop all services
+#   docker compose down -v            # Stop and remove volumes
+#
+# Profiles:
+#   --profile ollama                  # Include Ollama in Docker (CPU mode)
+#   --profile tools                   # Include Streamlit Admin Dashboard
+# =============================================================================
+
+name: aynux
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL with pgvector extension
+  # Image includes pgvector pre-installed
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aynux-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-aynux}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-aynux_dev}
+      POSTGRES_DB: ${DB_NAME:-aynux}
+      # Performance tuning for development
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-aynux} -d ${DB_NAME:-aynux}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - aynux-network
+
+  # ---------------------------------------------------------------------------
+  # Redis for caching and session storage
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: aynux-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aynux-network
+
+  # ---------------------------------------------------------------------------
+  # Ollama LLM Service (CPU mode - optional profile)
+  # NOTE: For Apple Silicon with GPU acceleration, run Ollama natively:
+  #   brew install ollama && ollama serve
+  # Then use OLLAMA_API_URL=http://host.docker.internal:11434
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aynux-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - aynux-network
+    profiles:
+      - ollama  # Only starts with: docker compose --profile ollama up
+
+  # ---------------------------------------------------------------------------
+  # FastAPI Application (Development with hot-reload)
+  # ---------------------------------------------------------------------------
+  # NOTE: If docker compose build fails with credential errors, build manually:
+  #   docker build --target development -t aynux-app:dev .
+  # ---------------------------------------------------------------------------
+  app:
+    image: aynux-app:dev
+    pull_policy: never  # Use local image, don't try to pull from registry
+    # Uncomment below to build instead of using pre-built image:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: development
+    container_name: aynux-app
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      # Mount source code for hot-reload
+      - ./app:/app/app:cached
+      # Mount tests for development
+      - ./tests:/app/tests:cached
+      # Don't mount .venv - use container's virtual environment
+    environment:
+      # Database Configuration
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-aynux}
+      - DB_USER=${DB_USER:-aynux}
+      - DB_PASSWORD=${DB_PASSWORD:-aynux_dev}
+      - DB_POOL_SIZE=5
+      - DB_MAX_OVERFLOW=10
+      - DB_POOL_RECYCLE=3600
+      - DB_POOL_TIMEOUT=30
+      - DB_ECHO=false
+      # Redis Configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=
+      # Ollama Configuration
+      # For native Ollama on Mac, uses host.docker.internal
+      # For Docker Ollama, change to http://ollama:11434
+      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://host.docker.internal:11434}
+      - OLLAMA_API_MODEL=${OLLAMA_API_MODEL:-deepseek-r1:7b}
+      - OLLAMA_API_MODEL_EMBEDDING=${OLLAMA_API_MODEL_EMBEDDING:-nomic-embed-text}
+      # pgvector Configuration
+      - PGVECTOR_SIMILARITY_THRESHOLD=0.7
+      # Application Settings
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - TESTING=false
+      # API Configuration
+      - API_V1_STR=/api/v1
+      - PROJECT_NAME=Aynux WhatsApp Bot
+      # DUX Sync - controlled via .env file only (not host environment)
+      # Set DUX_SYNC_ENABLED=true in .env to enable
+      # LangSmith (optional - for tracing)
+      - LANGSMITH_TRACING_ENABLED=${LANGSMITH_TRACING_ENABLED:-false}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-}
+      - LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-aynux-dev}
+      # Skip DB init since we want to control it
+      - SKIP_DB_INIT=false
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - aynux-network
+    extra_hosts:
+      # Allow connecting to host machine (for native Ollama on Mac)
+      - "host.docker.internal:host-gateway"
+
+  # ---------------------------------------------------------------------------
+  # Streamlit Admin Dashboard (Unified admin tools - optional profile)
+  # Includes: Chat Visualizer, Knowledge Base, Excelencia Management
+  # ---------------------------------------------------------------------------
+  admin:
+    image: aynux-app:dev
+    pull_policy: never
+    container_name: aynux-admin
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./app:/app/app:cached
+      - ./streamlit_admin:/app/streamlit_admin:cached
+    command: >
+      uv run streamlit run streamlit_admin/app.py
+      --server.port=8501
+      --server.address=0.0.0.0
+      --server.headless=true
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-aynux}
+      - DB_USER=${DB_USER:-aynux}
+      - DB_PASSWORD=${DB_PASSWORD:-aynux_dev}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://host.docker.internal:11434}
+      - OLLAMA_API_MODEL=${OLLAMA_API_MODEL:-deepseek-r1:7b}
+      - ENVIRONMENT=development
+      # API URL inside Docker network
+      - API_BASE_URL=http://app:8001
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      - app
+    networks:
+      - aynux-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    profiles:
+      - tools  # Only starts with: docker compose --profile tools up
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  aynux-network:
+    driver: bridge
+    name: aynux-network
+
+# =============================================================================
+# Volumes (persistent data)
+# =============================================================================
+volumes:
+  postgres_data:
+    name: aynux-postgres-data
+  redis_data:
+    name: aynux-redis-data
+  ollama_data:
+    name: aynux-ollama-data

@@ -15,7 +15,6 @@ from app.domains.healthcare.domain.entities.appointment import Appointment
 from app.domains.healthcare.domain.value_objects.appointment_status import (
     AppointmentStatus,
     DoctorSpecialty,
-    TriagePriority,
 )
 from app.domains.healthcare.infrastructure.persistence.sqlalchemy.models import AppointmentModel
 
@@ -341,43 +340,45 @@ class SQLAlchemyAppointmentRepository(IAppointmentRepository):
 
     def _to_entity(self, model: AppointmentModel) -> Appointment:
         """Convert model to entity."""
+        # Note: Using Column() syntax - attribute access returns Column objects at class level
+        # At instance level, they return actual values. Type ignore needed for Pyright.
         appointment = Appointment(
-            id=model.id,
-            patient_id=model.patient_id,
-            patient_name=model.patient_name or "",
-            doctor_id=model.doctor_id or 0,
-            doctor_name=model.doctor_name or "",
-            appointment_date=model.appointment_date,
-            start_time=model.start_time,
-            end_time=model.end_time,
-            duration_minutes=model.duration_minutes or 30,
-            specialty=model.specialty or DoctorSpecialty.GENERAL_PRACTICE,
-            appointment_type=model.appointment_type or "consultation",
-            is_emergency=model.is_emergency or False,
-            triage_priority=model.triage_priority,
-            status=model.status or AppointmentStatus.SCHEDULED,
-            location=model.location,
-            is_telemedicine=model.is_telemedicine or False,
-            video_call_url=model.video_call_url,
-            reason=model.reason,
-            symptoms=model.symptoms or [],
-            notes=model.notes,
-            diagnosis=model.diagnosis,
-            prescriptions=model.prescriptions or [],
-            reminder_sent=model.reminder_sent or False,
-            reminder_sent_at=model.reminder_sent_at,
-            confirmed_at=model.confirmed_at,
-            started_at=model.started_at,
-            completed_at=model.completed_at,
-            cancelled_at=model.cancelled_at,
-            cancellation_reason=model.cancellation_reason,
-            cancelled_by=model.cancelled_by,
+            id=model.id,  # type: ignore[arg-type]
+            patient_id=model.patient_id,  # type: ignore[arg-type]
+            patient_name=model.patient_name or "",  # type: ignore[arg-type]
+            doctor_id=model.doctor_id or 0,  # type: ignore[arg-type]
+            doctor_name=model.doctor_name or "",  # type: ignore[arg-type]
+            appointment_date=model.appointment_date,  # type: ignore[arg-type]
+            start_time=model.start_time,  # type: ignore[arg-type]
+            end_time=model.end_time,  # type: ignore[arg-type]
+            duration_minutes=model.duration_minutes or 30,  # type: ignore[arg-type]
+            specialty=model.specialty or DoctorSpecialty.GENERAL_PRACTICE,  # type: ignore[arg-type]
+            appointment_type=model.appointment_type or "consultation",  # type: ignore[arg-type]
+            is_emergency=model.is_emergency or False,  # type: ignore[arg-type]
+            triage_priority=model.triage_priority,  # type: ignore[arg-type]
+            status=model.status or AppointmentStatus.SCHEDULED,  # type: ignore[arg-type]
+            location=model.location,  # type: ignore[arg-type]
+            is_telemedicine=model.is_telemedicine or False,  # type: ignore[arg-type]
+            video_call_url=model.video_call_url,  # type: ignore[arg-type]
+            reason=model.reason,  # type: ignore[arg-type]
+            symptoms=model.symptoms or [],  # type: ignore[arg-type]
+            notes=model.notes,  # type: ignore[arg-type]
+            diagnosis=model.diagnosis,  # type: ignore[arg-type]
+            prescriptions=model.prescriptions or [],  # type: ignore[arg-type]
+            reminder_sent=model.reminder_sent or False,  # type: ignore[arg-type]
+            reminder_sent_at=model.reminder_sent_at,  # type: ignore[arg-type]
+            confirmed_at=model.confirmed_at,  # type: ignore[arg-type]
+            started_at=model.started_at,  # type: ignore[arg-type]
+            completed_at=model.completed_at,  # type: ignore[arg-type]
+            cancelled_at=model.cancelled_at,  # type: ignore[arg-type]
+            cancellation_reason=model.cancellation_reason,  # type: ignore[arg-type]
+            cancelled_by=model.cancelled_by,  # type: ignore[arg-type]
         )
 
         if model.created_at:
-            appointment.created_at = model.created_at
+            appointment.created_at = model.created_at  # type: ignore[assignment]
         if model.updated_at:
-            appointment.updated_at = model.updated_at
+            appointment.updated_at = model.updated_at  # type: ignore[assignment]
 
         return appointment
 
@@ -417,32 +418,34 @@ class SQLAlchemyAppointmentRepository(IAppointmentRepository):
 
     def _update_model(self, model: AppointmentModel, appointment: Appointment) -> None:
         """Update model from entity."""
-        model.patient_id = appointment.patient_id
-        model.patient_name = appointment.patient_name
-        model.doctor_id = appointment.doctor_id if appointment.doctor_id else None
-        model.doctor_name = appointment.doctor_name
-        model.appointment_date = appointment.appointment_date
-        model.start_time = appointment.start_time
-        model.end_time = appointment.end_time
-        model.duration_minutes = appointment.duration_minutes
-        model.specialty = appointment.specialty
-        model.appointment_type = appointment.appointment_type
-        model.is_emergency = appointment.is_emergency
-        model.triage_priority = appointment.triage_priority
-        model.status = appointment.status
-        model.location = appointment.location
-        model.is_telemedicine = appointment.is_telemedicine
-        model.video_call_url = appointment.video_call_url
-        model.reason = appointment.reason
-        model.symptoms = appointment.symptoms
-        model.notes = appointment.notes
-        model.diagnosis = appointment.diagnosis
-        model.prescriptions = appointment.prescriptions
-        model.reminder_sent = appointment.reminder_sent
-        model.reminder_sent_at = appointment.reminder_sent_at
-        model.confirmed_at = appointment.confirmed_at
-        model.started_at = appointment.started_at
-        model.completed_at = appointment.completed_at
-        model.cancelled_at = appointment.cancelled_at
-        model.cancellation_reason = appointment.cancellation_reason
-        model.cancelled_by = appointment.cancelled_by
+        # Note: SQLAlchemy Column() syntax means Pyright sees Column objects at class level.
+        # At runtime, these assignments work correctly.
+        model.patient_id = appointment.patient_id  # type: ignore[assignment]
+        model.patient_name = appointment.patient_name  # type: ignore[assignment]
+        model.doctor_id = appointment.doctor_id if appointment.doctor_id else None  # type: ignore[assignment]
+        model.doctor_name = appointment.doctor_name  # type: ignore[assignment]
+        model.appointment_date = appointment.appointment_date  # type: ignore[assignment]
+        model.start_time = appointment.start_time  # type: ignore[assignment]
+        model.end_time = appointment.end_time  # type: ignore[assignment]
+        model.duration_minutes = appointment.duration_minutes  # type: ignore[assignment]
+        model.specialty = appointment.specialty  # type: ignore[assignment]
+        model.appointment_type = appointment.appointment_type  # type: ignore[assignment]
+        model.is_emergency = appointment.is_emergency  # type: ignore[assignment]
+        model.triage_priority = appointment.triage_priority  # type: ignore[assignment]
+        model.status = appointment.status  # type: ignore[assignment]
+        model.location = appointment.location  # type: ignore[assignment]
+        model.is_telemedicine = appointment.is_telemedicine  # type: ignore[assignment]
+        model.video_call_url = appointment.video_call_url  # type: ignore[assignment]
+        model.reason = appointment.reason  # type: ignore[assignment]
+        model.symptoms = appointment.symptoms  # type: ignore[assignment]
+        model.notes = appointment.notes  # type: ignore[assignment]
+        model.diagnosis = appointment.diagnosis  # type: ignore[assignment]
+        model.prescriptions = appointment.prescriptions  # type: ignore[assignment]
+        model.reminder_sent = appointment.reminder_sent  # type: ignore[assignment]
+        model.reminder_sent_at = appointment.reminder_sent_at  # type: ignore[assignment]
+        model.confirmed_at = appointment.confirmed_at  # type: ignore[assignment]
+        model.started_at = appointment.started_at  # type: ignore[assignment]
+        model.completed_at = appointment.completed_at  # type: ignore[assignment]
+        model.cancelled_at = appointment.cancelled_at  # type: ignore[assignment]
+        model.cancellation_reason = appointment.cancellation_reason  # type: ignore[assignment]
+        model.cancelled_by = appointment.cancelled_by  # type: ignore[assignment]

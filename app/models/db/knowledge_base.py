@@ -13,6 +13,7 @@ from sqlalchemy import Boolean, Column, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, ENUM, JSONB, TSVECTOR, UUID
 
 from .base import Base, TimestampMixin
+from .schemas import CORE_SCHEMA
 
 # Enum for document types
 DOCUMENT_TYPES = [
@@ -125,4 +126,5 @@ class CompanyKnowledge(Base, TimestampMixin):
         Index("idx_knowledge_search_vector", search_vector, postgresql_using="gin"),
         # GIN index for tags array
         Index("idx_knowledge_tags", tags, postgresql_using="gin"),
+        {"schema": CORE_SCHEMA},
     )

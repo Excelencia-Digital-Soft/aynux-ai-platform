@@ -3,65 +3,43 @@ Excelencia Node - Main node for ERP Excelencia queries.
 
 Migrated from app/agents/subagent/excelencia_agent.py
 Handles information about demos, modules, support, training and corporate queries via RAG.
+
+Modules are loaded dynamically from PostgreSQL (erp_modules table) instead of hardcoded.
 """
 
 import json
 import logging
 from typing import Any
 
-from app.core.agents import BaseAgent
-from app.integrations.llm import OllamaLLM
-from app.core.utils.tracing import trace_async_method
 from app.config.settings import get_settings
+from app.core.agents import BaseAgent
+from app.core.utils.tracing import trace_async_method
 from app.database.async_db import get_async_db_context
+from app.integrations.llm import OllamaLLM
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-# Module information for Excelencia ERP
-EXCELENCIA_MODULES = {
-    "historia_clinica": {
+# Fallback modules when database is unavailable
+_FALLBACK_MODULES: dict[str, dict[str, Any]] = {
+    "HC-001": {
         "name": "Historia Clínica Electrónica",
-        "description": "Sistema completo de gestión de historias clínicas digitales con cumplimiento normativo",
-        "features": [
-            "Registro de pacientes",
-            "Consultas médicas",
-            "Prescripciones",
-            "Informes",
-            "Cumplimiento normativo",
-        ],
-        "target": "Hospitales, Clínicas, Centros médicos",
+        "description": "Sistema de gestión de historias clínicas digitales",
+        "features": ["Registro de pacientes", "Consultas médicas", "Prescripciones"],
+        "target": "healthcare",
     },
-    "turnos_medicos": {
+    "TM-001": {
         "name": "Sistema de Turnos Médicos",
-        "description": "Gestión integral de agendas médicas y turnos de pacientes",
-        "features": ["Agenda médica", "Turnos online", "Recordatorios", "Confirmaciones automáticas", "App móvil"],
-        "target": "Consultorios, Centros médicos, Especialistas",
+        "description": "Gestión de agendas y turnos de pacientes",
+        "features": ["Agenda médica", "Turnos online", "Recordatorios"],
+        "target": "healthcare",
     },
-    "hospitales": {
-        "name": "Gestión Hospitalaria",
-        "description": "Sistema integral para administración de hospitales y sanatorios",
-        "features": ["Admisión", "Internación", "Quirófanos", "Farmacia", "Facturación", "Stock"],
-        "target": "Hospitales, Sanatorios, Clínicas",
-    },
-    "obras_sociales": {
-        "name": "Gestión de Obras Sociales",
-        "description": "Sistema para administración de obras sociales y prepagas",
-        "features": ["Afiliaciones", "Prestaciones", "Facturación", "Autorización", "Cobranzas"],
-        "target": "Obras sociales, Prepagas, Mutuales",
-    },
-    "hoteles": {
-        "name": "Sistema de Gestión Hotelera",
-        "description": "Software completo para administración de hoteles y alojamientos",
-        "features": ["Reservas", "Check-in/out", "Housekeeping", "POS", "Revenue Management"],
-        "target": "Hoteles, Apart, Hostels, Complejos",
-    },
-    "farmacias": {
-        "name": "Gestión de Farmacias",
-        "description": "Sistema especializado para administración de farmacias",
-        "features": ["Ventas", "Stock", "Recetas", "Obras sociales", "Trazabilidad"],
-        "target": "Farmacias, Droguerías",
+    "HO-001": {
+        "name": "Gestión Hotelera",
+        "description": "Software para administración de hoteles",
+        "features": ["Reservas", "Check-in/out", "Facturación"],
+        "target": "hospitality",
     },
 }
 
@@ -101,7 +79,37 @@ class ExcelenciaNode(BaseAgent):
         self.use_rag = getattr(settings, "KNOWLEDGE_BASE_ENABLED", True)
         self.rag_max_results = 3
 
+        # Module cache (loaded on first use from DB)
+        self._modules_cache: dict[str, dict[str, Any]] | None = None
+
         logger.info(f"ExcelenciaNode initialized (RAG enabled: {self.use_rag})")
+
+    async def _get_modules(self) -> dict[str, dict[str, Any]]:
+        """
+        Get ERP modules from database with caching.
+
+        Returns:
+            Dict of module_code -> module_info
+        """
+        if self._modules_cache is not None:
+            return self._modules_cache
+
+        try:
+            from app.core.container import DependencyContainer
+
+            async with get_async_db_context() as db:
+                container = DependencyContainer()
+                use_case = container.create_get_modules_use_case(db)
+                result = await use_case.execute(only_available=True)
+
+                self._modules_cache = result.modules_dict
+                logger.info(f"Loaded {len(self._modules_cache)} ERP modules from database")
+                return self._modules_cache
+
+        except Exception as e:
+            logger.warning(f"Failed to load modules from DB: {e}, using fallback")
+            self._modules_cache = _FALLBACK_MODULES.copy()
+            return self._modules_cache
 
     @trace_async_method(
         name="excelencia_node_process",
@@ -154,15 +162,20 @@ class ExcelenciaNode(BaseAgent):
                 query_type = qtype
                 break
 
+        # Get modules from database
+        modules = await self._get_modules()
+
         # Detect mentioned modules
         mentioned_modules = []
-        for module_id, module_info in EXCELENCIA_MODULES.items():
+        for module_code, module_info in modules.items():
             name = str(module_info["name"]).lower()
-            module_keywords = [name, module_id.replace("_", " ")]
-            module_keywords.extend([str(f).lower() for f in module_info["features"][:2]])
+            module_keywords = [name, module_code.lower()]
+            features = module_info.get("features", [])
+            if features:
+                module_keywords.extend([str(f).lower() for f in features[:2]])
 
             if any(keyword in message_lower for keyword in module_keywords):
-                mentioned_modules.append(module_id)
+                mentioned_modules.append(module_code)
 
         # Try AI analysis for deeper understanding
         try:
@@ -255,20 +268,31 @@ Responde solo con el JSON, sin texto adicional."""
         query_type = query_analysis.get("query_type", "general")
         mentioned_modules = query_analysis.get("modules", [])
 
+        # Get modules from database
+        modules = await self._get_modules()
+
         # Search knowledge base
         rag_context = await self._search_knowledge_base(user_message)
 
-        # Prepare module context
+        # Prepare module context from DB
         modules_context = ""
         if mentioned_modules:
             modules_context = "\n\nMÓDULOS RELEVANTES:\n"
-            for module_id in mentioned_modules[:3]:
-                if module_id in EXCELENCIA_MODULES:
-                    module_info = EXCELENCIA_MODULES[module_id]
+            for module_code in mentioned_modules[:3]:
+                module_info = modules.get(module_code)
+                if module_info:
                     modules_context += f"\n**{module_info['name']}**\n"
                     modules_context += f"- {module_info['description']}\n"
-                    modules_context += f"- Características: {', '.join(module_info['features'][:3])}\n"
-                    modules_context += f"- Target: {module_info['target']}\n"
+                    features = module_info.get("features", [])
+                    if features:
+                        modules_context += f"- Características: {', '.join(features[:3])}\n"
+                    modules_context += f"- Target: {module_info.get('target', 'N/A')}\n"
+
+        # Build dynamic modules list for prompt
+        modules_list = "\n".join(
+            f"{i}. **{info['name']}** - {info['description'][:50]}..."
+            for i, (_, info) in enumerate(list(modules.items())[:6], 1)
+        )
 
         # Generate response with AI
         response_prompt = f"""Eres un asistente especializado en el ERP Excelencia.
@@ -278,21 +302,16 @@ Responde solo con el JSON, sin texto adicional."""
 
 ## ANÁLISIS:
 - Tipo de consulta: {query_type}
-- Intención: {query_analysis.get('user_intent', 'N/A')}
-- Requiere demo: {query_analysis.get('requires_demo', False)}
+- Intención: {query_analysis.get("user_intent", "N/A")}
+- Requiere demo: {query_analysis.get("requires_demo", False)}
 {modules_context}
 {rag_context}
 
 ## INFORMACIÓN GENERAL SOBRE EXCELENCIA:
 Excelencia es un ERP modular especializado en diferentes verticales de negocio.
 
-Principales módulos:
-1. **Historia Clínica Electrónica** - Gestión integral de historias clínicas
-2. **Sistema de Turnos Médicos** - Agendas y turnos automatizados
-3. **Gestión Hospitalaria** - Administración completa de hospitales
-4. **Obras Sociales** - Gestión de prestaciones y facturación
-5. **Hoteles** - Software de gestión hotelera completo
-6. **Farmacias** - Sistema especializado para farmacias
+Principales módulos disponibles:
+{modules_list}
 
 ## INSTRUCCIONES:
 1. Responde de manera amigable y profesional
@@ -320,31 +339,36 @@ Genera tu respuesta ahora:"""
 
         except Exception as e:
             logger.error(f"Error generating AI response: {e}")
-            return self._generate_fallback_response(query_type, mentioned_modules)
+            return self._generate_fallback_response(query_type, mentioned_modules, modules)
 
-    def _generate_fallback_response(self, query_type: str, modules: list[str]) -> str:
-        """Generate fallback response without AI."""
+    def _generate_fallback_response(
+        self, query_type: str, mentioned_modules: list[str], all_modules: dict[str, dict[str, Any]]
+    ) -> str:
+        """Generate fallback response without AI using cached modules."""
         if query_type == "demo":
+            # Build dynamic demo list
+            demo_list = "\n".join(
+                f"- {info['name']}" for _, info in list(all_modules.items())[:4]
+            )
             return (
-                "¡Hola! 👋 Con gusto te puedo mostrar una demo de Excelencia ERP.\n\n"
-                "Ofrecemos demostraciones personalizadas de nuestros sistemas:\n"
-                "- Historia Clínica Electrónica\n"
-                "- Gestión Hospitalaria\n"
-                "- Sistema de Turnos\n"
-                "- Gestión Hotelera\n\n"
-                "¿Sobre qué módulo te gustaría ver la demo?"
+                f"¡Hola! 👋 Con gusto te puedo mostrar una demo de Excelencia ERP.\n\n"
+                f"Ofrecemos demostraciones personalizadas de nuestros sistemas:\n"
+                f"{demo_list}\n\n"
+                f"¿Sobre qué módulo te gustaría ver la demo?"
             )
 
-        if query_type == "modules" and modules:
-            module_id = modules[0]
-            if module_id in EXCELENCIA_MODULES:
-                module_info = EXCELENCIA_MODULES[module_id]
+        if query_type == "modules" and mentioned_modules:
+            module_code = mentioned_modules[0]
+            module_info = all_modules.get(module_code)
+            if module_info:
+                features = module_info.get("features", [])
+                features_text = chr(10).join(f"- {f}" for f in features[:4]) if features else ""
                 return (
                     f"**{module_info['name']}** 🏥\n\n"
                     f"{module_info['description']}\n\n"
                     f"**Características principales:**\n"
-                    f"{chr(10).join(f'- {feature}' for feature in module_info['features'][:4])}\n\n"
-                    f"Ideal para: {module_info['target']}"
+                    f"{features_text}\n\n"
+                    f"Ideal para: {module_info.get('target', 'empresas')}"
                 )
 
         if query_type == "training":
@@ -369,14 +393,18 @@ Genera tu respuesta ahora:"""
                 "¿En qué podemos ayudarte?"
             )
 
-        # Default general response
+        # Default general response using dynamic modules
+        module_lines = []
+        for _, info in list(all_modules.items())[:6]:
+            module_lines.append(f"• {info['name']}")
+
+        modules_text = "\n".join(module_lines) if module_lines else "Múltiples soluciones disponibles"
+
         return (
-            "¡Hola! 👋 **Excelencia ERP** es un sistema modular especializado en diferentes verticales.\n\n"
-            "**Principales soluciones:**\n"
-            "🏥 Salud: Historia Clínica, Hospitales, Turnos, Obras Sociales\n"
-            "🏨 Hotelería: Gestión completa de hoteles y alojamientos\n"
-            "💊 Farmacias: Sistema especializado para farmacias\n\n"
-            "¿Sobre qué módulo te gustaría saber más?"
+            f"¡Hola! 👋 **Excelencia ERP** es un sistema modular especializado.\n\n"
+            f"**Principales soluciones:**\n"
+            f"{modules_text}\n\n"
+            f"¿Sobre qué módulo te gustaría saber más?"
         )
 
     async def _generate_error_response(self) -> str:

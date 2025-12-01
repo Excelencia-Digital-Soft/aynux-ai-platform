@@ -180,17 +180,50 @@ class DependencyContainer:
     # EXCELENCIA (delegated to ExcelenciaContainer)
     # ============================================================
 
+    @property
+    def excelencia(self) -> ExcelenciaContainer:
+        """Direct access to Excelencia container for admin operations."""
+        return self._excelencia
+
     def create_module_repository(self, db):
         return self._excelencia.create_module_repository(db)
 
     def create_demo_repository(self, db):
         return self._excelencia.create_demo_repository(db)
 
+    def create_get_modules_use_case(self, db):
+        return self._excelencia.create_get_modules_use_case(db)
+
     def create_show_modules_use_case(self):
         return self._excelencia.create_show_modules_use_case()
 
     def create_schedule_demo_use_case(self):
         return self._excelencia.create_schedule_demo_use_case()
+
+    # Admin Use Cases
+    def create_list_modules_admin_use_case(self, db):
+        return self._excelencia.create_list_modules_admin_use_case(db)
+
+    def create_create_module_use_case(self, db):
+        return self._excelencia.create_create_module_use_case(db)
+
+    def create_update_module_use_case(self, db):
+        return self._excelencia.create_update_module_use_case(db)
+
+    def create_delete_module_use_case(self, db):
+        return self._excelencia.create_delete_module_use_case(db)
+
+    def create_list_demos_admin_use_case(self, db):
+        return self._excelencia.create_list_demos_admin_use_case(db)
+
+    def create_update_demo_use_case(self, db):
+        return self._excelencia.create_update_demo_use_case(db)
+
+    def create_update_demo_status_use_case(self, db):
+        return self._excelencia.create_update_demo_status_use_case(db)
+
+    def create_schedule_demo_admin_use_case(self, db):
+        return self._excelencia.create_schedule_demo_admin_use_case(db)
 
     # ============================================================
     # SHARED (delegated to SharedContainer)

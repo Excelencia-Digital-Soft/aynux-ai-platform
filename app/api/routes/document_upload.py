@@ -33,9 +33,9 @@ from app.domains.shared.application.use_cases import (
 
 logger = logging.getLogger(__name__)
 
-# Create router
+# Create router (prefix is relative - api_router adds /api/v1)
 router = APIRouter(
-    prefix="/api/v1/admin/documents",
+    prefix="/admin/documents",
     tags=["Document Upload"],
 )
 

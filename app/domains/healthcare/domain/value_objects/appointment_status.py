@@ -6,9 +6,19 @@ Status enums and value objects for the healthcare domain.
 
 from dataclasses import dataclass
 from datetime import time
-from enum import Enum
-
 from app.core.domain import StatusEnum, ValueObject
+
+
+# Appointment status transitions defined outside enum to avoid Pyright issues
+_APPOINTMENT_TRANSITIONS: dict[str, list[str]] = {
+    "scheduled": ["confirmed", "cancelled", "no_show"],
+    "confirmed": ["in_progress", "cancelled", "no_show"],
+    "in_progress": ["completed", "cancelled"],
+    "completed": [],
+    "cancelled": ["rescheduled"],
+    "no_show": ["rescheduled"],
+    "rescheduled": ["scheduled"],
+}
 
 
 class AppointmentStatus(StatusEnum):
@@ -33,19 +43,9 @@ class AppointmentStatus(StatusEnum):
     NO_SHOW = "no_show"
     RESCHEDULED = "rescheduled"
 
-    _transitions: dict[str, list[str]] = {
-        "scheduled": ["confirmed", "cancelled", "no_show"],
-        "confirmed": ["in_progress", "cancelled", "no_show"],
-        "in_progress": ["completed", "cancelled"],
-        "completed": [],
-        "cancelled": ["rescheduled"],
-        "no_show": ["rescheduled"],
-        "rescheduled": ["scheduled"],
-    }
-
     def can_transition_to(self, new_status: "AppointmentStatus") -> bool:
         """Check if transition to new status is valid."""
-        allowed = self._transitions.get(self.value, [])
+        allowed = _APPOINTMENT_TRANSITIONS.get(self.value, [])
         return new_status.value in allowed
 
     def is_terminal(self) -> bool:

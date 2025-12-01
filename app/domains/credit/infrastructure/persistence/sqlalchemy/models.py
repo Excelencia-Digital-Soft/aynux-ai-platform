@@ -19,7 +19,8 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import mapped_column  # type: ignore[attr-defined]
 
 from app.database.setup import Base
 from app.domains.credit.domain.value_objects.account_status import (
@@ -30,6 +31,7 @@ from app.domains.credit.domain.value_objects.account_status import (
     PaymentType,
     RiskLevel,
 )
+from app.models.db.schemas import CREDIT_SCHEMA
 
 
 class CreditAccountModel(Base):
@@ -104,6 +106,8 @@ class CreditAccountModel(Base):
         "PaymentScheduleItemModel", back_populates="account"
     )
 
+    __table_args__ = ({"schema": CREDIT_SCHEMA},)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         credit_limit_val = float(self.credit_limit) if self.credit_limit is not None else 0.0
@@ -134,7 +138,7 @@ class PaymentModel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
     # References
-    account_id: Mapped[int] = mapped_column(Integer, ForeignKey("credit_accounts.id"), nullable=False, index=True)
+    account_id: Mapped[int] = mapped_column(Integer, ForeignKey(f"{CREDIT_SCHEMA}.credit_accounts.id"), nullable=False, index=True)
     customer_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     account_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
@@ -190,6 +194,8 @@ class PaymentModel(Base):
     # Relationships
     account: Mapped["CreditAccountModel"] = relationship("CreditAccountModel", back_populates="payments")
 
+    __table_args__ = ({"schema": CREDIT_SCHEMA},)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -212,7 +218,7 @@ class PaymentScheduleItemModel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
     # References
-    account_id: Mapped[int] = mapped_column(Integer, ForeignKey("credit_accounts.id"), nullable=False, index=True)
+    account_id: Mapped[int] = mapped_column(Integer, ForeignKey(f"{CREDIT_SCHEMA}.credit_accounts.id"), nullable=False, index=True)
 
     # Schedule details
     due_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
@@ -231,6 +237,8 @@ class PaymentScheduleItemModel(Base):
 
     # Relationships
     account: Mapped["CreditAccountModel"] = relationship("CreditAccountModel", back_populates="schedule_items")
+
+    __table_args__ = ({"schema": CREDIT_SCHEMA},)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

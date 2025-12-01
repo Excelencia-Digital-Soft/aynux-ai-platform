@@ -4,7 +4,7 @@ Healthcare SQLAlchemy Models
 Database models for healthcare domain persistence.
 """
 
-from datetime import date, datetime, time
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -13,7 +13,6 @@ from sqlalchemy import (
     Date,
     DateTime,
     Enum as SQLEnum,
-    Float,
     ForeignKey,
     Integer,
     String,
@@ -30,6 +29,7 @@ from app.domains.healthcare.domain.value_objects.appointment_status import (
     PatientStatus,
     TriagePriority,
 )
+from app.models.db.schemas import HEALTHCARE_SCHEMA
 
 
 class PatientModel(Base):
@@ -95,6 +95,8 @@ class PatientModel(Base):
     # Relationships
     appointments = relationship("AppointmentModel", back_populates="patient")
 
+    __table_args__ = ({"schema": HEALTHCARE_SCHEMA},)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -155,6 +157,8 @@ class DoctorModel(Base):
     # Relationships
     appointments = relationship("AppointmentModel", back_populates="doctor")
 
+    __table_args__ = ({"schema": HEALTHCARE_SCHEMA},)
+
     @property
     def full_name(self) -> str:
         """Get full name with title."""
@@ -169,8 +173,8 @@ class AppointmentModel(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # References
-    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
-    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=True, index=True)
+    patient_id = Column(Integer, ForeignKey(f"{HEALTHCARE_SCHEMA}.patients.id"), nullable=False, index=True)
+    doctor_id = Column(Integer, ForeignKey(f"{HEALTHCARE_SCHEMA}.doctors.id"), nullable=True, index=True)
     patient_name = Column(String(200), nullable=True)
     doctor_name = Column(String(200), nullable=True)
 
@@ -229,6 +233,8 @@ class AppointmentModel(Base):
     # Relationships
     patient = relationship("PatientModel", back_populates="appointments")
     doctor = relationship("DoctorModel", back_populates="appointments")
+
+    __table_args__ = ({"schema": HEALTHCARE_SCHEMA},)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

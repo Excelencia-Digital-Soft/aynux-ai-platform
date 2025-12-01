@@ -1,9 +1,12 @@
+import os
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPBearer
 
 from app.services.token_service import TokenService
+
+API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
 
 token_service = TokenService()
 security = HTTPBearer()
@@ -21,9 +24,9 @@ async def authenticate_request(request: Request) -> Optional[Dict[str, Any]]:
     """
     # Rutas públicas que no requieren autenticación
     public_paths = [
-        "/api/v1/auth/token",
-        "/api/v1/auth/refresh",
-        "/api/v1/webhook",
+        f"{API_V1_STR}/auth/token",
+        f"{API_V1_STR}/auth/refresh",
+        f"{API_V1_STR}/webhook",
         "/health",
         "/",
         "/docs",

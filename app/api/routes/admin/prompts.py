@@ -2,14 +2,14 @@
 API Admin para gestión de prompts.
 
 Endpoints:
-- GET /api/v1/admin/prompts - Listar prompts
-- GET /api/v1/admin/prompts/{key} - Obtener prompt específico
-- POST /api/v1/admin/prompts - Crear prompt dinámico
-- PUT /api/v1/admin/prompts/{key} - Actualizar prompt
-- DELETE /api/v1/admin/prompts/{key} - Desactivar prompt
-- GET /api/v1/admin/prompts/{key}/versions - Obtener versiones
-- POST /api/v1/admin/prompts/{key}/rollback - Rollback a versión anterior
-- GET /api/v1/admin/prompts/stats - Estadísticas del sistema
+- GET {API_V1_STR}/admin/prompts - Listar prompts
+- GET {API_V1_STR}/admin/prompts/{key} - Obtener prompt específico
+- POST {API_V1_STR}/admin/prompts - Crear prompt dinámico
+- PUT {API_V1_STR}/admin/prompts/{key} - Actualizar prompt
+- DELETE {API_V1_STR}/admin/prompts/{key} - Desactivar prompt
+- GET {API_V1_STR}/admin/prompts/{key}/versions - Obtener versiones
+- POST {API_V1_STR}/admin/prompts/{key}/rollback - Rollback a versión anterior
+- GET {API_V1_STR}/admin/prompts/stats - Estadísticas del sistema
 """
 
 import logging
@@ -22,7 +22,8 @@ from app.prompts import PromptManager, PromptRegistry
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/admin/prompts", tags=["Admin - Prompts"])
+# Create router (prefix is relative - api_router adds /api/v1)
+router = APIRouter(prefix="/admin/prompts", tags=["Admin - Prompts"])
 
 # Instancia global del manager
 prompt_manager = PromptManager()

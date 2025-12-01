@@ -71,6 +71,11 @@ class ScheduledSyncService:
 
     async def start(self):
         """Inicia el servicio de sincronización programada."""
+        # Defense-in-depth: Check if DUX sync is enabled
+        if not self.settings.DUX_SYNC_ENABLED:
+            logger.info("DUX sync is disabled via DUX_SYNC_ENABLED=False - not starting scheduled sync")
+            return
+
         if self.is_running:
             logger.warning("Scheduled sync service is already running")
             return
@@ -118,6 +123,11 @@ class ScheduledSyncService:
         Returns:
             bool: True si se ejecutó la sincronización, False si no fue necesario
         """
+        # Defense-in-depth: Check if DUX sync is enabled
+        if not self.settings.DUX_SYNC_ENABLED:
+            logger.debug("DUX sync is disabled - skipping force sync check")
+            return False
+
         # Verificar si ya hay una sincronización en progreso
         if self._sync_state == SyncState.RUNNING:
             logger.warning("Sync already in progress, skipping force sync check")
@@ -343,6 +353,14 @@ class ScheduledSyncService:
         Returns:
             Dict con resultado de la operación
         """
+        # Defense-in-depth: Check if DUX sync is enabled
+        if not self.settings.DUX_SYNC_ENABLED:
+            return {
+                "success": False,
+                "error": "DUX sync is disabled via DUX_SYNC_ENABLED=False",
+                "sync_type": "disabled",
+            }
+
         logger.info(f"Forcing immediate products sync (max: {max_products})")
 
         try:

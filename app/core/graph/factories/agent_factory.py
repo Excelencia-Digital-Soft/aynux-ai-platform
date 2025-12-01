@@ -15,6 +15,9 @@ from app.domains.shared.agents import (
     GreetingAgent,
     SupportAgent,
 )
+# E-commerce domain - new consolidated agent with subgraph
+from app.domains.ecommerce.agents.ecommerce_agent import EcommerceAgent
+# Legacy e-commerce nodes (kept for backward compatibility)
 from app.domains.ecommerce.agents.nodes import (
     InvoiceNode as InvoiceAgent,
     PromotionsNode as PromotionsAgent,
@@ -33,6 +36,8 @@ class AgentFactory:
         self.postgres = postgres
         self.config = config
         self.agents = {}
+        # Store enabled_agents for use in agent initialization
+        self.enabled_agents = config.get("enabled_agents", [])
 
     def initialize_all_agents(self) -> Dict[str, Any]:
         """
@@ -56,38 +61,49 @@ class AgentFactory:
 
             # Agent builder registry - maps agent names to their initialization functions
             # This allows lazy initialization of only enabled agents
-            # Note: ProductAgent requires Clean Architecture dependencies (repository, vector_store, llm)
-            # which should be provided via DependencyContainer. For now, we skip it here and
-            # create it via the container instead.
             agent_builders = {
                 "greeting_agent": lambda: GreetingAgent(
-                    ollama=self.ollama, postgres=self.postgres, config={}
-                ),
-                # ProductAgent requires: product_repository, vector_store, llm
-                # It should be created via DependencyContainer.create_product_agent()
-                "product_agent": lambda: None,  # Placeholder - use DependencyContainer
-                "data_insights_agent": lambda: DataInsightsAgent(
                     ollama=self.ollama,
                     postgres=self.postgres,
-                    config=self._extract_config(agent_configs, "data_insights"),
+                    config={"enabled_agents": self.enabled_agents},
                 ),
+                # E-commerce domain - consolidated agent with subgraph
+                # Replaces individual product_agent, promotions_agent, tracking_agent, invoice_agent
+                "ecommerce_agent": lambda: EcommerceAgent(
+                    config={
+                        **self._extract_config(agent_configs, "ecommerce"),
+                        "integrations": {"postgres": {}},
+                    }
+                ),
+                # Legacy e-commerce agents (deprecated - kept for backward compatibility)
+                # ProductAgent requires: product_repository, vector_store, llm
+                # It should be created via DependencyContainer.create_product_agent()
+                "product_agent": lambda: None,  # Placeholder - use DependencyContainer or ecommerce_agent
                 "promotions_agent": lambda: PromotionsAgent(
                     ollama=self.ollama, config=self._extract_config(agent_configs, "promotions")
                 ),
                 "tracking_agent": lambda: TrackingAgent(
                     ollama=self.ollama, config=self._extract_config(agent_configs, "tracking")
                 ),
-                "support_agent": lambda: SupportAgent(
-                    ollama=self.ollama, config=self._extract_config(agent_configs, "support")
-                ),
                 "invoice_agent": lambda: InvoiceAgent(
                     ollama=self.ollama, config=self._extract_config(agent_configs, "invoice")
+                ),
+                # Other domain agents
+                "data_insights_agent": lambda: DataInsightsAgent(
+                    ollama=self.ollama,
+                    postgres=self.postgres,
+                    config=self._extract_config(agent_configs, "data_insights"),
+                ),
+                "support_agent": lambda: SupportAgent(
+                    ollama=self.ollama, config=self._extract_config(agent_configs, "support")
                 ),
                 "excelencia_agent": lambda: ExcelenciaAgent(
                     config=self._extract_config(agent_configs, "excelencia"),
                 ),
                 "fallback_agent": lambda: FallbackAgent(
-                    ollama=self.ollama, postgres=self.postgres, config={}
+                    ollama=self.ollama,
+                    postgres=self.postgres,
+                    config={"enabled_agents": self.enabled_agents},
                 ),
                 "farewell_agent": lambda: FarewellAgent(
                     ollama=self.ollama, postgres=self.postgres, config={}
@@ -161,12 +177,15 @@ class AgentFactory:
         """Get list of all disabled agent names"""
         all_possible_agents = [
             "greeting_agent",
+            "ecommerce_agent",  # NEW: Consolidated e-commerce agent
+            # Legacy agents (deprecated - kept for backward compatibility)
             "product_agent",
-            "data_insights_agent",
             "promotions_agent",
             "tracking_agent",
-            "support_agent",
             "invoice_agent",
+            # Other agents
+            "data_insights_agent",
+            "support_agent",
             "excelencia_agent",
             "fallback_agent",
             "farewell_agent",

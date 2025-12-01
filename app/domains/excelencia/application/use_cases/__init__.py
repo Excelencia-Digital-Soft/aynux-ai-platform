@@ -4,11 +4,9 @@ Excelencia Use Cases
 Application layer use cases for Excelencia ERP domain.
 """
 
-from app.domains.excelencia.application.use_cases.show_modules import (
-    ModuleInfo,
-    ShowModulesRequest,
-    ShowModulesResponse,
-    ShowModulesUseCase,
+from app.domains.excelencia.application.use_cases.get_modules_use_case import (
+    GetModulesResult,
+    GetModulesUseCase,
 )
 from app.domains.excelencia.application.use_cases.schedule_demo import (
     DemoSlot,
@@ -17,9 +15,18 @@ from app.domains.excelencia.application.use_cases.schedule_demo import (
     ScheduleDemoResponse,
     ScheduleDemoUseCase,
 )
+from app.domains.excelencia.application.use_cases.show_modules import (
+    ModuleInfo,
+    ShowModulesRequest,
+    ShowModulesResponse,
+    ShowModulesUseCase,
+)
 
 __all__ = [
-    # Show Modules
+    # Get Modules (from DB)
+    "GetModulesResult",
+    "GetModulesUseCase",
+    # Show Modules (license-based)
     "ModuleInfo",
     "ShowModulesRequest",
     "ShowModulesResponse",

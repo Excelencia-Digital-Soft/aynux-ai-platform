@@ -7,6 +7,7 @@
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-latest-orange.svg)](https://langchain-ai.github.io/langgraph/)
+[![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](docs/DOCKER_DEPLOYMENT.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -50,6 +51,32 @@
 ---
 
 ## 🚀 Quick Start
+
+### Option A: Docker (Recommended)
+
+The fastest way to get started. See **[Docker Deployment Guide](docs/DOCKER_DEPLOYMENT.md)** for complete documentation.
+
+```bash
+# 1. Clone and configure
+git clone https://github.com/your-username/aynux.git
+cd aynux
+cp .env.example .env
+
+# 2. Install Ollama and pull models (macOS)
+brew install ollama
+ollama serve  # In separate terminal
+ollama pull deepseek-r1:7b && ollama pull nomic-embed-text
+
+# 3. Build and start
+docker build --target development -t aynux-app:dev .
+docker compose up -d
+
+# 4. Verify
+curl http://localhost:8001/health
+# {"status":"ok","environment":"development"}
+```
+
+### Option B: Manual Installation
 
 ### Prerequisites
 
@@ -102,12 +129,12 @@
    ```bash
    ./dev-uv.sh
    # Or manually:
-   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
    ```
 
 8. **Access the API**
-   - API Documentation: http://localhost:8000/docs
-   - Health Check: http://localhost:8000/health
+   - API Documentation: http://localhost:8001/docs
+   - Health Check: http://localhost:8001/health
 
 ---
 
@@ -119,7 +146,7 @@
 import requests
 
 response = requests.post(
-    "http://localhost:8000/api/v1/chat/message",
+    "http://localhost:8001/api/v1/chat/message",
     json={
         "user_id": "user_123",
         "message": "¿Tienen laptops disponibles?",
@@ -228,10 +255,13 @@ class SearchProductsUseCase:
 
 ### Core Documentation
 - **[CLAUDE.md](CLAUDE.md)**: Development guide for Claude Code AI with Clean Architecture principles
-- **[docs/FINAL_MIGRATION_SUMMARY.md](docs/FINAL_MIGRATION_SUMMARY.md)**: ⭐ Clean Architecture migration complete guide
+- **[docs/FINAL_MIGRATION_SUMMARY.md](docs/FINAL_MIGRATION_SUMMARY.md)**: Clean Architecture migration complete guide
 - **[docs/LangGraph.md](docs/LangGraph.md)**: Complete LangGraph architecture guide
 - **[docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md)**: Testing strategy and best practices
 - **[docs/PGVECTOR_MIGRATION.md](docs/PGVECTOR_MIGRATION.md)**: Vector search implementation
+
+### Docker & Deployment
+- **[docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md)**: Complete Docker setup for development and production (macOS/Linux)
 
 ### Quick References
 - **[QUICKSTART_TESTING.md](docs/QUICKSTART_TESTING.md)**: Quick testing setup

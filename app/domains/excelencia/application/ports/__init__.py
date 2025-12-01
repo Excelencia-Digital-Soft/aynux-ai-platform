@@ -40,6 +40,10 @@ class IModuleRepository(Protocol):
         """Save a module"""
         ...
 
+    async def delete(self, module_id: str) -> bool:
+        """Delete a module"""
+        ...
+
 
 @runtime_checkable
 class IDemoRepository(Protocol):
@@ -71,6 +75,14 @@ class IDemoRepository(Protocol):
 
     async def delete(self, demo_id: str) -> bool:
         """Delete a demo"""
+        ...
+
+    async def get_all(self) -> list[Demo]:
+        """Get all demos"""
+        ...
+
+    async def get_by_company(self, company_name: str) -> list[Demo]:
+        """Get demos by company name"""
         ...
 
 

@@ -13,9 +13,9 @@ import redis.asyncio as redis
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.integrations.llm import OllamaLLM
-from app.domains.ecommerce.agents.nodes.product_node import ProductNode as ProductAgent
 from app.config.settings import get_settings
+from app.domains.ecommerce.agents.nodes.product_node import ProductNode as ProductAgent
+from app.integrations.llm import OllamaLLM
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +62,8 @@ class WhatsAppMessageResponse(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-# Router principal
-router = APIRouter(prefix="/api/v1/smart-products", tags=["Smart Products"])
+# Router principal (prefix is relative - api_router adds /api/v1)
+router = APIRouter(prefix="/smart-products", tags=["Smart Products"])
 
 
 # Cache Redis para conversaciones

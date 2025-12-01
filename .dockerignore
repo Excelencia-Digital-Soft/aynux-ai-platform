@@ -1,0 +1,114 @@
+# =============================================================================
+# Docker Ignore File for Aynux
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info
+.eggs
+
+# Virtual environments
+.venv
+venv
+ENV
+env.bak
+venv.bak
+
+# UV cache
+.uv-cache
+.uv
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*.sublime-*
+
+# Testing
+.pytest_cache
+.coverage
+.coverage.*
+htmlcov
+coverage.xml
+*.cover
+.hypothesis
+.tox
+.nox
+
+# Build artifacts
+build
+dist
+*.egg-info
+.installed.cfg
+
+# Logs and data
+logs
+*.log
+data
+*.sqlite3
+dump.rdb
+*.rdb
+
+# Environment files (secrets)
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Keep example env
+!.env.example
+!.env.test
+
+# OS files
+.DS_Store
+Thumbs.db
+*.bak
+*~
+
+# Development/analysis scripts (not needed in container)
+streamlit_*.py
+analyze_*.py
+test_*.py
+!app/**/test_*.py
+
+# Shell scripts (except entrypoint)
+*.sh
+!docker-entrypoint.sh
+
+# CI/CD
+.github
+
+# Type checking and linting
+.mypy_cache
+.dmypy.json
+.pytype
+.ruff_cache
+
+# Documentation (optional - comment out if needed in container)
+docs
+*.md
+!README.md
+
+# Miscellaneous
+*.manifest
+*.spec
+server.log
+routing_debug.log
+embedding*.log
+pyrightconfig.json
+pytest.ini
+CHANGELOG.md
+
+# Claude/AI files
+.claude

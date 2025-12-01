@@ -43,7 +43,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.async_db import get_async_db
 
-router = APIRouter(prefix="/api/v1/admin/domains", tags=["domain-admin"])
+# Create router (prefix is relative - api_router adds /api/v1)
+router = APIRouter(prefix="/admin/domains", tags=["domain-admin"])
 logger = logging.getLogger(__name__)
 
 

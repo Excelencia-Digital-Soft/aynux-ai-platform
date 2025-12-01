@@ -1,0 +1,171 @@
+# =============================================================================
+# Aynux Docker Compose - Production Override
+# =============================================================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file overrides docker-compose.yml settings for production deployment.
+# It uses the production build target and adds security/performance settings.
+# =============================================================================
+
+name: aynux-prod
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - Production settings
+  # ---------------------------------------------------------------------------
+  postgres:
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    # Don't expose port externally in production
+    ports: !reset []
+
+  # ---------------------------------------------------------------------------
+  # Redis - Production settings with authentication
+  # ---------------------------------------------------------------------------
+  redis:
+    restart: always
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 300 10
+      --save 60 10000
+      --requirepass ${REDIS_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    # Don't expose port externally in production
+    ports: !reset []
+
+  # ---------------------------------------------------------------------------
+  # Ollama - Production settings (remove profile restriction)
+  # ---------------------------------------------------------------------------
+  ollama:
+    restart: always
+    profiles: []  # Enable by default in production
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
+        reservations:
+          memory: 4G
+          cpus: '2'
+    # Don't expose port externally in production
+    ports: !reset []
+
+  # ---------------------------------------------------------------------------
+  # FastAPI Application - Production build
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    restart: always
+    # No volume mounts in production - use built image
+    volumes: []
+    environment:
+      # Database Configuration (from secrets/env)
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_POOL_SIZE=20
+      - DB_MAX_OVERFLOW=30
+      - DB_POOL_RECYCLE=3600
+      - DB_POOL_TIMEOUT=30
+      - DB_ECHO=false
+      # Redis Configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      # Ollama Configuration (internal network)
+      - OLLAMA_API_URL=http://ollama:11434
+      - OLLAMA_API_MODEL=${OLLAMA_API_MODEL:-deepseek-r1:7b}
+      - OLLAMA_API_MODEL_EMBEDDING=${OLLAMA_API_MODEL_EMBEDDING:-nomic-embed-text}
+      # pgvector
+      - PGVECTOR_SIMILARITY_THRESHOLD=0.7
+      # Application Settings
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - TESTING=false
+      # API Configuration
+      - API_V1_STR=/api/v1
+      - PROJECT_NAME=Aynux WhatsApp Bot
+      # WhatsApp Configuration
+      - WHATSAPP_API_BASE=${WHATSAPP_API_BASE}
+      - WHATSAPP_API_VERSION=${WHATSAPP_API_VERSION}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+      - WHATSAPP_VERIFY_TOKEN=${WHATSAPP_VERIFY_TOKEN}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+      # DUX Sync (controlled by environment variable, default false)
+      - DUX_SYNC_ENABLED=${DUX_SYNC_ENABLED:-false}
+      - DUX_API_BASE_URL=${DUX_API_BASE_URL}
+      - DUX_API_KEY=${DUX_API_KEY}
+      # LangSmith (enabled in production)
+      - LANGSMITH_TRACING_ENABLED=true
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-aynux-production}
+      # Sentry (error tracking)
+      - SENTRY_DSN=${SENTRY_DSN}
+      # JWT
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Remove extra_hosts in production - use internal network
+    extra_hosts: []
+
+  # ---------------------------------------------------------------------------
+  # Visualizer - Disabled in production
+  # ---------------------------------------------------------------------------
+  visualizer:
+    deploy:
+      replicas: 0
+
+# =============================================================================
+# Networks - Production settings
+# =============================================================================
+networks:
+  aynux-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"

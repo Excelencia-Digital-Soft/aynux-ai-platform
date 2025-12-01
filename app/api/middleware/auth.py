@@ -6,6 +6,7 @@ Uses modern Starlette middleware patterns.
 """
 
 import logging
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -18,6 +19,8 @@ from app.services.token_service import TokenService
 
 logger = logging.getLogger(__name__)
 
+API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
+
 
 class AuthenticationMiddleware(BaseHTTPMiddleware):
     """
@@ -29,9 +32,9 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
     # Routes that don't require authentication
     PUBLIC_PATHS: tuple[str, ...] = (
-        "/api/v1/auth/token",
-        "/api/v1/auth/refresh",
-        "/api/v1/webhook",
+        f"{API_V1_STR}/auth/token",
+        f"{API_V1_STR}/auth/refresh",
+        f"{API_V1_STR}/webhook",
         "/health",
         "/",
         "/docs",

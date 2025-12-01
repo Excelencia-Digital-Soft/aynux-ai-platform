@@ -3,14 +3,18 @@ Integration tests for WhatsApp Catalog and Flows API endpoints
 Testing API routes, authentication, validation, and error handling
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
-from fastapi import status
+import os
+from unittest.mock import MagicMock, patch
 
+import pytest
+from fastapi import status
+from fastapi.testclient import TestClient
+
+from app.integrations.whatsapp import FlowType
 from app.main import create_app
 from app.models.whatsapp_advanced import WhatsAppApiResponse
-from app.integrations.whatsapp import FlowType
+
+API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
 
 
 @pytest.fixture
@@ -57,7 +61,7 @@ class TestWhatsAppCatalogEndpoints:
         mock_catalog_service.return_value = mock_service_instance
 
         # Make request
-        response = client.get("/api/v1/whatsapp/catalog/status")
+        response = client.get(f"{API_V1_STR}/whatsapp/catalog/status")
 
         # Verify response
         assert response.status_code == status.HTTP_200_OK
@@ -94,7 +98,7 @@ class TestWhatsAppCatalogEndpoints:
         }
 
         # Make request
-        response = client.post("/api/v1/whatsapp/catalog/send", json=request_data)
+        response = client.post(f"{API_V1_STR}/whatsapp/catalog/send", json=request_data)
 
         # Verify response
         assert response.status_code == status.HTTP_200_OK
@@ -117,7 +121,7 @@ class TestWhatsAppCatalogEndpoints:
             "body_text": "Check out our products!"
         }
 
-        response = client.post("/api/v1/whatsapp/catalog/send", json=request_data)
+        response = client.post(f"{API_V1_STR}/whatsapp/catalog/send", json=request_data)
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -133,7 +137,7 @@ class TestWhatsAppCatalogEndpoints:
             "body_text": "Check out our products!"
         }
 
-        response = client.post("/api/v1/whatsapp/catalog/send", json=request_data)
+        response = client.post(f"{API_V1_STR}/whatsapp/catalog/send", json=request_data)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid phone number format" in response.json()["detail"]
@@ -159,7 +163,7 @@ class TestWhatsAppCatalogEndpoints:
         mock_whatsapp_service.return_value = mock_service_instance
 
         # Make request
-        response = client.get("/api/v1/whatsapp/catalog/products?limit=5&after=cursor_abc")
+        response = client.get(f"{API_V1_STR}/whatsapp/catalog/products?limit=5&after=cursor_abc")
 
         # Verify response
         assert response.status_code == status.HTTP_200_OK
@@ -190,7 +194,7 @@ class TestWhatsAppCatalogEndpoints:
         mock_whatsapp_service.return_value = mock_service_instance
 
         # Make request
-        response = client.get("/api/v1/whatsapp/config/validate")
+        response = client.get(f"{API_V1_STR}/whatsapp/config/validate")
 
         # Verify response
         assert response.status_code == status.HTTP_200_OK
@@ -226,7 +230,7 @@ class TestWhatsAppFlowsEndpoints:
         mock_flows_service.return_value = mock_service_instance
 
         # Make request
-        response = client.get("/api/v1/whatsapp/flows/status")
+        response = client.get(f"{API_V1_STR}/whatsapp/flows/status")
 
         # Verify response
         assert response.status_code == status.HTTP_200_OK
@@ -262,7 +266,7 @@ class TestWhatsAppFlowsEndpoints:
         }
 
         # Make request
-        response = client.post("/api/v1/whatsapp/flows/send", json=request_data)
+        response = client.post(f"{API_V1_STR}/whatsapp/flows/send", json=request_data)
 
         # Verify response
         assert response.status_code == status.HTTP_200_OK
@@ -283,7 +287,7 @@ class TestWhatsAppFlowsEndpoints:
             "flow_cta": "Complete"
         }
 
-        response = client.post("/api/v1/whatsapp/flows/send", json=request_data)
+        response = client.post(f"{API_V1_STR}/whatsapp/flows/send", json=request_data)
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -299,7 +303,7 @@ class TestWhatsAppFlowsEndpoints:
             "flow_cta": "A" * 21  # Too long (max 20)
         }
 
-        response = client.post("/api/v1/whatsapp/flows/send", json=request_data)
+        response = client.post(f"{API_V1_STR}/whatsapp/flows/send", json=request_data)
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -319,7 +323,7 @@ class TestWhatsAppFlowsEndpoints:
         mock_flows_service.return_value = mock_service_instance
 
         # Make request
-        response = client.get("/api/v1/whatsapp/flows/types")
+        response = client.get(f"{API_V1_STR}/whatsapp/flows/types")
 
         # Verify response
         assert response.status_code == status.HTTP_200_OK
@@ -360,7 +364,7 @@ class TestWhatsAppFlowsEndpoints:
         }
 
         # Make request
-        response = client.post("/api/v1/whatsapp/flows/webhook", json=webhook_data)
+        response = client.post(f"{API_V1_STR}/whatsapp/flows/webhook", json=webhook_data)
 
         # Verify response
         assert response.status_code == status.HTTP_200_OK
@@ -389,7 +393,7 @@ class TestTestEndpoints:
         mock_catalog_service.return_value = mock_service_instance
 
         # Make request
-        response = client.post("/api/v1/whatsapp/test/catalog?test_phone=1123456789")
+        response = client.post(f"{API_V1_STR}/whatsapp/test/catalog?test_phone=1123456789")
 
         # Verify response
         assert response.status_code == status.HTTP_200_OK
@@ -411,7 +415,7 @@ class TestErrorHandling:
         # Mock service error
         mock_catalog_service.side_effect = Exception("Service initialization failed")
 
-        response = client.get("/api/v1/whatsapp/catalog/status")
+        response = client.get(f"{API_V1_STR}/whatsapp/catalog/status")
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert "Service initialization failed" in response.json()["detail"]
@@ -437,7 +441,7 @@ class TestErrorHandling:
         }
 
         with patch('app.api.routes.whatsapp_catalog.get_normalized_number_only', return_value="5491123456789"):
-            response = client.post("/api/v1/whatsapp/catalog/send", json=request_data)
+            response = client.post(f"{API_V1_STR}/whatsapp/catalog/send", json=request_data)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -449,7 +453,7 @@ class TestErrorHandling:
         """Test requests without authentication"""
         # This would depend on your authentication middleware implementation
         # For now, just test that endpoints exist
-        response = client.get("/api/v1/whatsapp/catalog/status")
+        response = client.get(f"{API_V1_STR}/whatsapp/catalog/status")
 
         # The response code will depend on your authentication setup
         # It could be 401 Unauthorized or other depending on middleware
@@ -470,7 +474,7 @@ class TestInputValidation:
             "body_text": "Hi"  # Too short (min 5 characters after validation)
         }
 
-        response = client.post("/api/v1/whatsapp/catalog/send", json=request_data)
+        response = client.post(f"{API_V1_STR}/whatsapp/catalog/send", json=request_data)
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -480,7 +484,7 @@ class TestInputValidation:
             "body_text": "A" * 1025  # Too long (max 1024)
         }
 
-        response = client.post("/api/v1/whatsapp/catalog/send", json=request_data)
+        response = client.post(f"{API_V1_STR}/whatsapp/catalog/send", json=request_data)
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -500,7 +504,7 @@ class TestInputValidation:
         }
 
         # This should pass validation (actual sending might fail without mocks)
-        response = client.post("/api/v1/whatsapp/flows/send", json=valid_request)
+        response = client.post(f"{API_V1_STR}/whatsapp/flows/send", json=valid_request)
 
         # Should not be a validation error
         assert response.status_code != status.HTTP_422_UNPROCESSABLE_ENTITY

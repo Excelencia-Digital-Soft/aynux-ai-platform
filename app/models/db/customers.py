@@ -12,6 +12,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, relationship
 
 from .base import Base, TimestampMixin
+from .schemas import ECOMMERCE_SCHEMA
 
 if TYPE_CHECKING:
     from .conversations import Conversation
@@ -62,6 +63,7 @@ class Customer(Base, TimestampMixin):
     __table_args__ = (
         Index("idx_customers_active", active),
         Index("idx_customers_name", first_name, last_name),
+        {"schema": ECOMMERCE_SCHEMA},
     )
 
     def __repr__(self):

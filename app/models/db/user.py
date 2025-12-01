@@ -8,6 +8,7 @@ from sqlalchemy import Boolean, Column, Index, String
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 
 from .base import Base, TimestampMixin
+from .schemas import CORE_SCHEMA
 
 
 class UserDB(Base, TimestampMixin):
@@ -51,6 +52,7 @@ class UserDB(Base, TimestampMixin):
         Index("idx_users_email", email),
         Index("idx_users_disabled", disabled),
         Index("idx_users_created_at", "created_at"),
+        {"schema": CORE_SCHEMA},
     )
 
     def __repr__(self):

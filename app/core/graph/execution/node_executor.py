@@ -163,7 +163,14 @@ class NodeExecutor:
                 logger.error(f"Agent '{agent_name}' not found. Available agents: {list(self.agents.keys())}")
                 raise ValueError(f"Agent '{agent_name}' not found")
 
-            result = await agent._process_internal(message=user_message, state_dict=state_dict)
+            # Support both legacy agents with _process_internal and new agents with process
+            # EcommerceAgent uses process() which calls its subgraph
+            if hasattr(agent, "process"):
+                result = await agent.process(message=user_message, state_dict=state_dict)
+            elif hasattr(agent, "_process_internal"):
+                result = await agent._process_internal(message=user_message, state_dict=state_dict)
+            else:
+                raise ValueError(f"Agent '{agent_name}' has no process or _process_internal method")
 
             # Prepare updates
             updates: Dict[str, Any] = {

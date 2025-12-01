@@ -3,21 +3,20 @@ Comprehensive tests for WhatsApp Catalog functionality
 Testing models, services, and API endpoints
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any, List
 
+import pytest
+
+from app.integrations.whatsapp import (
+    DefaultCatalogDecisionEngine,
+    WhatsAppCatalogService,
+    WhatsAppService,
+)
 from app.models.whatsapp_advanced import (
-    ProductListMessage,
+    CatalogConfiguration,
     CatalogProduct,
     MessageFactory,
     WhatsAppApiResponse,
-    CatalogConfiguration,
-)
-from app.integrations.whatsapp import (
-    WhatsAppService,
-    WhatsAppCatalogService,
-    DefaultCatalogDecisionEngine,
 )
 
 

@@ -10,7 +10,6 @@ from typing import Any
 
 from app.core.domain import (
     AggregateRoot,
-    AppointmentConflictException,
     InvalidOperationException,
 )
 

@@ -3,94 +3,45 @@ Excelencia Agent - Handles Excelencia ERP queries
 
 Clean architecture agent that provides information about the Excelencia ERP system.
 Uses centralized YAML-based prompt management with RAG support.
+
+Modules are loaded dynamically from PostgreSQL (erp_modules table) instead of hardcoded.
 """
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.core.interfaces.agent import AgentType, IAgent
 from app.core.interfaces.llm import ILLM
+from app.database.async_db import get_async_db_context
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
 
-# Module information for Excelencia ERP
-EXCELENCIA_MODULES = {
-    "historia_clinica": {
-        "name": "Historia Cl\u00ednica Electr\u00f3nica",
-        "emoji": "\U0001f3e5",
-        "description": "Sistema completo de gesti\u00f3n de historias cl\u00ednicas digitales \
-            con cumplimiento normativo.",
-        "features": [
-            "Registro de pacientes",
-            "Consultas m\u00e9dicas",
-            "Prescripciones",
-            "Estudios y resultados",
-        ],
-        "target": "Hospitales, Cl\u00ednicas, Centros m\u00e9dicos",
+# Fallback modules when database is unavailable
+_FALLBACK_MODULES: dict[str, dict[str, Any]] = {
+    "HC-001": {
+        "name": "Historia Clínica Electrónica",
+        "emoji": "🏥",
+        "description": "Sistema de gestión de historias clínicas digitales",
+        "features": ["Registro de pacientes", "Consultas médicas", "Prescripciones"],
+        "target": "Hospitales, Clínicas",
     },
-    "turnos": {
-        "name": "Sistema de Turnos M\u00e9dicos",
-        "emoji": "\U0001f4c5",
-        "description": "Gesti\u00f3n automatizada de agendas y turnos m\u00e9dicos.",
-        "features": [
-            "Agendas m\u00faltiples",
-            "Turnos online",
-            "Recordatorios autom\u00e1ticos",
-            "Estad\u00edsticas",
-        ],
-        "target": "Consultorios, Cl\u00ednicas, Hospitales",
+    "TM-001": {
+        "name": "Sistema de Turnos Médicos",
+        "emoji": "📅",
+        "description": "Gestión de agendas y turnos de pacientes",
+        "features": ["Agenda médica", "Turnos online", "Recordatorios"],
+        "target": "Consultorios, Clínicas",
     },
-    "hospitalaria": {
-        "name": "Gesti\u00f3n Hospitalaria",
-        "emoji": "\U0001f3e8",
-        "description": "Administraci\u00f3n completa de hospitales y centros de salud.",
-        "features": [
-            "Internaciones",
-            "Farmacia",
-            "Facturaci\u00f3n",
-            "Recursos humanos",
-        ],
-        "target": "Hospitales, Sanatorios, Cl\u00ednicas grandes",
-    },
-    "obras_sociales": {
-        "name": "Obras Sociales",
-        "emoji": "\U0001f4cb",
-        "description": "Gesti\u00f3n de prestaciones y facturaci\u00f3n para obras sociales.",
-        "features": [
-            "Autorizaciones",
-            "Facturaci\u00f3n",
-            "Auditoria",
-            "Convenios",
-        ],
-        "target": "Obras sociales, Prepagas",
-    },
-    "hoteleria": {
-        "name": "Gesti\u00f3n Hotelera",
-        "emoji": "\U0001f3e8",
-        "description": "Software completo de gesti\u00f3n para hoteles y alojamientos.",
-        "features": [
-            "Reservas",
-            "Check-in/out",
-            "Facturaci\u00f3n",
-            "Housekeeping",
-        ],
-        "target": "Hoteles, Apart hotels, Hostels",
-    },
-    "farmacia": {
-        "name": "Sistema de Farmacia",
-        "emoji": "\U0001f48a",
-        "description": "Sistema especializado para gesti\u00f3n de farmacias.",
-        "features": [
-            "Stock",
-            "Dispensaci\u00f3n",
-            "Obras sociales",
-            "Tr\u00f3quelado",
-        ],
-        "target": "Farmacias, Droguer\u00edas",
+    "HO-001": {
+        "name": "Gestión Hotelera",
+        "emoji": "🏨",
+        "description": "Software para administración de hoteles",
+        "features": ["Reservas", "Check-in/out", "Facturación"],
+        "target": "Hoteles, Apart hotels",
     },
 }
 
@@ -106,8 +57,8 @@ class ExcelenciaAgent(IAgent):
     def __init__(
         self,
         llm: ILLM,
-        knowledge_service: Optional[Any] = None,
-        config: Optional[Dict[str, Any]] = None,
+        knowledge_service: Any | None = None,
+        config: dict[str, Any] | None = None,
     ):
         """
         Initialize agent with dependencies.
@@ -122,7 +73,47 @@ class ExcelenciaAgent(IAgent):
         self._knowledge_service = knowledge_service
         self._prompt_manager = PromptManager()
 
+        # Module cache (loaded on first use from DB)
+        self._modules_cache: dict[str, dict[str, Any]] | None = None
+
         logger.info("ExcelenciaAgent initialized with prompt manager")
+
+    async def _get_modules(self) -> dict[str, dict[str, Any]]:
+        """
+        Get ERP modules from database with caching.
+
+        Returns:
+            Dict of module_code -> module_info
+        """
+        if self._modules_cache is not None:
+            return self._modules_cache
+
+        try:
+            from app.core.container import DependencyContainer
+
+            async with get_async_db_context() as db:
+                container = DependencyContainer()
+                use_case = container.create_get_modules_use_case(db)
+                result = await use_case.execute(only_available=True)
+
+                # Build dict with emoji support
+                self._modules_cache = {}
+                for module in result.modules:
+                    self._modules_cache[module.code] = {
+                        "name": module.name,
+                        "emoji": "📦",  # Default emoji
+                        "description": module.description,
+                        "features": module.features,
+                        "target": module.category.value,
+                    }
+
+                logger.info(f"Loaded {len(self._modules_cache)} ERP modules from database")
+                return self._modules_cache
+
+        except Exception as e:
+            logger.warning(f"Failed to load modules from DB: {e}, using fallback")
+            self._modules_cache = _FALLBACK_MODULES.copy()
+            return self._modules_cache
 
     @property
     def agent_type(self) -> AgentType:
@@ -135,7 +126,7 @@ class ExcelenciaAgent(IAgent):
         """Agent name"""
         return "excelencia_agent"
 
-    async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Execute Excelencia agent logic.
 
@@ -177,7 +168,7 @@ class ExcelenciaAgent(IAgent):
             logger.error(f"Error in ExcelenciaAgent.execute: {e}", exc_info=True)
             return self._error_response(str(e), state)
 
-    async def validate_input(self, state: Dict[str, Any]) -> bool:
+    async def validate_input(self, state: dict[str, Any]) -> bool:
         """
         Validate input state.
 
@@ -192,7 +183,7 @@ class ExcelenciaAgent(IAgent):
             return False
         return bool(messages[-1].get("content"))
 
-    async def _analyze_intent(self, message: str) -> Dict[str, Any]:
+    async def _analyze_intent(self, message: str) -> dict[str, Any]:
         """
         Analyze user intent using LLM with centralized prompts.
 
@@ -269,7 +260,7 @@ class ExcelenciaAgent(IAgent):
     async def _generate_response(
         self,
         user_message: str,
-        intent_data: Dict[str, Any],
+        intent_data: dict[str, Any],
         rag_context: str,
     ) -> str:
         """
@@ -288,8 +279,8 @@ class ExcelenciaAgent(IAgent):
             if intent_data.get("requires_demo"):
                 return await self._get_demo_response()
 
-            # Build modules context
-            modules_context = self._build_modules_context(intent_data.get("specific_modules", []))
+            # Build modules context from DB
+            modules_context = await self._build_modules_context(intent_data.get("specific_modules", []))
 
             prompt = await self._prompt_manager.get_prompt(
                 PromptRegistry.EXCELENCIA_RESPONSE_GENERAL,
@@ -312,7 +303,7 @@ class ExcelenciaAgent(IAgent):
 
         except Exception as e:
             logger.error(f"Error generating response: {e}")
-            return self._get_default_response()
+            return await self._get_default_response()
 
     async def _get_demo_response(self) -> str:
         """Get demo request response"""
@@ -333,38 +324,60 @@ Ofrecemos demostraciones personalizadas de nuestros sistemas:
 
 \u00bfSobre qu\u00e9 m\u00f3dulo te gustar\u00eda ver la demo?"""
 
-    def _build_modules_context(self, modules: List[str]) -> str:
-        """Build context string for mentioned modules"""
+    async def _build_modules_context(self, modules: list[str]) -> str:
+        """Build context string for mentioned modules from DB."""
         if not modules:
             return ""
 
-        context_parts = ["\nM\u00d3DULOS RELEVANTES:\n"]
+        db_modules = await self._get_modules()
+        context_parts = ["\nMÓDULOS RELEVANTES:\n"]
 
         for module_key in modules:
-            module_key_lower = module_key.lower().replace(" ", "_")
-            module = EXCELENCIA_MODULES.get(module_key_lower)
+            # Try exact match first
+            module = db_modules.get(module_key)
+
+            # Try fuzzy match by name if not found
+            if not module:
+                module_key_lower = module_key.lower()
+                for _, info in db_modules.items():
+                    if module_key_lower in info["name"].lower():
+                        module = info
+                        break
 
             if module:
-                context_parts.append(f"**{module['name']}** {module['emoji']}")
+                emoji = module.get("emoji", "📦")
+                context_parts.append(f"**{module['name']}** {emoji}")
                 context_parts.append(f"- {module['description']}")
-                context_parts.append(f"- Caracter\u00edsticas: {', '.join(module['features'])}")
-                context_parts.append(f"- Target: {module['target']}\n")
+                features = module.get("features", [])
+                if features:
+                    context_parts.append(f"- Características: {', '.join(features)}")
+                context_parts.append(f"- Target: {module.get('target', 'N/A')}\n")
 
         return "\n".join(context_parts)
 
-    def _get_default_response(self) -> str:
-        """Get default response when LLM fails"""
-        return """\u00a1Hola! Soy el asistente de Excelencia ERP. \U0001f60a
+    async def _get_default_response(self) -> str:
+        """Get default response when LLM fails, using dynamic modules."""
+        modules = await self._get_modules()
+
+        if not modules:
+            return "¡Hola! Soy el asistente de Excelencia ERP. ¿En qué puedo ayudarte?"
+
+        # Build dynamic module list
+        module_lines = []
+        for _, info in list(modules.items())[:4]:
+            emoji = info.get("emoji", "📦")
+            module_lines.append(f"• {emoji} {info['name']}")
+
+        modules_text = "\n".join(module_lines)
+
+        return f"""¡Hola! Soy el asistente de Excelencia ERP. 😊
 
 Excelencia es un sistema ERP modular especializado en:
-\u2022 \U0001f3e5 Gesti\u00f3n Hospitalaria
-\u2022 \U0001f4c5 Sistema de Turnos M\u00e9dicos
-\u2022 \U0001f3e8 Gesti\u00f3n Hotelera
-\u2022 \U0001f48a Sistema de Farmacia
+{modules_text}
 
-\u00bfSobre qu\u00e9 m\u00f3dulo te gustar\u00eda saber m\u00e1s?"""
+¿Sobre qué módulo te gustaría saber más?"""
 
-    def _error_response(self, error: str, state: Dict[str, Any]) -> Dict[str, Any]:
+    def _error_response(self, error: str, state: dict[str, Any]) -> dict[str, Any]:
         """Generate error response"""
         return {
             "messages": [

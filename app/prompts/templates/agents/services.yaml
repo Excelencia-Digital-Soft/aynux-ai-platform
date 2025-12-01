@@ -1,0 +1,122 @@
+# Agent Services Configuration
+# Defines user-facing service descriptions for each agent with i18n support
+# This file is loaded by PromptLoader and used to dynamically generate
+# service suggestions based on enabled agents.
+
+prompts:
+  - key: agents.services.config
+    name: Agent Services Configuration
+    description: Metadata for agent services with i18n support
+    version: "1.0.0"
+    template: |
+      services:
+        product_agent:
+          emoji: "🛒"
+          keywords: ["productos", "precios", "catalogo", "equipos", "products", "prices"]
+          i18n:
+            es:
+              service_name: "productos"
+              description: "Ver productos disponibles"
+            en:
+              service_name: "products"
+              description: "View available products"
+            pt:
+              service_name: "produtos"
+              description: "Ver produtos disponiveis"
+
+        promotions_agent:
+          emoji: "🎯"
+          keywords: ["ofertas", "descuentos", "promociones", "offers", "discounts"]
+          i18n:
+            es:
+              service_name: "promociones"
+              description: "Ofertas y promociones"
+            en:
+              service_name: "promotions"
+              description: "Offers and promotions"
+            pt:
+              service_name: "promocoes"
+              description: "Ofertas e promocoes"
+
+        tracking_agent:
+          emoji: "📦"
+          keywords: ["pedido", "envio", "tracking", "order", "shipping"]
+          i18n:
+            es:
+              service_name: "pedidos"
+              description: "Seguimiento de pedidos"
+            en:
+              service_name: "orders"
+              description: "Order tracking"
+            pt:
+              service_name: "pedidos"
+              description: "Rastreamento de pedidos"
+
+        support_agent:
+          emoji: "🔧"
+          keywords: ["ayuda", "soporte", "problema", "help", "support"]
+          i18n:
+            es:
+              service_name: "soporte"
+              description: "Soporte tecnico"
+            en:
+              service_name: "support"
+              description: "Technical support"
+            pt:
+              service_name: "suporte"
+              description: "Suporte tecnico"
+
+        invoice_agent:
+          emoji: "📄"
+          keywords: ["factura", "pago", "cuenta", "invoice", "payment"]
+          i18n:
+            es:
+              service_name: "facturacion"
+              description: "Consultas de facturacion"
+            en:
+              service_name: "billing"
+              description: "Billing inquiries"
+            pt:
+              service_name: "faturamento"
+              description: "Consultas de faturamento"
+
+        excelencia_agent:
+          emoji: "💼"
+          keywords: ["erp", "excelencia", "sistema"]
+          i18n:
+            es:
+              service_name: "ERP Excelencia"
+              description: "Informacion del sistema ERP"
+            en:
+              service_name: "Excelencia ERP"
+              description: "ERP system information"
+            pt:
+              service_name: "ERP Excelencia"
+              description: "Informacoes do sistema ERP"
+
+        data_insights_agent:
+          emoji: "📊"
+          keywords: ["reporte", "analisis", "estadisticas", "report", "analytics"]
+          i18n:
+            es:
+              service_name: "reportes"
+              description: "Reportes y analisis"
+            en:
+              service_name: "reports"
+              description: "Reports and analytics"
+            pt:
+              service_name: "relatorios"
+              description: "Relatorios e analises"
+
+      fallback:
+        emoji: "💬"
+        i18n:
+          es:
+            description: "Estamos aqui para ayudarte"
+          en:
+            description: "We're here to help you"
+          pt:
+            description: "Estamos aqui para ajuda-lo"
+    metadata:
+      type: config
+      cacheable: true

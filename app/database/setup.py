@@ -9,7 +9,8 @@ import asyncio
 import logging
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker  # type: ignore[attr-defined]
 
 from app.config.settings import get_settings
 from app.database.async_db import get_async_database_url

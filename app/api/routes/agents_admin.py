@@ -18,7 +18,8 @@ from pydantic import BaseModel, Field
 
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
 
-router = APIRouter(prefix="/api/v1/admin/agents", tags=["agents-admin"])
+# Create router (prefix is relative - api_router adds /api/v1)
+router = APIRouter(prefix="/admin/agents", tags=["agents-admin"])
 logger = logging.getLogger(__name__)
 
 

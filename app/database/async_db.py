@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from urllib.parse import quote_plus
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker  # type: ignore[attr-defined]
 from sqlalchemy.pool import NullPool, QueuePool
 
 from app.config.settings import get_settings
+from app.models.db.schemas import DEFAULT_SEARCH_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +46,19 @@ def create_async_database_engine():
     try:
         database_url = get_async_database_url()
 
+        # Connect args with search_path for multi-schema support
+        connect_args = {
+            "server_settings": {
+                "search_path": DEFAULT_SEARCH_PATH,
+            }
+        }
+
         # Configuración base común
         base_config = {
             "echo": settings.DB_ECHO,
             "future": True,
             "pool_pre_ping": True,
+            "connect_args": connect_args,
         }
 
         # Configuración específica según el entorno

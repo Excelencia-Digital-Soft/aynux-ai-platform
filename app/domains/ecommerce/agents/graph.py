@@ -3,6 +3,7 @@ E-commerce Domain Graph
 
 LangGraph StateGraph implementation for the e-commerce domain.
 Handles product queries, orders, promotions, tracking, and billing.
+Uses LLM-based intelligent routing for intent classification.
 """
 
 import logging
@@ -17,6 +18,7 @@ from app.integrations.llm import OllamaLLM
 from app.integrations.databases import PostgreSQLIntegration
 
 from .nodes import InvoiceNode, ProductNode, PromotionsNode, TrackingNode
+from .routing import EcommerceIntentRouter
 from .state import EcommerceState
 
 logger = logging.getLogger(__name__)
@@ -77,11 +79,18 @@ class EcommerceGraph:
         logger.info(f"EcommerceGraph initialized with nodes: {self.enabled_nodes}")
 
     def _init_integrations(self):
-        """Initialize integrations (Ollama, PostgreSQL)."""
+        """Initialize integrations (Ollama, PostgreSQL, Router)."""
         integrations_config = self.config.get("integrations", {})
 
         self.ollama = OllamaLLM()
         self.postgres = PostgreSQLIntegration(integrations_config.get("postgres", {}))
+
+        # Initialize LLM-based router
+        router_config = self.config.get("router", {})
+        self.router = EcommerceIntentRouter(
+            ollama=self.ollama,
+            config=router_config,
+        )
 
     def _init_nodes(self):
         """Initialize e-commerce domain nodes."""
@@ -191,9 +200,9 @@ class EcommerceGraph:
 
     async def _route_query(self, state: EcommerceState) -> dict[str, Any]:
         """
-        Route incoming query to appropriate e-commerce node.
+        Route incoming query to appropriate e-commerce node using LLM-based routing.
 
-        Analyzes the user message and determines which node should handle it.
+        Uses EcommerceIntentRouter for intelligent intent classification.
         """
         try:
             messages = state.get("messages", [])
@@ -202,18 +211,44 @@ class EcommerceGraph:
 
             last_message = messages[-1]
             raw_content = last_message.content if hasattr(last_message, "content") else str(last_message)
-            message_content = str(raw_content).lower()
+            message_content = str(raw_content)
 
-            # Simple keyword-based routing
-            intent_type, next_node = self._detect_intent(message_content)
+            # Build context for router
+            context = {
+                "customer": state.get("customer"),
+                "cart": state.get("cart"),
+            }
+
+            # Use LLM-based router for intelligent intent classification
+            try:
+                routing_result = await self.router.analyze_intent(
+                    message=message_content,
+                    context=context,
+                )
+            except Exception as e:
+                # Fallback to keyword-based routing if LLM fails
+                logger.warning(f"LLM routing failed, using keyword fallback: {e}")
+                routing_result = self.router.keyword_fallback(message_content)
+
+            intent_type = routing_result.get("intent", "product_search")
+            target_node = routing_result.get("target_node", EcommerceNodeType.PRODUCT)
+            confidence = routing_result.get("confidence", 0.5)
+
+            logger.info(
+                f"E-commerce routing: '{message_content[:50]}...' -> "
+                f"{intent_type} ({target_node}) [confidence: {confidence:.2f}]"
+            )
 
             return {
                 "ecommerce_intent_type": intent_type,
-                "next_agent": next_node,
+                "next_agent": target_node,
                 "routing_decision": {
                     "domain": "ecommerce",
                     "intent_type": intent_type,
-                    "routed_to": next_node,
+                    "routed_to": target_node,
+                    "confidence": confidence,
+                    "method": routing_result.get("method", "llm_analysis"),
+                    "reasoning": routing_result.get("reasoning", ""),
                     "timestamp": datetime.now().isoformat(),
                 },
             }
@@ -224,58 +259,6 @@ class EcommerceGraph:
                 "next_agent": EcommerceNodeType.PRODUCT,  # Default to product
                 "error_count": state.get("error_count", 0) + 1,
             }
-
-    def _detect_intent(self, message: str) -> tuple[str, str]:
-        """
-        Detect e-commerce intent from message.
-
-        Returns:
-            Tuple of (intent_type, target_node)
-        """
-        # Tracking keywords
-        tracking_keywords = [
-            "rastrear",
-            "tracking",
-            "donde esta",
-            "pedido",
-            "envio",
-            "entrega",
-            "paquete",
-            "seguimiento",
-        ]
-        if any(kw in message for kw in tracking_keywords):
-            return "order_tracking", EcommerceNodeType.TRACKING
-
-        # Promotions keywords
-        promo_keywords = [
-            "promocion",
-            "descuento",
-            "oferta",
-            "cupon",
-            "codigo",
-            "rebaja",
-            "promo",
-            "sale",
-        ]
-        if any(kw in message for kw in promo_keywords):
-            return "promotions", EcommerceNodeType.PROMOTIONS
-
-        # Invoice/billing keywords
-        invoice_keywords = [
-            "factura",
-            "pago",
-            "cobro",
-            "invoice",
-            "recibo",
-            "cuenta",
-            "reembolso",
-            "impuesto",
-        ]
-        if any(kw in message for kw in invoice_keywords):
-            return "billing", EcommerceNodeType.INVOICE
-
-        # Default to product search
-        return "product_search", EcommerceNodeType.PRODUCT
 
     def _get_next_node(self, state: EcommerceState) -> str:
         """Get the next node from state for conditional routing."""

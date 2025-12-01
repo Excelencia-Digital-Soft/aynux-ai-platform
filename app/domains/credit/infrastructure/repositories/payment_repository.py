@@ -76,11 +76,11 @@ class SQLAlchemyPaymentRepository(IPaymentRepository):
             query = select(PaymentModel).where(PaymentModel.account_id == account_id_int)
 
             if start_date:
-                query = query.where(PaymentModel.initiated_at >= start_date)
+                query = query.where(PaymentModel.initiated_at >= start_date)  # type: ignore[operator]
             if end_date:
-                query = query.where(PaymentModel.initiated_at <= end_date)
+                query = query.where(PaymentModel.initiated_at <= end_date)  # type: ignore[operator]
 
-            query = query.order_by(PaymentModel.initiated_at.desc()).limit(limit)
+            query = query.order_by(PaymentModel.initiated_at.desc()).limit(limit)  # type: ignore[union-attr]
 
             result = await self.session.execute(query)
             models = result.scalars().all()
@@ -126,7 +126,7 @@ class SQLAlchemyPaymentRepository(IPaymentRepository):
         result = await self.session.execute(
             select(PaymentModel)
             .where(PaymentModel.status == status)
-            .order_by(PaymentModel.initiated_at.desc())
+            .order_by(PaymentModel.initiated_at.desc())  # type: ignore[union-attr]
             .limit(limit)
         )
         models = result.scalars().all()
@@ -178,7 +178,7 @@ class SQLAlchemyPaymentRepository(IPaymentRepository):
         """Convert model to entity."""
         payment = Payment(
             id=model.id,
-            account_id=model.account_id,
+            account_id=model.account_id or 0,
             customer_id=model.customer_id or 0,
             account_number=model.account_number or "",
             amount=Decimal(str(model.amount)) if model.amount else Decimal("0"),

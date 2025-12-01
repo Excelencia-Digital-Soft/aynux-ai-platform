@@ -236,6 +236,18 @@ class IntentRouter:
 
         # Palabras clave básicas por intent
         keyword_patterns = {
+            "saludo": [
+                "hola",
+                "buenos días",
+                "buenas tardes",
+                "buenas noches",
+                "saludos",
+                "hey",
+                "hi",
+                "hello",
+                "qué tal",
+                "cómo estás",
+            ],
             "producto": [
                 "producto",
                 "productos",

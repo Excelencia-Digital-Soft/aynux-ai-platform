@@ -25,6 +25,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, relationship
 
 from .base import Base, TimestampMixin
+from .schemas import ECOMMERCE_SCHEMA
 
 if TYPE_CHECKING:
     from .promotions import Promotion
@@ -33,8 +34,9 @@ if TYPE_CHECKING:
 product_promotion_association = Table(
     "product_promotions",
     Base.metadata,
-    Column("product_id", UUID(as_uuid=True), ForeignKey("products.id")),
-    Column("promotion_id", UUID(as_uuid=True), ForeignKey("promotions.id")),
+    Column("product_id", UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.products.id")),
+    Column("promotion_id", UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.promotions.id")),
+    schema=ECOMMERCE_SCHEMA,
 )
 
 
@@ -64,6 +66,7 @@ class Category(Base, TimestampMixin):
     __table_args__ = (
         Index("idx_categories_active", active),
         Index("idx_categories_sort", sort_order),
+        {"schema": ECOMMERCE_SCHEMA},
     )
 
 
@@ -76,12 +79,14 @@ class Subcategory(Base, TimestampMixin):
     name = Column(String(100), nullable=False)  # gaming, work, budget
     display_name = Column(String(200), nullable=False)  # Gaming, Trabajo, Económicas
     description = Column(Text)
-    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)
+    category_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.categories.id"), nullable=False)
     active = Column(Boolean, default=True)
 
     # Relationships
     category: Mapped["Category"] = relationship("Category", back_populates="subcategories")
     products: Mapped[List["Product"]] = relationship("Product", back_populates="subcategory")
+
+    __table_args__ = ({"schema": ECOMMERCE_SCHEMA},)
 
 
 class Brand(Base, TimestampMixin):
@@ -111,6 +116,7 @@ class Brand(Base, TimestampMixin):
     __table_args__ = (
         Index("idx_brands_active", active),
         Index("idx_brands_name_trgm", name, postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+        {"schema": ECOMMERCE_SCHEMA},
     )
 
 
@@ -140,9 +146,9 @@ class Product(Base, TimestampMixin):
     barcode = Column(String(100))  # Barcode from DUX
 
     # Foreign Keys
-    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)
-    subcategory_id = Column(UUID(as_uuid=True), ForeignKey("subcategories.id"))
-    brand_id = Column(UUID(as_uuid=True), ForeignKey("brands.id"))
+    category_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.categories.id"), nullable=False)
+    subcategory_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.subcategories.id"))
+    brand_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.brands.id"))
 
     # Product details as JSONB for flexibility
     technical_specs = Column(JSONB)  # {"cpu": "i7", "ram": "16GB", "storage": "512GB SSD"}
@@ -205,6 +211,7 @@ class Product(Base, TimestampMixin):
         ),
         CheckConstraint("price >= 0", name="check_price_positive"),
         CheckConstraint("stock >= 0", name="check_stock_non_negative"),
+        {"schema": ECOMMERCE_SCHEMA},
     )
 
     def __repr__(self):
@@ -234,7 +241,7 @@ class ProductAttribute(Base, TimestampMixin):
     __tablename__ = "product_attributes"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.products.id"), nullable=False)
     name = Column(String(100), nullable=False)
     value = Column(String(500), nullable=False)
     attribute_type = Column(String(50), default="text")  # text, number, boolean, json
@@ -249,6 +256,7 @@ class ProductAttribute(Base, TimestampMixin):
         Index("idx_product_attributes_name", name),
         Index("idx_product_attributes_searchable", is_searchable),
         UniqueConstraint("product_id", "name", name="uq_product_attribute_name"),
+        {"schema": ECOMMERCE_SCHEMA},
     )
 
     def __repr__(self):
@@ -261,7 +269,7 @@ class ProductImage(Base, TimestampMixin):
     __tablename__ = "product_images"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.products.id"), nullable=False)
     url = Column(String(1000), nullable=False)
     alt_text = Column(String(200))
     is_primary = Column(Boolean, default=False)
@@ -275,4 +283,5 @@ class ProductImage(Base, TimestampMixin):
         Index("idx_product_images_product", product_id),
         Index("idx_product_images_primary", is_primary),
         Index("idx_product_images_sort", sort_order),
+        {"schema": ECOMMERCE_SCHEMA},
     )

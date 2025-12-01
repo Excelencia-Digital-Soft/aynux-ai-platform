@@ -84,8 +84,8 @@ Si ayudamos, agradece su confianza. Invita a volver en el futuro.
 """
 
         try:
-            # Use fast model for user-facing responses
-            llm = self.ollama.get_llm(temperature=0.8, model="llama3.1")
+            # Use configured model for user-facing responses (no hardcoded model)
+            llm = self.ollama.get_llm(temperature=0.8)
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:

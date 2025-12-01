@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, relationship
 
 from .base import Base
+from .schemas import ECOMMERCE_SCHEMA
 
 if TYPE_CHECKING:
     from .catalog import Product
@@ -20,6 +21,7 @@ class Analytics(Base):
     """Analytics y métricas del chatbot"""
 
     __tablename__ = "analytics"
+    __table_args__ = ({"schema": ECOMMERCE_SCHEMA},)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     metric_name = Column(String(100), nullable=False, index=True)
@@ -36,9 +38,10 @@ class PriceHistory(Base):
     """Historial de precios para analytics"""
 
     __tablename__ = "price_history"
+    __table_args__ = ({"schema": ECOMMERCE_SCHEMA},)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.products.id"), nullable=False)
     price = Column(Float, nullable=False)
     change_reason = Column(String(100))  # promotion, market_change, cost_update
     notes = Column(Text)
@@ -53,9 +56,10 @@ class StockMovement(Base):
     """Movimientos de inventario"""
 
     __tablename__ = "stock_movements"
+    __table_args__ = ({"schema": ECOMMERCE_SCHEMA},)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.products.id"), nullable=False)
     movement_type = Column(String(20), nullable=False)  # in, out, adjustment
     quantity = Column(Integer, nullable=False)
     previous_stock = Column(Integer, nullable=False)

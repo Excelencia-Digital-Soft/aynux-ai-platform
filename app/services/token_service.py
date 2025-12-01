@@ -91,6 +91,41 @@ class TokenService:
 
         return encoded_jwt
 
+    def create_access_token_with_org(
+        self,
+        user_id: str,
+        username: str,
+        org_id: Optional[str] = None,
+        role: Optional[str] = None,
+        scopes: Optional[List[str]] = None,
+        expires_delta: Optional[timedelta] = None,
+    ) -> str:
+        """
+        Crea un token JWT de acceso con contexto de organización.
+
+        Args:
+            user_id: ID único del usuario (UUID como string)
+            username: Nombre de usuario
+            org_id: ID de la organización (UUID como string, opcional)
+            role: Rol del usuario en la organización (owner, admin, member)
+            scopes: Lista de permisos/scopes del usuario
+            expires_delta: Tiempo de expiración (opcional)
+
+        Returns:
+            Token JWT codificado con org_id y role si se proporcionan
+        """
+        data: Dict[str, Any] = {
+            "sub": user_id,
+            "username": username,
+            "scopes": scopes or [],
+        }
+
+        if org_id:
+            data["org_id"] = org_id
+            data["role"] = role or "member"
+
+        return self.create_access_token(data, expires_delta)
+
     def create_refresh_token(self, data: Dict[str, Any]) -> str:
         """
         Crea un token JWT de actualización

@@ -51,6 +51,7 @@ dependencies = [
     "streamlit>=1.39.0",
     "graphviz>=0.20.3",
     "pypdf>=5.1.0",
+    "alembic>=1.13.0",
 ]
 
 [dependency-groups]

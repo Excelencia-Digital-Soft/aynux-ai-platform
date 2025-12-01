@@ -3,23 +3,22 @@ Comprehensive tests for WhatsApp Flows functionality
 Testing models, services, and flow processing
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.integrations.whatsapp import (
+    DefaultOrderFormHandler,
+    FlowType,
+    InMemoryFlowRepository,
+    WhatsAppFlowsService,
+)
 from app.models.whatsapp_advanced import (
-    FlowMessage,
+    FlowConfiguration,
     FlowDataResponse,
     MessageFactory,
     WhatsAppApiResponse,
-    FlowConfiguration,
-)
-from app.integrations.whatsapp import (
-    WhatsAppFlowsService,
-    FlowType,
-    InMemoryFlowRepository,
-    DefaultOrderFormHandler,
 )
 
 

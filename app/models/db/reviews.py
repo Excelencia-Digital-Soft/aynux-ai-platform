@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, relationship
 
 from .base import Base, TimestampMixin
+from .schemas import ECOMMERCE_SCHEMA
 
 if TYPE_CHECKING:
     from .catalog import Product
@@ -22,8 +23,8 @@ class ProductReview(Base, TimestampMixin):
     __tablename__ = "product_reviews"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
-    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True)
+    product_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.products.id"), nullable=False)
+    customer_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.customers.id"), nullable=True)
     customer_name = Column(String(200))
     customer_phone = Column(String(20))  # Para identificar cliente de WhatsApp
     rating = Column(Integer, nullable=False)  # 1-5 estrellas
@@ -36,3 +37,5 @@ class ProductReview(Base, TimestampMixin):
     # Relationships
     product: Mapped["Product"] = relationship("Product")
     customer: Mapped[Optional["Customer"]] = relationship("Customer", back_populates="reviews")
+
+    __table_args__ = ({"schema": ECOMMERCE_SCHEMA},)

@@ -105,8 +105,9 @@ class Settings(BaseSettings):
     DUX_API_RATE_LIMIT_SECONDS: int = Field(5, description="Límite de rate limiting para la API de Dux")
     DUX_SYNC_BATCH_SIZE: int = Field(50, description="Tamaño del lote para sincronización de productos DUX")
 
-    # DUX Synchronization Configuration (independent from ProductAgent)
-    DUX_SYNC_ENABLED: bool = Field(True, description="Habilitar sincronización automática DUX a PostgreSQL")
+    # DUX Synchronization Configuration (controls both background sync and ProductAgent)
+    # When disabled: background sync does NOT start and ProductAgent is automatically excluded
+    DUX_SYNC_ENABLED: bool = Field(False, description="Habilitar integración DUX (sync + ProductAgent)")
     DUX_SYNC_HOURS: list[int] = Field([2, 14], description="Horas del día para sincronización automática (0-23)")
     DUX_FORCE_SYNC_THRESHOLD_HOURS: int = Field(24, description="Forzar sync si datos > X horas antiguos")
 
@@ -226,6 +227,20 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Determina si está en modo desarrollo"""
         return self.DEBUG or self.ENVIRONMENT.lower() in ["development", "dev", "local"]
+
+    @computed_field
+    @property
+    def effective_enabled_agents(self) -> list[str]:
+        """
+        Lista efectiva de agentes habilitados.
+
+        Excluye automáticamente product_agent si DUX_SYNC_ENABLED=False,
+        ya que el agente no tendría datos útiles sin la sincronización DUX.
+        """
+        agents = list(self.ENABLED_AGENTS)
+        if not self.DUX_SYNC_ENABLED and "product_agent" in agents:
+            agents.remove("product_agent")
+        return agents
 
     @computed_field
     @property

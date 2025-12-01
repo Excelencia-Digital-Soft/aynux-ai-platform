@@ -14,7 +14,7 @@ All endpoints require proper authentication and authorization (to be added).
 """
 
 import logging
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -39,15 +39,86 @@ from app.models.knowledge_schemas import (
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# Create router
+# Create router (prefix is relative - api_router adds /api/v1)
 router = APIRouter(
-    prefix="/api/v1/admin/knowledge",
+    prefix="/admin/knowledge",
     tags=["Knowledge Base Administration"],
     responses={
         404: {"model": ErrorResponse, "description": "Resource not found"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
+
+
+# ============================================================================
+# Static Path Endpoints (must be before dynamic /{knowledge_id} routes)
+# ============================================================================
+
+
+@router.get(
+    "/stats",
+    response_model=KnowledgeStats,
+    summary="Get knowledge base statistics",
+    description="Retrieve statistics about the knowledge base",
+)
+async def get_stats(
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+):
+    """
+    Get comprehensive statistics about the knowledge base.
+
+    Returns:
+    - Database statistics (active, inactive, embedding coverage)
+    - pgvector embedding counts
+    - Embedding model information
+    """
+    try:
+        container = DependencyContainer()
+        use_case = container.create_get_knowledge_statistics_use_case(db)
+        stats = await use_case.execute()
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting knowledge base statistics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve statistics",
+        ) from e
+
+
+@router.get(
+    "/health",
+    response_model=MessageResponse,
+    summary="Health check",
+    description="Check if the knowledge base API is operational",
+)
+async def health_check(
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+):
+    """
+    Simple health check endpoint to verify API is running.
+
+    Returns success message if all systems are operational.
+    """
+    try:
+        container = DependencyContainer()
+        use_case = container.create_get_knowledge_statistics_use_case(db)
+        # Quick check: count active documents
+        stats = await use_case.execute()
+
+        return MessageResponse(
+            message="Knowledge Base API is operational",
+            success=True,
+            details={
+                "active_documents": stats["database"]["total_active"],
+                "embedding_model": stats["embedding_model"],
+            },
+        )
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Knowledge Base API is not operational",
+        ) from e
 
 
 # ============================================================================
@@ -145,7 +216,7 @@ async def get_knowledge(
 async def list_knowledge(
     document_type: Optional[str] = Query(None, description="Filter by document type"),  # noqa: B008
     category: Optional[str] = Query(None, description="Filter by category"),  # noqa: B008
-    tags: Optional[List[str]] = Query(None, description="Filter by tags (OR logic)"),  # noqa: B008
+    tags: Optional[list[str]] = Query(None, description="Filter by tags (OR logic)"),  # noqa: B008
     active_only: bool = Query(True, description="Only return active documents"),  # noqa: B008
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),  # noqa: B008
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),  # noqa: B008
@@ -439,75 +510,4 @@ async def sync_all_embeddings(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to sync embeddings",
-        ) from e
-
-
-@router.get(
-    "/stats",
-    response_model=KnowledgeStats,
-    summary="Get knowledge base statistics",
-    description="Retrieve statistics about the knowledge base",
-)
-async def get_stats(
-    db: AsyncSession = Depends(get_async_db),  # noqa: B008
-):
-    """
-    Get comprehensive statistics about the knowledge base.
-
-    Returns:
-    - Database statistics (active, inactive, embedding coverage)
-    - pgvector embedding counts
-    - Embedding model information
-    """
-    try:
-        container = DependencyContainer()
-        use_case = container.create_get_knowledge_statistics_use_case(db)
-        stats = await use_case.execute()
-        return stats
-    except Exception as e:
-        logger.error(f"Error getting knowledge base statistics: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve statistics",
-        ) from e
-
-
-# ============================================================================
-# Health Check Endpoint
-# ============================================================================
-
-
-@router.get(
-    "/health",
-    response_model=MessageResponse,
-    summary="Health check",
-    description="Check if the knowledge base API is operational",
-)
-async def health_check(
-    db: AsyncSession = Depends(get_async_db),  # noqa: B008
-):
-    """
-    Simple health check endpoint to verify API is running.
-
-    Returns success message if all systems are operational.
-    """
-    try:
-        container = DependencyContainer()
-        use_case = container.create_get_knowledge_statistics_use_case(db)
-        # Quick check: count active documents
-        stats = await use_case.execute()
-
-        return MessageResponse(
-            message="Knowledge Base API is operational",
-            success=True,
-            details={
-                "active_documents": stats["database"]["total_active"],
-                "embedding_model": stats["embedding_model"],
-            },
-        )
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Knowledge Base API is not operational",
         ) from e

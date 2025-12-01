@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, relationship
 
 from .base import Base
 from .catalog import product_promotion_association
+from .schemas import ECOMMERCE_SCHEMA
 
 if TYPE_CHECKING:
     from .catalog import Product
@@ -49,6 +50,8 @@ class Promotion(Base):
     products: Mapped[List["Product"]] = relationship(
         "Product", secondary=product_promotion_association, back_populates="promotions"
     )
+
+    __table_args__ = ({"schema": ECOMMERCE_SCHEMA},)
 
     @property
     def is_valid(self) -> bool:

@@ -13,7 +13,7 @@ The pgvector API provides endpoints for:
 ## Base URL
 
 ```
-http://localhost:8000/api/v1
+http://localhost:8001/api/v1
 ```
 
 ## Authentication
@@ -57,7 +57,7 @@ Check if pgvector extension is available and functioning correctly.
 
 **Example**:
 ```bash
-curl -X GET "http://localhost:8000/api/v1/pgvector/health" \
+curl -X GET "http://localhost:8001/api/v1/pgvector/health" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -85,7 +85,7 @@ Retrieve statistics about embedding coverage across products.
 
 **Example**:
 ```bash
-curl -X GET "http://localhost:8000/api/v1/pgvector/statistics" \
+curl -X GET "http://localhost:8001/api/v1/pgvector/statistics" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -127,7 +127,7 @@ Generate or update the embedding for a specific product.
 
 **Example**:
 ```bash
-curl -X POST "http://localhost:8000/api/v1/pgvector/embeddings/product/123e4567-e89b-12d3-a456-426614174000?force=true" \
+curl -X POST "http://localhost:8001/api/v1/pgvector/embeddings/product/123e4567-e89b-12d3-a456-426614174000?force=true" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -185,7 +185,7 @@ Generate or update embeddings for multiple products.
 **Example**:
 ```bash
 # Update specific products
-curl -X POST "http://localhost:8000/api/v1/pgvector/embeddings/batch" \
+curl -X POST "http://localhost:8001/api/v1/pgvector/embeddings/batch" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -195,7 +195,7 @@ curl -X POST "http://localhost:8000/api/v1/pgvector/embeddings/batch" \
   }'
 
 # Update all products missing embeddings
-curl -X POST "http://localhost:8000/api/v1/pgvector/embeddings/batch" \
+curl -X POST "http://localhost:8001/api/v1/pgvector/embeddings/batch" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -237,7 +237,7 @@ Check the status of a long-running batch embedding job.
 
 **Example**:
 ```bash
-curl -X GET "http://localhost:8000/api/v1/pgvector/embeddings/batch/batch-job-123" \
+curl -X GET "http://localhost:8001/api/v1/pgvector/embeddings/batch/batch-job-123" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -325,7 +325,7 @@ Perform semantic similarity search across products.
 
 **Example**:
 ```bash
-curl -X POST "http://localhost:8000/api/v1/pgvector/search" \
+curl -X POST "http://localhost:8001/api/v1/pgvector/search" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -382,7 +382,7 @@ Find products similar to a given product.
 
 **Example**:
 ```bash
-curl -X GET "http://localhost:8000/api/v1/pgvector/similar/123e4567-e89b-12d3-a456-426614174000?limit=10&similarity_threshold=0.7" \
+curl -X GET "http://localhost:8001/api/v1/pgvector/similar/123e4567-e89b-12d3-a456-426614174000?limit=10&similarity_threshold=0.7" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -427,7 +427,7 @@ Retrieve performance metrics for pgvector operations.
 
 **Example**:
 ```bash
-curl -X GET "http://localhost:8000/api/v1/pgvector/metrics?time_range=24h" \
+curl -X GET "http://localhost:8001/api/v1/pgvector/metrics?time_range=24h" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -468,7 +468,7 @@ Retrieve products with outdated embeddings.
 
 **Example**:
 ```bash
-curl -X GET "http://localhost:8000/api/v1/pgvector/embeddings/stale?threshold_days=7&limit=100" \
+curl -X GET "http://localhost:8001/api/v1/pgvector/embeddings/stale?threshold_days=7&limit=100" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -651,7 +651,7 @@ class PgVectorClient:
 
 # Usage
 client = PgVectorClient(
-    base_url="http://localhost:8000/api/v1",
+    base_url="http://localhost:8001/api/v1",
     api_token="your_api_token"
 )
 

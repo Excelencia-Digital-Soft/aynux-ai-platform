@@ -1,0 +1,128 @@
+# =============================================================================
+# Aynux Docker Compose - Testing Environment
+# =============================================================================
+# Usage:
+#   # Run tests in containers
+#   docker compose -f docker-compose.test.yml up --abort-on-container-exit
+#
+#   # Run tests and get exit code
+#   docker compose -f docker-compose.test.yml up --exit-code-from app
+#
+#   # Clean up after tests
+#   docker compose -f docker-compose.test.yml down -v
+#
+# This configuration is compatible with GitHub Actions CI/CD workflow.
+# =============================================================================
+
+name: aynux-test
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL for testing (ephemeral)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aynux-test-postgres
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: aynux_test
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d aynux_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - aynux-test-network
+    # No persistent volumes - tests should be isolated
+
+  # ---------------------------------------------------------------------------
+  # Redis for testing (ephemeral)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: aynux-test-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aynux-test-network
+    # No persistent volumes - tests should be isolated
+
+  # ---------------------------------------------------------------------------
+  # Test Runner
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: aynux-test-runner
+    environment:
+      # Test environment
+      - ENVIRONMENT=test
+      - TESTING=true
+      - DEBUG=false
+      # Database - matches GitHub Actions service config
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=aynux_test
+      - DB_USER=test_user
+      - DB_PASSWORD=test_password
+      - DB_POOL_SIZE=5
+      - DB_MAX_OVERFLOW=10
+      - DB_ECHO=false
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=
+      # pgvector
+      - PGVECTOR_SIMILARITY_THRESHOLD=0.7
+      # Disable external services during tests
+      - DUX_SYNC_ENABLED=false
+      - LANGSMITH_TRACING_ENABLED=false
+      # Mock Ollama URL (tests should mock LLM calls)
+      - OLLAMA_API_URL=http://localhost:11434
+      - OLLAMA_API_MODEL=test-model
+      - OLLAMA_API_MODEL_EMBEDDING=test-embedding
+      # Skip entrypoint DB init - let tests handle their own setup
+      - SKIP_DB_INIT=true
+    volumes:
+      # Mount source for coverage reporting
+      - ./app:/app/app:ro
+      - ./tests:/app/tests:ro
+      # Output coverage reports
+      - ./coverage:/app/coverage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aynux-test-network
+    # Run pytest with coverage
+    command: >
+      uv run pytest
+      -v
+      --tb=short
+      --cov=app
+      --cov-report=term-missing
+      --cov-report=xml:/app/coverage/coverage.xml
+      --cov-report=html:/app/coverage/htmlcov
+      tests/
+
+# =============================================================================
+# Networks (isolated for testing)
+# =============================================================================
+networks:
+  aynux-test-network:
+    driver: bridge
+    name: aynux-test-network

@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, relationship
 
 from .base import Base
+from .schemas import ECOMMERCE_SCHEMA
 
 if TYPE_CHECKING:
     from .customers import Customer
@@ -22,7 +23,7 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
+    customer_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.customers.id"), nullable=False)
     session_id = Column(String(100), index=True)  # Para agrupar mensajes de una sesión
 
     # Conversation metadata
@@ -44,6 +45,8 @@ class Conversation(Base):
     customer: Mapped["Customer"] = relationship("Customer", back_populates="conversations")
     messages: Mapped[List["Message"]] = relationship("Message", back_populates="conversation")
 
+    __table_args__ = ({"schema": ECOMMERCE_SCHEMA},)
+
 
 class Message(Base):
     """Mensajes individuales"""
@@ -52,7 +55,7 @@ class Message(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_phone = Column(String, nullable=False, index=True)
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey(f"{ECOMMERCE_SCHEMA}.conversations.id"), nullable=False)
     message_type = Column(String(20), nullable=False)  # user, bot, system
     content = Column(Text, nullable=False)
     intent = Column(String(100))  # Intención detectada
@@ -66,3 +69,5 @@ class Message(Base):
 
     # Relationships
     conversation: Mapped["Conversation"] = relationship("Conversation", back_populates="messages")
+
+    __table_args__ = ({"schema": ECOMMERCE_SCHEMA},)

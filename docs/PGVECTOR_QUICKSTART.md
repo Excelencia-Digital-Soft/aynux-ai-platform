@@ -135,7 +135,7 @@ Final pgvector coverage: 99.8%
 
 **Test Search** (in another terminal):
 ```bash
-curl -X POST "http://localhost:8000/api/v1/chat/message" \
+curl -X POST "http://localhost:8001/api/v1/chat/message" \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "test_user",

@@ -5,7 +5,6 @@ SQLAlchemy implementation of IDoctorRepository.
 """
 
 import logging
-from datetime import time
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -166,9 +165,10 @@ class SQLAlchemyDoctorRepository(IDoctorRepository):
 
     def _to_entity(self, model: DoctorModel) -> Doctor:
         """Convert model to entity."""
+        # Note: SQLAlchemy Column() syntax - Pyright sees Column objects at class level.
         # Build optional value objects
-        email = Email(model.email) if model.email else None
-        phone = PhoneNumber(model.phone) if model.phone else None
+        email = Email(model.email) if model.email else None  # type: ignore[arg-type]
+        phone = PhoneNumber(model.phone) if model.phone else None  # type: ignore[arg-type]
 
         # Build weekly schedule from working days and hours
         weekly_schedule = WeeklySchedule()
@@ -186,14 +186,14 @@ class SQLAlchemyDoctorRepository(IDoctorRepository):
                 day_num = day_map.get(day_name.lower())
                 if day_num is not None:
                     slot = TimeSlot(
-                        start_time=model.working_hours_start,
-                        end_time=model.working_hours_end,
-                        duration_minutes=model.appointment_duration_minutes or 30,
+                        start_time=model.working_hours_start,  # type: ignore[arg-type]
+                        end_time=model.working_hours_end,  # type: ignore[arg-type]
+                        duration_minutes=model.appointment_duration_minutes or 30,  # type: ignore[arg-type]
                     )
                     weekly_schedule.add_slot(day_num, slot)
 
         # Build secondary specialties list
-        secondary_specialties = []
+        secondary_specialties: list[DoctorSpecialty] = []
         if model.secondary_specialties:
             for spec_value in model.secondary_specialties:
                 try:
@@ -202,23 +202,23 @@ class SQLAlchemyDoctorRepository(IDoctorRepository):
                     pass
 
         doctor = Doctor(
-            id=model.id,
-            first_name=model.first_name,
-            last_name=model.last_name,
+            id=model.id,  # type: ignore[arg-type]
+            first_name=model.first_name,  # type: ignore[arg-type]
+            last_name=model.last_name,  # type: ignore[arg-type]
             email=email,
             phone=phone,
-            license_number=model.license_number,
-            specialty=model.specialty or DoctorSpecialty.GENERAL_PRACTICE,
+            license_number=model.license_number,  # type: ignore[arg-type]
+            specialty=model.specialty or DoctorSpecialty.GENERAL_PRACTICE,  # type: ignore[arg-type]
             secondary_specialties=secondary_specialties,
             weekly_schedule=weekly_schedule,
-            appointment_duration_minutes=model.appointment_duration_minutes or 30,
-            is_active=model.is_active if model.is_active is not None else True,
+            appointment_duration_minutes=model.appointment_duration_minutes or 30,  # type: ignore[arg-type]
+            is_active=model.is_active if model.is_active is not None else True,  # type: ignore[arg-type]
         )
 
         if model.created_at:
-            doctor.created_at = model.created_at
+            doctor.created_at = model.created_at  # type: ignore[assignment]
         if model.updated_at:
-            doctor.updated_at = model.updated_at
+            doctor.updated_at = model.updated_at  # type: ignore[assignment]
 
         return doctor
 
@@ -257,18 +257,19 @@ class SQLAlchemyDoctorRepository(IDoctorRepository):
 
     def _update_model(self, model: DoctorModel, doctor: Doctor) -> None:
         """Update model from entity."""
-        model.first_name = doctor.first_name
-        model.last_name = doctor.last_name
-        model.license_number = doctor.license_number
-        model.specialty = doctor.specialty
-        model.secondary_specialties = [s.value for s in doctor.secondary_specialties]
-        model.email = str(doctor.email) if doctor.email else None
-        model.phone = str(doctor.phone) if doctor.phone else None
-        model.appointment_duration_minutes = doctor.appointment_duration_minutes
-        model.is_active = doctor.is_active
+        # Note: SQLAlchemy Column() syntax means Pyright sees Column objects at class level.
+        model.first_name = doctor.first_name  # type: ignore[assignment]
+        model.last_name = doctor.last_name  # type: ignore[assignment]
+        model.license_number = doctor.license_number  # type: ignore[assignment]
+        model.specialty = doctor.specialty  # type: ignore[assignment]
+        model.secondary_specialties = [s.value for s in doctor.secondary_specialties]  # type: ignore[assignment]
+        model.email = str(doctor.email) if doctor.email else None  # type: ignore[assignment]
+        model.phone = str(doctor.phone) if doctor.phone else None  # type: ignore[assignment]
+        model.appointment_duration_minutes = doctor.appointment_duration_minutes  # type: ignore[assignment]
+        model.is_active = doctor.is_active  # type: ignore[assignment]
 
         # Update schedule
-        working_days = []
+        working_days: list[str] = []
         day_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
         working_hours_start = None
         working_hours_end = None
@@ -281,6 +282,6 @@ class SQLAlchemyDoctorRepository(IDoctorRepository):
                     working_hours_start = slots[0].start_time
                     working_hours_end = slots[0].end_time
 
-        model.working_days = working_days
-        model.working_hours_start = working_hours_start
-        model.working_hours_end = working_hours_end
+        model.working_days = working_days  # type: ignore[assignment]
+        model.working_hours_start = working_hours_start  # type: ignore[assignment]
+        model.working_hours_end = working_hours_end  # type: ignore[assignment]

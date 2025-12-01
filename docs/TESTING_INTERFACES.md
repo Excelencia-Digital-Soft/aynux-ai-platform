@@ -19,7 +19,7 @@ Aynux proporciona **tres interfaces** para testing y desarrollo, cada una optimi
 
 | Interfaz | Archivo | Uso Principal | Ventajas |
 |----------|---------|--------------|----------|
-| **Web Chat** | `http://localhost:8000/` | Testing visual e interactivo | UI moderna, streaming, debugging |
+| **Web Chat** | `http://localhost:8001/` | Testing visual e interactivo | UI moderna, streaming, debugging |
 | **WhatsApp Sim** | `tests/test_whatsapp_simulator.py` | Testing de webhooks | Simula payloads reales, multi-dominio |
 | **CLI Interactive** | `tests/test_chat_interactive.py` | Testing rápido de terminal | Rapidez, sin navegador, scripting |
 
@@ -35,12 +35,12 @@ Interfaz web moderna con diseño responsive que simula una aplicación de chat. 
 
 1. **Iniciar el servidor**:
    ```bash
-   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
    ```
 
 2. **Abrir en el navegador**:
    ```
-   http://localhost:8000/
+   http://localhost:8001/
    ```
 
 3. **Características disponibles**:
@@ -386,7 +386,7 @@ python tests/test_chat_interactive.py
 > ¿Qué laptops tienen?
 
 # 2. Verificar cambio en UI
-Abrir: http://localhost:8000/
+Abrir: http://localhost:8001/
 
 # 3. Validar webhook de WhatsApp
 python tests/test_whatsapp_simulator.py --scenario 1
@@ -403,7 +403,7 @@ done
 
 ### 🎨 Demo para Stakeholders
 
-1. Abrir Web Chat: `http://localhost:8000/`
+1. Abrir Web Chat: `http://localhost:8001/`
 2. Activar panel de debug
 3. Activar streaming
 4. Demostrar cambio de dominios
@@ -421,7 +421,7 @@ python tests/test_whatsapp_simulator.py
 > /payload
 
 # 3. Inspeccionar en Web Chat con debug panel
-http://localhost:8000/ → Toggle Debug
+http://localhost:8001/ → Toggle Debug
 ```
 
 ---
@@ -430,7 +430,7 @@ http://localhost:8000/ → Toggle Debug
 
 ### 1. Iniciar Servidor
 ```bash
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
 ### 2. Testing Rápido (CLI)
@@ -440,7 +440,7 @@ python tests/test_chat_interactive.py
 
 ### 3. Testing Visual (Web)
 ```
-http://localhost:8000/
+http://localhost:8001/
 ```
 
 ### 4. Testing WhatsApp (Simulator)
@@ -479,7 +479,7 @@ Leyenda: ❌ No soportado | ✅ Soportado | ✅✅✅ Óptimo
 
 ```bash
 # Verificar servidor
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 
 # Verificar archivos estáticos
 ls -la app/static/
@@ -492,7 +492,7 @@ tail -f logs/app.log
 
 ```bash
 # Verificar endpoint
-curl -X POST http://localhost:8000/api/v1/webhook/health
+curl -X POST http://localhost:8001/api/v1/webhook/health
 
 # Verificar payload
 python tests/test_whatsapp_simulator.py
@@ -503,7 +503,7 @@ python tests/test_whatsapp_simulator.py
 
 ```bash
 # Verificar LangGraph service
-curl http://localhost:8000/api/v1/chat/health
+curl http://localhost:8001/api/v1/chat/health
 
 # Ver trazas
 python tests/test_chat_interactive.py
@@ -526,7 +526,7 @@ python tests/test_chat_interactive.py
 
 - [Testing Guide](TESTING_GUIDE.md)
 - [LangGraph Documentation](LangGraph.md)
-- [API Documentation](http://localhost:8000/api/v1/docs)
+- [API Documentation](http://localhost:8001/api/v1/docs)
 - [LangSmith Dashboard](https://smith.langchain.com/)
 
 ---

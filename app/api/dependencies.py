@@ -1,22 +1,31 @@
 import hashlib
 import hmac
 import logging
+import os
 from typing import List, Optional
+from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Path, Request, status
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import Settings, get_settings
 from app.core.container import DependencyContainer, get_container
+from app.database.async_db import get_async_db
 from app.models.auth import User
+from app.models.db.tenancy import Organization, OrganizationUser
+from app.models.db.user import UserDB
 from app.orchestration import SuperOrchestrator
 from app.services.token_service import TokenService
 from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 
+API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
+
 token_service = TokenService()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{API_V1_STR}/auth/token")
 
 
 # ============================================================
@@ -217,3 +226,186 @@ async def verify_signature(
 
     # Si la firma es válida, continuamos con la solicitud
     return True
+
+
+# ============================================================
+# TENANCY AUTHENTICATION DEPENDENCIES
+# ============================================================
+
+
+async def get_current_user_db(
+    token: str = Depends(oauth2_scheme),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+) -> UserDB:
+    """
+    Get current authenticated user from database.
+
+    Returns UserDB model instance with full user data.
+    Supports both UUID-based tokens (new) and username-based tokens (legacy).
+    """
+    # Verify token
+    if not token_service.verify_token(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = token_service.decode_token(token)
+    user_id_str = payload.get("sub")
+
+    if not user_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido: falta sub",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Try to parse as UUID first (new format), fallback to username (legacy)
+    try:
+        user_id = UUID(user_id_str)
+        stmt = select(UserDB).where(UserDB.id == user_id)
+    except ValueError:
+        # Legacy token with username as sub
+        stmt = select(UserDB).where(UserDB.username == user_id_str)
+
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado",
+        )
+
+    if user.disabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario deshabilitado",
+        )
+
+    return user
+
+
+async def get_current_user_with_org(
+    token: str = Depends(oauth2_scheme),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+) -> tuple[UserDB, Organization | None, str | None]:
+    """
+    Get current user with organization context from JWT.
+
+    Returns tuple of (UserDB, Organization or None, role or None).
+    Organization and role come from JWT payload if present.
+    """
+    user = await get_current_user_db(token, db)
+
+    # Extract org context from token
+    payload = token_service.decode_token(token)
+    org_id_str = payload.get("org_id")
+    role = payload.get("role")
+
+    org = None
+    if org_id_str:
+        try:
+            org_id = UUID(org_id_str)
+            stmt = select(Organization).where(Organization.id == org_id)
+            result = await db.execute(stmt)
+            org = result.scalar_one_or_none()
+        except ValueError:
+            pass
+
+    return user, org, role
+
+
+async def verify_org_membership(
+    org_id: UUID = Path(..., description="Organization ID"),  # noqa: B008
+    user: UserDB = Depends(get_current_user_db),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+) -> OrganizationUser:
+    """
+    Verify that the current user is a member of the specified organization.
+
+    Returns OrganizationUser membership record if user is a member.
+    Raises 403 Forbidden if user is not a member.
+    """
+    stmt = select(OrganizationUser).where(
+        OrganizationUser.organization_id == org_id,
+        OrganizationUser.user_id == user.id,
+    )
+    result = await db.execute(stmt)
+    membership = result.scalar_one_or_none()
+
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No eres miembro de esta organización",
+        )
+
+    return membership
+
+
+async def require_admin(
+    org_id: UUID = Path(..., description="Organization ID"),  # noqa: B008
+    user: UserDB = Depends(get_current_user_db),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+) -> OrganizationUser:
+    """
+    Require admin or owner role in the organization.
+
+    Returns OrganizationUser membership record if user has admin access.
+    Raises 403 Forbidden if user doesn't have admin privileges.
+    """
+    membership = await verify_org_membership(org_id, user, db)
+
+    if not membership.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requiere rol de administrador o propietario",
+        )
+
+    return membership
+
+
+async def require_owner(
+    org_id: UUID = Path(..., description="Organization ID"),  # noqa: B008
+    user: UserDB = Depends(get_current_user_db),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+) -> OrganizationUser:
+    """
+    Require owner role in the organization.
+
+    Returns OrganizationUser membership record if user is the owner.
+    Raises 403 Forbidden if user is not the owner.
+    """
+    membership = await verify_org_membership(org_id, user, db)
+
+    if not membership.is_owner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requiere rol de propietario",
+        )
+
+    return membership
+
+
+async def get_organization_by_id(
+    org_id: UUID = Path(..., description="Organization ID"),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+) -> Organization:
+    """
+    Get organization by ID.
+
+    Returns Organization model if found.
+    Raises 404 Not Found if organization doesn't exist.
+    """
+    stmt = select(Organization).where(Organization.id == org_id)
+    result = await db.execute(stmt)
+    org = result.scalar_one_or_none()
+
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organización no encontrada",
+        )
+
+    return org

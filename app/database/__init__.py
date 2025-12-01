@@ -84,7 +84,7 @@ def create_database_engine():
                 "pool_timeout": 30,  # Timeout para obtener conexión del pool
             }
 
-        engine = create_engine(database_url, **engine_config)
+        engine = create_engine(database_url, **engine_config)  # type: ignore[call-overload]
 
         # Test de conexión inicial
         with engine.connect() as conn:

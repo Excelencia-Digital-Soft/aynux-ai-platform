@@ -6,7 +6,6 @@ SQLAlchemy implementation of IPatientRepository.
 
 import logging
 from datetime import date
-from typing import Any
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -168,72 +167,73 @@ class SQLAlchemyPatientRepository(IPatientRepository):
 
     def _to_entity(self, model: PatientModel) -> Patient:
         """Convert model to entity."""
+        # Note: SQLAlchemy Column() syntax - Pyright sees Column objects at class level.
         # Build optional value objects
-        email = Email(model.email) if model.email else None
-        phone = PhoneNumber(model.phone) if model.phone else None
+        email = Email(model.email) if model.email else None  # type: ignore[arg-type]
+        phone = PhoneNumber(model.phone) if model.phone else None  # type: ignore[arg-type]
 
         address = None
         if model.address_street:
             address = Address(
-                street=model.address_street,
-                city=model.address_city or "",
-                state=model.address_state or "",
-                postal_code=model.address_postal_code or "",
-                country=model.address_country or "Argentina",
+                street=model.address_street,  # type: ignore[arg-type]
+                city=model.address_city or "",  # type: ignore[arg-type]
+                state=model.address_state or "",  # type: ignore[arg-type]
+                postal_code=model.address_postal_code or "",  # type: ignore[arg-type]
+                country=model.address_country or "Argentina",  # type: ignore[arg-type]
             )
 
         emergency_contact = None
         if model.emergency_contact_name:
             emergency_contact = EmergencyContact(
-                name=model.emergency_contact_name,
-                relationship=model.emergency_contact_relationship or "",
-                phone=model.emergency_contact_phone or "",
-                email=model.emergency_contact_email,
+                name=model.emergency_contact_name,  # type: ignore[arg-type]
+                relationship=model.emergency_contact_relationship or "",  # type: ignore[arg-type]
+                phone=model.emergency_contact_phone or "",  # type: ignore[arg-type]
+                email=model.emergency_contact_email,  # type: ignore[arg-type]
             )
 
         insurance = None
         if model.insurance_provider:
             insurance = Insurance(
-                provider=model.insurance_provider,
-                policy_number=model.insurance_policy_number or "",
-                group_number=model.insurance_group_number,
-                valid_until=model.insurance_valid_until,
+                provider=model.insurance_provider,  # type: ignore[arg-type]
+                policy_number=model.insurance_policy_number or "",  # type: ignore[arg-type]
+                group_number=model.insurance_group_number,  # type: ignore[arg-type]
+                valid_until=model.insurance_valid_until,  # type: ignore[arg-type]
             )
 
         last_vitals = None
         if model.last_vitals:
             try:
-                last_vitals = VitalSigns(**model.last_vitals)
+                last_vitals = VitalSigns(**model.last_vitals)  # type: ignore[arg-type]
             except Exception:
                 pass
 
         patient = Patient(
-            id=model.id,
-            first_name=model.first_name,
-            last_name=model.last_name,
-            date_of_birth=model.date_of_birth,
-            gender=model.gender,
-            national_id=model.national_id,
+            id=model.id,  # type: ignore[arg-type]
+            first_name=model.first_name,  # type: ignore[arg-type]
+            last_name=model.last_name,  # type: ignore[arg-type]
+            date_of_birth=model.date_of_birth,  # type: ignore[arg-type]
+            gender=model.gender,  # type: ignore[arg-type]
+            national_id=model.national_id,  # type: ignore[arg-type]
             email=email,
             phone=phone,
             address=address,
             emergency_contact=emergency_contact,
-            blood_type=model.blood_type,
-            allergies=model.allergies or [],
-            chronic_conditions=model.chronic_conditions or [],
-            current_medications=model.current_medications or [],
+            blood_type=model.blood_type,  # type: ignore[arg-type]
+            allergies=model.allergies or [],  # type: ignore[arg-type]
+            chronic_conditions=model.chronic_conditions or [],  # type: ignore[arg-type]
+            current_medications=model.current_medications or [],  # type: ignore[arg-type]
             insurance=insurance,
-            status=model.status or PatientStatus.ACTIVE,
+            status=model.status or PatientStatus.ACTIVE,  # type: ignore[arg-type]
             last_vital_signs=last_vitals,
-            last_vitals_date=model.last_vitals_date,
-            medical_record_number=model.medical_record_number,
-            notes=model.notes,
+            last_vitals_date=model.last_vitals_date,  # type: ignore[arg-type]
+            medical_record_number=model.medical_record_number,  # type: ignore[arg-type]
+            notes=model.notes,  # type: ignore[arg-type]
         )
 
         if model.created_at:
-            patient.created_at = model.created_at
+            patient.created_at = model.created_at  # type: ignore[assignment]
         if model.updated_at:
-            patient.updated_at = model.updated_at
+            patient.updated_at = model.updated_at  # type: ignore[assignment]
 
         return patient
 
@@ -292,42 +292,43 @@ class SQLAlchemyPatientRepository(IPatientRepository):
 
     def _update_model(self, model: PatientModel, patient: Patient) -> None:
         """Update model from entity."""
-        model.first_name = patient.first_name
-        model.last_name = patient.last_name
-        model.date_of_birth = patient.date_of_birth
-        model.gender = patient.gender
-        model.national_id = patient.national_id
-        model.email = str(patient.email) if patient.email else None
-        model.phone = str(patient.phone) if patient.phone else None
-        model.blood_type = patient.blood_type
-        model.allergies = patient.allergies
-        model.chronic_conditions = patient.chronic_conditions
-        model.current_medications = patient.current_medications
-        model.status = patient.status
-        model.medical_record_number = patient.medical_record_number
-        model.notes = patient.notes
+        # Note: SQLAlchemy Column() syntax means Pyright sees Column objects at class level.
+        model.first_name = patient.first_name  # type: ignore[assignment]
+        model.last_name = patient.last_name  # type: ignore[assignment]
+        model.date_of_birth = patient.date_of_birth  # type: ignore[assignment]
+        model.gender = patient.gender  # type: ignore[assignment]
+        model.national_id = patient.national_id  # type: ignore[assignment]
+        model.email = str(patient.email) if patient.email else None  # type: ignore[assignment]
+        model.phone = str(patient.phone) if patient.phone else None  # type: ignore[assignment]
+        model.blood_type = patient.blood_type  # type: ignore[assignment]
+        model.allergies = patient.allergies  # type: ignore[assignment]
+        model.chronic_conditions = patient.chronic_conditions  # type: ignore[assignment]
+        model.current_medications = patient.current_medications  # type: ignore[assignment]
+        model.status = patient.status  # type: ignore[assignment]
+        model.medical_record_number = patient.medical_record_number  # type: ignore[assignment]
+        model.notes = patient.notes  # type: ignore[assignment]
 
         if patient.address:
-            model.address_street = patient.address.street
-            model.address_city = patient.address.city
-            model.address_state = patient.address.state
-            model.address_postal_code = patient.address.postal_code
-            model.address_country = patient.address.country
+            model.address_street = patient.address.street  # type: ignore[assignment]
+            model.address_city = patient.address.city  # type: ignore[assignment]
+            model.address_state = patient.address.state  # type: ignore[assignment]
+            model.address_postal_code = patient.address.postal_code  # type: ignore[assignment]
+            model.address_country = patient.address.country  # type: ignore[assignment]
 
         if patient.emergency_contact:
-            model.emergency_contact_name = patient.emergency_contact.name
-            model.emergency_contact_relationship = patient.emergency_contact.relationship
-            model.emergency_contact_phone = patient.emergency_contact.phone
-            model.emergency_contact_email = patient.emergency_contact.email
+            model.emergency_contact_name = patient.emergency_contact.name  # type: ignore[assignment]
+            model.emergency_contact_relationship = patient.emergency_contact.relationship  # type: ignore[assignment]
+            model.emergency_contact_phone = patient.emergency_contact.phone  # type: ignore[assignment]
+            model.emergency_contact_email = patient.emergency_contact.email  # type: ignore[assignment]
 
         if patient.insurance:
-            model.insurance_provider = patient.insurance.provider
-            model.insurance_policy_number = patient.insurance.policy_number
-            model.insurance_group_number = patient.insurance.group_number
-            model.insurance_valid_until = patient.insurance.valid_until
+            model.insurance_provider = patient.insurance.provider  # type: ignore[assignment]
+            model.insurance_policy_number = patient.insurance.policy_number  # type: ignore[assignment]
+            model.insurance_group_number = patient.insurance.group_number  # type: ignore[assignment]
+            model.insurance_valid_until = patient.insurance.valid_until  # type: ignore[assignment]
 
         if patient.last_vital_signs:
-            model.last_vitals = {
+            model.last_vitals = {  # type: ignore[assignment]
                 "heart_rate": patient.last_vital_signs.heart_rate,
                 "blood_pressure_systolic": patient.last_vital_signs.blood_pressure_systolic,
                 "blood_pressure_diastolic": patient.last_vital_signs.blood_pressure_diastolic,
@@ -337,4 +338,4 @@ class SQLAlchemyPatientRepository(IPatientRepository):
                 "weight": patient.last_vital_signs.weight,
                 "height": patient.last_vital_signs.height,
             }
-            model.last_vitals_date = patient.last_vitals_date
+            model.last_vitals_date = patient.last_vitals_date  # type: ignore[assignment]

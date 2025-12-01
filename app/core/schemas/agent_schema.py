@@ -15,12 +15,15 @@ class IntentType(str, Enum):
     """Enumeration of all valid intent types."""
 
     SALUDO = "saludo"
-    PRODUCTO = "producto"
+    # E-commerce intents (consolidated - all route to ECOMMERCE_AGENT)
+    ECOMMERCE = "ecommerce"  # NEW: Consolidated e-commerce intent
+    PRODUCTO = "producto"  # Legacy: now routes to ecommerce_agent
+    PROMOCIONES = "promociones"  # Legacy: now routes to ecommerce_agent
+    SEGUIMIENTO = "seguimiento"  # Legacy: now routes to ecommerce_agent
+    FACTURACION = "facturacion"  # Legacy: now routes to ecommerce_agent
+    # Other intents
     DATOS = "datos"
-    PROMOCIONES = "promociones"
-    SEGUIMIENTO = "seguimiento"
     SOPORTE = "soporte"
-    FACTURACION = "facturacion"
     EXCELENCIA = "excelencia"
     FALLBACK = "fallback"
     DESPEDIDA = "despedida"
@@ -32,12 +35,16 @@ class AgentType(str, Enum):
     ORCHESTRATOR = "orchestrator"
     SUPERVISOR = "supervisor"
     GREETING_AGENT = "greeting_agent"
+    # E-commerce domain: consolidated into single agent with subgraph
+    ECOMMERCE_AGENT = "ecommerce_agent"
+    # Legacy e-commerce agents (deprecated - use ECOMMERCE_AGENT instead)
     PRODUCT_AGENT = "product_agent"
-    DATA_INSIGHTS_AGENT = "data_insights_agent"
     PROMOTIONS_AGENT = "promotions_agent"
     TRACKING_AGENT = "tracking_agent"
-    SUPPORT_AGENT = "support_agent"
     INVOICE_AGENT = "invoice_agent"
+    # Other domain agents
+    DATA_INSIGHTS_AGENT = "data_insights_agent"
+    SUPPORT_AGENT = "support_agent"
     EXCELENCIA_AGENT = "excelencia_agent"
     FALLBACK_AGENT = "fallback_agent"
     FAREWELL_AGENT = "farewell_agent"
@@ -202,7 +209,7 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
                 "technology products",
                 "gaming laptops",
             ],
-            target_agent=AgentType.PRODUCT_AGENT,
+            target_agent=AgentType.ECOMMERCE_AGENT,  # Routes to ecommerce subgraph
             confidence_threshold=0.8,
         ),
         IntentType.DATOS: IntentDefinition(
@@ -239,7 +246,7 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
                 "when will my order arrive?",
                 "shipment tracking",
             ],
-            target_agent=AgentType.TRACKING_AGENT,
+            target_agent=AgentType.ECOMMERCE_AGENT,  # Routes to ecommerce subgraph
             confidence_threshold=0.8,
         ),
         IntentType.FACTURACION: IntentDefinition(
@@ -251,7 +258,7 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
                 "problem with the payment",
                 "I want my receipt",
             ],
-            target_agent=AgentType.INVOICE_AGENT,
+            target_agent=AgentType.ECOMMERCE_AGENT,  # Routes to ecommerce subgraph
             confidence_threshold=0.8,
         ),
         IntentType.PROMOCIONES: IntentDefinition(
@@ -263,7 +270,7 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
                 "available discounts",
                 "current promotions",
             ],
-            target_agent=AgentType.PROMOTIONS_AGENT,
+            target_agent=AgentType.ECOMMERCE_AGENT,  # Routes to ecommerce subgraph
             confidence_threshold=0.75,
         ),
         IntentType.EXCELENCIA: IntentDefinition(
@@ -331,11 +338,32 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             requires_external_apis=False,
             config_key="greeting",
         ),
+        # E-commerce domain agent (subgraph wrapper)
+        AgentType.ECOMMERCE_AGENT: AgentDefinition(
+            agent=AgentType.ECOMMERCE_AGENT,
+            class_name="EcommerceAgent",
+            display_name="E-commerce Agent",
+            description=(
+                "Handles all e-commerce domain queries through an intelligent subgraph. "
+                "Routes to specialized nodes for products, promotions, tracking, and billing."
+            ),
+            primary_intents=[
+                IntentType.PRODUCTO,
+                IntentType.PROMOCIONES,
+                IntentType.SEGUIMIENTO,
+                IntentType.FACTURACION,
+            ],
+            requires_postgres=True,
+            requires_pgvector=True,
+            requires_external_apis=True,
+            config_key="ecommerce",
+        ),
+        # Legacy product agent (deprecated - use ECOMMERCE_AGENT)
         AgentType.PRODUCT_AGENT: AgentDefinition(
             agent=AgentType.PRODUCT_AGENT,
             class_name="ProductAgent",
-            display_name="Product Agent",
-            description="Handles product inquiries, category navigation, stock, pricing, and specifications",
+            display_name="Product Agent (Legacy)",
+            description="[DEPRECATED] Use ECOMMERCE_AGENT instead. Handles product inquiries.",
             primary_intents=[IntentType.PRODUCTO],
             requires_postgres=True,
             config_key="product",

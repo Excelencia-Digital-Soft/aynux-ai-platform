@@ -10,6 +10,7 @@ from sqlalchemy import Column, DateTime, Float, Index, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from .base import Base, TimestampMixin
+from .schemas import CORE_SCHEMA
 
 
 class ContactDomain(Base, TimestampMixin):
@@ -43,6 +44,7 @@ class ContactDomain(Base, TimestampMixin):
         Index("idx_contact_domains_domain", domain),  # Estadísticas por dominio
         Index("idx_contact_domains_method", assigned_method),  # Análisis de métodos
         Index("idx_contact_domains_assigned_at", assigned_at),  # Consultas temporales
+        {"schema": CORE_SCHEMA},
     )
 
     def __repr__(self):
@@ -125,6 +127,7 @@ class DomainConfig(Base, TimestampMixin):
     __table_args__ = (
         Index("idx_domain_configs_enabled", enabled),
         Index("idx_domain_configs_priority", priority),
+        {"schema": CORE_SCHEMA},
     )
 
     def __repr__(self):

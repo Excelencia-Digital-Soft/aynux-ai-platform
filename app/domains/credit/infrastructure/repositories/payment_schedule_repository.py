@@ -39,7 +39,7 @@ class SQLAlchemyPaymentScheduleRepository(IPaymentScheduleRepository):
             result = await self.session.execute(
                 select(PaymentScheduleItemModel)
                 .where(PaymentScheduleItemModel.account_id == account_id_int)
-                .order_by(PaymentScheduleItemModel.due_date.asc())
+                .order_by(PaymentScheduleItemModel.due_date.asc())  # type: ignore[union-attr]
             )
             models = result.scalars().all()
             return [m.to_dict() for m in models]
@@ -59,10 +59,10 @@ class SQLAlchemyPaymentScheduleRepository(IPaymentScheduleRepository):
                 select(PaymentScheduleItemModel)
                 .where(
                     PaymentScheduleItemModel.account_id == account_id_int,
-                    PaymentScheduleItemModel.due_date >= today,
+                    PaymentScheduleItemModel.due_date >= today,  # type: ignore[operator]
                     PaymentScheduleItemModel.status == "pending",
                 )
-                .order_by(PaymentScheduleItemModel.due_date.asc())
+                .order_by(PaymentScheduleItemModel.due_date.asc())  # type: ignore[union-attr]
                 .limit(1)
             )
             model = result.scalar_one_or_none()
@@ -83,10 +83,10 @@ class SQLAlchemyPaymentScheduleRepository(IPaymentScheduleRepository):
                 select(PaymentScheduleItemModel)
                 .where(
                     PaymentScheduleItemModel.account_id == account_id_int,
-                    PaymentScheduleItemModel.due_date < today,
+                    PaymentScheduleItemModel.due_date < today,  # type: ignore[operator]
                     PaymentScheduleItemModel.status == "pending",
                 )
-                .order_by(PaymentScheduleItemModel.due_date.asc())
+                .order_by(PaymentScheduleItemModel.due_date.asc())  # type: ignore[union-attr]
             )
             models = result.scalars().all()
             return [m.to_dict() for m in models]
@@ -194,11 +194,11 @@ class SQLAlchemyPaymentScheduleRepository(IPaymentScheduleRepository):
             select(PaymentScheduleItemModel)
             .where(
                 PaymentScheduleItemModel.account_id == account_id,
-                PaymentScheduleItemModel.due_date >= today,
-                PaymentScheduleItemModel.due_date <= end_date,
+                PaymentScheduleItemModel.due_date >= today,  # type: ignore[operator]
+                PaymentScheduleItemModel.due_date <= end_date,  # type: ignore[operator]
                 PaymentScheduleItemModel.status == "pending",
             )
-            .order_by(PaymentScheduleItemModel.due_date.asc())
+            .order_by(PaymentScheduleItemModel.due_date.asc())  # type: ignore[union-attr]
         )
         models = result.scalars().all()
         return [m.to_dict() for m in models]

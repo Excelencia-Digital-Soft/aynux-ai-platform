@@ -8,6 +8,7 @@ from app.api.routes import (
     document_upload,
     domain_admin,
     dux_sync_admin,
+    excelencia_admin,
     knowledge_admin,
     langsmith_status,
     phone_normalization,
@@ -16,6 +17,13 @@ from app.api.routes import (
     whatsapp_catalog,
 )
 from app.api.routes.admin import prompts as admin_prompts
+from app.api.routes.admin import (
+    organizations,
+    org_users,
+    tenant_agents,
+    tenant_config,
+    tenant_prompts,
+)
 
 api_router = APIRouter()
 
@@ -33,6 +41,34 @@ api_router.include_router(knowledge_admin.router, tags=["Knowledge Base"])
 api_router.include_router(document_upload.router, tags=["Document Upload"])
 api_router.include_router(agent_config.router, tags=["Agent Configuration"])
 api_router.include_router(whatsapp_catalog.router, tags=["WhatsApp Catalog & Flows"])
+api_router.include_router(excelencia_admin.router, tags=["Excelencia Administration"])
 
 # Admin routes - Prompt Management
 api_router.include_router(admin_prompts.router)
+
+# Admin routes - Multi-tenant Organization Management
+api_router.include_router(
+    organizations.router,
+    prefix="/admin/organizations",
+    tags=["Organizations"],
+)
+api_router.include_router(
+    org_users.router,
+    prefix="/admin/organizations",
+    tags=["Organization Users"],
+)
+api_router.include_router(
+    tenant_config.router,
+    prefix="/admin/organizations",
+    tags=["Tenant Configuration"],
+)
+api_router.include_router(
+    tenant_agents.router,
+    prefix="/admin/organizations",
+    tags=["Tenant Agents"],
+)
+api_router.include_router(
+    tenant_prompts.router,
+    prefix="/admin/organizations",
+    tags=["Tenant Prompts"],
+)

@@ -76,7 +76,7 @@ install_dependencies() {
 # Iniciar servidor de desarrollo
 start_dev_server() {
   show_status "Iniciando servidor de desarrollo..."
-  uv run --with uvicorn uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+  uv run --with uvicorn uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 }
 
 # Ejecutar verificación de código
