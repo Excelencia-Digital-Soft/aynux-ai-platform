@@ -48,6 +48,45 @@ class BaseAgent(ABC):
         """
         pass
 
+    async def process(self, message: str, state_dict: dict[str, Any]) -> dict[str, Any]:
+        """
+        Public interface for processing messages.
+
+        Template Method pattern: wraps _process_internal with metrics and error handling.
+
+        Args:
+            message: User message
+            state_dict: Current state dictionary
+
+        Returns:
+            Dictionary with state updates
+        """
+        start_time = time.time()
+        success = False
+
+        try:
+            if not self._validate_input(message, state_dict):
+                return {
+                    "messages": [{"role": "assistant", "content": self._get_error_message()}],
+                    "error_count": state_dict.get("error_count", 0) + 1,
+                }
+
+            result = await self._process_internal(message, state_dict)
+            success = True
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error processing message: {e}", exc_info=True)
+            return {
+                "messages": [{"role": "assistant", "content": self._get_error_message()}],
+                "error_count": state_dict.get("error_count", 0) + 1,
+                "error": str(e),
+            }
+
+        finally:
+            response_time_ms = (time.time() - start_time) * 1000
+            self._update_metrics(success, response_time_ms)
+
     def get_traced_process_method(self):
         """Returns the process method decorated with tracing."""
         return self.agent_tracer.trace_process()(self._process_internal)

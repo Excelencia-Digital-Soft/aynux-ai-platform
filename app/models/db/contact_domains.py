@@ -27,6 +27,9 @@ class ContactDomain(Base, TimestampMixin):
     wa_id = Column(String(20), unique=True, nullable=False, index=True)  # WhatsApp ID del contacto
     domain = Column(String(50), nullable=False, index=True)  # ecommerce, hospital, credit, excelencia
 
+    # Multi-tenant support: maps contact to organization (NULL for generic/single-tenant mode)
+    organization_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+
     # Métricas de confianza y método de asignación
     confidence = Column(Float, default=1.0)  # 0.0-1.0, confidence en la asignación
     assigned_method = Column(String(50), nullable=False)  # manual, auto, pattern, ai, admin
@@ -44,6 +47,7 @@ class ContactDomain(Base, TimestampMixin):
         Index("idx_contact_domains_domain", domain),  # Estadísticas por dominio
         Index("idx_contact_domains_method", assigned_method),  # Análisis de métodos
         Index("idx_contact_domains_assigned_at", assigned_at),  # Consultas temporales
+        Index("idx_contact_domains_org_id", organization_id),  # Multi-tenant lookup
         {"schema": CORE_SCHEMA},
     )
 
@@ -56,6 +60,7 @@ class ContactDomain(Base, TimestampMixin):
             "id": str(self.id),
             "wa_id": self.wa_id,
             "domain": self.domain,
+            "organization_id": str(self.organization_id) if self.organization_id else None,
             "confidence": self.confidence,
             "assigned_method": self.assigned_method,
             "domain_metadata": self.domain_metadata,

@@ -8,6 +8,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-latest-orange.svg)](https://langchain-ai.github.io/langgraph/)
 [![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](docs/DOCKER_DEPLOYMENT.md)
+[![Multi-Tenant](https://img.shields.io/badge/Multi--Tenant-ready-purple.svg)](docs/MULTI_TENANCY.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -48,6 +49,16 @@
 - **Monitoring**: LangSmith tracing and Sentry error tracking
 - **Caching**: Multi-layer Redis cache for optimized performance
 
+### 🏢 Multi-Tenant Architecture
+- **Organization Isolation**: Each tenant has isolated data, prompts, and configuration
+- **Flexible Resolution**: Detect tenant from JWT, `X-Tenant-ID` header, or WhatsApp ID
+- **Per-Tenant RAG**: Isolated knowledge bases with pgvector filtering
+- **Configurable Agents**: Enable/disable agents per organization
+- **Prompt Hierarchy**: 4-level override system (USER > ORG > GLOBAL > SYSTEM)
+- **LLM Customization**: Per-tenant model, temperature, and token limits
+
+See **[Multi-Tenancy Guide](docs/MULTI_TENANCY.md)** for complete documentation.
+
 ---
 
 ## 🚀 Quick Start
@@ -62,7 +73,7 @@ git clone https://github.com/your-username/aynux.git
 cd aynux
 cp .env.example .env
 
-# 2. Install Ollama and pull models (macOS)
+# 2. Install Ollama and pull models (macOS - run natively for GPU acceleration)
 brew install ollama
 ollama serve  # In separate terminal
 ollama pull deepseek-r1:7b && ollama pull nomic-embed-text
@@ -74,6 +85,20 @@ docker compose up -d
 # 4. Verify
 curl http://localhost:8001/health
 # {"status":"ok","environment":"development"}
+```
+
+#### Docker Compose Profiles
+```bash
+docker compose up -d                                    # Base (PostgreSQL, Redis, App)
+docker compose --profile ollama up -d                   # + Ollama LLM (Docker)
+docker compose --profile tools up -d                    # + Admin Dashboard
+docker compose --profile ollama --profile tools up -d   # All services
+```
+
+#### Production Deployment
+```bash
+docker build --target production -t aynux-app:prod .
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 ### Option B: Manual Installation
@@ -190,6 +215,39 @@ WHATSAPP_VERIFY_TOKEN=your_verify_token
 # → Routes to CreditDomainService → Account balance query
 ```
 
+### Multi-Tenant Usage
+
+```bash
+# 1. Register and login
+curl -X POST http://localhost:8001/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@acme.com", "password": "secure123", "name": "Admin"}'
+
+TOKEN=$(curl -s -X POST http://localhost:8001/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@acme.com", "password": "secure123"}' | jq -r '.access_token')
+
+# 2. Create organization
+ORG_ID=$(curl -s -X POST http://localhost:8001/api/v1/admin/organizations \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Acme Corp", "slug": "acme", "llm_model": "deepseek-r1:7b"}' | jq -r '.id')
+
+# 3. Configure tenant
+curl -X PATCH "http://localhost:8001/api/v1/admin/organizations/$ORG_ID/config" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled_domains": ["ecommerce"], "rag_enabled": true}'
+
+# 4. Chat with tenant context
+curl -X POST http://localhost:8001/api/v1/chat/message \
+  -H "X-Tenant-ID: $ORG_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user-123", "message": "Show me products"}'
+```
+
+See **[Multi-Tenancy Guide](docs/MULTI_TENANCY.md)** for complete API documentation.
+
 ### Using the New Clean Architecture
 
 #### Use Cases (Business Operations)
@@ -260,7 +318,8 @@ class SearchProductsUseCase:
 - **[docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md)**: Testing strategy and best practices
 - **[docs/PGVECTOR_MIGRATION.md](docs/PGVECTOR_MIGRATION.md)**: Vector search implementation
 
-### Docker & Deployment
+### Multi-Tenancy & Deployment
+- **[docs/MULTI_TENANCY.md](docs/MULTI_TENANCY.md)**: Multi-tenant architecture, Admin APIs, and organization isolation
 - **[docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md)**: Complete Docker setup for development and production (macOS/Linux)
 
 ### Quick References
@@ -409,6 +468,14 @@ app/
 ├── core/                      # Core shared infrastructure
 │   ├── interfaces/            # IRepository, ILLM, IVectorStore (Protocols)
 │   ├── container.py           # DependencyContainer (DI)
+│   ├── tenancy/               # Multi-tenant context & isolation
+│   │   ├── context.py         # TenantContext (contextvars)
+│   │   ├── middleware.py      # TenantContextMiddleware
+│   │   ├── resolver.py        # TenantResolver (JWT, Header, WhatsApp)
+│   │   ├── vector_store.py    # TenantVectorStore (pgvector filtering)
+│   │   └── prompt_manager.py  # TenantPromptManager (4-level hierarchy)
+│   ├── agents/                # Agent base classes
+│   │   └── base_agent.py      # BaseAgent with process() Template Method
 │   ├── shared/                # Shared utilities
 │   │   ├── deprecation.py     # @deprecated decorator
 │   │   ├── prompt_service.py  # Prompt management
@@ -519,12 +586,18 @@ All conversations are automatically traced in LangSmith for debugging and optimi
 - [x] pgvector integration for semantic search
 - [x] LangSmith tracing and monitoring
 - [x] Comprehensive testing suite
+- [x] **Multi-tenancy support with organization isolation**
+- [x] **Docker deployment (dev/prod/test environments)**
+- [x] **Template Method pattern for agents (BaseAgent.process())**
+- [x] **Admin APIs for tenant management**
+- [x] **Clean Architecture migration with DDD bounded contexts**
 
 ### 🚧 In Progress
-- [ ] User-configurable RAG data uploads
+- [ ] User-configurable RAG data uploads via UI
 - [ ] Enhanced healthcare domain agents
 - [ ] Finance domain collection workflows
 - [ ] Multi-language support (English, Portuguese)
+- [ ] Visual admin dashboard for tenant management
 
 ### 📋 Planned
 - [ ] Visual conversation flow editor
@@ -532,6 +605,72 @@ All conversations are automatically traced in LangSmith for debugging and optimi
 - [ ] Advanced analytics dashboard
 - [ ] Voice message support
 - [ ] Multi-channel support (Telegram, Facebook Messenger)
+- [ ] Kubernetes deployment manifests
+- [ ] GraphQL API interface
+
+---
+
+## ⚙️ Configuration Reference
+
+### Core Settings
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENVIRONMENT` | `development` | Environment mode (`development`, `production`, `test`) |
+| `DEBUG` | `false` | Enable debug mode with verbose logging |
+| `LOG_LEVEL` | `INFO` | Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+
+### Multi-Tenancy
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MULTI_TENANT_MODE` | `false` | Enable organization-based tenant isolation |
+| `TENANT_HEADER` | `X-Tenant-ID` | HTTP header name for tenant resolution |
+
+### Database
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_HOST` | `localhost` | PostgreSQL host |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `DB_NAME` | `aynux` | Database name |
+| `DB_USER` | `postgres` | Database user |
+| `DB_PASSWORD` | - | Database password (required) |
+| `DB_POOL_SIZE` | `20` | Connection pool size |
+
+### Redis
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REDIS_HOST` | `localhost` | Redis host |
+| `REDIS_PORT` | `6379` | Redis port |
+| `REDIS_DB` | `0` | Redis database number |
+
+### LLM & AI
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_API_URL` | `http://localhost:11434` | Ollama API endpoint |
+| `OLLAMA_API_MODEL` | `deepseek-r1:7b` | Default LLM model |
+| `OLLAMA_API_MODEL_EMBEDDING` | `nomic-embed-text` | Embedding model |
+
+### Vector Search
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `USE_PGVECTOR` | `true` | Enable pgvector semantic search |
+| `PGVECTOR_SIMILARITY_THRESHOLD` | `0.7` | Minimum similarity score (0.0-1.0) |
+
+### WhatsApp
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WHATSAPP_ACCESS_TOKEN` | - | WhatsApp Business API token |
+| `WHATSAPP_PHONE_NUMBER_ID` | - | Phone number ID |
+| `WHATSAPP_VERIFY_TOKEN` | - | Webhook verification token |
+
+### Monitoring
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LANGSMITH_API_KEY` | - | LangSmith API key for tracing |
+| `LANGSMITH_PROJECT` | `aynux` | LangSmith project name |
+| `LANGSMITH_TRACING_ENABLED` | `true` | Enable LangSmith tracing |
+| `SENTRY_DSN` | - | Sentry DSN for error tracking |
+
+See **[.env.example](.env.example)** for complete configuration options.
 
 ---
 
@@ -580,6 +719,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built with ❤️ using AI-powered development**
 
-[Report Bug](https://github.com/your-username/aynux/issues) • [Request Feature](https://github.com/your-username/aynux/issues) • [Documentation](docs/)
+[Report Bug](https://github.com/Excelencia-Digital-Soft/aynux/issues) • [Request Feature](https://github.com/Excelencia-Digital-Soft/aynux/issues) • [Documentation](docs/)
 
 </div>

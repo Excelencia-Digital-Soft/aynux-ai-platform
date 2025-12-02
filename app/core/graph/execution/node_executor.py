@@ -251,11 +251,18 @@ class NodeExecutor:
     def _convert_messages(self, messages: list) -> list:
         """Convert message dictionaries to LangChain message objects"""
         new_messages = []
-        for msg_dict in messages:
-            if msg_dict.get("role") == "assistant":
-                new_messages.append(AIMessage(content=msg_dict["content"]))
-            elif msg_dict.get("role") == "user":
-                new_messages.append(HumanMessage(content=msg_dict["content"]))
+        for msg in messages:
+            # Handle LangChain message objects
+            if isinstance(msg, AIMessage):
+                new_messages.append(msg)
+            elif isinstance(msg, HumanMessage):
+                new_messages.append(msg)
+            # Handle dictionaries
+            elif isinstance(msg, dict):
+                if msg.get("role") == "assistant":
+                    new_messages.append(AIMessage(content=msg.get("content", "")))
+                elif msg.get("role") == "user":
+                    new_messages.append(HumanMessage(content=msg.get("content", "")))
         return new_messages
 
     def _replace_last_assistant_message(self, messages: list, enhanced_response: str) -> list:

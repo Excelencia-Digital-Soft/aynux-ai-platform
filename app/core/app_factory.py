@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.exception_handlers import register_exception_handlers
 from app.api.middleware.auth import AuthenticationMiddleware
 from app.api.middleware.logging_middleware import RequestLoggingMiddleware
+from app.core.tenancy import TenantContextMiddleware
 from app.api.router import api_router
 from app.api.routes import frontend
 from app.config.settings import Settings, get_settings
@@ -92,6 +93,13 @@ class AppFactory:
 
         # Authentication middleware
         app.add_middleware(AuthenticationMiddleware)
+
+        # Multi-tenant context middleware (resolves tenant from JWT, header, or WhatsApp)
+        app.add_middleware(
+            TenantContextMiddleware,
+            tenant_header=self._settings.TENANT_HEADER,
+            require_tenant=False,  # Allow fallback to system context
+        )
 
         logger.info("Middleware configured")
 

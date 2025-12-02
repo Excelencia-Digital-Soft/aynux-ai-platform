@@ -70,6 +70,8 @@ now_utc = datetime.now(UTC)
 
 - **docs/LangGraph.md**: Complete LangGraph implementation guide and architecture
 - **docs/9_agent_supervisor.md**: Supervisor-agent pattern and orchestration
+- **docs/MULTI_TENANCY.md**: Multi-tenant architecture, Admin APIs, and organization isolation
+- **docs/DOCKER_DEPLOYMENT.md**: Docker deployment for development and production
 - **docs/TESTING_GUIDE.md**: Testing strategy and best practices
 - **docs/STREAMLIT_VISUALIZER.md**: Interactive agent visualization and debugging tool
 - **docs/PGVECTOR_MIGRATION.md**: Vector search implementation with pgvector
@@ -163,6 +165,7 @@ Concrete implementations of interfaces, external systems integration, and persis
 - **Databases** (`app/integrations/databases/`): Database connectors
 - **Monitoring** (`app/integrations/monitoring/`): LangSmith, Sentry
 - **Core Shared** (`app/core/`): `DependencyContainer`, interfaces (`IRepository`, `ILLM`), utilities
+- **Multi-Tenancy** (`app/core/tenancy/`): `TenantContext`, `TenantContextMiddleware`, `TenantResolver`, `TenantVectorStore`, `TenantPromptManager`
 
 #### 4. **Presentation Layer** (`app/api/`)
 User interfaces, API endpoints, and webhooks.
@@ -424,6 +427,81 @@ pytest tests/test_agent_enablement.py -v
 ```
 
 **Note:** Agent configuration requires service restart. Hot-reload of agent configuration is not currently supported.
+
+### Multi-Tenancy Architecture
+
+Aynux supports enterprise-grade multi-tenant deployment. See **[docs/MULTI_TENANCY.md](docs/MULTI_TENANCY.md)** for complete documentation.
+
+**Key Features:**
+- **Organization Isolation**: Each tenant has isolated RAG documents, prompts, and configuration
+- **Flexible Resolution**: Tenant detection from JWT, `X-Tenant-ID` header, or WhatsApp ID
+- **Prompt Hierarchy**: 4-level override system (USER > ORG > GLOBAL > SYSTEM)
+- **Per-Tenant LLM**: Custom model, temperature, and max_tokens per organization
+- **Per-Tenant RAG**: Isolated knowledge bases with pgvector filtering
+
+**Core Components** (`app/core/tenancy/`):
+- `TenantContext`: Request-scoped context using Python's `contextvars`
+- `TenantContextMiddleware`: Automatic tenant resolution from multiple sources
+- `TenantResolver`: Multi-source resolution (JWT, header, WhatsApp, system fallback)
+- `TenantVectorStore`: pgvector with automatic `organization_id` filtering
+- `TenantPromptManager`: Hierarchical prompt resolution
+
+**Database Models** (`app/models/db/tenancy/`):
+- `Organization`: Tenant with LLM config, quotas, and feature flags
+- `OrganizationUser`: User memberships with roles (owner, admin, member)
+- `TenantConfig`: Domain/agent/RAG configuration per tenant
+- `TenantAgent`: Per-tenant agent customization
+- `TenantPrompt`: Prompt overrides at org or user scope
+- `TenantDocument`: Tenant-isolated RAG documents with embeddings
+
+**Admin APIs** (`/api/v1/admin/`):
+- `GET/POST /organizations` - Organization CRUD
+- `GET/PATCH /organizations/{id}/config` - Tenant configuration
+- `GET/POST /organizations/{id}/agents` - Agent management
+- `GET/POST /organizations/{id}/prompts` - Prompt overrides
+
+**Configuration:**
+```bash
+# Enable multi-tenant mode
+MULTI_TENANT_MODE=true
+TENANT_HEADER=X-Tenant-ID
+```
+
+**Usage:**
+```bash
+# Create organization (requires JWT auth)
+curl -X POST http://localhost:8001/api/v1/admin/organizations \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"name": "Acme Corp", "slug": "acme"}'
+
+# Use tenant context
+curl http://localhost:8001/api/v1/chat/message \
+  -H "X-Tenant-ID: $ORG_ID" \
+  -d '{"user_id": "user-123", "message": "Hello"}'
+```
+
+### Agent Template Method Pattern
+
+`BaseAgent` provides a public `process()` method implementing the Template Method pattern:
+
+```python
+async def process(self, message: str, state_dict: dict) -> dict:
+    """
+    Template Method: Wraps _process_internal() with metrics and error handling.
+
+    1. Input validation
+    2. Call _process_internal() (abstract - subclass implements)
+    3. Error handling with stack trace preservation
+    4. Metrics collection (response time, success rate)
+    """
+    # ... implementation in app/core/agents/base_agent.py
+```
+
+Subclasses ONLY implement `_process_internal()`. The `process()` wrapper ensures:
+- Consistent error handling across all agents
+- Automatic metrics collection (total requests, success rate, avg response time)
+- Input validation before processing
+- Stack trace preservation with `from e` pattern
 
 ### Python Configuration (pyproject.toml)
 - Uses Python 3.13+ with uv as primary package manager
@@ -915,3 +993,49 @@ When migrating from deprecated services to new architecture:
 - Enable Sentry for error tracking
 - Set up LangSmith for conversation monitoring
 - Configure rate limiting for WhatsApp webhook
+
+### Docker Deployment
+
+Aynux provides production-ready Docker deployment. See **[docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md)** for complete guide.
+
+#### Quick Start
+```bash
+# Clone and configure
+git clone https://github.com/your-username/aynux.git
+cd aynux && cp .env.example .env
+
+# Install Ollama models (macOS - run natively for GPU acceleration)
+brew install ollama && ollama serve
+ollama pull deepseek-r1:7b && ollama pull nomic-embed-text
+
+# Build and start
+docker build --target development -t aynux-app:dev .
+docker compose up -d
+
+# Verify
+curl http://localhost:8001/health
+```
+
+#### Docker Compose Profiles
+```bash
+docker compose up -d                                    # Base (PostgreSQL, Redis, App)
+docker compose --profile ollama up -d                   # + Ollama LLM
+docker compose --profile tools up -d                    # + Admin Dashboard
+docker compose --profile ollama --profile tools up -d   # All services
+```
+
+#### Production Deployment
+```bash
+# Build production image
+docker build --target production -t aynux-app:prod .
+
+# Deploy with production overrides
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+#### Docker Files Reference
+- `Dockerfile`: Multi-stage build (development/production targets)
+- `docker-compose.yml`: Development environment
+- `docker-compose.prod.yml`: Production overrides (replicas, resources, security)
+- `docker-compose.test.yml`: Testing environment with coverage
+- `docker-entrypoint.sh`: Service verification and initialization
