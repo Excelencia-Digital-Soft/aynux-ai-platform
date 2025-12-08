@@ -1,10 +1,16 @@
 """
 Graph principal del sistema multi-agente LangGraph (Simplified)
+
+Supports DUAL-MODE operation:
+- Global mode (no tenant): Agents use Python defaults
+- Multi-tenant mode (with token): Agents configured from database per-request
+
+The set_tenant_registry() method propagates tenant configuration to all agents.
 """
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Hashable, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Hashable, Optional, cast
 
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
@@ -20,6 +26,11 @@ from app.core.graph.routing.graph_router import GraphRouter
 from app.core.schemas import AgentType, get_non_supervisor_agents
 from app.core.graph.state_schema import LangGraphState
 from app.core.utils.tracing import trace_async_method, trace_context
+from app.domains.shared.agents.history_agent import HistoryAgent
+from app.models.conversation_context import ConversationContextModel
+
+if TYPE_CHECKING:
+    from app.core.schemas.tenant_agent_config import TenantAgentRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +71,17 @@ class AynuxGraph:
             ollama=self.ollama, postgres=self.postgres, config=self.config
         )
         self.agents = self.agent_factory.initialize_all_agents()
+
+        # Initialize history agent for conversation context management
+        history_config = self.config.get("history", {})
+        self.history_agent = HistoryAgent(
+            ollama=self.ollama,
+            postgres=self.postgres,
+            config={
+                "summary_interval": history_config.get("summary_interval", 5),
+                "max_summary_tokens": history_config.get("max_summary_tokens", 300),
+            },
+        )
 
         # Initialize router with enabled agents configuration
         self.router = GraphRouter(enabled_agents=self.enabled_agents)
@@ -176,7 +198,13 @@ class AynuxGraph:
     )
     async def invoke(self, message: str, conversation_id: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         """
-        Process a message through the graph.
+        Process a message through the graph with conversation history middleware.
+
+        MIDDLEWARE PATTERN:
+        1. LOAD: Load conversation context before execution
+        2. INJECT: Add context to initial state
+        3. EXECUTE: Run graph as normal
+        4. UPDATE: Update context with new exchange
 
         Args:
             message: User message
@@ -203,12 +231,31 @@ class AynuxGraph:
             if conv_tracker:
                 conv_tracker.add_message("user", message, {"timestamp": datetime.now().isoformat()})
 
-            # Prepare initial state
+            # ================================================================
+            # MIDDLEWARE: Load conversation context
+            # ================================================================
+            context: ConversationContextModel | None = None
+            try:
+                context = await self.history_agent.load_context(
+                    conversation_id=conv_id,
+                    organization_id=kwargs.get("organization_id"),
+                    user_phone=kwargs.get("user_phone"),
+                )
+                logger.debug(f"Loaded context for {conv_id}: turns={context.total_turns if context else 0}")
+            except Exception as e:
+                logger.warning(f"Error loading conversation context: {e}")
+                context = None
+
+            # Prepare initial state with conversation context
             initial_state = {
                 "messages": [HumanMessage(content=message)],
                 "conversation_id": conv_id,
                 "timestamp": datetime.now().isoformat(),
                 "user_id": user_id,
+                # MIDDLEWARE: Inject conversation context
+                "conversation_context": context.model_dump() if context else {},
+                "conversation_summary": context.to_prompt_context() if context else "",
+                "history_loaded": context is not None,
                 **kwargs,
             }
 
@@ -225,6 +272,7 @@ class AynuxGraph:
                     "user_id": user_id,
                     "message_preview": message[:100],
                     "graph_type": "ecommerce_multi_agent",
+                    "history_turns": context.total_turns if context else 0,
                 },
                 tags=["langgraph", "conversation", "multi_agent"],
             ):
@@ -240,6 +288,22 @@ class AynuxGraph:
                                 {"agent": result.get("current_agent"), "timestamp": datetime.now().isoformat()},
                             )
 
+                # ================================================================
+                # MIDDLEWARE: Update conversation context
+                # ================================================================
+                bot_response = self._extract_bot_response(result)
+                if bot_response:
+                    try:
+                        await self.history_agent.update_context(
+                            conversation_id=conv_id,
+                            user_message=message,
+                            bot_response=bot_response,
+                            current_context=context,
+                            agent_name=result.get("current_agent"),
+                        )
+                    except Exception as e:
+                        logger.warning(f"Error updating conversation context: {e}")
+
                 return result
 
         except Exception as e:
@@ -248,7 +312,13 @@ class AynuxGraph:
 
     async def astream(self, message: str, conversation_id: Optional[str] = None, **kwargs):
         """
-        Process a message through the graph with streaming support.
+        Process a message through the graph with streaming support and history middleware.
+
+        MIDDLEWARE PATTERN (same as invoke):
+        1. LOAD: Load conversation context before execution
+        2. INJECT: Add context to initial state
+        3. EXECUTE: Stream graph execution
+        4. UPDATE: Update context with new exchange (after final result)
 
         Args:
             message: User message
@@ -275,12 +345,30 @@ class AynuxGraph:
             if conv_tracker:
                 conv_tracker.add_message("user", message, {"timestamp": datetime.now().isoformat()})
 
-            # Prepare initial state
+            # ================================================================
+            # MIDDLEWARE: Load conversation context
+            # ================================================================
+            context: ConversationContextModel | None = None
+            try:
+                context = await self.history_agent.load_context(
+                    conversation_id=conv_id,
+                    organization_id=kwargs.get("organization_id"),
+                    user_phone=kwargs.get("user_phone"),
+                )
+            except Exception as e:
+                logger.warning(f"Error loading conversation context: {e}")
+                context = None
+
+            # Prepare initial state with conversation context
             initial_state = {
                 "messages": [HumanMessage(content=message)],
                 "conversation_id": conv_id,
                 "timestamp": datetime.now().isoformat(),
                 "user_id": user_id,
+                # MIDDLEWARE: Inject conversation context
+                "conversation_context": context.model_dump() if context else {},
+                "conversation_summary": context.to_prompt_context() if context else "",
+                "history_loaded": context is not None,
                 **kwargs,
             }
 
@@ -331,6 +419,23 @@ class AynuxGraph:
                                 {"agent": final_result.get("current_agent"), "timestamp": datetime.now().isoformat()},
                             )
 
+                # ================================================================
+                # MIDDLEWARE: Update conversation context
+                # ================================================================
+                if final_result:
+                    bot_response = self._extract_bot_response(final_result)
+                    if bot_response:
+                        try:
+                            await self.history_agent.update_context(
+                                conversation_id=conv_id,
+                                user_message=message,
+                                bot_response=bot_response,
+                                current_context=context,
+                                agent_name=final_result.get("current_agent"),
+                            )
+                        except Exception as e:
+                            logger.warning(f"Error updating conversation context: {e}")
+
                 # Yield final result
                 yield {"type": "final_result", "data": final_result or {}}
 
@@ -362,6 +467,31 @@ class AynuxGraph:
         except Exception as e:
             logger.warning(f"Error creating state preview: {e}")
             return {"error": "Could not create state preview"}
+
+    def _extract_bot_response(self, result: Dict[str, Any]) -> str | None:
+        """Extract the last bot response from graph result."""
+        try:
+            messages = result.get("messages", [])
+            if not messages:
+                return None
+
+            # Find last AI/assistant message
+            for msg in reversed(messages):
+                if hasattr(msg, "content"):
+                    # Check if it's an AI message (not human)
+                    msg_type = getattr(msg, "type", None)
+                    if msg_type in ("ai", "assistant") or not msg_type:
+                        return msg.content
+
+            # Fallback: return last message content
+            last_msg = messages[-1]
+            if hasattr(last_msg, "content"):
+                return last_msg.content
+
+            return None
+        except Exception as e:
+            logger.warning(f"Error extracting bot response: {e}")
+            return None
 
     def is_agent_enabled(self, agent_name: str) -> bool:
         """
@@ -409,4 +539,61 @@ class AynuxGraph:
             "enabled_count": len(enabled),
             "disabled_count": len(disabled),
             "total_possible_agents": len(enabled) + len(disabled),
+        }
+
+    # =========================================================================
+    # Dual-Mode Methods (Global vs Multi-Tenant)
+    # =========================================================================
+
+    def set_tenant_registry(self, registry: "TenantAgentRegistry") -> None:
+        """
+        Set tenant registry and apply configuration to all agents.
+
+        Called per-request in multi-tenant mode to configure agents
+        with tenant-specific settings from database.
+
+        Args:
+            registry: TenantAgentRegistry loaded from database
+
+        Example:
+            >>> # In webhook before processing
+            >>> registry = await service.get_agent_registry(org_id)
+            >>> graph.set_tenant_registry(registry)
+            >>> result = await graph.invoke(message, ...)
+        """
+        if registry is None:
+            logger.debug("No tenant registry provided, using global defaults")
+            return
+
+        # Update factory's registry
+        self.agent_factory.set_tenant_registry(registry)
+
+        # Apply tenant config to all agents
+        self.agent_factory.apply_tenant_config_to_agents(registry)
+
+        logger.info(f"Graph configured for tenant: {registry.organization_id}")
+
+    def reset_tenant_config(self) -> None:
+        """
+        Reset all agents to global default configuration.
+
+        Called after request processing to clean up tenant-specific
+        configuration and prepare for next request.
+        """
+        self.agent_factory.reset_agents_to_defaults()
+        logger.debug("Graph reset to global defaults")
+
+    def get_mode_info(self) -> Dict[str, Any]:
+        """
+        Get information about current graph operation mode.
+
+        Returns:
+            Dict with mode info (global vs multi-tenant) and configuration state
+        """
+        factory_info = self.agent_factory.get_mode_info()
+
+        return {
+            **factory_info,
+            "graph_initialized": self.app is not None,
+            "enabled_agents_config": self.enabled_agents,
         }

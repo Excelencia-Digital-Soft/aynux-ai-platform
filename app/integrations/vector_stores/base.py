@@ -1,3 +1,10 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Módulo base de Vector Store con interfaces y factories.
+#              Instancia singleton compartida entre todos los tenants.
+# Tenant-Aware: No - provee acceso global. Usar TenantVectorStore para
+#              aislamiento por organización.
+# ============================================================================
 """
 Base Vector Store module - Exports interfaces and factory functions
 

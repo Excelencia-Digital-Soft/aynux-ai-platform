@@ -50,20 +50,24 @@ class LangGraphConfig(BaseModel):
     max_conversation_length: int = Field(default=50)
 
     # Agent enablement configuration
+    # Note: product_agent, tracking_agent, promotions_agent, invoice_agent are now
+    # internal nodes of ecommerce_agent subgraph - they should NOT be listed here
     enabled_agents: list[str] = Field(
         default_factory=lambda: [
+            # Always available (domain_key=None)
             "greeting_agent",
-            "product_agent",
-            "data_insights_agent",
-            "promotions_agent",
-            "tracking_agent",
             "support_agent",
-            "invoice_agent",
-            "excelencia_agent",
             "fallback_agent",
             "farewell_agent",
+            # E-commerce domain - DISABLED by default
+            # "ecommerce_agent",
+            # Excelencia domain
+            "excelencia_agent",
+            "excelencia_invoice_agent",
+            "excelencia_promotions_agent",
+            "data_insights_agent",
         ],
-        description="List of enabled agent names. Orchestrator and Supervisor always enabled.",
+        description="List of enabled top-level agent names. Orchestrator and Supervisor always enabled.",
     )
 
     @classmethod

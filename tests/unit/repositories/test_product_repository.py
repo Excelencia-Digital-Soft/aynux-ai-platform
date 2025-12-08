@@ -102,11 +102,12 @@ async def test_find_by_id_not_found(mock_db_context):
 @pytest.mark.asyncio
 async def test_search_products(sample_product_model, mock_db_context):
     """Test searching products by query."""
-    # Configure mock for search
+    # Configure mock for search - include all possible chain methods
     mock_query = MagicMock()
     mock_query.options.return_value = mock_query
     mock_query.filter.return_value = mock_query
     mock_query.order_by.return_value = mock_query
+    mock_query.offset.return_value = mock_query
     mock_query.limit.return_value = mock_query
     mock_query.all.return_value = [sample_product_model]
     mock_db_context.query.return_value = mock_query

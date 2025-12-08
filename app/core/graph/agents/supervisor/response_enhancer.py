@@ -8,6 +8,10 @@ import logging
 import re
 from typing import Any
 
+from app.integrations.llm.model_provider import ModelComplexity
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,10 +35,13 @@ class ResponseEnhancer:
         """
         self.ollama = ollama
         self._language_instructions = {
-            "es": "IMPORTANT: You MUST answer ONLY in SPANISH language. Your entire response must be in Spanish.",
-            "en": "IMPORTANT: You MUST answer ONLY in ENGLISH language. Your entire response must be in English.",
-            "pt": "IMPORTANT: You MUST answer ONLY in PORTUGUESE language. Your entire response must be in Portuguese.",
+            "es": "IMPORTANT: You MUST answer ONLY in SPANISH language.",
+            "en": "IMPORTANT: You MUST answer ONLY in ENGLISH language.",
+            "pt": "IMPORTANT: You MUST answer ONLY in PORTUGUESE language.",
         }
+
+        # Initialize PromptManager for YAML-based prompts
+        self.prompt_manager = PromptManager()
 
     async def enhance(
         self,
@@ -59,17 +66,22 @@ class ResponseEnhancer:
             return None
 
         try:
-            prompt = self._build_enhancement_prompt(
+            prompt = await self._build_enhancement_prompt(
                 original_response=original_response,
                 user_message=user_message,
                 language=language,
                 context=context,
             )
 
-            # Use capable model for enhancement
-            llm = self.ollama.get_llm(temperature=0.7, model="deepseek-r1:7b")
+            # Use SIMPLE model for faster enhancement
+            logger.info("ResponseEnhancer: Getting LLM for enhancement...")
+            llm = self.ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.7)
+            logger.info("ResponseEnhancer: Calling ainvoke...")
             response = await llm.ainvoke(prompt)
+            logger.info(f"ResponseEnhancer: ainvoke completed, response type: {type(response)}")
             enhanced_response = response.content if response else None
+            resp_len = len(enhanced_response) if enhanced_response else 0
+            logger.info(f"ResponseEnhancer: enhanced_response length: {resp_len}")
 
             if enhanced_response:
                 enhanced_response = self._clean_response(enhanced_response)
@@ -87,14 +99,14 @@ class ResponseEnhancer:
             logger.error(f"Error enhancing response with Ollama: {str(e)}")
             return None
 
-    def _build_enhancement_prompt(
+    async def _build_enhancement_prompt(
         self,
         original_response: str,
         user_message: str,
         language: str,
         context: dict[str, Any],
     ) -> str:
-        """Build the enhancement prompt."""
+        """Build the enhancement prompt using YAML."""
         language_instruction = self._language_instructions.get(
             language,
             self._language_instructions["es"],
@@ -110,36 +122,30 @@ class ResponseEnhancer:
         # Build conversation summary
         conversation_summary = self._build_conversation_summary(context)
 
-        return f"""You are a friendly and professional customer service assistant for Aynux, an e-commerce platform.
+        # Build customer name section
+        customer_name_section = f"- Customer name: {customer_name}" if customer_name else ""
 
-CONTEXT:
-- Customer's current question: {user_message}
-- Agent's response with information: {original_response}
-{f"- Customer name: {customer_name}" if customer_name else ""}
-{conversation_summary if conversation_summary else ""}
-
-YOUR TASK:
-Transform the agent's response into a warm, friendly, and professional customer service message.
-
-GUIDELINES:
-1. Start with a personalized greeting if this seems to be the beginning of a conversation
-2. Rephrase the information to be conversational and natural
-3. Maintain ALL factual information (prices, product details, availability, etc.) exactly as provided
-4. Use a warm and empathetic tone
-5. Format product information clearly with bullet points or numbered lists when appropriate
-6. End with an invitation for further questions or assistance
-7. Keep the response concise but complete (2-4 paragraphs maximum)
-
-IMPORTANT RULES:
-- DO NOT invent or add any information not present in the original response
-- DO NOT change prices, quantities, or product specifications
-- DO NOT make promises or commitments not in the original response
-- If the original response indicates something is not available or possible, maintain that clearly
-- Use 1-2 emojis maximum and only if they enhance the message naturally
-
-{language_instruction}
-
-Now, provide the enhanced customer service response:"""
+        try:
+            return await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_SUPERVISOR_ENHANCEMENT,
+                variables={
+                    "user_message": user_message,
+                    "original_response": original_response,
+                    "customer_name_section": customer_name_section,
+                    "conversation_summary": conversation_summary,
+                    "language_instruction": language_instruction,
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Failed to load YAML prompt: {e}")
+            # Fallback to hardcoded prompt
+            return (
+                "You are a customer service assistant. Transform this response:\n"
+                f'Original: "{original_response}"\n'
+                f'For question: "{user_message}"\n'
+                f"{language_instruction}\n"
+                "Make it warm and professional."
+            )
 
     def _build_conversation_summary(self, context: dict[str, Any]) -> str:
         """Build a summary of recent conversation."""

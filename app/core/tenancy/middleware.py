@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Middleware que resuelve el tenant automáticamente en cada request.
+#              Punto de entrada para la propagación del contexto de tenant.
+# Tenant-Aware: Yes - es el INICIADOR del tenant-awareness en cada request.
+# ============================================================================
 """
 TenantContextMiddleware - FastAPI middleware for automatic tenant resolution.
 

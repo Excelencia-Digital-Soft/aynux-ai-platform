@@ -1,0 +1,49 @@
+# Orchestrator Prompts - Domain Classifier
+# Purpose: Classify user messages into business domains
+
+prompts:
+  - key: orchestrator.domain.classification
+    name: AI Domain Classification
+    description: Classifies user message into business domain using AI
+    version: "1.0.0"
+    template: |
+      # CLASIFICACION DE DOMINIO DE NEGOCIO
+
+      MENSAJE DEL USUARIO:
+      "{message}"
+      {context_info}
+
+      DOMINIOS DISPONIBLES:
+      {domain_descriptions}
+
+      INSTRUCCIONES:
+      Analiza el mensaje y determina a que dominio de negocio corresponde.
+      Responde SOLO con JSON en este formato:
+
+      {
+        "domain": "ecommerce|hospital|credit",
+        "confidence": float_0_to_1,
+        "reasoning": "breve explicacion de la clasificacion"
+      }
+
+      IMPORTANTE:
+      - confidence debe ser 0.0-1.0 (1.0 = muy seguro)
+      - Si no estas seguro, usa confidence < 0.5
+      - Considera el contexto completo del mensaje
+    metadata:
+      temperature: 0.2
+      max_tokens: 150
+      model: "deepseek-r1:7b"
+      tags:
+        - orchestrator
+        - domain
+        - classification
+      variables:
+        required:
+          - message
+          - domain_descriptions
+        optional:
+          - context_info
+      sections:
+        context_info:
+          template: "\nContexto del usuario: {contact_info}"

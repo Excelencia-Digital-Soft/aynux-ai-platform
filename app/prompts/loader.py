@@ -61,8 +61,12 @@ class PromptLoader:
     - Carga desde archivos YAML
     - Carga desde base de datos
     - Validación automática
-    - Caché de archivos YAML
+    - Caché a nivel de clase (compartido entre todas las instancias)
     """
+
+    # Class-level cache shared across all instances for performance
+    _file_cache: Dict[str, PromptTemplate] = {}
+    _db_cache: Dict[str, PromptTemplate] = {}
 
     def __init__(self, templates_dir: Optional[Path] = None):
         """
@@ -77,8 +81,7 @@ class PromptLoader:
         else:
             self.templates_dir = templates_dir
 
-        self._file_cache: Dict[str, PromptTemplate] = {}
-        logger.info(f"PromptLoader initialized with templates_dir: {self.templates_dir}")
+        logger.debug(f"PromptLoader initialized with templates_dir: {self.templates_dir}")
 
     async def load(self, key: str, prefer_db: bool = True) -> Optional[PromptTemplate]:
         """
@@ -118,10 +121,10 @@ class PromptLoader:
         Returns:
             PromptTemplate si el archivo existe y es válido
         """
-        # Verificar caché
-        if key in self._file_cache:
+        # Verificar caché a nivel de clase
+        if key in PromptLoader._file_cache:
             logger.debug(f"Loading prompt '{key}' from file cache")
-            return self._file_cache[key]
+            return PromptLoader._file_cache[key]
 
         # Convertir clave a ruta de archivo
         # product.search.intent → templates/product/search.yaml
@@ -181,8 +184,8 @@ class PromptLoader:
                 metadata=prompt_data.get("metadata", {}),
             )
 
-            # Cachear
-            self._file_cache[key] = template
+            # Cachear a nivel de clase
+            PromptLoader._file_cache[key] = template
             logger.info(f"Loaded prompt '{key}' from file: {file_path}")
 
             return template
@@ -193,7 +196,7 @@ class PromptLoader:
 
     async def load_from_db(self, key: str) -> Optional[PromptTemplate]:
         """
-        Carga un prompt desde base de datos.
+        Carga un prompt desde base de datos con caché.
 
         Args:
             key: Clave del prompt
@@ -201,6 +204,11 @@ class PromptLoader:
         Returns:
             PromptTemplate si existe en BD y está activo
         """
+        # Verificar caché a nivel de clase
+        if key in PromptLoader._db_cache:
+            logger.debug(f"Loading prompt '{key}' from DB cache")
+            return PromptLoader._db_cache[key]
+
         try:
             async with get_async_db_context() as db:
                 # Buscar prompt activo
@@ -222,6 +230,8 @@ class PromptLoader:
                     metadata=prompt.meta_data,
                 )
 
+                # Cachear a nivel de clase
+                PromptLoader._db_cache[key] = template
                 logger.info(f"Loaded prompt '{key}' from database")
                 return template
 
@@ -277,6 +287,7 @@ class PromptLoader:
         return list(set(available))  # Eliminar duplicados
 
     def clear_cache(self):
-        """Limpia el caché de archivos."""
-        self._file_cache.clear()
-        logger.info("Prompt file cache cleared")
+        """Limpia ambos cachés (archivos y BD)."""
+        PromptLoader._file_cache.clear()
+        PromptLoader._db_cache.clear()
+        logger.info("Prompt caches cleared (file and DB)")

@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Gestor de prompts con jerarquía de scopes (USER > ORG > GLOBAL).
+#              Permite personalización de prompts por organización y usuario.
+# Tenant-Aware: Yes - resuelve prompts según contexto de tenant.
+# ============================================================================
 """
 TenantPromptManager - Multi-tenant prompt resolution with scope hierarchy.
 

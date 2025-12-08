@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Membresía de usuarios en organizaciones. Roles (owner, admin,
+#              member) y configuración personal por usuario dentro del tenant.
+# Tenant-Aware: Yes - vincula users con organizations + roles.
+# ============================================================================
 """
 OrganizationUser model - User membership in organizations.
 

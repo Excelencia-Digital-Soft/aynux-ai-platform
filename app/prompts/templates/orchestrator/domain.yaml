@@ -1,0 +1,14 @@
+# app/prompts/templates/orchestrator/domain.yaml
+key: "orchestrator.domain.detection"
+name: "Orchestrator Service Detection"
+description: "Detects the Excelencia service from a user query."
+version: "2.0"
+template: |
+  # SERVICE DETECTION
+  User query: "{message}"
+  Available services: {domains}
+
+  Analyze the user query and determine the correct Excelencia service.
+  Respond ONLY with the detected service name (e.g., "excelencia", "excelencia_invoice", "support").
+  If unsure, return "{default_domain}".
+  Do not include any other text or JSON formatting.

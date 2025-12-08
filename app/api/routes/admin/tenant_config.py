@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: API para gestionar configuración específica por tenant.
+#              Dominios, RAG, LLM, agentes habilitados, etc.
+# Tenant-Aware: Yes - todas las rutas requieren org_id + require_admin().
+# ============================================================================
 """
 Tenant Configuration Admin API - Manage tenant-specific settings.
 
@@ -13,7 +19,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_organization_by_id, require_admin
+from app.api.dependencies import get_config_cache, get_organization_by_id, require_admin
+from app.core.container import TenantConfigCache
 from app.database.async_db import get_async_db
 from app.models.db.tenancy import Organization, OrganizationUser, TenantConfig
 
@@ -139,11 +146,13 @@ async def update_tenant_config(
     org_id: uuid.UUID = Path(..., description="Organization ID"),
     membership: OrganizationUser = Depends(require_admin),
     db: AsyncSession = Depends(get_async_db),
+    cache: TenantConfigCache = Depends(get_config_cache),
 ):
     """
     Update tenant configuration.
 
     Requires admin or owner role.
+    Invalidates Redis cache after update.
     """
     config = await get_or_create_config(db, org_id)
 
@@ -183,6 +192,9 @@ async def update_tenant_config(
     await db.commit()
     await db.refresh(config)
 
+    # Invalidate Redis cache
+    cache.invalidate(org_id)
+
     return TenantConfigResponse(**config.to_dict())
 
 
@@ -193,12 +205,14 @@ async def update_llm_config(
     membership: OrganizationUser = Depends(require_admin),
     org: Organization = Depends(get_organization_by_id),
     db: AsyncSession = Depends(get_async_db),
+    cache: TenantConfigCache = Depends(get_config_cache),
 ):
     """
     Update LLM configuration for the organization.
 
     LLM settings are stored on the Organization model.
     Requires admin or owner role.
+    Invalidates Redis cache after update.
     """
     if data.llm_model is not None:
         org.llm_model = data.llm_model
@@ -211,6 +225,9 @@ async def update_llm_config(
 
     await db.commit()
     await db.refresh(org)
+
+    # Invalidate Redis cache
+    cache.invalidate(org_id)
 
     return {
         "llm_model": org.llm_model,
@@ -225,11 +242,13 @@ async def update_rag_config(
     org_id: uuid.UUID = Path(..., description="Organization ID"),
     membership: OrganizationUser = Depends(require_admin),
     db: AsyncSession = Depends(get_async_db),
+    cache: TenantConfigCache = Depends(get_config_cache),
 ):
     """
     Update RAG configuration.
 
     Requires admin or owner role.
+    Invalidates Redis cache after update.
     """
     config = await get_or_create_config(db, org_id)
 
@@ -245,6 +264,9 @@ async def update_rag_config(
     await db.commit()
     await db.refresh(config)
 
+    # Invalidate Redis cache
+    cache.invalidate(org_id)
+
     return {
         "rag_enabled": config.rag_enabled,
         "rag_similarity_threshold": config.rag_similarity_threshold,
@@ -258,11 +280,13 @@ async def update_domains_config(
     org_id: uuid.UUID = Path(..., description="Organization ID"),
     membership: OrganizationUser = Depends(require_admin),
     db: AsyncSession = Depends(get_async_db),
+    cache: TenantConfigCache = Depends(get_config_cache),
 ):
     """
     Update enabled domains configuration.
 
     Requires admin or owner role.
+    Invalidates Redis cache after update.
     """
     config = await get_or_create_config(db, org_id)
 
@@ -285,6 +309,9 @@ async def update_domains_config(
     await db.commit()
     await db.refresh(config)
 
+    # Invalidate Redis cache
+    cache.invalidate(org_id)
+
     return {
         "enabled_domains": config.enabled_domains,
         "default_domain": config.default_domain,
@@ -297,12 +324,14 @@ async def update_agents_config(
     org_id: uuid.UUID = Path(..., description="Organization ID"),
     membership: OrganizationUser = Depends(require_admin),
     db: AsyncSession = Depends(get_async_db),
+    cache: TenantConfigCache = Depends(get_config_cache),
 ):
     """
     Update enabled agents configuration.
 
     Requires admin or owner role.
     Empty list means all builtin agents are enabled.
+    Invalidates Redis cache after update.
     """
     config = await get_or_create_config(db, org_id)
 
@@ -311,6 +340,9 @@ async def update_agents_config(
 
     await db.commit()
     await db.refresh(config)
+
+    # Invalidate Redis cache
+    cache.invalidate(org_id)
 
     return {
         "enabled_agent_types": config.enabled_agent_types,

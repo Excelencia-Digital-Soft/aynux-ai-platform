@@ -1,3 +1,10 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Router de dominios basado en análisis de intención.
+#              Estrategias: keyword, AI-based, hybrid.
+# Tenant-Aware: No - ruteo global. Los dominios habilitados por tenant
+#              se filtran en TenantAgentFactory.
+# ============================================================================
 """
 Domain Router
 
@@ -63,13 +70,13 @@ class DomainRouter:
         ```
     """
 
-    SUPPORTED_DOMAINS = ["ecommerce", "healthcare", "credit", "excelencia"]
+    SUPPORTED_DOMAINS = ["healthcare", "credit", "excelencia"]
 
     def __init__(
         self,
         llm: Any = None,
         strategy: str = "hybrid",
-        default_domain: str = "ecommerce",
+        default_domain: str = "excelencia",
         enabled_domains: list[str] | None = None,
     ):
         """

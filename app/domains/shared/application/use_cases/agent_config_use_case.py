@@ -55,7 +55,7 @@ class GetAgentConfigUseCase:
         try:
             # Import Excelencia agent to get current configuration
             from app.domains.excelencia.agents.nodes.excelencia_node import (
-                EXCELENCIA_MODULES,
+                _FALLBACK_MODULES,
                 ExcelenciaNode as ExcelenciaAgent,
             )
 
@@ -63,8 +63,8 @@ class GetAgentConfigUseCase:
             temp_agent = ExcelenciaAgent()
 
             config = {
-                "modules": EXCELENCIA_MODULES,
-                "query_types": temp_agent.query_types,
+                "modules": _FALLBACK_MODULES,
+                "query_types": temp_agent.QUERY_TYPES, # Assuming QUERY_TYPES is meant here, not _FALLBACK_MODULES again
                 "settings": {
                     "model": temp_agent.model,
                     "temperature": temp_agent.temperature,

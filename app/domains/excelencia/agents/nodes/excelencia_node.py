@@ -4,7 +4,12 @@ Excelencia Node - Main node for ERP Excelencia queries.
 Migrated from app/agents/subagent/excelencia_agent.py
 Handles information about demos, modules, support, training and corporate queries via RAG.
 
-Modules are loaded dynamically from PostgreSQL (erp_modules table) instead of hardcoded.
+Software catalog is loaded from company_knowledge table (document_type: software_catalog).
+
+Optimizations:
+- Uses SIMPLE model for intent analysis (fast)
+- Uses COMPLEX model for response generation (quality)
+- Automatic cleaning of deepseek-r1 <think> tags
 """
 
 import json
@@ -16,9 +21,14 @@ from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
 from app.database.async_db import get_async_db_context
 from app.integrations.llm import OllamaLLM
+from app.integrations.llm.model_provider import ModelComplexity
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+# Temperature settings for ExcelenciaNode
+INTENT_ANALYSIS_TEMPERATURE = 0.3  # Lower for deterministic JSON parsing
+RESPONSE_GENERATION_TEMPERATURE = 0.7  # Higher for creative responses
 
 
 # Fallback modules when database is unavailable
@@ -65,7 +75,20 @@ class ExcelenciaNode(BaseAgent):
         "corporate": ["misión", "visión", "valores", "empresa", "quiénes somos", "contacto", "redes"],
         "clients": ["cliente", "caso", "éxito", "referencia", "implementación"],
         "general": ["excelencia", "erp", "información", "qué es"],
+        # Support ticket creation triggers
+        "incident": ["reportar", "incidencia", "levantar ticket", "falla grave", "bug", "no funciona", "se cayó"],
+        "feedback": ["sugerencia", "comentario", "opinión", "feedback", "mejorar", "propuesta"],
     }
+
+    # Document types to search for support queries
+    SUPPORT_DOCUMENT_TYPES = [
+        "support_faq",
+        "support_guide",
+        "support_contact",
+        "support_training",
+        "support_module",
+        "faq",  # Fallback to general FAQ
+    ]
 
     def __init__(self, ollama=None, config: dict[str, Any] | None = None):
         super().__init__("excelencia_node", config or {}, ollama=ollama)
@@ -86,7 +109,7 @@ class ExcelenciaNode(BaseAgent):
 
     async def _get_modules(self) -> dict[str, dict[str, Any]]:
         """
-        Get ERP modules from database with caching.
+        Get software catalog from company_knowledge table with caching.
 
         Returns:
             Dict of module_code -> module_info
@@ -99,15 +122,32 @@ class ExcelenciaNode(BaseAgent):
 
             async with get_async_db_context() as db:
                 container = DependencyContainer()
-                use_case = container.create_get_modules_use_case(db)
-                result = await use_case.execute(only_available=True)
+                # Use knowledge search to get software_catalog items
+                use_case = container.create_search_knowledge_use_case(db)
+                results = await use_case.execute(
+                    query="software productos módulos sistemas soluciones",
+                    max_results=20,
+                    document_type="software_catalog",
+                    search_strategy="pgvector_primary",
+                )
 
-                self._modules_cache = result.modules_dict
-                logger.info(f"Loaded {len(self._modules_cache)} ERP modules from database")
+                # Convert to modules dict format
+                self._modules_cache = {}
+                for item in results:
+                    # Use first 8 chars of id as code
+                    code = item.get("id", "")[:8].upper() if item.get("id") else f"MOD-{len(self._modules_cache)+1:03d}"
+                    self._modules_cache[code] = {
+                        "name": item.get("title", ""),
+                        "description": item.get("content", "")[:300],
+                        "features": item.get("tags", []),
+                        "target": item.get("category", "general"),
+                    }
+
+                logger.info(f"Loaded {len(self._modules_cache)} software products from company_knowledge")
                 return self._modules_cache
 
         except Exception as e:
-            logger.warning(f"Failed to load modules from DB: {e}, using fallback")
+            logger.warning(f"Failed to load modules from company_knowledge: {e}, using fallback")
             self._modules_cache = _FALLBACK_MODULES.copy()
             return self._modules_cache
 
@@ -120,13 +160,17 @@ class ExcelenciaNode(BaseAgent):
     async def _process_internal(self, message: str, state_dict: dict[str, Any]) -> dict[str, Any]:
         """Process Excelencia ERP queries."""
         try:
+            logger.info(f"ExcelenciaNode._process_internal START: {message[:50]}...")
+
             # Analyze query intent
             query_analysis = await self._analyze_query_intent(message)
+            logger.info(f"ExcelenciaNode query_analysis done: {query_analysis.get('query_type')}")
 
             # Generate response
             response_text = await self._generate_response(message, query_analysis, state_dict)
+            logger.info(f"ExcelenciaNode response generated: {len(response_text)} chars")
 
-            return {
+            result = {
                 "messages": [{"role": "assistant", "content": response_text}],
                 "current_agent": self.name,
                 "agent_history": [self.name],
@@ -140,6 +184,8 @@ class ExcelenciaNode(BaseAgent):
                 "requires_demo": query_analysis.get("requires_demo", False),
                 "is_complete": True,
             }
+            logger.info(f"ExcelenciaNode._process_internal DONE, returning result")
+            return result
 
         except Exception as e:
             logger.error(f"Error in excelencia node: {str(e)}")
@@ -194,12 +240,22 @@ Responde en JSON con esta estructura:
 
 Responde solo con el JSON, sin texto adicional."""
 
-            llm = self.ollama.get_llm(temperature=0.3, model=self.model)
+            logger.info("ExcelenciaNode: Getting SIMPLE LLM for intent analysis...")
+            llm = self.ollama.get_llm(
+                complexity=ModelComplexity.SIMPLE,
+                temperature=INTENT_ANALYSIS_TEMPERATURE,
+            )
+            logger.info("ExcelenciaNode: Calling LLM.ainvoke for intent analysis...")
             response = await llm.ainvoke(prompt)
+            logger.info(f"ExcelenciaNode: LLM response received, type: {type(response)}")
 
             try:
                 response_text = response.content if isinstance(response.content, str) else str(response.content)
+                # Clean deepseek-r1 <think> tags before parsing JSON
+                response_text = OllamaLLM.clean_deepseek_response(response_text)
+                logger.info(f"ExcelenciaNode: Parsing JSON response: {response_text[:100]}...")
                 ai_analysis = json.loads(response_text)
+                logger.info(f"ExcelenciaNode: Intent analysis complete: {ai_analysis.get('query_type')}")
                 return {
                     "query_type": ai_analysis.get("query_type", query_type),
                     "user_intent": ai_analysis.get("user_intent", ""),
@@ -207,7 +263,8 @@ Responde solo con el JSON, sin texto adicional."""
                     "requires_demo": ai_analysis.get("requires_demo", False),
                     "urgency": ai_analysis.get("urgency", "medium"),
                 }
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as je:
+                logger.warning(f"ExcelenciaNode: JSON decode failed: {je}, using fallback")
                 return self._create_fallback_analysis(message, query_type, mentioned_modules)
 
         except Exception as e:
@@ -261,18 +318,216 @@ Responde solo con el JSON, sin texto adicional."""
             logger.error(f"Error searching knowledge base: {e}")
             return ""
 
+    async def _search_support_knowledge(
+        self,
+        query: str,
+        query_type: str,
+        mentioned_modules: list[str] | None = None,
+    ) -> str:
+        """
+        Search knowledge base for support-specific content.
+
+        Filters by support document types and optionally by module tags.
+
+        Args:
+            query: User's support query
+            query_type: Detected query type (support, training, etc.)
+            mentioned_modules: List of mentioned module codes for tag filtering
+
+        Returns:
+            Formatted RAG context string or empty string
+        """
+        if not self.use_rag:
+            return ""
+
+        try:
+            from app.core.container import DependencyContainer
+
+            # Determine which document types to search based on query type
+            doc_types_to_search = []
+            if query_type == "training":
+                doc_types_to_search = ["support_training", "faq"]
+            elif query_type == "support":
+                doc_types_to_search = ["support_faq", "support_guide", "support_contact"]
+            else:
+                doc_types_to_search = self.SUPPORT_DOCUMENT_TYPES
+
+            async with get_async_db_context() as db:
+                container = DependencyContainer()
+                use_case = container.create_search_knowledge_use_case(db)
+
+                all_results = []
+                # Search each support document type
+                for doc_type in doc_types_to_search[:3]:  # Limit to 3 types
+                    try:
+                        results = await use_case.execute(
+                            query=query,
+                            max_results=2,
+                            document_type=doc_type,
+                            search_strategy="pgvector_primary",
+                        )
+                        all_results.extend(results)
+                    except Exception as doc_e:
+                        logger.warning(f"Error searching {doc_type}: {doc_e}")
+                        continue
+
+                if not all_results:
+                    # Fallback to general search
+                    all_results = await use_case.execute(
+                        query=query,
+                        max_results=self.rag_max_results,
+                        search_strategy="pgvector_primary",
+                    )
+
+                if not all_results:
+                    return ""
+
+                # Format results
+                context_parts = ["\n## INFORMACION DE SOPORTE (Knowledge Base):"]
+                seen_ids = set()
+                for result in all_results[:self.rag_max_results]:
+                    result_id = result.get("id", "")
+                    if result_id in seen_ids:
+                        continue
+                    seen_ids.add(result_id)
+
+                    title = result.get("title", "Sin titulo")
+                    content = result.get("content", "")
+                    content_preview = content[:300] + "..." if len(content) > 300 else content
+                    doc_type = result.get("document_type", "")
+
+                    context_parts.append(f"\n### {title}")
+                    context_parts.append(content_preview)
+                    if doc_type:
+                        context_parts.append(f"*Tipo: {doc_type}*")
+
+                return "\n".join(context_parts)
+
+        except Exception as e:
+            logger.error(f"Error searching support knowledge: {e}")
+            return ""
+
+    async def _create_support_ticket(
+        self,
+        user_phone: str,
+        ticket_type: str,
+        description: str,
+        category: str | None = None,
+        module: str | None = None,
+        conversation_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a support ticket from user's chat message.
+
+        Args:
+            user_phone: WhatsApp phone number
+            ticket_type: Type of ticket (incident, feedback)
+            description: Full description from user message
+            category: Optional category
+            module: Optional affected module
+            conversation_id: Optional conversation link
+
+        Returns:
+            Dictionary with ticket info (id, status, etc.)
+        """
+        try:
+            from app.core.container import DependencyContainer
+
+            async with get_async_db_context() as db:
+                container = DependencyContainer()
+                use_case = container.create_support_ticket_use_case(db)
+                return await use_case.execute(
+                    user_phone=user_phone,
+                    ticket_type=ticket_type,
+                    description=description,
+                    category=category,
+                    module=module,
+                    conversation_id=conversation_id,
+                )
+
+        except Exception as e:
+            logger.error(f"Error creating support ticket: {e}")
+            # Return minimal info so we can still show a message
+            return {
+                "id": "error",
+                "ticket_id_short": "ERROR",
+                "status": "failed",
+                "error": str(e),
+            }
+
+    def _generate_ticket_confirmation(self, ticket: dict[str, Any], ticket_type: str) -> str:
+        """
+        Generate confirmation message for created ticket.
+
+        Args:
+            ticket: Ticket info dict from use case
+            ticket_type: Type of ticket (incident, feedback)
+
+        Returns:
+            Formatted confirmation message
+        """
+        ticket_id = ticket.get("ticket_id_short", ticket.get("id", "")[:8].upper())
+        status = ticket.get("status", "open")
+
+        if status == "failed":
+            return (
+                "Lo siento, hubo un problema al registrar tu solicitud. "
+                "Por favor, contacta directamente a soporte tecnico o intenta nuevamente. "
+                "¿Hay algo mas en lo que pueda ayudarte?"
+            )
+
+        if ticket_type == "incident":
+            category = ticket.get("category", "general")
+            return (
+                f"🎫 **Incidencia Registrada**\n\n"
+                f"Tu reporte ha sido creado con el folio: **{ticket_id}**\n\n"
+                f"- Categoria: {category}\n"
+                f"- Estado: Abierto\n\n"
+                f"Nuestro equipo de soporte lo revisara y te contactara pronto.\n"
+                f"¿Hay algo mas en lo que pueda ayudarte?"
+            )
+        else:  # feedback
+            return (
+                f"💬 **Gracias por tu Feedback**\n\n"
+                f"Tu comentario ha sido registrado (Ref: {ticket_id}).\n\n"
+                f"Valoramos mucho tu opinion para mejorar nuestros servicios.\n"
+                f"¿Hay algo mas que quieras compartir?"
+            )
+
     async def _generate_response(
-        self, user_message: str, query_analysis: dict[str, Any], _state_dict: dict[str, Any]
+        self, user_message: str, query_analysis: dict[str, Any], state_dict: dict[str, Any]
     ) -> str:
         """Generate response based on query analysis."""
         query_type = query_analysis.get("query_type", "general")
         mentioned_modules = query_analysis.get("modules", [])
 
+        # === HANDLE INCIDENT/FEEDBACK TICKET CREATION ===
+        if query_type in ("incident", "feedback"):
+            user_phone = state_dict.get("user_phone", state_dict.get("sender", "unknown"))
+            conversation_id = state_dict.get("conversation_id")
+            module = mentioned_modules[0] if mentioned_modules else None
+
+            ticket = await self._create_support_ticket(
+                user_phone=user_phone,
+                ticket_type=query_type,
+                description=user_message,
+                module=module,
+                conversation_id=conversation_id,
+            )
+
+            return self._generate_ticket_confirmation(ticket, query_type)
+
         # Get modules from database
         modules = await self._get_modules()
 
-        # Search knowledge base
-        rag_context = await self._search_knowledge_base(user_message)
+        # === USE SUPPORT-SPECIFIC RAG FOR SUPPORT/TRAINING QUERIES ===
+        if query_type in ("support", "training"):
+            rag_context = await self._search_support_knowledge(
+                user_message, query_type, mentioned_modules
+            )
+        else:
+            # Use general knowledge base search for other query types
+            rag_context = await self._search_knowledge_base(user_message)
 
         # Prepare module context from DB
         modules_context = ""
@@ -323,19 +578,35 @@ Principales módulos disponibles:
 Genera tu respuesta ahora:"""
 
         try:
-            llm = self.ollama.get_llm(temperature=self.temperature, model=self.model)
+            logger.info("ExcelenciaNode: Getting COMPLEX LLM for response generation...")
+            # Use COMPLEX model for quality responses (deepseek-r1:7b)
+            llm = self.ollama.get_llm(
+                complexity=ModelComplexity.COMPLEX,
+                temperature=RESPONSE_GENERATION_TEMPERATURE,
+            )
+            logger.info("ExcelenciaNode: Calling LLM.ainvoke for response generation...")
             response = await llm.ainvoke(response_prompt)
+            logger.info(f"ExcelenciaNode: LLM response generation completed, type: {type(response)}")
 
             if hasattr(response, "content"):
                 content = response.content
                 if isinstance(content, str):
-                    return content.strip()
+                    result = content.strip()
                 elif isinstance(content, list):
-                    return " ".join(str(item) for item in content).strip()
+                    result = " ".join(str(item) for item in content).strip()
                 else:
-                    return str(content).strip()
+                    result = str(content).strip()
+
+                # Clean deepseek-r1 <think> tags from response
+                result = OllamaLLM.clean_deepseek_response(result)
+                logger.info(f"ExcelenciaNode: Returning response ({len(result)} chars)")
+                return result
             else:
-                return str(response).strip()
+                result = str(response).strip()
+                # Clean deepseek-r1 <think> tags from response
+                result = OllamaLLM.clean_deepseek_response(result)
+                logger.info(f"ExcelenciaNode: Returning raw response ({len(result)} chars)")
+                return result
 
         except Exception as e:
             logger.error(f"Error generating AI response: {e}")
@@ -372,25 +643,26 @@ Genera tu respuesta ahora:"""
                 )
 
         if query_type == "training":
+            # Generic fallback - encourage user to try again or get more details
             return (
-                "📚 **Capacitación Excelencia ERP**\n\n"
-                "Ofrecemos capacitación completa que incluye:\n"
-                "- Capacitación inicial personalizada\n"
-                "- Material didáctico y manuales\n"
-                "- Soporte técnico permanente\n"
-                "- Actualizaciones y mejoras continuas\n\n"
-                "¿Sobre qué módulo necesitas capacitación?"
+                "📚 **Capacitacion**\n\n"
+                "Para informacion sobre capacitaciones, te recomendamos:\n"
+                "- Contactar a tu ejecutivo de cuenta\n"
+                "- Visitar el portal de capacitaciones\n"
+                "- Solicitar una sesion personalizada\n\n"
+                "¿Sobre que modulo necesitas capacitacion?"
             )
 
         if query_type == "support":
+            # Generic fallback - suggest creating a ticket
             return (
-                "🛠️ **Soporte Técnico Excelencia**\n\n"
-                "Contamos con soporte técnico completo:\n"
-                "- Soporte telefónico y por email\n"
-                "- Asistencia remota\n"
-                "- Actualizaciones automáticas\n"
-                "- Mesa de ayuda especializada\n\n"
-                "¿En qué podemos ayudarte?"
+                "🛠️ **Soporte Tecnico**\n\n"
+                "No encontre informacion especifica sobre tu consulta.\n\n"
+                "Puedes:\n"
+                "- Reformular tu pregunta con mas detalles\n"
+                "- Decir 'quiero reportar una incidencia' para crear un ticket\n"
+                "- Contactar a soporte tecnico directamente\n\n"
+                "¿En que mas puedo ayudarte?"
             )
 
         # Default general response using dynamic modules

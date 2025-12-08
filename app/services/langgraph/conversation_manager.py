@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 from app.integrations.whatsapp import WhatsAppService
 from app.models.conversation import ConversationHistory
-from app.repositories.redis_repository import RedisRepository
+from app.repositories.async_redis_repository import AsyncRedisRepository
 
 # Configurar expiración de conversación (24 horas)
 CONVERSATION_EXPIRATION = 86400  # 24 horas en segundos
@@ -22,7 +22,7 @@ class ConversationManager:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.redis_repo = RedisRepository[ConversationHistory](ConversationHistory, prefix="chat")
+        self.redis_repo = AsyncRedisRepository[ConversationHistory](ConversationHistory, prefix="chat")
         self.whatsapp_service = WhatsAppService()
         self.monitoring = self._create_monitoring_placeholder()
 
@@ -39,10 +39,10 @@ class ConversationManager:
         return MonitoringPlaceholder()
 
     async def cache_conversation(self, session_id: str, user_message: str, bot_response: str):
-        """Cachea la conversación en Redis"""
+        """Cachea la conversación en Redis (async)"""
         try:
-            # Obtener historial existente
-            history = self.redis_repo.get(session_id)
+            # Obtener historial existente - NOW ASYNC
+            history = await self.redis_repo.get(session_id)
             if not history:
                 # Extraer user_id del session_id (formato: whatsapp_NUMERO)
                 user_id = session_id.replace("whatsapp_", "") if session_id.startswith("whatsapp_") else session_id
@@ -56,8 +56,8 @@ class ConversationManager:
             if len(history.messages) > 20:
                 history.messages = history.messages[-20:]
 
-            # Guardar en Redis con expiración
-            self.redis_repo.set(session_id, history, expiration=CONVERSATION_EXPIRATION)
+            # Guardar en Redis con expiración - NOW ASYNC
+            await self.redis_repo.set(session_id, history, expiration=CONVERSATION_EXPIRATION)
 
         except Exception as e:
             self.logger.error(f"Error caching conversation: {e}")

@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Vector store con aislamiento por tenant. Filtra documentos por
+#              organization_id automáticamente para búsquedas RAG aisladas.
+# Tenant-Aware: Yes - todas las operaciones filtran por org_id.
+# ============================================================================
 """
 TenantVectorStore - Multi-tenant aware vector store wrapper.
 

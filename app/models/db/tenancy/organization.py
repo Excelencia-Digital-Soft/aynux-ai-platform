@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Entidad principal de tenant. Cada organización es un tenant
+#              aislado con su propia configuración, usuarios, documentos, etc.
+# Tenant-Aware: Yes - ES la tabla raíz del sistema multi-tenant.
+# ============================================================================
 """
 Organization model - Core tenant entity for multi-tenant system.
 

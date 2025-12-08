@@ -14,7 +14,9 @@ from .orders import Order, OrderItem
 from .promotions import Promotion
 from .prompts import Prompt, PromptVersion
 from .reviews import ProductReview
+from .support_ticket import SupportTicket
 from .user import UserDB
+from .conversation_history import ConversationContext, ConversationMessage
 
 __all__ = [
     # Base
@@ -53,6 +55,11 @@ __all__ = [
     "PromptVersion",
     # Knowledge Base
     "CompanyKnowledge",
+    # Support Tickets
+    "SupportTicket",
     # Authentication
     "UserDB",
+    # Conversation History
+    "ConversationContext",
+    "ConversationMessage",
 ]

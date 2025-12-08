@@ -77,12 +77,13 @@ class ConversationFlowController:
                 "reason": f"High quality response (score: {overall_score:.2f})",
             }
 
-        # Check if response is acceptable (medium quality but sufficient)
-        if overall_score >= 0.5 and retry_count > 0:
+        # Check if response is acceptable (medium quality - sufficient for user)
+        # Accept on first pass too, not just after retries
+        if overall_score >= 0.5:
             return {
                 "decision_type": "acceptable_response",
                 "should_end": True,
-                "reason": f"Acceptable response after retries (score: {overall_score:.2f})",
+                "reason": f"Acceptable response (score: {overall_score:.2f})",
             }
 
         # Check if needs re-routing (low quality and retries available)
@@ -128,8 +129,8 @@ class ConversationFlowController:
         if retry_count >= self.max_retries:
             return True
 
-        # 3. Response is acceptable (medium score) after retries
-        if overall_score >= 0.5 and retry_count > 0:
+        # 3. Response is acceptable (medium score) - sufficient for user
+        if overall_score >= 0.5:
             return True
 
         # 4. Critical error requiring immediate response

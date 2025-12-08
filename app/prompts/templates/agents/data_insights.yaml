@@ -1,0 +1,159 @@
+# Agent Prompts - Data Insights Agent
+# Purpose: SQL analysis and intelligent data querying
+
+prompts:
+  - key: agents.data_insights.query_classification
+    name: Data Query Classification
+    description: Classifies if a query requires data analysis
+    version: "1.0.0"
+    template: |
+      # CLASIFICACION DE CONSULTA
+
+      MENSAJE: "{message}"
+
+      Esta consulta requiere analisis de datos, estadisticas, busquedas en base de datos o informacion historica?
+
+      Ejemplos de consultas de datos:
+      - "Cuantos pedidos se hicieron esta semana?"
+      - "Cuantos productos tenemos en total?"
+      - "Muestra mis ultimas compras"
+      - "Cual es el producto mas vendido?"
+      - "Estadisticas de ventas del mes pasado"
+      - "Total de clientes registrados"
+      - "Productos con mas stock"
+
+      Ejemplos de consultas NO de datos:
+      - "Hola, como estas?"
+      - "Ayudame con mi factura"
+      - "Tengo un problema tecnico"
+
+      IMPORTANTE: Si la consulta contiene palabras como "cuantos", "total", "estadisticas", "ultimos", "mas",
+          es probable que sea una consulta de datos.
+
+      Responde EXACTAMENTE: "SI" o "NO"
+    metadata:
+      temperature: 0.1
+      max_tokens: 10
+      model: "deepseek-r1:7b"
+      tags:
+        - data_insights
+        - classification
+      variables:
+        required:
+          - message
+
+  - key: agents.data_insights.response_generation
+    name: Intelligent Response Generation
+    description: Generates response based on SQL query results
+    version: "1.0.0"
+    template: |
+      # GENERACION DE RESPUESTA INTELIGENTE
+
+      ## CONSULTA DEL USUARIO:
+      "{user_query}"
+
+      ## RESULTADOS DE LA CONSULTA:
+      - Registros encontrados: {row_count}
+      - Tiempo de ejecucion: {execution_time}ms
+      - SQL ejecutado: {generated_sql}
+
+      ## CONTEXTO DE DATOS:
+      {embedding_context}
+
+      ## MUESTRA DE DATOS:
+      {sample_data}
+
+      ## INSTRUCCIONES:
+      1. Responde de manera directa y util a la pregunta del usuario
+      2. Incluye numeros especificos y datos relevantes
+      3. Proporciona insights adicionales cuando sea apropiado
+      4. Usa un tono conversacional y amigable
+      5. Si hay muchos resultados, resume los mas importantes
+      6. Incluye sugerencias de seguimiento si es util
+
+      Maximo 6 lineas de respuesta:
+    metadata:
+      temperature: 0.6
+      max_tokens: 400
+      model: "deepseek-r1:7b"
+      tags:
+        - data_insights
+        - response
+      variables:
+        required:
+          - user_query
+          - row_count
+          - execution_time
+          - generated_sql
+        optional:
+          - embedding_context
+          - sample_data
+
+  - key: agents.data_insights.no_results
+    name: No Results Response
+    description: Response when query returns no results
+    version: "1.0.0"
+    template: |
+      La consulta "{user_query}" no arrojo resultados.
+
+      Genera una respuesta empatica que:
+      1. Confirme que no se encontraron datos
+      2. Sugiera posibles alternativas o consultas relacionadas
+      3. Ofrezca ayuda adicional
+
+      Maximo 3 lineas:
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      model: "deepseek-r1:7b"
+      tags:
+        - data_insights
+        - no_results
+      variables:
+        required:
+          - user_query
+
+  - key: agents.data_insights.error_response
+    name: Query Error Response
+    description: Response when query encounters an error
+    version: "1.0.0"
+    template: |
+      La consulta "{user_query}" encontro un error: {error_message}
+
+      Genera una respuesta que:
+      1. Explique que hubo un problema tecnico (sin detalles tecnicos)
+      2. Sugiera reformular la pregunta
+      3. Ofrezca ayuda alternativa
+
+      Maximo 2 lineas, tono amigable:
+    metadata:
+      temperature: 0.5
+      max_tokens: 100
+      model: "deepseek-r1:7b"
+      tags:
+        - data_insights
+        - error
+      variables:
+        required:
+          - user_query
+          - error_message
+
+  - key: agents.data_insights.fallback
+    name: Data Insights Fallback
+    description: Fallback response when AI generation fails
+    version: "1.0.0"
+    template: |
+      Encontre {row_count} resultado(s) para tu consulta: "{user_query}".
+      {sample_info}
+    metadata:
+      temperature: 0.5
+      max_tokens: 100
+      tags:
+        - data_insights
+        - fallback
+      variables:
+        required:
+          - row_count
+          - user_query
+        optional:
+          - sample_info

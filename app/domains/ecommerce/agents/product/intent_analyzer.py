@@ -8,7 +8,9 @@ import logging
 from typing import Optional
 
 from app.integrations.llm import OllamaLLM
+from app.integrations.llm.model_provider import ModelComplexity
 from app.utils import extract_json_from_text
+from app.prompts.manager import PromptManager
 
 from .models import UserIntent
 
@@ -39,57 +41,6 @@ class IntentAnalyzer:
         "user_emotion": "neutral",  # Default emotion
     }
 
-    INTENT_ANALYSIS_PROMPT = """# USER MESSAGE
-"{message}"
-
-# INSTRUCTIONS
-You are analyzing a user's product inquiry for an e-commerce system. Extract the user's intent and respond with JSON:
-
-{{
-  "intent": "show_general_catalog|search_specific_products|search_by_category|"
-            "search_by_brand|search_by_price|get_product_details",
-  "search_terms": ["specific", "product", "terms"],
-  "category": "category_name_or_null",
-  "brand": "brand_name_or_null",
-  "price_min": float_or_null,
-  "price_max": float_or_null,
-  "specific_product": "exact_product_name_or_null",
-  "wants_stock_info": boolean,
-  "wants_featured": boolean,
-  "wants_sale": boolean,
-  "action_needed": "show_featured|search_products|search_category|search_brand|search_price",
-  "confidence": float_0_to_1,
-  "user_emotion": "neutral|excited|frustrated|urgent|curious|disappointed"
-}}
-
-INTENT ANALYSIS:
-- show_general_catalog: User asks what products are available, general catalog inquiry
-                        ("what products do you have", "show me your products")
-- search_specific_products: User wants specific products
-                             ("show me laptops", "I need a phone")
-- search_by_category: User mentions a specific category
-- search_by_brand: User mentions a specific brand
-- search_by_price: User mentions price range
-- get_product_details: User asks about a specific product
-
-For search_terms, only include meaningful product-related words, not filler words.
-
-CONFIDENCE SCORE (0.0-1.0):
-- 0.9-1.0: Very clear intent with specific details (brand, model, exact product name)
-- 0.7-0.9: Clear intent with some details (category, general product type)
-- 0.5-0.7: Moderate clarity, general inquiry
-- 0.3-0.5: Ambiguous intent, unclear what user wants
-- 0.0-0.3: Very unclear or off-topic message
-
-EMOTION ANALYSIS:
-Detect the user's emotional state from their message tone:
-- neutral: Calm, matter-of-fact inquiry ("show me laptops")
-- excited: Enthusiastic, eager to buy ("I need this now!", "wow!")
-- frustrated: Annoyed, having trouble finding what they need ("I can't find anything", "this is difficult")
-- urgent: Time-sensitive need ("I need it today", "ASAP", "quickly")
-- curious: Exploring options, browsing ("what do you have?", "just looking")
-- disappointed: Previous negative experience or unmet expectations ("still not what I want")"""
-
     def __init__(
         self,
         ollama: OllamaLLM,
@@ -102,11 +53,12 @@ Detect the user's emotional state from their message tone:
         Args:
             ollama: OllamaLLM instance for AI inference
             temperature: LLM temperature for intent analysis (0.0-1.0)
-            model: Optional model name override
+            model: Optional specific model to use for intent analysis.
         """
         self.ollama = ollama
         self.temperature = temperature
         self.model = model
+        self.prompt_manager = PromptManager()
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     async def analyze_intent(self, message: str) -> UserIntent:
@@ -125,7 +77,10 @@ Detect the user's emotional state from their message tone:
         self.logger.info(f"Analyzing intent for message: '{message[:50]}...'")
 
         # Build prompt
-        prompt = self.INTENT_ANALYSIS_PROMPT.format(message=message)
+        prompt = await self.prompt_manager.get_prompt(
+            "ecommerce.intent_analyzer.product_query",
+            variables={"message": message}
+        )
 
         # Default fallback intent
         default_intent_dict = self.DEFAULT_INTENT_VALUES.copy()
@@ -133,7 +88,11 @@ Detect the user's emotional state from their message tone:
 
         try:
             # Invoke LLM
-            llm = self.ollama.get_llm(temperature=self.temperature, model=self.model)
+            llm = self.ollama.get_llm(
+                complexity=ModelComplexity.SIMPLE,
+                temperature=self.temperature,
+                model=self.model,
+            )
             response = await llm.ainvoke(prompt)
 
             # Extract JSON from response

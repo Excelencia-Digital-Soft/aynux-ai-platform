@@ -16,8 +16,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import nest_asyncio
 import streamlit as st
 from dotenv import load_dotenv
+
+# Apply nest_asyncio to allow nested event loops
+# This is required because Streamlit uses asyncio.run() which creates a new event loop
+# but our async Redis connections persist in session_state from previous calls
+nest_asyncio.apply()
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -40,7 +46,7 @@ init_session_state()
 
 
 class ChatVisualizerPage:
-    """Chat Visualizer Page with agent flow visualization"""
+    """Chat Visualizer Page with agent flow visualization and persistent conversation ID"""
 
     def __init__(self):
         self.settings = Settings()
@@ -48,6 +54,93 @@ class ChatVisualizerPage:
         self.state_inspector = StateInspector()
         self.reasoning_display = ReasoningDisplay()
         self.metrics_tracker = MetricsTracker()
+        self._ensure_conversation_id()
+
+    def _ensure_conversation_id(self):
+        """Ensure a persistent conversation ID exists in session state"""
+        import uuid
+
+        if "persistent_conversation_id" not in st.session_state:
+            st.session_state.persistent_conversation_id = str(uuid.uuid4())
+            st.session_state.conversation_name = f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+
+        if "conversation_threads" not in st.session_state:
+            st.session_state.conversation_threads = {
+                st.session_state.persistent_conversation_id: {
+                    "name": st.session_state.conversation_name,
+                    "created_at": datetime.now().isoformat(),
+                }
+            }
+
+        if "active_thread_id" not in st.session_state:
+            st.session_state.active_thread_id = st.session_state.persistent_conversation_id
+
+    def _get_conversation_id(self) -> str:
+        """Get current conversation ID (persistent across page refreshes)"""
+        return st.session_state.get("active_thread_id", st.session_state.get("persistent_conversation_id", "default"))
+
+    def _render_conversation_selector(self):
+        """Render conversation thread management UI in sidebar"""
+        import uuid
+
+        st.subheader("💬 Conversaciones")
+
+        # Show current conversation ID (truncated)
+        current_id = self._get_conversation_id()
+        st.caption(f"ID: {current_id[:8]}...")
+
+        # Get conversation threads
+        threads = st.session_state.get("conversation_threads", {})
+
+        if threads:
+            # Create dropdown options
+            thread_options = {
+                tid: tdata.get("name", f"Chat {tid[:8]}")
+                for tid, tdata in threads.items()
+            }
+
+            # Find current index
+            current_index = 0
+            thread_ids = list(thread_options.keys())
+            if current_id in thread_ids:
+                current_index = thread_ids.index(current_id)
+
+            # Thread selector
+            selected = st.selectbox(
+                "Seleccionar hilo",
+                options=thread_ids,
+                format_func=lambda x: thread_options.get(x, f"Chat {x[:8]}"),
+                index=current_index,
+                key="thread_selector",
+            )
+
+            # Switch thread if different
+            if selected != current_id:
+                st.session_state.active_thread_id = selected
+                # Clear current conversation to load from new thread
+                st.session_state.conversation_history = []
+                st.session_state.execution_steps = []
+                st.session_state.current_state = None
+                st.rerun()
+
+        # New conversation button
+        if st.button("➕ Nueva conversación", use_container_width=True):
+            new_id = str(uuid.uuid4())
+            new_name = f"Chat {datetime.now().strftime('%H:%M')}"
+
+            # Add to threads
+            st.session_state.conversation_threads[new_id] = {
+                "name": new_name,
+                "created_at": datetime.now().isoformat(),
+            }
+
+            # Switch to new thread
+            st.session_state.active_thread_id = new_id
+            st.session_state.conversation_history = []
+            st.session_state.execution_steps = []
+            st.session_state.current_state = None
+            st.session_state.metrics = {}
+            st.rerun()
 
     @property
     def graph(self) -> AynuxGraph | None:
@@ -137,8 +230,9 @@ class ChatVisualizerPage:
         )
 
     async def _stream_graph_execution(self, message: str, progress_container):
-        """Stream graph execution with real-time updates"""
-        conversation_id = f"viz_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        """Stream graph execution with real-time updates and persistent conversation ID"""
+        # Use persistent conversation ID instead of timestamp
+        conversation_id = self._get_conversation_id()
         step_count = 0
 
         try:
@@ -252,11 +346,20 @@ class ChatVisualizerPage:
         with st.sidebar:
             st.header("⚙️ Configuración")
 
+            # Conversation thread management
+            self._render_conversation_selector()
+
+            st.divider()
+
             if not st.session_state.graph_initialized:
                 if st.button("🚀 Inicializar Grafo", use_container_width=True):
                     self.initialize_graph()
             else:
                 st.success("✅ Grafo inicializado")
+                if st.button("🔄 Reinicializar Grafo", use_container_width=True):
+                    st.session_state.graph_initialized = False
+                    st.session_state.graph_instance = None
+                    st.rerun()
 
             st.divider()
             st.subheader("🤖 Agentes Habilitados")

@@ -7,8 +7,11 @@ from datetime import datetime
 from typing import Any
 
 from app.core.agents import BaseAgent
-from app.integrations.llm import OllamaLLM
 from app.core.utils.tracing import trace_async_method
+from app.integrations.llm import OllamaLLM
+from app.integrations.llm.model_provider import ModelComplexity
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +22,9 @@ class FarewellAgent(BaseAgent):
     def __init__(self, ollama=None, postgres=None, config: dict[str, Any] | None = None):
         super().__init__("farewell_agent", config or {}, ollama=ollama, postgres=postgres)
         self.ollama = ollama or OllamaLLM()
+
+        # Initialize PromptManager for YAML-based prompts
+        self.prompt_manager = PromptManager()
 
     @trace_async_method(
         name="farewell_agent_process",
@@ -56,8 +62,8 @@ class FarewellAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Error in farewell agent: {str(e)}")
 
-            # Default farewell
-            default_response = self._get_default_farewell()
+            # Default farewell using YAML
+            default_response = await self._get_default_farewell()
 
             return {
                 "messages": [{"role": "assistant", "content": default_response}],
@@ -67,33 +73,30 @@ class FarewellAgent(BaseAgent):
             }
 
     async def _generate_farewell_response(self, message: str, has_interacted: bool) -> str:
-        """Generate a contextual farewell response."""
-        context = "El usuario ha interactuado con varios servicios." if has_interacted else "Es una conversacion breve."
-
-        prompt = f"""
-El usuario escribio: "{message}"
-
-{context}
-
-Tu tarea es generar una despedida cordial, profesional y empatica.
-Si ayudamos, agradece su confianza. Invita a volver en el futuro.
-
-- Usa maximo 3 lineas.
-- Usa 1 o 2 emojis relevantes (no mas).
-- No repitas el mensaje del usuario.
-"""
+        """Generate a contextual farewell response using YAML prompts."""
+        context = (
+            "El usuario ha interactuado con varios servicios."
+            if has_interacted
+            else "Es una conversacion breve."
+        )
 
         try:
-            # Use configured model for user-facing responses (no hardcoded model)
-            llm = self.ollama.get_llm(temperature=0.8)
+            # Load prompt from YAML
+            prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_FAREWELL_CONTEXTUAL,
+                variables={"message": message, "context": context},
+            )
+
+            # Use configured model for user-facing responses
+            llm = self.ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.8)
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:
             logger.error(f"Error generating farewell: {str(e)}")
-            return self._get_default_farewell(has_interacted)
+            return await self._get_default_farewell(has_interacted)
 
-    def _get_default_farewell(self, has_interacted: bool = False) -> str:
-        """Get default farewell based on interaction level."""
+    async def _get_default_farewell(self, has_interacted: bool = False) -> str:
+        """Get default farewell based on interaction level using YAML."""
         hour = datetime.now().hour
 
         # Time-based greeting
@@ -104,11 +107,30 @@ Si ayudamos, agradece su confianza. Invita a volver en el futuro.
         else:
             time_greeting = "Que tengas una excelente noche!"
 
-        if has_interacted:
-            return f"""Gracias por confiar en nosotros!
-{time_greeting}
-Estamos aqui cuando nos necesites. Hasta pronto!"""
-        else:
-            return f"""Hasta luego!
-{time_greeting}
-No dudes en contactarnos si necesitas algo."""
+        # Select prompt key based on interaction level
+        prompt_key = (
+            PromptRegistry.AGENTS_FAREWELL_DEFAULT_INTERACTED
+            if has_interacted
+            else PromptRegistry.AGENTS_FAREWELL_DEFAULT_BRIEF
+        )
+
+        try:
+            return await self.prompt_manager.get_prompt(
+                prompt_key,
+                variables={"time_greeting": time_greeting},
+            )
+        except Exception as e:
+            logger.warning(f"Failed to load YAML farewell: {e}")
+            # Hardcoded fallback as last resort
+            if has_interacted:
+                return (
+                    f"Gracias por confiar en nosotros!\n"
+                    f"{time_greeting}\n"
+                    "Estamos aqui cuando nos necesites. Hasta pronto!"
+                )
+            else:
+                return (
+                    f"Hasta luego!\n"
+                    f"{time_greeting}\n"
+                    "No dudes en contactarnos si necesitas algo."
+                )

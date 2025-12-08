@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: CRUD API para organizaciones (tenants) del sistema multi-tenant.
+#              Crear, listar, actualizar, eliminar organizaciones.
+# Tenant-Aware: Yes - es la API de gestión de tenants.
+# ============================================================================
 """
 Organization Admin API - CRUD operations for organizations.
 

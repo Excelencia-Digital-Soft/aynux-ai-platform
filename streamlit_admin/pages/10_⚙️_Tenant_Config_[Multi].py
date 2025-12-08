@@ -20,11 +20,14 @@ from lib.api_client import (
     create_tenant_prompt,
     delete_tenant_agent,
     delete_tenant_prompt,
+    get_organization,
     get_tenant_agents,
     get_tenant_config,
+    get_tenant_documents_stats,
     get_tenant_prompts,
     init_builtin_agents,
     toggle_tenant_agent,
+    update_llm_config,
     update_rag_config,
     update_domains_config,
     update_tenant_agent,
@@ -146,6 +149,107 @@ def render_general_config():
                     if result:
                         st.success("Configuracion guardada!")
                         st.rerun()
+
+
+def render_llm_config():
+    """Render LLM configuration."""
+    st.subheader("Configuracion LLM")
+
+    org = get_organization(org_id)
+
+    if not org:
+        st.error("No se pudo cargar la organizacion")
+        return
+
+    st.info(f"**Modelo LLM:** {org.get('llm_model', 'llama3.2:1b')} (configurado a nivel global)")
+
+    with st.form("llm_config_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            temperature = st.slider(
+                "Temperature",
+                min_value=0.0,
+                max_value=2.0,
+                value=org.get("llm_temperature", 0.7),
+                step=0.1,
+                help="Mayor temperatura = respuestas mas creativas, menor = mas precisas",
+            )
+
+        with col2:
+            max_tokens = st.number_input(
+                "Max Tokens",
+                min_value=100,
+                max_value=4096,
+                value=org.get("llm_max_tokens", 2048),
+                step=100,
+                help="Longitud maxima de respuestas del LLM",
+            )
+
+        submitted = st.form_submit_button("Guardar Configuracion LLM")
+
+        if submitted:
+            with st.spinner("Guardando..."):
+                result = update_llm_config(org_id, temperature, max_tokens)
+                if result:
+                    st.success("Configuracion LLM guardada!")
+
+
+def render_quotas():
+    """Render organization quotas visualization."""
+    st.subheader("Uso de Recursos")
+
+    org = get_organization(org_id)
+    doc_stats = get_tenant_documents_stats(org_id)
+
+    if not org:
+        st.error("No se pudo cargar la organizacion")
+        return
+
+    # Get current counts
+    max_users = org.get("max_users", 10)
+    max_documents = org.get("max_documents", 1000)
+    max_agents = org.get("max_agents", 20)
+
+    # Get actual usage
+    current_users = org.get("user_count", 0)
+    current_documents = doc_stats.get("total_documents", 0) if doc_stats else 0
+    current_agents = org.get("agent_count", 0)
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("**Usuarios**")
+        progress = min(current_users / max_users if max_users > 0 else 0, 1.0)
+        st.progress(progress)
+        st.caption(f"{current_users} / {max_users}")
+
+    with col2:
+        st.markdown("**Documentos**")
+        progress = min(current_documents / max_documents if max_documents > 0 else 0, 1.0)
+        st.progress(progress)
+        st.caption(f"{current_documents} / {max_documents}")
+
+    with col3:
+        st.markdown("**Agentes**")
+        progress = min(current_agents / max_agents if max_agents > 0 else 0, 1.0)
+        st.progress(progress)
+        st.caption(f"{current_agents} / {max_agents}")
+
+    # Document stats details
+    if doc_stats:
+        st.markdown("---")
+        st.markdown("**Detalles de Documentos**")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total", doc_stats.get("total_documents", 0))
+        with col2:
+            st.metric("Activos", doc_stats.get("active_documents", 0))
+        with col3:
+            st.metric("Con Embedding", doc_stats.get("documents_with_embedding", 0))
+        with col4:
+            coverage = doc_stats.get("embedding_coverage", 0)
+            st.metric("Cobertura", f"{coverage:.1f}%")
 
 
 def render_rag_config():
@@ -359,18 +463,26 @@ if "editing_prompt_id" not in st.session_state:
     st.session_state.editing_prompt_id = None
 
 # Tabs for different config sections
-tab1, tab2, tab3, tab4 = st.tabs(["🌐 General", "🔍 RAG", "🤖 Agentes", "💬 Prompts"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    ["🌐 General", "🤖 LLM", "📊 Quotas", "🔍 RAG", "🧠 Agentes", "💬 Prompts"]
+)
 
 with tab1:
     render_general_config()
 
 with tab2:
-    render_rag_config()
+    render_llm_config()
 
 with tab3:
-    render_agents_config()
+    render_quotas()
 
 with tab4:
+    render_rag_config()
+
+with tab5:
+    render_agents_config()
+
+with tab6:
     render_prompts_config()
 
 # Render user menu in sidebar

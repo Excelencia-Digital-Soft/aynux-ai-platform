@@ -15,6 +15,7 @@ import pytest
 
 from app.domains.ecommerce.agents.product.intent_analyzer import IntentAnalyzer
 from app.domains.ecommerce.agents.product.models import UserIntent
+from app.integrations.llm.model_provider import ModelComplexity
 
 
 class TestIntentAnalyzer:
@@ -52,19 +53,23 @@ class TestIntentAnalyzer:
         mock_llm.ainvoke.return_value = mock_response
         mock_ollama.get_llm.return_value = mock_llm
 
-        # Execute
-        intent = await analyzer.analyze_intent("Show me ASUS gaming laptops")
+        with patch.object(analyzer.prompt_manager, "get_prompt", new_callable=AsyncMock) as mock_get_prompt:
+            mock_get_prompt.return_value = "Mocked prompt"
+            # Execute
+            intent = await analyzer.analyze_intent("Show me ASUS gaming laptops")
 
-        # Verify
-        assert isinstance(intent, UserIntent)
-        assert intent.intent == "search_specific_products"
-        assert intent.search_terms == ["laptop", "gaming"]
-        assert intent.category == "laptops"
-        assert intent.brand == "ASUS"
-        assert intent.price_min == 500.0
-        assert intent.price_max == 1500.0
-        assert intent.wants_stock_info is True
-        mock_ollama.get_llm.assert_called_once_with(temperature=0.3, model=None)
+            # Verify
+            assert isinstance(intent, UserIntent)
+            assert intent.intent == "search_specific_products"
+            assert intent.search_terms == ["laptop", "gaming"]
+            assert intent.category == "laptops"
+            assert intent.brand == "ASUS"
+            assert intent.price_min == 500.0
+            assert intent.price_max == 1500.0
+            assert intent.wants_stock_info is True
+            mock_ollama.get_llm.assert_called_once_with(
+                complexity=ModelComplexity.SIMPLE, temperature=0.3, model=None
+            )
 
     @pytest.mark.asyncio
     async def test_analyze_intent_partial_json(self, analyzer, mock_ollama):
@@ -151,11 +156,15 @@ class TestIntentAnalyzer:
         mock_llm.ainvoke.return_value = mock_response
         mock_ollama.get_llm.return_value = mock_llm
 
-        # Execute
-        await analyzer.analyze_intent("test message")
+        with patch.object(analyzer.prompt_manager, "get_prompt", new_callable=AsyncMock) as mock_get_prompt:
+            mock_get_prompt.return_value = "Mocked prompt"
+            # Execute
+            await analyzer.analyze_intent("test message")
 
-        # Verify temperature was used
-        mock_ollama.get_llm.assert_called_once_with(temperature=0.7, model=None)
+            # Verify temperature was used
+            mock_ollama.get_llm.assert_called_once_with(
+                complexity=ModelComplexity.SIMPLE, temperature=0.7, model=None
+            )
 
     @pytest.mark.asyncio
     async def test_analyze_intent_custom_model(self, mock_ollama):
@@ -170,11 +179,15 @@ class TestIntentAnalyzer:
         mock_llm.ainvoke.return_value = mock_response
         mock_ollama.get_llm.return_value = mock_llm
 
-        # Execute
-        await analyzer.analyze_intent("test message")
+        with patch.object(analyzer.prompt_manager, "get_prompt", new_callable=AsyncMock) as mock_get_prompt:
+            mock_get_prompt.return_value = "Mocked prompt"
+            # Execute
+            await analyzer.analyze_intent("test message")
 
-        # Verify model was used
-        mock_ollama.get_llm.assert_called_once_with(temperature=0.3, model="custom-model:latest")
+            # Verify model was used
+            mock_ollama.get_llm.assert_called_once_with(
+                complexity=ModelComplexity.SIMPLE, temperature=0.3, model="custom-model:latest"
+            )
 
     def test_get_default_intent(self, analyzer):
         """Test getting default intent for a message."""
@@ -259,7 +272,6 @@ Hope this helps!"""
         analyzer = IntentAnalyzer(ollama=mock_ollama)
 
         assert analyzer.temperature == 0.3
-        assert analyzer.model is None
 
     @pytest.mark.asyncio
     async def test_analyze_intent_preserves_all_fields(self, analyzer, mock_ollama):

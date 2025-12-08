@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MIXED
+# Description: Dependencias FastAPI para inyección. Combina componentes globales
+#              (auth, contenedores) con dependencias tenant-aware (dual-mode).
+# Tenant-Aware: Parcial - sección "DUAL-MODE DEPENDENCIES" es tenant-aware.
+# ============================================================================
 import hashlib
 import hmac
 import logging
@@ -11,12 +17,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import Settings, get_settings
-from app.core.container import DependencyContainer, get_container
+from app.core.container import (
+    DependencyContainer,
+    TenantConfigCache,
+    TenantDependencyContainer,
+    get_container,
+    get_tenant_config_cache,
+)
+from app.core.interfaces.llm import ILLM
+from app.core.interfaces.vector_store import IVectorStore
+from app.core.tenancy.context import get_tenant_context
+from app.core.tenancy.prompt_manager import TenantPromptManager
 from app.database.async_db import get_async_db
 from app.models.auth import User
 from app.models.db.tenancy import Organization, OrganizationUser
 from app.models.db.user import UserDB
 from app.orchestration import SuperOrchestrator
+from app.prompts.manager import PromptManager
 from app.services.token_service import TokenService
 from app.services.user_service import UserService
 
@@ -30,10 +47,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{API_V1_STR}/auth/token")
 
 # ============================================================
 # NEW ARCHITECTURE DEPENDENCIES
+# [GLOBAL] - Contenedores de inyección de dependencias globales
 # ============================================================
 
 
 def get_di_container() -> DependencyContainer:
+    """[GLOBAL] Get Dependency Injection Container singleton."""
     """
     Get Dependency Injection Container.
 
@@ -143,6 +162,7 @@ def get_get_domain_stats_use_case(
 
 # ============================================================
 # AUTHENTICATION DEPENDENCIES
+# [GLOBAL] - Autenticación compartida (OAuth2, tokens)
 # ============================================================
 
 
@@ -230,6 +250,7 @@ async def verify_signature(
 
 # ============================================================
 # TENANCY AUTHENTICATION DEPENDENCIES
+# [MULTI-TENANT] - Autenticación con verificación de organización
 # ============================================================
 
 
@@ -409,3 +430,179 @@ async def get_organization_by_id(
         )
 
     return org
+
+
+# ============================================================
+# DUAL-MODE DEPENDENCIES (TENANT-AWARE)
+# [MIXED] - Soportan modo global y multi-tenant automáticamente
+# ============================================================
+
+
+def get_tenant_container() -> TenantDependencyContainer | None:
+    """
+    Get tenant-aware container if in multi-tenant mode.
+
+    Returns TenantDependencyContainer if a valid TenantContext exists
+    and is not the system organization. Returns None for generic mode.
+
+    Usage:
+        @router.get("/products")
+        async def get_products(
+            tenant: TenantDependencyContainer | None = Depends(get_tenant_container)
+        ):
+            if tenant:
+                # Multi-tenant mode
+                vector_store = tenant.get_vector_store()
+            else:
+                # Generic mode
+                vector_store = get_container().get_vector_store()
+
+    Returns:
+        TenantDependencyContainer if multi-tenant mode, None otherwise.
+    """
+    ctx = get_tenant_context()
+
+    # No context or system org = generic mode
+    if not ctx or ctx.is_system or ctx.is_generic_mode:
+        logger.debug("Using generic mode (no tenant context)")
+        return None
+
+    logger.debug(f"Using tenant mode: org={ctx.organization_id}")
+    return TenantDependencyContainer(ctx)
+
+
+def get_vector_store_dual(
+    tenant: TenantDependencyContainer | None = Depends(get_tenant_container),  # noqa: B008
+) -> IVectorStore:
+    """
+    Get VectorStore based on tenant context.
+
+    Returns tenant-scoped TenantVectorStore in multi-tenant mode,
+    or global VectorStore in generic mode.
+
+    Usage:
+        @router.get("/search")
+        async def search(
+            query: str,
+            vector_store: IVectorStore = Depends(get_vector_store_dual)
+        ):
+            results = await vector_store.search(query)
+
+    Returns:
+        IVectorStore instance (tenant-scoped or global).
+    """
+    if tenant is None:
+        logger.debug("get_vector_store_dual: Using global VectorStore")
+        return get_container().get_vector_store()
+
+    logger.debug(f"get_vector_store_dual: Using tenant VectorStore for org={tenant.organization_id}")
+    return tenant.get_vector_store()
+
+
+def get_prompt_manager_dual(
+    tenant: TenantDependencyContainer | None = Depends(get_tenant_container),  # noqa: B008
+) -> TenantPromptManager | PromptManager:
+    """
+    Get PromptManager based on tenant context.
+
+    Returns TenantPromptManager (with scope hierarchy) in multi-tenant mode,
+    or global PromptManager in generic mode.
+
+    Usage:
+        @router.get("/greeting")
+        async def get_greeting(
+            prompt_manager = Depends(get_prompt_manager_dual)
+        ):
+            prompt = await prompt_manager.get_prompt("greeting.welcome")
+
+    Returns:
+        TenantPromptManager or PromptManager instance.
+    """
+    if tenant is None:
+        logger.debug("get_prompt_manager_dual: Using global PromptManager")
+        return PromptManager()
+
+    logger.debug(f"get_prompt_manager_dual: Using tenant PromptManager for org={tenant.organization_id}")
+    return tenant.create_prompt_manager()
+
+
+def get_llm_dual(
+    tenant: TenantDependencyContainer | None = Depends(get_tenant_container),  # noqa: B008
+) -> ILLM:
+    """
+    Get LLM based on tenant context.
+
+    Returns tenant-configured LLM (custom model/temperature) in multi-tenant mode,
+    or global LLM in generic mode.
+
+    Usage:
+        @router.post("/chat")
+        async def chat(
+            message: str,
+            llm: ILLM = Depends(get_llm_dual)
+        ):
+            response = await llm.generate(message)
+
+    Returns:
+        ILLM instance (tenant-configured or global).
+    """
+    if tenant is None:
+        logger.debug("get_llm_dual: Using global LLM")
+        return get_container().get_llm()
+
+    logger.debug(f"get_llm_dual: Using tenant LLM for org={tenant.organization_id}")
+    return tenant.get_llm()
+
+
+def get_config_cache() -> TenantConfigCache:
+    """
+    Get TenantConfigCache for cache invalidation.
+
+    Usage in admin APIs:
+        @router.put("/{org_id}/config")
+        async def update_config(
+            org_id: UUID,
+            config: ConfigUpdate,
+            cache: TenantConfigCache = Depends(get_config_cache)
+        ):
+            # Update config in DB
+            ...
+            # Invalidate cache
+            cache.invalidate(org_id)
+
+    Returns:
+        TenantConfigCache instance.
+    """
+    return get_tenant_config_cache()
+
+
+def get_di_container_dual(
+    tenant: TenantDependencyContainer | None = Depends(get_tenant_container),  # noqa: B008
+) -> DependencyContainer:
+    """
+    Get DependencyContainer - always returns global container.
+
+    In multi-tenant mode, tenant-specific services (VectorStore, PromptManager, LLM)
+    should be obtained separately using get_vector_store_dual(), get_prompt_manager_dual(),
+    or get_llm_dual(). This function provides access to Use Cases and Repositories
+    which don't have tenant-specific implementations yet.
+
+    Future: When Use Cases become tenant-aware, this will return a tenant-scoped
+    container that creates Use Cases with tenant-filtered dependencies.
+
+    Usage:
+        @router.get("/knowledge/search")
+        async def search_knowledge(
+            query: str,
+            container: DependencyContainer = Depends(get_di_container_dual)
+        ):
+            use_case = container.create_search_knowledge_use_case(db)
+            results = await use_case.execute(query)
+
+    Returns:
+        DependencyContainer instance (global).
+    """
+    # For MVP, always return global container
+    # Use Cases don't have tenant-aware implementations yet
+    logger.debug("get_di_container_dual: Returning global DependencyContainer")
+    return get_container()

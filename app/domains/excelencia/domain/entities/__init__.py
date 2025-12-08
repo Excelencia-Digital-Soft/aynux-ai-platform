@@ -1,14 +1,8 @@
 """
 Excelencia Domain Entities
 
-Core business objects for the Excelencia ERP domain.
+Note: Module and Demo entities have been removed.
+Software catalog data is now managed via company_knowledge table.
 """
 
-from app.domains.excelencia.domain.entities.demo import Demo, DemoRequest
-from app.domains.excelencia.domain.entities.module import ERPModule
-
-__all__ = [
-    "Demo",
-    "DemoRequest",
-    "ERPModule",
-]
+__all__: list[str] = []

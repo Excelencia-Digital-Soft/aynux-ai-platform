@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Documentos de Knowledge Base aislados por organización.
+#              Embeddings pgvector 768-dim + búsqueda full-text TSVECTOR.
+# Tenant-Aware: Yes - organization_id es FK indexada para filtrado eficiente.
+# ============================================================================
 """
 TenantDocument model - Per-tenant knowledge base documents with vector embeddings.
 

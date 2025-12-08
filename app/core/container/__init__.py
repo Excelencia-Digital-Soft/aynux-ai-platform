@@ -1,3 +1,10 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Contenedor principal de inyección de dependencias (singleton).
+#              Compone todos los sub-contenedores de dominio.
+# Tenant-Aware: No - provee servicios de infraestructura compartidos.
+#              Para servicios tenant-aware, usar TenantDependencyContainer.
+# ============================================================================
 """
 Dependency Injection Container.
 
@@ -24,6 +31,12 @@ from .ecommerce import EcommerceContainer
 from .excelencia import ExcelenciaContainer
 from .healthcare import HealthcareContainer
 from .shared import SharedContainer
+from .tenant_container import (
+    TenantConfigCache,
+    TenantDependencyContainer,
+    get_tenant_config_cache,
+    invalidate_tenant_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -185,45 +198,9 @@ class DependencyContainer:
         """Direct access to Excelencia container for admin operations."""
         return self._excelencia
 
-    def create_module_repository(self, db):
-        return self._excelencia.create_module_repository(db)
-
-    def create_demo_repository(self, db):
-        return self._excelencia.create_demo_repository(db)
-
-    def create_get_modules_use_case(self, db):
-        return self._excelencia.create_get_modules_use_case(db)
-
-    def create_show_modules_use_case(self):
-        return self._excelencia.create_show_modules_use_case()
-
-    def create_schedule_demo_use_case(self):
-        return self._excelencia.create_schedule_demo_use_case()
-
-    # Admin Use Cases
-    def create_list_modules_admin_use_case(self, db):
-        return self._excelencia.create_list_modules_admin_use_case(db)
-
-    def create_create_module_use_case(self, db):
-        return self._excelencia.create_create_module_use_case(db)
-
-    def create_update_module_use_case(self, db):
-        return self._excelencia.create_update_module_use_case(db)
-
-    def create_delete_module_use_case(self, db):
-        return self._excelencia.create_delete_module_use_case(db)
-
-    def create_list_demos_admin_use_case(self, db):
-        return self._excelencia.create_list_demos_admin_use_case(db)
-
-    def create_update_demo_use_case(self, db):
-        return self._excelencia.create_update_demo_use_case(db)
-
-    def create_update_demo_status_use_case(self, db):
-        return self._excelencia.create_update_demo_status_use_case(db)
-
-    def create_schedule_demo_admin_use_case(self, db):
-        return self._excelencia.create_schedule_demo_admin_use_case(db)
+    def create_support_ticket_use_case(self, db):
+        """Create use case for support ticket creation."""
+        return self._excelencia.create_support_ticket_use_case(db)
 
     # ============================================================
     # SHARED (delegated to SharedContainer)
@@ -419,4 +396,9 @@ __all__ = [
     "ExcelenciaContainer",
     "SharedContainer",
     "AgentsContainer",
+    # Tenant-aware container
+    "TenantDependencyContainer",
+    "TenantConfigCache",
+    "get_tenant_config_cache",
+    "invalidate_tenant_config",
 ]

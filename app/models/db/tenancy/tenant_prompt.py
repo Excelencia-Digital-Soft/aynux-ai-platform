@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Overrides de prompts por tenant. Soporta scope USER y ORG.
+#              Jerarquía: USER > ORG > GLOBAL (prompts table) > SYSTEM (YAML).
+# Tenant-Aware: Yes - organization_id + user_id para personalización granular.
+# ============================================================================
 """
 TenantPrompt model - Per-tenant prompt overrides.
 

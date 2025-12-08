@@ -1,0 +1,212 @@
+# Excelencia Promotions Agent Prompts
+# Purpose: Handle Excelencia software promotions queries
+
+prompts:
+  - key: excelencia.promotions.intent_analysis
+    name: Promotions Intent Analysis
+    description: Analyzes query intent for promotion queries
+    version: "1.0.0"
+    template: |
+      Analiza la siguiente consulta sobre promociones de software Excelencia:
+
+      "{message}"
+
+      Responde en JSON con esta estructura:
+      {
+        "query_type": "discount|offer|bundle|training|implementation|license|general",
+        "modules_interested": ["modulo1", "modulo2"],
+        "is_new_client": true|false|null,
+        "budget_mentioned": true|false,
+        "urgency": "low|medium|high"
+      }
+
+      Responde solo con el JSON, sin texto adicional.
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      model: "deepseek-r1:7b"
+      tags:
+        - excelencia
+        - promotions
+        - intent
+      variables:
+        required:
+          - message
+
+  - key: excelencia.promotions.response_generation
+    name: Promotions Response Generation
+    description: Generates response for promotion queries
+    version: "1.0.0"
+    template: |
+      Eres un asistente especializado en promociones de software Excelencia.
+
+      ## CONSULTA DEL USUARIO:
+      "{user_message}"
+
+      ## ANALISIS:
+      - Tipo de consulta: {query_type}
+      - Modulos de interes: {modules}
+      - Cliente nuevo: {is_new_client}
+      {rag_context}
+
+      ## PROMOCIONES ACTIVAS:
+      {promotions_text}
+
+      ## INFORMACION GENERAL:
+      Excelencia ofrece diferentes promociones para sus servicios de software:
+      - Descuentos por contratacion anual
+      - Ofertas para nuevos clientes
+      - Paquetes de implementacion + capacitacion
+      - Promociones por modulos especificos
+
+      ## INSTRUCCIONES:
+      1. Responde de manera entusiasta pero profesional
+      2. Destaca las promociones mas relevantes para la consulta
+      3. Si el usuario es nuevo cliente, menciona promociones especiales
+      4. Usa maximo 6-7 lineas
+      5. Usa 1-2 emojis apropiados (preferir: fiesta, dinero, etiqueta, estrella)
+
+      Genera tu respuesta ahora:
+    metadata:
+      temperature: 0.7
+      max_tokens: 400
+      model: "deepseek-r1:7b"
+      tags:
+        - excelencia
+        - promotions
+        - response
+      variables:
+        required:
+          - user_message
+          - query_type
+        optional:
+          - modules
+          - is_new_client
+          - rag_context
+          - promotions_text
+
+  # === FALLBACK RESPONSES ===
+  - key: excelencia.promotions.fallback.discount
+    name: Discount Fallback Response
+    description: Fallback for discount queries
+    version: "1.0.0"
+    template: |
+      etiqueta **Descuentos Excelencia**
+
+      Tenemos los siguientes descuentos activos:
+      {promotions_list}
+
+      Te interesa algun modulo en particular?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - promotions
+        - fallback
+      variables:
+        required:
+          - promotions_list
+
+  - key: excelencia.promotions.fallback.bundle
+    name: Bundle Fallback Response
+    description: Fallback for bundle queries
+    version: "1.0.0"
+    template: |
+      paquete **Paquetes Excelencia**
+
+      Ofrecemos paquetes que incluyen:
+      - Software + Implementacion
+      - Modulos + Capacitacion
+      - Licencia anual + Soporte premium
+
+      Que tipo de paquete te interesa?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - promotions
+        - fallback
+
+  - key: excelencia.promotions.fallback.training
+    name: Training Fallback Response
+    description: Fallback for training promotion queries
+    version: "1.0.0"
+    template: |
+      libro **Promociones de Capacitacion**
+
+      Actualmente ofrecemos:
+      - Capacitacion incluida en modulos premium
+      - Descuentos en cursos adicionales
+      - Certificaciones con precio especial
+
+      Sobre que modulo te gustaria capacitarte?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - promotions
+        - fallback
+
+  - key: excelencia.promotions.fallback.implementation
+    name: Implementation Fallback Response
+    description: Fallback for implementation offer queries
+    version: "1.0.0"
+    template: |
+      cohete **Ofertas de Implementacion**
+
+      Para nuevos clientes tenemos:
+      - 20% de descuento en implementacion
+      - Capacitacion inicial incluida
+      - Soporte premium por 3 meses
+
+      Te gustaria mas informacion?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - promotions
+        - fallback
+
+  - key: excelencia.promotions.fallback.general
+    name: General Promotions Fallback
+    description: Default fallback for promotion queries
+    version: "1.0.0"
+    template: |
+      fiesta **Promociones Excelencia Software**
+
+      Promociones activas:
+      {promotions_list}
+
+      Sobre que promocion te gustaria mas informacion?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - promotions
+        - fallback
+      variables:
+        required:
+          - promotions_list
+
+  - key: excelencia.promotions.error
+    name: Promotions Error Response
+    description: Error response for promotion queries
+    version: "1.0.0"
+    template: |
+      Disculpa, tuve un inconveniente procesando tu consulta de promociones.
+      Podrias reformular tu pregunta? Puedo ayudarte con:
+      - Descuentos en software
+      - Ofertas de implementacion
+      - Promociones de capacitacion
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - excelencia
+        - promotions
+        - error

@@ -1,0 +1,87 @@
+# Agent Prompts - Greeting Agent
+# Purpose: Multi-language greeting fallbacks with dynamic services
+
+prompts:
+  # === MULTI-LANGUAGE FALLBACK GREETINGS ===
+  - key: agents.greeting.fallback.es
+    name: Spanish Greeting Fallback
+    description: Spanish fallback greeting with dynamic services
+    version: "1.0.0"
+    template: |
+      Hola! Bienvenido a Aynux.
+
+      Soy tu asistente virtual. Puedo ayudarte con:
+      {service_list}
+
+      En que te puedo ayudar hoy?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - greeting
+        - fallback
+        - spanish
+      variables:
+        required:
+          - service_list
+
+  - key: agents.greeting.fallback.en
+    name: English Greeting Fallback
+    description: English fallback greeting with dynamic services
+    version: "1.0.0"
+    template: |
+      Hello! Welcome to Aynux.
+
+      I'm your virtual assistant. I can help you with:
+      {service_list}
+
+      How can I help you today?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - greeting
+        - fallback
+        - english
+      variables:
+        required:
+          - service_list
+
+  - key: agents.greeting.fallback.pt
+    name: Portuguese Greeting Fallback
+    description: Portuguese fallback greeting with dynamic services
+    version: "1.0.0"
+    template: |
+      Ola! Bem-vindo ao Aynux.
+
+      Sou seu assistente virtual. Posso ajuda-lo com:
+      {service_list}
+
+      Como posso ajuda-lo hoje?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - greeting
+        - fallback
+        - portuguese
+      variables:
+        required:
+          - service_list
+
+  # === GENERIC FALLBACK ===
+  - key: agents.greeting.fallback.generic
+    name: Generic Greeting Fallback
+    description: Generic fallback greeting when YAML loading fails
+    version: "1.0.0"
+    template: |
+      Hola! Bienvenido a Aynux.
+      Soy tu asistente virtual y puedo ayudarte con tus consultas.
+      En que te puedo ayudar hoy?
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - greeting
+        - fallback
+        - generic

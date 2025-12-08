@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Módulo base de LLM con interfaces y factories. Singleton compartido.
+# Tenant-Aware: No - provee instancias globales. Configuración por tenant via
+#              TenantDependencyContainer.get_llm().
+# ============================================================================
 """
 Base LLM module - Exports interfaces and factory functions
 

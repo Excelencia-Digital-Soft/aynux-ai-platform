@@ -99,16 +99,25 @@ class GraphVisualizer:
     def _get_agent_display_info(self, agent_name: str) -> tuple[str, str]:
         """Get icon and display label for an agent"""
         agent_info = {
+            # Always available
             "greeting_agent": ("👋", "Greeting"),
-            "product_agent": ("🛍️", "Product"),
-            "data_insights_agent": ("📊", "Data Insights"),
-            "promotions_agent": ("🎁", "Promotions"),
-            "tracking_agent": ("📦", "Tracking"),
             "support_agent": ("🆘", "Support"),
-            "invoice_agent": ("💰", "Invoice"),
-            "excelencia_agent": ("🏢", "Excelencia"),
             "fallback_agent": ("❓", "Fallback"),
             "farewell_agent": ("👋", "Farewell"),
+            # E-commerce domain (unified)
+            "ecommerce_agent": ("🛒", "E-commerce"),
+            # Excelencia domain
+            "excelencia_agent": ("🏢", "Excelencia"),
+            "excelencia_invoice_agent": ("🧾", "Excelencia Invoice"),
+            "excelencia_promotions_agent": ("🏷️", "Excelencia Promos"),
+            "data_insights_agent": ("📊", "Data Insights"),
+            # Legacy e-commerce (deprecated - kept for backward compatibility)
+            "product_agent": ("🛍️", "Product"),
+            "promotions_agent": ("🎁", "Promotions"),
+            "tracking_agent": ("📦", "Tracking"),
+            "invoice_agent": ("💰", "Invoice"),
+            # Credit domain
+            "credit_agent": ("💳", "Credit"),
         }
 
         icon, label = agent_info.get(agent_name, ("🤖", agent_name.replace("_", " ").title()))

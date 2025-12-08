@@ -255,7 +255,9 @@ class KnowledgeResponse(BaseModel):
 class KnowledgeSearchResult(BaseModel):
     """Schema for individual search result."""
 
-    id: str = Field(..., description="Document UUID")
+    # Support both 'id' and 'knowledge_id' field names
+    id: Optional[str] = Field(None, description="Document UUID", alias="id")
+    knowledge_id: Optional[str] = Field(None, description="Document UUID (alias)")
     title: str = Field(..., description="Document title")
     content: str = Field(..., description="Document content")
     document_type: str = Field(..., description="Document type")
@@ -268,8 +270,12 @@ class KnowledgeSearchResult(BaseModel):
     text_rank: Optional[float] = Field(None, description="Full-text search rank")
     combined_score: Optional[float] = Field(None, description="Combined search score (hybrid)")
 
-    created_at: str = Field(..., description="Creation timestamp")
-    updated_at: str = Field(..., description="Last update timestamp")
+    # Made optional since search results may not include timestamps
+    created_at: Optional[str] = Field(None, description="Creation timestamp")
+    updated_at: Optional[str] = Field(None, description="Last update timestamp")
+
+    class Config:
+        populate_by_name = True  # Allow both field names and aliases
 
 
 class KnowledgeSearchResponse(BaseModel):

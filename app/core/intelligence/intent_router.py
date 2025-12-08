@@ -1,5 +1,10 @@
 """
-Router inteligente que usa IA con caché optimizado para detectar intenciones
+Router inteligente que usa IA con caché optimizado para detectar intenciones.
+
+Optimized for speed:
+- Uses SIMPLE model tier for fast intent analysis
+- Reduced timeout (15s instead of 70s)
+- Three-level fallback: Ollama → spaCy → Keywords
 """
 
 import asyncio
@@ -14,8 +19,13 @@ from app.utils import extract_json_from_text
 from app.prompts.intent_analyzer_prompt import get_build_llm_prompt, get_system_prompt
 from app.core.schemas import get_intent_to_agent_mapping, get_valid_intents
 from app.core.intelligence.spacy_intent_analyzer import SpacyIntentAnalyzer
+from app.integrations.llm.model_provider import ModelComplexity
 
 logger = logging.getLogger(__name__)
+
+# Constants for IntentRouter
+INTENT_LLM_TIMEOUT = 15.0  # Reduced from 70s for faster fallback
+INTENT_LLM_TEMPERATURE = 0.3  # Lower temperature for deterministic results
 
 
 def _get_cache_key(message: str, context: Dict[str, Any] | None = None) -> str:
@@ -259,11 +269,76 @@ class IntentRouter:
                 "catálogo",
                 "disponible",
             ],
+            # E-commerce intents (orders, shipments, e-commerce invoices)
             "promociones": ["oferta", "ofertas", "descuento", "promoción", "cupón", "rebaja", "barato"],
             "seguimiento": ["pedido", "orden", "envío", "tracking", "seguimiento", "dónde está", "cuando llega"],
-            "soporte": ["problema", "error", "ayuda", "soporte", "reclamo", "no funciona", "defectuoso"],
-            "facturacion": ["factura", "recibo", "pago", "cobro", "reembolso", "devolver", "cancelar"],
+            "facturacion": ["factura pedido", "recibo", "pago", "cobro", "reembolso", "devolver", "cancelar"],
             "categoria": ["categoría", "tipo", "tecnología", "ropa", "zapatos", "televisores", "laptops"],
+            # Excelencia-specific intents (NEW)
+            "excelencia_facturacion": [
+                "factura cliente",
+                "factura de cliente",
+                "estado de cuenta",
+                "cobranza",
+                "cobrar cliente",
+                "deuda cliente",
+                "pago cliente",
+                "facturar cliente",
+                "generar factura cliente",
+            ],
+            "excelencia_promociones": [
+                "promoción software",
+                "descuento módulo",
+                "oferta implementación",
+                "promoción excelencia",
+                "descuento capacitación",
+                "promo software",
+                "oferta software",
+                "descuento software",
+            ],
+            "excelencia": [
+                "excelencia",
+                "excelencia digital",
+                "misión",
+                "visión",
+                "erp",
+                "demo",
+                "módulo",
+                "módulos",
+                "software",
+                "turnos médicos",
+                "historia clínica",
+                "healthcare",
+                "hotel",
+                "hoteles",
+                "obras sociales",
+                "gremio",
+                "gremios",
+                "capacitación",
+                "ai medassist",
+                "turmedica",
+                "mediflow",
+                "medicpay",
+                "finflow",
+                "validtek",
+                "farmatek",
+                "inroom",
+                "lumenai",
+                "gremiocash",
+            ],
+            # Excelencia Software Support/Incidents (NEW)
+            "excelencia_soporte": [
+                "incidencia",
+                "reportar",
+                "ticket",
+                "falla",
+                "bug",
+                "levantar ticket",
+                "problema módulo",
+                "error sistema",
+            ],
+            # Support and conversational intents (ecommerce only)
+            "soporte": ["problema producto", "error envío", "ayuda pedido", "reclamo compra", "defectuoso"],
             "despedida": ["adiós", "chau", "bye", "gracias", "eso es todo", "hasta luego", "nada más"],
         }
 
@@ -279,7 +354,8 @@ class IntentRouter:
             intent_name, match_count = best_intent
 
             # Confianza basada en número de matches
-            confidence = min(match_count * 0.3, 0.7)  # Max 70% para keywords
+            # 1 match = 0.6, 2 matches = 0.75, 3+ matches = 0.8 (max)
+            confidence = min(0.5 + (match_count * 0.15), 0.8)  # Boost confidence for keyword matches
 
             return {
                 "primary_intent": intent_name,
@@ -333,19 +409,20 @@ class IntentRouter:
         self._stats["cache_misses"] += 1
         self._stats["llm_calls"] += 1
 
-        system_prompt = get_system_prompt()
+        system_prompt = await get_system_prompt()
 
-        user_prompt = get_build_llm_prompt(message, state_dict)
+        user_prompt = await get_build_llm_prompt(message, state_dict)
         response_text = ""
         try:
+            # Use SIMPLE model for fast intent analysis with reduced timeout
             response_text = await asyncio.wait_for(
                 self.ollama.generate_response(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
-                    model=None,  # Use a default configured model
-                    temperature=0.5,
+                    complexity=ModelComplexity.SIMPLE,  # Fast model for intent
+                    temperature=INTENT_LLM_TEMPERATURE,  # Lower temp for determinism
                 ),
-                timeout=70.0,  # Add timeout to prevent hanging
+                timeout=INTENT_LLM_TIMEOUT,  # Reduced timeout (15s)
             )
 
             # Extraer JSON usando la utilidad centralizada
@@ -400,7 +477,7 @@ class IntentRouter:
             return self._keyword_fallback_detection(message)
 
         except asyncio.TimeoutError:
-            logger.error(f"LLM analysis timed out after 8s for message: '{message[:50]}...'")
+            logger.error(f"LLM analysis timed out after {INTENT_LLM_TIMEOUT}s for message: '{message[:50]}...'")
             return self._keyword_fallback_detection(message)
 
         except Exception as e:

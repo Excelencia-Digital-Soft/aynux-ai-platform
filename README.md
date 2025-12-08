@@ -23,6 +23,12 @@
 
 ### 🏢 Supported Business Domains
 
+#### 🏢 Excelencia (ERP Software) - Primary
+- Software module information and pricing
+- Client invoicing and account statements
+- Technical support and ticket creation
+- Training and demo scheduling
+
 #### 🛍️ E-commerce
 - Product catalog search and recommendations
 - Order tracking and status updates
@@ -58,6 +64,60 @@
 - **LLM Customization**: Per-tenant model, temperature, and token limits
 
 See **[Multi-Tenancy Guide](docs/MULTI_TENANCY.md)** for complete documentation.
+
+---
+
+## 🔄 Operating Modes
+
+Aynux supports **two operational modes** designed for different deployment scenarios:
+
+### 1. Global Mode (Default) - Excelencia-specific
+
+**Use case**: Single-tenant deployment optimized for Excelencia Digital (ERP software company)
+
+| Aspect | Description |
+|--------|-------------|
+| **Authentication** | Not required for webhook |
+| **Configuration** | Environment variables (`ENABLED_AGENTS`) |
+| **Routing** | SuperOrchestrator → Domain agents |
+| **Data** | Shared globally (`company_knowledge` table) |
+| **Agents** | Excelencia-specific: invoice, support, promotions |
+| **Code** | Hardcoded business logic for Excelencia |
+
+**Enabled by**: `MULTI_TENANT_MODE=false` (default)
+
+```bash
+# Global mode agents (Excelencia-focused)
+ENABLED_AGENTS=greeting_agent,excelencia_agent,excelencia_invoice_agent,excelencia_support_agent,excelencia_promotions_agent,support_agent,fallback_agent,farewell_agent
+```
+
+### 2. Multi-tenant Mode (In Development)
+
+**Use case**: SaaS deployment with multiple isolated organizations
+
+| Aspect | Description |
+|--------|-------------|
+| **Authentication** | JWT token required |
+| **Configuration** | Database-driven (`TenantConfig`, `TenantAgent`) |
+| **Routing** | TenantContext → Per-org isolation |
+| **Data** | Isolated via `organization_id` filter |
+| **Agents** | Per-tenant customization from DB |
+| **Code** | NO hardcoded logic - everything from database |
+
+**Enabled by**: `MULTI_TENANT_MODE=true`
+
+**Key Components** (`app/core/tenancy/`):
+- `TenantContext` - Request-scoped context (Python contextvars)
+- `TenantResolver` - Resolution from JWT/Header/WhatsApp ID
+- `TenantVectorStore` - Isolated pgvector per organization
+- `TenantPromptManager` - 4-level hierarchy (USER > ORG > GLOBAL > SYSTEM)
+
+**Database Tables** (`app/models/db/tenancy/`):
+- `Organization` - Tenant entity with quotas and settings
+- `TenantConfig` - Per-org domains, agents, RAG configuration
+- `TenantAgent` - Custom agent definitions per organization
+- `TenantPrompt` - Prompt overrides per org/user
+- `TenantDocument` - Isolated RAG documents with embeddings
 
 ---
 
@@ -515,6 +575,72 @@ app/
 ✅ **Flexibility**: Swap implementations without changing business logic
 ✅ **Domain Focus**: Business logic is framework-independent
 ✅ **Team Collaboration**: Different teams can work on different domains
+
+---
+
+## 🤖 Agent System
+
+### Available Agents
+
+| Agent | Scope | Domain | Purpose |
+|-------|-------|--------|---------|
+| `greeting_agent` | [Global] | - | Multi-domain greeting, service listing |
+| `farewell_agent` | [Global] | - | Goodbye messages, session closure |
+| `support_agent` | [Global] | - | General support, FAQ |
+| `fallback_agent` | [Global] | - | Catch-all for unhandled queries |
+| `excelencia_agent` | [Domain] | excelencia | Main ERP orchestrator |
+| `excelencia_invoice_agent` | [Domain] | excelencia | Client invoicing, account statements |
+| `excelencia_support_agent` | [Domain] | excelencia | Software support, tickets |
+| `excelencia_promotions_agent` | [Domain] | excelencia | Software promotions, pricing |
+| `data_insights_agent` | [Domain] | excelencia | Analytics, insights |
+| `ecommerce_agent` | [Domain] | ecommerce | Product search, orders (disabled by default) |
+
+### Agent Scopes
+
+- **[Global]**: Always available, domain-agnostic utilities
+- **[Domain]**: Domain-specific, activated based on intent routing
+
+### LLM Model Tiers
+
+Agents use different model tiers based on task complexity:
+
+| Tier | Variable | Default Model | Use Case | Speed |
+|------|----------|---------------|----------|-------|
+| **SIMPLE** | `OLLAMA_API_MODEL_SIMPLE` | `deepseek-r1:1.5b` | Intent analysis, classification | Fastest |
+| **COMPLEX** | `OLLAMA_API_MODEL_COMPLEX` | `deepseek-r1:7b` | Complex responses, main reasoning | Medium |
+| **REASONING** | `OLLAMA_API_MODEL_REASONING` | `deepseek-r1:7b` | Deep analysis, multi-step | Medium |
+| **SUMMARY** | `OLLAMA_API_MODEL_SUMMARY` | `llama3.2:latest` | Conversation summaries | Fast |
+
+> **Important**: SUMMARY tier uses **non-reasoning models** to avoid 10-50x slowdown from DeepSeek-R1's internal "thinking tokens". Recommended: `llama3.2:3b`, `qwen3:4b`, or similar fast models.
+
+---
+
+## 📊 Streamlit Admin Pages
+
+The admin dashboard (`streamlit_admin/`) has pages organized by scope:
+
+### [Global] Pages - System-wide
+
+| # | Page | Purpose |
+|---|------|---------|
+| 1 | Chat Visualizer | Real-time conversation viewer |
+| 2 | Knowledge Base | RAG document management |
+| 3 | Upload Documents | File upload, document indexing |
+| 4 | Embeddings | Vector embeddings management |
+| 5 | Excelencia | Excelencia-specific features |
+| 6 | Agent Config | System agent configuration |
+| 7 | Statistics | System metrics, usage stats |
+
+### [Multi] Pages - Per-tenant (requires auth)
+
+| # | Page | Purpose |
+|---|------|---------|
+| 8 | Organizations | Create/manage organizations |
+| 9 | Users | User management per tenant |
+| 10 | Tenant Config | Per-org agent/domain config |
+| 11 | Tenant Documents | Org-specific knowledge base |
+
+**Naming Convention**: `{order}_{emoji}_{name}_[{Scope}].py`
 
 ---
 

@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Módulo principal de multi-tenancy. Todos los componentes aquí
+#              están diseñados para aislar datos y configuración por organización.
+# Tenant-Aware: Yes - este módulo ES la implementación de tenant-awareness.
+# ============================================================================
 """
 Tenancy module for multi-tenant support.
 
@@ -7,8 +13,14 @@ This module provides the core infrastructure for multi-tenant operations:
 - TenantMiddleware: FastAPI middleware for automatic tenant resolution
 - TenantVectorStore: Multi-tenant aware vector store for RAG
 - TenantPromptManager: Multi-tenant prompt resolution with scope hierarchy
+- TenantAgentFactory: Multi-tenant agent filtering based on TenantConfig
 """
 
+from .agent_factory import (
+    TenantAgentFactory,
+    get_tenant_enabled_agents,
+    is_agent_enabled_for_tenant,
+)
 from .context import (
     TenantContext,
     get_current_tenant,
@@ -45,4 +57,8 @@ __all__ = [
     "TenantPromptManager",
     "PromptScope",
     "PromptNotFoundError",
+    # Agent Factory
+    "TenantAgentFactory",
+    "get_tenant_enabled_agents",
+    "is_agent_enabled_for_tenant",
 ]

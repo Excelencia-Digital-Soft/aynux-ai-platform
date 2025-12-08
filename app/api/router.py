@@ -5,10 +5,10 @@ from app.api.routes import (
     agents_admin,
     auth,
     chat,
+    conversation_history,
     document_upload,
     domain_admin,
     dux_sync_admin,
-    excelencia_admin,
     knowledge_admin,
     langsmith_status,
     phone_normalization,
@@ -16,14 +16,18 @@ from app.api.routes import (
     webhook,
     whatsapp_catalog,
 )
-from app.api.routes.admin import prompts as admin_prompts
 from app.api.routes.admin import (
-    organizations,
+    ollama as ollama_admin,
+)
+from app.api.routes.admin import (
     org_users,
+    organizations,
     tenant_agents,
     tenant_config,
+    tenant_documents,
     tenant_prompts,
 )
+from app.api.routes.admin import prompts as admin_prompts
 
 api_router = APIRouter()
 
@@ -41,7 +45,8 @@ api_router.include_router(knowledge_admin.router, tags=["Knowledge Base"])
 api_router.include_router(document_upload.router, tags=["Document Upload"])
 api_router.include_router(agent_config.router, tags=["Agent Configuration"])
 api_router.include_router(whatsapp_catalog.router, tags=["WhatsApp Catalog & Flows"])
-api_router.include_router(excelencia_admin.router, tags=["Excelencia Administration"])
+api_router.include_router(conversation_history.router)
+# Note: excelencia_admin router removed - software catalog now uses company_knowledge
 
 # Admin routes - Prompt Management
 api_router.include_router(admin_prompts.router)
@@ -71,4 +76,16 @@ api_router.include_router(
     tenant_prompts.router,
     prefix="/admin/organizations",
     tags=["Tenant Prompts"],
+)
+api_router.include_router(
+    tenant_documents.router,
+    prefix="/admin/organizations",
+    tags=["Tenant Documents"],
+)
+
+# Admin routes - Ollama Model Management (public - no auth required)
+api_router.include_router(
+    ollama_admin.router,
+    prefix="/admin/ollama",
+    tags=["Ollama Admin"],
 )

@@ -21,8 +21,59 @@ logger = logging.getLogger(__name__)
 
 SupportedLanguage = Literal["es", "en", "pt"]
 
+# Mapeo de agentes a dominios (basado en builtin_agents.py domain_key)
+# Agentes con None siempre se muestran, los demás solo si su dominio está habilitado
+AGENT_DOMAIN_MAPPING: dict[str, str | None] = {
+    # E-commerce domain agents (subgraph handles internal routing)
+    "ecommerce_agent": "ecommerce",
+    # Legacy e-commerce agents (deprecated)
+    "product_agent": "ecommerce",
+    "promotions_agent": "ecommerce",
+    "tracking_agent": "ecommerce",
+    "invoice_agent": "ecommerce",
+    # Excelencia domain agents (independent agents)
+    "excelencia_agent": "excelencia",
+    "excelencia_invoice_agent": "excelencia",  # NEW: Client invoices
+    "excelencia_promotions_agent": "excelencia",  # NEW: Software promotions
+    "data_insights_agent": "excelencia",  # Moved from None to Excelencia domain
+    # Credit domain
+    "credit_agent": "credit",
+    # Always available agents (domain_key=None)
+    "greeting_agent": None,
+    "support_agent": None,  # Enhanced for Excelencia software knowledge
+    "fallback_agent": None,
+    "farewell_agent": None,
+}
+
 # Cache para evitar cargas repetidas del YAML
 _services_cache: dict | None = None
+
+
+def _filter_agents_by_domain(
+    enabled_agents: list[str],
+    enabled_domains: list[str] | None = None,
+) -> list[str]:
+    """
+    Filtra agentes según los dominios habilitados.
+
+    Args:
+        enabled_agents: Lista de agentes habilitados
+        enabled_domains: Lista de dominios habilitados para el tenant
+
+    Returns:
+        Lista de agentes filtrados. Si enabled_domains es None o vacío,
+        retorna todos los agentes. Si un agente no tiene domain_key (None),
+        siempre se incluye.
+    """
+    if not enabled_domains:
+        return enabled_agents
+
+    return [
+        agent
+        for agent in enabled_agents
+        if AGENT_DOMAIN_MAPPING.get(agent) is None  # Sin dominio = siempre
+        or AGENT_DOMAIN_MAPPING.get(agent) in enabled_domains
+    ]
 
 
 def _load_services_config_sync() -> dict:
@@ -87,6 +138,7 @@ def _load_services_config_sync() -> dict:
 def get_available_services(
     enabled_agents: list[str],
     language: SupportedLanguage = "es",
+    enabled_domains: list[str] | None = None,
 ) -> list[dict]:
     """
     Retorna informacion de servicios para agentes habilitados.
@@ -94,15 +146,20 @@ def get_available_services(
     Args:
         enabled_agents: Lista de nombres de agentes habilitados
         language: Codigo de idioma (es, en, pt)
+        enabled_domains: Lista de dominios habilitados para el tenant.
+            Si se proporciona, filtra agentes por dominio.
 
     Returns:
         Lista de dicts con info de servicio para cada agente habilitado
     """
+    # Filtrar agentes por dominio primero
+    filtered_agents = _filter_agents_by_domain(enabled_agents, enabled_domains)
+
     config = _load_services_config_sync()
     services_config = config.get("services", {})
 
     services = []
-    for agent in enabled_agents:
+    for agent in filtered_agents:
         if agent in services_config:
             agent_config = services_config[agent]
             i18n_data = agent_config.get("i18n", {})
@@ -122,6 +179,7 @@ def get_available_services(
 def format_service_list(
     enabled_agents: list[str],
     language: SupportedLanguage = "es",
+    enabled_domains: list[str] | None = None,
 ) -> str:
     """
     Retorna lista formateada de servicios disponibles.
@@ -129,11 +187,12 @@ def format_service_list(
     Args:
         enabled_agents: Lista de agentes habilitados
         language: Codigo de idioma
+        enabled_domains: Lista de dominios habilitados para el tenant
 
     Returns:
         String formateado con bullets para cada servicio
     """
-    services = get_available_services(enabled_agents, language)
+    services = get_available_services(enabled_agents, language, enabled_domains)
 
     if not services:
         config = _load_services_config_sync()
@@ -151,6 +210,7 @@ def format_service_list(
 def get_service_names(
     enabled_agents: list[str],
     language: SupportedLanguage = "es",
+    enabled_domains: list[str] | None = None,
 ) -> list[str]:
     """
     Retorna solo los nombres de servicios.
@@ -158,11 +218,12 @@ def get_service_names(
     Args:
         enabled_agents: Lista de agentes habilitados
         language: Codigo de idioma
+        enabled_domains: Lista de dominios habilitados para el tenant
 
     Returns:
         Lista de nombres de servicios
     """
-    services = get_available_services(enabled_agents, language)
+    services = get_available_services(enabled_agents, language, enabled_domains)
     return [s["service_name"] for s in services]
 
 

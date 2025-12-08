@@ -21,9 +21,26 @@ class SpacyIntentAnalyzer:
     - Similitud semántica con vectores de palabras
     - Detección de patrones específicos del dominio e-commerce
     - Análisis de sentiment para casos de soporte
+
+    Implementado como Singleton para evitar cargar el modelo múltiples veces.
     """
 
+    # Singleton instance and shared NLP model
+    _instance: "SpacyIntentAnalyzer | None" = None
+    _nlp_model = None  # Class-level shared model
+
+    def __new__(cls, model_name: str = "es_core_news_sm"):
+        """Singleton pattern - only create one instance"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self, model_name: str = "es_core_news_sm"):
+        # Skip re-initialization if already done
+        if self._initialized:
+            return
+
         self.model_name = model_name
         self.nlp = None
         self._load_model()
@@ -34,27 +51,39 @@ class SpacyIntentAnalyzer:
         # Cache para mejorar performance
         self._similarity_cache = {}
 
+        self._initialized = True
+        logger.info("SpacyIntentAnalyzer singleton initialized")
+
     def _load_model(self):
-        """Carga el modelo de spaCy, descargándolo si es necesario"""
+        """Carga el modelo de spaCy, descargándolo si es necesario. Uses class-level cache."""
+        # Use cached model if available
+        if SpacyIntentAnalyzer._nlp_model is not None:
+            self.nlp = SpacyIntentAnalyzer._nlp_model
+            logger.info(f"Using cached spaCy model: {self.model_name}")
+            return
+
         try:
             import spacy
 
             # Intentar cargar el modelo
             try:
-                self.nlp = spacy.load(self.model_name)
+                SpacyIntentAnalyzer._nlp_model = spacy.load(self.model_name)
+                self.nlp = SpacyIntentAnalyzer._nlp_model
                 logger.info(f"Modelo spaCy {self.model_name} cargado exitosamente")
             except OSError:
                 logger.warning(f"Modelo {self.model_name} no encontrado, intentando descarga...")
                 # Intentar descargar el modelo
                 try:
                     subprocess.check_call([sys.executable, "-m", "spacy", "download", self.model_name])
-                    self.nlp = spacy.load(self.model_name)
+                    SpacyIntentAnalyzer._nlp_model = spacy.load(self.model_name)
+                    self.nlp = SpacyIntentAnalyzer._nlp_model
                     logger.info(f"Modelo {self.model_name} descargado y cargado")
                 except Exception as e:
                     logger.error(f"No se pudo descargar el modelo {self.model_name}: {e}")
                     # Fallback a modelo base sin vectores
                     logger.warning("Usando modelo base sin vectores...")
-                    self.nlp = spacy.blank("es")
+                    SpacyIntentAnalyzer._nlp_model = spacy.blank("es")
+                    self.nlp = SpacyIntentAnalyzer._nlp_model
 
         except ImportError:
             logger.error("spaCy no está instalado. Usando fallback básico.")
@@ -65,6 +94,11 @@ class SpacyIntentAnalyzer:
 
         # Palabras clave por intent con pesos
         self.intent_keywords = {
+            "saludo": {
+                "high": ["hola", "buenos días", "buenos dias", "buenas tardes", "buenas noches", "saludos", "hey", "hi", "hello"],
+                "medium": ["buen día", "buen dia", "qué tal", "que tal", "cómo estás", "como estas", "cómo está", "como esta", "qué onda", "que onda"],
+                "low": ["buenas", "ey", "alo", "holi", "holaa"],
+            },
             "producto": {
                 "high": ["producto", "productos", "catálogo", "stock", "disponible", "venden", "tienen"],
                 "medium": ["precio", "cuesta", "cuánto", "características", "especificaciones"],
@@ -99,6 +133,28 @@ class SpacyIntentAnalyzer:
                 "high": ["adiós", "chau", "bye", "gracias", "eso es todo"],
                 "medium": ["hasta luego", "nada más", "terminar"],
                 "low": ["ok", "bien"],
+            },
+            "excelencia": {
+                "high": ["excelencia", "excelencia digital", "erp", "demo", "módulo", "módulos"],
+                "medium": ["software", "historia clínica", "turnos médicos", "healthcare", "hotel", "hoteles"],
+                "low": ["capacitación", "obras sociales", "gremio", "gremios", "validtek", "turmedica", "mediflow"],
+            },
+            # Excelencia Software Support/Incidents
+            "excelencia_soporte": {
+                "high": ["incidencia", "ticket", "reportar", "bug", "falla"],
+                "medium": ["problema módulo", "error sistema", "levantar ticket"],
+                "low": ["soporte técnico", "ayuda software"],
+            },
+            # Excelencia-specific intents
+            "excelencia_facturacion": {
+                "high": ["factura cliente", "factura de cliente", "estado de cuenta", "cobranza"],
+                "medium": ["deuda cliente", "pago cliente", "cobrar cliente", "facturar cliente"],
+                "low": ["generar factura", "cuenta cliente"],
+            },
+            "excelencia_promociones": {
+                "high": ["promoción software", "descuento módulo", "oferta implementación", "promoción excelencia"],
+                "medium": ["descuento capacitación", "promo software", "oferta software"],
+                "low": ["descuento software", "precio especial software"],
             },
         }
 
@@ -228,13 +284,18 @@ class SpacyIntentAnalyzer:
 
         # Crear textos de referencia para cada intent
         reference_texts = {
+            "saludo": "hola buenos días buenas tardes saludos qué tal cómo estás",
             "producto": "ver productos disponibles precio stock catálogo",
-            "promociones": "ofertas descuentos promociones cupones rebajas",
-            "seguimiento": "pedido envío tracking seguimiento entrega",
-            "soporte": "problema ayuda error soporte técnico reclamo",
-            "facturacion": "factura pago recibo cobro reembolso",
+            "promociones": "ofertas descuentos promociones cupones rebajas pedido compra",
+            "seguimiento": "pedido envío tracking seguimiento entrega orden",
+            "soporte": "problema ayuda error soporte técnico reclamo incidencia",
+            "facturacion": "factura pago recibo cobro reembolso pedido orden",
             "categoria": "categoría tipo clase tecnología ropa",
             "despedida": "adiós gracias chau bye hasta luego",
+            "excelencia": "excelencia digital erp demo módulos software historia clínica turnos médicos healthcare hotel",
+            # NEW: Excelencia-specific intents
+            "excelencia_facturacion": "factura cliente estado cuenta cobranza deuda pago cliente",
+            "excelencia_promociones": "promoción software descuento módulo oferta implementación capacitación",
         }
 
         for intent, ref_text in reference_texts.items():

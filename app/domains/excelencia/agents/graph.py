@@ -121,16 +121,20 @@ class ExcelenciaGraph:
 
         async def executor(state: ExcelenciaState) -> dict[str, Any]:
             try:
+                logger.info(f"ExcelenciaGraph node_executor START for {node_instance.name}")
                 messages = state.get("messages", [])
                 if not messages:
+                    logger.warning("No messages in state")
                     return {"error_count": state.get("error_count", 0) + 1}
 
                 last_message = messages[-1]
                 message_content = (
                     last_message.content if hasattr(last_message, "content") else str(last_message)
                 )
+                logger.info(f"ExcelenciaGraph calling node.process: {message_content[:50]}...")
 
                 result = await node_instance.process(message_content, state)
+                logger.info(f"ExcelenciaGraph node.process returned, keys: {list(result.keys())}")
                 return result
 
             except Exception as e:
@@ -277,7 +281,9 @@ class ExcelenciaGraph:
             if thread_id:
                 config["configurable"] = {"thread_id": thread_id}
 
+            logger.info("ExcelenciaGraph.invoke calling app.ainvoke...")
             result = await self.app.ainvoke(initial_state, cast(RunnableConfig, config))
+            logger.info(f"ExcelenciaGraph.invoke complete, result keys: {list(result.keys())}")
             return result
 
         except Exception as e:

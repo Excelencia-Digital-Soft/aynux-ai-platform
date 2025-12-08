@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Modelos SQLAlchemy para el sistema multi-tenant.
+#              Todas las tablas aquí almacenan datos aislados por organization_id.
+# Tenant-Aware: Yes - todos los modelos tienen FK a organizations.
+# ============================================================================
 """
 Multi-tenant models for Aynux platform.
 

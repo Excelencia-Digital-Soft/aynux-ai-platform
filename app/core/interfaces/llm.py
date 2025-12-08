@@ -48,7 +48,14 @@ class ILLM(Protocol):
         ...
 
     @abstractmethod
-    async def generate(self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs) -> str:
+    async def generate(
+        self,
+        prompt: str,
+        *,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+        **kwargs,
+    ) -> str:
         """
         Genera texto basado en el prompt.
 
@@ -56,7 +63,7 @@ class ILLM(Protocol):
             prompt: Texto de entrada para el modelo
             temperature: Control de creatividad (0.0 = determinístico, 1.0 = creativo)
             max_tokens: Número máximo de tokens a generar
-            **kwargs: Parámetros adicionales específicos del provider
+            **kwargs: Parámetros adicionales específicos del provider (e.g., complexity)
 
         Returns:
             Texto generado por el modelo
@@ -68,7 +75,12 @@ class ILLM(Protocol):
 
     @abstractmethod
     async def generate_chat(
-        self, messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 500, **kwargs
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+        **kwargs,
     ) -> str:
         """
         Genera respuesta en formato chat.
@@ -77,7 +89,7 @@ class ILLM(Protocol):
             messages: Lista de mensajes con formato {"role": "user/assistant", "content": "..."}
             temperature: Control de creatividad
             max_tokens: Número máximo de tokens
-            **kwargs: Parámetros adicionales
+            **kwargs: Parámetros adicionales (e.g., complexity)
 
         Returns:
             Respuesta del modelo
@@ -96,8 +108,13 @@ class ILLM(Protocol):
         ...
 
     @abstractmethod
-    async def generate_stream(
-        self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs
+    def generate_stream(
+        self,
+        prompt: str,
+        *,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+        **kwargs,
     ) -> AsyncIterator[str]:
         """
         Genera texto en streaming (token por token).
@@ -106,7 +123,7 @@ class ILLM(Protocol):
             prompt: Texto de entrada
             temperature: Control de creatividad
             max_tokens: Número máximo de tokens
-            **kwargs: Parámetros adicionales
+            **kwargs: Parámetros adicionales (e.g., complexity)
 
         Yields:
             Tokens generados uno por uno

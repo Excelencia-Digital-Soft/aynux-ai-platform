@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Agente de saludos multi-dominio. Singleton compartido pero puede
+#              recibir configuración por tenant via apply_tenant_config().
+# Tenant-Aware: Yes via BaseAgent - puede usar tenant's model/temperature/config.
+# ============================================================================
 """
 Agente especializado en saludos y presentacion de capacidades del sistema (Multi-Dominio)
 
@@ -16,7 +22,8 @@ from app.config.agent_capabilities import (
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
 from app.integrations.llm import OllamaLLM
-from app.prompts.loader import PromptLoader
+from app.integrations.llm.model_provider import ModelComplexity
+from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 from app.utils.language_detector import LanguageDetector
 
@@ -46,27 +53,37 @@ DOMAIN_CONTEXTS = {
 
 
 class GreetingAgent(BaseAgent):
-    """Agente especializado en saludos multi-dominio con prompts desde YAML"""
+    """
+    Agente especializado en saludos multi-dominio con prompts desde YAML.
+
+    Supports dual-mode configuration:
+    - Global mode: Uses default model/temperature from BaseAgent
+    - Multi-tenant mode: model/temperature can be overridden via apply_tenant_config()
+    """
 
     def __init__(self, ollama=None, postgres=None, config: dict[str, Any] | None = None):
         super().__init__("greeting_agent", config or {}, ollama=ollama, postgres=postgres)
         self.ollama = ollama or OllamaLLM()
 
-        # Configuracion especifica del agente
-        self.model = "llama3.1"  # Modelo rapido para saludos
-        self.temperature = 0.7  # Un poco de creatividad para respuestas amigables
+        # Note: self.model and self.temperature are set by BaseAgent.__init__()
+        # They can be overridden via apply_tenant_config() in multi-tenant mode
 
         # Store enabled agents for dynamic service suggestions
         self.enabled_agents: list[str] = (config or {}).get("enabled_agents", [])
-        logger.debug(f"GreetingAgent initialized with enabled_agents: {self.enabled_agents}")
+        # Store enabled domains for filtering e-commerce services when domain is disabled
+        self.enabled_domains: list[str] = (config or {}).get("enabled_domains", [])
+        logger.debug(
+            f"GreetingAgent initialized with enabled_agents: {self.enabled_agents}, "
+            f"enabled_domains: {self.enabled_domains}"
+        )
 
         # Inicializar detector de idioma
         self.language_detector = LanguageDetector(
             config={"default_language": "es", "supported_languages": ["es", "en", "pt"]}
         )
 
-        # Inicializar PromptLoader
-        self.prompt_loader = PromptLoader()
+        # Initialize PromptManager for YAML-based prompts
+        self.prompt_manager = PromptManager()
 
     @trace_async_method(
         name="greeting_agent_process",
@@ -100,12 +117,8 @@ class GreetingAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Error in greeting agent: {str(e)}")
 
-            # Respuesta de fallback generica (sin mencionar dominio especifico)
-            fallback_response = (
-                "Hola! Bienvenido a Aynux. "
-                "Soy tu asistente virtual y puedo ayudarte con tus consultas. "
-                "En que te puedo ayudar hoy?"
-            )
+            # Respuesta de fallback generica usando YAML
+            fallback_response = await self._get_generic_fallback()
 
             return {
                 "messages": [{"role": "assistant", "content": fallback_response}],
@@ -113,6 +126,20 @@ class GreetingAgent(BaseAgent):
                 "current_agent": self.name,
                 "is_complete": True,
             }
+
+    async def _get_generic_fallback(self) -> str:
+        """Get generic fallback response from YAML."""
+        try:
+            return await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_GREETING_FALLBACK_GENERIC,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to load YAML generic fallback: {e}")
+            return (
+                "Hola! Bienvenido a Aynux. "
+                "Soy tu asistente virtual y puedo ayudarte con tus consultas. "
+                "En que te puedo ayudar hoy?"
+            )
 
     async def _generate_greeting_response(self, message: str, state_dict: dict[str, Any]) -> str:
         """
@@ -145,40 +172,50 @@ class GreetingAgent(BaseAgent):
         # Obtener contexto del dominio (sin servicios hardcodeados)
         domain_context = DOMAIN_CONTEXTS.get(business_domain, DOMAIN_CONTEXTS["ecommerce"])
 
-        # Get dynamic services based on enabled agents and detected language
+        # Get dynamic services based on enabled agents, domains, and detected language
         # Cast to SupportedLanguage (default to "es" if not supported)
         lang: SupportedLanguage = detected_language if detected_language in ("es", "en", "pt") else "es"
-        dynamic_services = get_service_names(self.enabled_agents, lang)
 
-        logger.debug(f"Dynamic services for greeting: {dynamic_services}")
+        # Obtener dominios habilitados (prioridad: config > state_dict > vacío)
+        enabled_domains = self.enabled_domains or state_dict.get("enabled_domains", [])
 
-        # Cargar prompt desde YAML
+        # Pasar enabled_domains para filtrar servicios de dominios deshabilitados
+        dynamic_services = get_service_names(self.enabled_agents, lang, enabled_domains)
+
+        logger.debug(
+            f"Dynamic services for greeting: {dynamic_services} "
+            f"(enabled_domains: {enabled_domains})"
+        )
+
+        # Cargar prompt desde YAML usando PromptManager
         try:
-            prompt_template = await self.prompt_loader.load(
-                PromptRegistry.CONVERSATION_GREETING_SYSTEM, prefer_db=False
-            )
-
-            if not prompt_template:
-                logger.warning("Could not load greeting prompt from YAML, using fallback")
-                return self._get_fallback_greeting(lang)
-
             # Preparar variables para el prompt con servicios dinamicos
             prompt_variables = {
                 "domain_type": business_domain,
-                "primary_services": ", ".join(dynamic_services) if dynamic_services else "asistencia general",
+                "primary_services": (
+                    ", ".join(dynamic_services) if dynamic_services else "asistencia general"
+                ),
                 "language": detected_language,
                 "domain_hint": domain_context["hint"],
                 "domain_context": domain_context["context"],
+                "message": message,
             }
 
-            # Renderizar el prompt con variables
-            rendered_prompt = prompt_template.template.format(**prompt_variables)
+            # Cargar y renderizar prompt via PromptManager
+            rendered_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.CONVERSATION_GREETING_SYSTEM,
+                variables=prompt_variables,
+            )
 
             # Agregar el mensaje del usuario
-            full_prompt = f"{rendered_prompt}\n\n## User Message\n{message}\n\nGenerate your greeting response now:"
+            full_prompt = (
+                f"{rendered_prompt}\n\n"
+                f"## User Message\n{message}\n\n"
+                "Generate your greeting response now:"
+            )
 
             # Generar respuesta con LLM
-            llm = self.ollama.get_llm(temperature=self.temperature, model=self.model)
+            llm = self.ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=self.temperature)
             response = await llm.ainvoke(full_prompt)
 
             # Extraer el contenido de la respuesta
@@ -198,36 +235,48 @@ class GreetingAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Error generating greeting with YAML prompt: {str(e)}")
             # Fallback generico con servicios dinamicos
-            return self._get_fallback_greeting(lang)
+            return await self._get_fallback_greeting(lang, enabled_domains)
 
-    def _get_fallback_greeting(self, language: SupportedLanguage = "es") -> str:
+    async def _get_fallback_greeting(
+        self,
+        language: SupportedLanguage = "es",
+        enabled_domains: list[str] | None = None,
+    ) -> str:
         """
         Genera un greeting fallback generico basado en idioma y agentes habilitados.
 
+        Uses YAML prompts for multi-language support.
+
         Args:
             language: Idioma detectado (es, en, pt)
+            enabled_domains: Lista de dominios habilitados para filtrar servicios
 
         Returns:
             Greeting fallback apropiado con servicios dinamicos
         """
-        # Generar lista de servicios dinamica basada en agentes habilitados
-        service_list = format_service_list(self.enabled_agents, language)
+        # Usar enabled_domains del parámetro o del config
+        domains = enabled_domains or self.enabled_domains
 
-        if language == "en":
-            return (
-                f"Hello! Welcome to Aynux.\n\n"
-                f"I'm your virtual assistant. I can help you with:\n"
-                f"{service_list}\n\n"
-                f"How can I help you today?"
+        # Generar lista de servicios dinamica basada en agentes y dominios habilitados
+        service_list = format_service_list(self.enabled_agents, language, domains)
+
+        # Map language to registry key
+        lang_key_map = {
+            "es": PromptRegistry.AGENTS_GREETING_FALLBACK_ES,
+            "en": PromptRegistry.AGENTS_GREETING_FALLBACK_EN,
+            "pt": PromptRegistry.AGENTS_GREETING_FALLBACK_PT,
+        }
+
+        prompt_key = lang_key_map.get(language, PromptRegistry.AGENTS_GREETING_FALLBACK_ES)
+
+        try:
+            return await self.prompt_manager.get_prompt(
+                prompt_key,
+                variables={"service_list": service_list},
             )
-        elif language == "pt":
-            return (
-                f"Ola! Bem-vindo ao Aynux.\n\n"
-                f"Sou seu assistente virtual. Posso ajuda-lo com:\n"
-                f"{service_list}\n\n"
-                f"Como posso ajuda-lo hoje?"
-            )
-        else:  # Spanish (default)
+        except Exception as e:
+            logger.warning(f"Failed to load YAML greeting fallback: {e}")
+            # Hardcoded fallback as last resort
             return (
                 f"Hola! Bienvenido a Aynux.\n\n"
                 f"Soy tu asistente virtual. Puedo ayudarte con:\n"

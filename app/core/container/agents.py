@@ -1,3 +1,10 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Contenedor de agentes de dominio y orquestador.
+#              Crea agentes compartidos que pueden reconfigurarse por tenant.
+# Tenant-Aware: No - los agentes se crean globalmente pero aceptan
+#              configuración per-tenant via apply_tenant_config().
+# ============================================================================
 """
 Agents Container.
 

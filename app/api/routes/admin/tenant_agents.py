@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Admin API para configurar agentes habilitados por organización.
+#              Todas las rutas requieren org_id en path + require_admin().
+# Tenant-Aware: Yes - todas las operaciones filtran por organization_id.
+# ============================================================================
 """
 Tenant Agents Admin API - Manage agents per organization.
 
@@ -86,69 +92,14 @@ class TenantAgentListResponse(BaseModel):
 
 
 # ============================================================
-# BUILTIN AGENTS DEFINITION
+# BUILTIN AGENTS - Use centralized configuration
 # ============================================================
 
-BUILTIN_AGENTS = {
-    "greeting_agent": {
-        "display_name": "Greeting Agent",
-        "description": "Handles greetings and initial interactions",
-        "agent_type": "specialized",
-        "keywords": ["hola", "hello", "hi", "buenos días", "buenas tardes"],
-    },
-    "product_agent": {
-        "display_name": "Product Agent",
-        "description": "Handles product queries, search, and catalog information",
-        "agent_type": "domain",
-        "domain_key": "ecommerce",
-        "keywords": ["producto", "product", "buscar", "precio", "disponible"],
-    },
-    "support_agent": {
-        "display_name": "Support Agent",
-        "description": "Handles customer support and troubleshooting",
-        "agent_type": "specialized",
-        "keywords": ["ayuda", "problema", "soporte", "support", "help"],
-    },
-    "excelencia_agent": {
-        "display_name": "Excelencia Agent",
-        "description": "Handles Excelencia ERP system information",
-        "agent_type": "domain",
-        "domain_key": "excelencia",
-        "keywords": ["excelencia", "erp", "módulo", "sistema"],
-    },
-    "fallback_agent": {
-        "display_name": "Fallback Agent",
-        "description": "Handles unrecognized intents and provides general assistance",
-        "agent_type": "specialized",
-        "keywords": [],
-    },
-    "farewell_agent": {
-        "display_name": "Farewell Agent",
-        "description": "Handles goodbyes and conversation endings",
-        "agent_type": "specialized",
-        "keywords": ["adiós", "bye", "chao", "gracias", "hasta luego"],
-    },
-    "promotions_agent": {
-        "display_name": "Promotions Agent",
-        "description": "Handles promotions, discounts, and special offers",
-        "agent_type": "domain",
-        "domain_key": "ecommerce",
-        "keywords": ["promoción", "descuento", "oferta", "sale"],
-    },
-    "tracking_agent": {
-        "display_name": "Tracking Agent",
-        "description": "Handles order tracking and shipping information",
-        "agent_type": "domain",
-        "domain_key": "ecommerce",
-        "keywords": ["pedido", "envío", "tracking", "seguimiento"],
-    },
-    "invoice_agent": {
-        "display_name": "Invoice Agent",
-        "description": "Handles billing, invoices, and payment queries",
-        "agent_type": "specialized",
-        "keywords": ["factura", "pago", "cobro", "invoice"],
-    },
-}
+# Import centralized builtin agent defaults
+from app.core.agents.builtin_agents import BUILTIN_AGENT_DEFAULTS
+
+# Legacy alias for backward compatibility
+BUILTIN_AGENTS = BUILTIN_AGENT_DEFAULTS
 
 
 # ============================================================

@@ -4,20 +4,21 @@
 prompts:
   - key: orchestrator.domain.detection
     name: Business Domain Detection
-    description: Analyzes user message to determine which business domain it belongs to
-    version: "1.0.0"
+    description: Analyzes user message to determine which Excelencia service it belongs to
+    version: "2.0.0"
     template: |
-      Analyze this user message and determine which business domain it belongs to.
+      Analyze this user message and determine which Excelencia service it belongs to.
 
       Message: "{message}"
 
-      Available domains:
-      - ecommerce: Products, shopping, orders, promotions, inventory
-      - credit: Credit accounts, payments, balances, collections, loans
-      - healthcare: Patients, appointments, medical records, prescriptions
-      - excelencia: Company services, quotes, portfolio, contact sales
+      Available services:
+      - excelencia: ERP system modules, demos, training, corporate information, incidents, support tickets, bug reports
+      - excelencia_invoice: Client invoices, account statements, collections, payments
+      - excelencia_promotions: Software promotions, module discounts, implementation offers
+      - data_insights: Reports, analytics, business metrics, dashboards
+      - support: Technical support for ecommerce, product issues, delivery problems
 
-      Return ONLY the domain name (one word): {domains_list}
+      Return ONLY the service name (one word): {domains_list}
 
       If unclear, return: {default_domain}
     metadata:

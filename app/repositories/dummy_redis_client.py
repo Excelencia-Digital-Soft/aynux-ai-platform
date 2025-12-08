@@ -55,3 +55,69 @@ class DummyRedisClient:
 
     def ping(self):
         return True
+
+    def expire(self, key, seconds):
+        """Dummy expire - no-op since we don't track TTL in memory."""
+        return True
+
+
+class AsyncDummyRedisClient:
+    """Async dummy Redis client for fallback when Redis is unavailable."""
+
+    def __init__(self):
+        self.local_storage = {}
+        logger.warning("Using local storage as async Redis fallback")
+
+    async def get(self, key):
+        logger.debug(f"AsyncDummyRedis: get {key}")
+        return self.local_storage.get(key)
+
+    async def set(self, key, value, ex=None, nx=False):
+        logger.debug(f"AsyncDummyRedis: set {key}")
+        if nx and key in self.local_storage:
+            return False
+        self.local_storage[key] = value
+        return True
+
+    async def delete(self, key):
+        logger.debug(f"AsyncDummyRedis: delete {key}")
+        if key in self.local_storage:
+            del self.local_storage[key]
+            return 1
+        return 0
+
+    async def exists(self, key):
+        return key in self.local_storage
+
+    async def expire(self, key, seconds):
+        """Dummy expire - no-op since we don't track TTL in memory."""
+        return True
+
+    async def hset(self, name, key, value):
+        if name not in self.local_storage:
+            self.local_storage[name] = {}
+        self.local_storage[name][key] = value
+        return 1
+
+    async def hget(self, name, key):
+        if name in self.local_storage and isinstance(self.local_storage[name], dict):
+            return self.local_storage[name].get(key)
+        return None
+
+    async def hgetall(self, name):
+        if name in self.local_storage and isinstance(self.local_storage[name], dict):
+            return self.local_storage[name]
+        return {}
+
+    async def hdel(self, name, key):
+        if name in self.local_storage and key in self.local_storage[name]:
+            del self.local_storage[name][key]
+            return 1
+        return 0
+
+    async def ping(self):
+        return True
+
+    async def close(self):
+        """No-op close for compatibility."""
+        pass

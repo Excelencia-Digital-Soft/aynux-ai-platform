@@ -1,9 +1,15 @@
 """
 Servicio integrado de chatbot usando LangGraph multi-agente
+
+Supports DUAL-MODE operation:
+- Global mode (no tenant): Processes messages with Python default configs
+- Multi-tenant mode (with token): Applies tenant-specific agent configurations
+
+The set_tenant_registry_for_request() method configures agents per-request.
 """
 
 import logging
-from typing import Any, AsyncGenerator, Dict
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict
 
 from app.core.graph import AynuxGraph
 from app.core.schemas import CustomerContext
@@ -18,6 +24,9 @@ from app.services.langgraph import (
     SecurityValidator,
     SystemMonitor,
 )
+
+if TYPE_CHECKING:
+    from app.core.schemas.tenant_agent_config import TenantAgentRegistry
 
 BUSINESS_NAME = "Conversa Shop"
 
@@ -357,3 +366,67 @@ class LangGraphChatbotService:
                 purchase_history=[],
                 preferences={},
             )
+
+    # =========================================================================
+    # Dual-Mode Methods (Global vs Multi-Tenant)
+    # =========================================================================
+
+    def set_tenant_registry_for_request(self, registry: "TenantAgentRegistry") -> None:
+        """
+        Configure agents for tenant-specific processing.
+
+        Called before processing a request in multi-tenant mode to apply
+        tenant-specific agent configurations from database.
+
+        Args:
+            registry: TenantAgentRegistry loaded from database for current tenant
+
+        Example:
+            >>> # In webhook handler
+            >>> registry = await tenant_service.get_agent_registry(org_id)
+            >>> service.set_tenant_registry_for_request(registry)
+            >>> result = await service.process_webhook_message(message, contact, domain)
+        """
+        if not self._initialized or not self.graph_system:
+            self.logger.warning(
+                "Service not initialized, cannot set tenant registry"
+            )
+            return
+
+        self.graph_system.set_tenant_registry(registry)
+        self.logger.info(
+            f"Configured service for tenant: {registry.organization_id}"
+        )
+
+    def reset_tenant_config(self) -> None:
+        """
+        Reset agents to global default configuration.
+
+        Called after processing a request in multi-tenant mode to ensure
+        agents don't retain tenant-specific config for next request.
+        """
+        if not self._initialized or not self.graph_system:
+            return
+
+        self.graph_system.reset_tenant_config()
+        self.logger.debug("Reset service to global defaults")
+
+    def get_mode_info(self) -> Dict[str, Any]:
+        """
+        Get information about current service operation mode.
+
+        Returns:
+            Dict with mode info and configuration state
+        """
+        if not self._initialized or not self.graph_system:
+            return {
+                "mode": "not_initialized",
+                "initialized": False,
+            }
+
+        graph_info = self.graph_system.get_mode_info()
+        return {
+            **graph_info,
+            "service_initialized": self._initialized,
+            "multi_tenant_mode": self.settings.MULTI_TENANT_MODE,
+        }

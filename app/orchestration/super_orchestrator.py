@@ -1,3 +1,10 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Orquestador principal que rutea mensajes a agentes de dominio.
+#              Singleton creado una vez, compartido por todos los tenants.
+# Tenant-Aware: No directamente - los agentes que usa pueden ser tenant-aware
+#              via apply_tenant_config() si se activa el modo multi-tenant.
+# ============================================================================
 """
 Super Orchestrator - Multi-Domain Router
 
@@ -70,7 +77,7 @@ class SuperOrchestrator:
             # Extract message
             messages = state.get("messages", [])
             if not messages:
-                return self._error_response("No message provided", state)
+                return await self._error_response("No message provided", state)
 
             current_message = messages[-1].get("content", "")
 
@@ -86,12 +93,12 @@ class SuperOrchestrator:
                 agent = self.domain_agents.get(self.default_domain)
 
             if not agent:
-                return self._error_response(f"No agent available for domain: {domain}", state)
+                return await self._error_response(f"No agent available for domain: {domain}", state)
 
             # Validate agent can handle this
             if not await agent.validate_input(state):
                 logger.warning(f"Agent validation failed for domain: {domain}")
-                return self._error_response("Invalid input for domain agent", state)
+                return await self._error_response("Invalid input for domain agent", state)
 
             # Execute agent
             logger.info(f"Routing to {agent.agent_name} (domain: {domain})")
@@ -108,7 +115,7 @@ class SuperOrchestrator:
 
         except Exception as e:
             logger.error(f"Error in SuperOrchestrator: {e}", exc_info=True)
-            return self._error_response(str(e), state)
+            return await self._error_response(str(e), state)
 
     async def _detect_domain(self, message: str, state: Dict[str, Any]) -> str:
         """
@@ -137,7 +144,7 @@ class SuperOrchestrator:
                 PromptRegistry.ORCHESTRATOR_DOMAIN_DETECTION,
                 variables={
                     "message": message,
-                    "domains_list": domains_list,
+                    "domains": domains_list,
                     "default_domain": self.default_domain,
                 },
             )
@@ -234,9 +241,9 @@ class SuperOrchestrator:
 
         return health
 
-    def _error_response(self, error: str, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def _error_response(self, error: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate error response.
+        Generate error response using YAML prompt.
 
         Args:
             error: Error message
@@ -245,11 +252,22 @@ class SuperOrchestrator:
         Returns:
             Error response dict
         """
+        try:
+            error_message = await self._prompt_manager.get_prompt(
+                PromptRegistry.ORCHESTRATOR_ERROR_RESPONSE,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to load error prompt from YAML: {e}")
+            error_message = (
+                "Disculpa, tuve un problema procesando tu solicitud. "
+                "¿Podrías intentar de nuevo?"
+            )
+
         return {
             "messages": [
                 {
                     "role": "assistant",
-                    "content": "Disculpa, tuve un problema procesando tu solicitud. �Podr�as intentar de nuevo?",
+                    "content": error_message.strip(),
                 }
             ],
             "error": error,

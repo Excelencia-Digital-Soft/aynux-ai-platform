@@ -19,6 +19,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from sqlalchemy import func, select, text
 
+from app.config.settings import get_settings
 from app.database.async_db import get_async_db
 from app.models.db.knowledge_base import CompanyKnowledge
 
@@ -37,21 +38,20 @@ class KnowledgeEmbeddingService:
     - Automatic embedding generation with Ollama
     """
 
-    def __init__(self, embedding_model: str = "nomic-embed-text", ollama_base_url: str = "http://localhost:11434"):
+    def __init__(self):
         """
         Initialize the embedding service.
-
-        Args:
-            embedding_model: Name of the Ollama embedding model
-            ollama_base_url: Base URL for Ollama API
         """
-        self.embedding_model = embedding_model
-        self.embeddings = OllamaEmbeddings(model=embedding_model, base_url=ollama_base_url)
+        settings = get_settings()
+        self.embedding_model = settings.OLLAMA_API_MODEL_EMBEDDING
+        self.embeddings = OllamaEmbeddings(
+            model=settings.OLLAMA_API_MODEL_EMBEDDING, base_url=settings.OLLAMA_API_URL
+        )
 
         # Text splitter for large documents (not typically needed for knowledge base)
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
-        logger.info(f"KnowledgeEmbeddingService initialized with model={embedding_model} (pgvector only)")
+        logger.info(f"KnowledgeEmbeddingService initialized with model={self.embedding_model} (pgvector only)")
 
     def _create_knowledge_content(self, knowledge: CompanyKnowledge) -> str:
         """
@@ -178,6 +178,8 @@ class KnowledgeEmbeddingService:
             async for db in get_async_db():
                 try:
                     # Build SQL query with pgvector similarity search
+                    # Note: Use CAST() instead of :: to avoid asyncpg parameter confusion
+                    # Use core schema explicitly for company_knowledge table
                     base_query = """
                         SELECT
                             id,
@@ -187,8 +189,8 @@ class KnowledgeEmbeddingService:
                             category,
                             tags,
                             meta_data,
-                            1 - (embedding <=> :embedding::vector) as similarity
-                        FROM company_knowledge
+                            1 - (embedding <=> CAST(:embedding AS vector)) as similarity
+                        FROM core.company_knowledge
                         WHERE active = true
                         AND embedding IS NOT NULL
                     """
@@ -199,7 +201,7 @@ class KnowledgeEmbeddingService:
 
                     # Add similarity threshold and ordering
                     base_query += """
-                        AND 1 - (embedding <=> :embedding::vector) >= :min_sim
+                        AND 1 - (embedding <=> CAST(:embedding AS vector)) >= :min_sim
                         ORDER BY similarity DESC
                         LIMIT :limit
                     """
@@ -305,7 +307,7 @@ class KnowledgeEmbeddingService:
             async for db in get_async_db():
                 stmt = text(
                     """
-                    UPDATE company_knowledge
+                    UPDATE core.company_knowledge
                     SET embedding = NULL, updated_at = NOW()
                     WHERE id = :knowledge_id
                     """
@@ -332,7 +334,7 @@ class KnowledgeEmbeddingService:
         try:
             # Clear all embeddings first
             async for db in get_async_db():
-                stmt = text("UPDATE company_knowledge SET embedding = NULL")
+                stmt = text("UPDATE core.company_knowledge SET embedding = NULL")
                 await db.execute(stmt)
                 await db.commit()
                 logger.info("Cleared all existing embeddings")

@@ -1,5 +1,16 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Agente de soporte técnico y atención al cliente. Maneja soporte
+#              e-commerce y software Excelencia ERP.
+# Tenant-Aware: Yes via BaseAgent - puede usar tenant's model/config.
+# ============================================================================
 """
-Agente especializado en soporte tecnico y atencion al cliente
+Agente especializado en soporte tecnico y atencion al cliente.
+
+Este agente esta especializado en:
+- Soporte general de e-commerce (pagos, envios, devoluciones)
+- Soporte especializado de software Excelencia ERP
+- Incidencias de modulos, capacitaciones, tickets
 """
 
 import logging
@@ -7,17 +18,84 @@ from typing import Any
 
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
 
 class SupportAgent(BaseAgent):
-    """Agente especializado en soporte tecnico y resolucion de problemas"""
+    """
+    Agente especializado en soporte tecnico y resolucion de problemas.
+
+    Supports dual-mode configuration:
+    - Global mode: Uses default model/temperature from BaseAgent
+    - Multi-tenant mode: model/temperature can be overridden via apply_tenant_config()
+
+    Specialized knowledge:
+    - E-commerce support (payments, delivery, returns)
+    - Excelencia ERP software support (modules, incidents, training)
+    """
+
+    # Excelencia ERP modules for specialized support
+    EXCELENCIA_MODULES = {
+        "inventario": {
+            "name": "Modulo de Inventario",
+            "common_issues": ["sincronizacion", "stock negativo", "transferencias"],
+            "support_level": "L1",
+        },
+        "facturacion": {
+            "name": "Modulo de Facturacion",
+            "common_issues": ["cfdi", "timbrado", "cancelacion", "complemento pago"],
+            "support_level": "L2",
+        },
+        "contabilidad": {
+            "name": "Modulo de Contabilidad",
+            "common_issues": ["polizas", "cierre mes", "balanza", "conciliacion"],
+            "support_level": "L2",
+        },
+        "nomina": {
+            "name": "Modulo de Nomina",
+            "common_issues": ["timbrado recibo", "calculos", "isr", "imss"],
+            "support_level": "L2",
+        },
+        "ventas": {
+            "name": "Modulo de Ventas",
+            "common_issues": ["cotizaciones", "pedidos", "precios", "descuentos"],
+            "support_level": "L1",
+        },
+        "compras": {
+            "name": "Modulo de Compras",
+            "common_issues": ["ordenes compra", "recepciones", "cuentas por pagar"],
+            "support_level": "L1",
+        },
+        "crm": {
+            "name": "Modulo CRM",
+            "common_issues": ["prospectos", "oportunidades", "seguimiento"],
+            "support_level": "L1",
+        },
+        "produccion": {
+            "name": "Modulo de Produccion",
+            "common_issues": ["ordenes produccion", "explosion materiales", "costos"],
+            "support_level": "L2",
+        },
+        "reportes": {
+            "name": "Modulo de Reportes",
+            "common_issues": ["dashboard", "exportacion", "personalizacion"],
+            "support_level": "L1",
+        },
+    }
 
     def __init__(self, ollama=None, config: dict[str, Any] | None = None):
         super().__init__("support_agent", config or {}, ollama=ollama)
 
-        # FAQ comun
+        # Note: self.model and self.temperature are set by BaseAgent.__init__()
+        # They can be overridden via apply_tenant_config() in multi-tenant mode
+
+        # Initialize PromptManager for YAML-based prompts
+        self.prompt_manager = PromptManager()
+
+        # FAQ comun (e-commerce + Excelencia) - loaded from YAML
         self.faq_responses = self._load_faq_responses()
 
     @trace_async_method(
@@ -39,7 +117,7 @@ class SupportAgent(BaseAgent):
                 response_text = faq_response
             else:
                 # Generar respuesta personalizada
-                response_text = self._generate_support_response(message, problem_type)
+                response_text = await self._generate_support_response(message, problem_type)
 
             # Determinar si necesita escalacion
             requires_human = self._needs_human_intervention(message, problem_type)
@@ -68,6 +146,30 @@ class SupportAgent(BaseAgent):
         """Detecta el tipo de problema del usuario."""
         message_lower = message.lower()
 
+        # Check for Excelencia software issues first (higher priority)
+        excelencia_module = self._detect_excelencia_module(message_lower)
+        if excelencia_module:
+            return f"excelencia_{excelencia_module}"
+
+        # Check for Excelencia-specific keywords
+        excelencia_keywords = [
+            "modulo",
+            "erp",
+            "excelencia",
+            "software",
+            "sistema",
+            "licencia",
+            "capacitacion",
+            "implementacion",
+            "actualizacion",
+            "version",
+            "ticket",
+            "incidencia",
+        ]
+        if any(kw in message_lower for kw in excelencia_keywords):
+            return "excelencia_general"
+
+        # E-commerce problem patterns
         problem_patterns = {
             "payment": ["pago", "tarjeta", "rechazada", "cobro", "debito", "credito"],
             "delivery": ["entrega", "demora", "tarde", "no llego", "perdido"],
@@ -82,6 +184,17 @@ class SupportAgent(BaseAgent):
                 return problem_type
 
         return "general"
+
+    def _detect_excelencia_module(self, message_lower: str) -> str | None:
+        """Detecta si el mensaje menciona un modulo especifico de Excelencia."""
+        for module_key, module_info in self.EXCELENCIA_MODULES.items():
+            # Check module name
+            if module_key in message_lower:
+                return module_key
+            # Check common issues for this module
+            if any(issue in message_lower for issue in module_info["common_issues"]):
+                return module_key
+        return None
 
     def _search_faq(self, message: str, problem_type: str) -> str | None:
         """Busca respuesta en FAQ."""
@@ -101,69 +214,98 @@ class SupportAgent(BaseAgent):
 
         return None
 
-    def _generate_support_response(self, _: str, problem_type: str) -> str:
-        """Genera respuesta de soporte personalizada."""
-        responses = {
-            "payment": """Entiendo que tienes problemas con el pago. Te puedo ayudar con:
+    async def _generate_support_response(self, message: str, problem_type: str) -> str:
+        """Genera respuesta de soporte personalizada usando YAML prompts."""
+        # Check if it's an Excelencia module issue
+        if problem_type.startswith("excelencia_"):
+            return await self._generate_excelencia_response(message, problem_type)
 
-1. **Verificar el estado del pago**
-2. **Revisar metodos de pago disponibles**
-3. **Solucionar errores de tarjeta**
-
-Por favor, indicame especificamente que problema estas teniendo.""",
-            "delivery": """Lamento que tengas problemas con la entrega. Puedo ayudarte a:
-
-1. **Rastrear tu pedido** (necesitare el numero de orden)
-2. **Reprogramar la entrega**
-3. **Reportar un paquete perdido**
-
-Cual es tu numero de orden?""",
-            "product": """Siento mucho que hayas tenido problemas con el producto. Te ayudare a resolverlo.
-
-Opciones disponibles:
-- **Solicitar cambio o devolucion**
-- **Obtener soporte tecnico**
-- **Consultar garantia**
-
-Podrias describir el problema especifico que estas teniendo?""",
-            "account": """Te ayudare con tu problema de cuenta. Puedo asistirte con:
-
-- **Recuperar contrasena**
-- **Actualizar informacion personal**
-- **Resolver problemas de acceso**
-
-Que necesitas especificamente?""",
-            "return": """Te ayudare con el proceso de devolucion.
-
-**Politica de devoluciones:**
-- 30 dias desde la recepcion
-- Producto en condiciones originales
-- Con empaque original
-
-Tienes el numero de orden del producto que deseas devolver?""",
-            "technical": """Entiendo que estas experimentando problemas tecnicos. Para ayudarte mejor:
-
-1. En que dispositivo ocurre el problema? (movil/computadora)
-2. Que navegador/app estas usando?
-3. Cuando comenzo el problema?
-
-Mientras tanto, puedes intentar:
-- Limpiar cache y cookies
-- Actualizar la aplicacion
-- Reiniciar el dispositivo""",
-            "general": """Estoy aqui para ayudarte. Puedo asistirte con:
-
-- Problemas con pedidos
-- Consultas de pago
-- Seguimiento de envios
-- Soporte tecnico
-- Devoluciones y cambios
-- Problemas de cuenta
-
-En que puedo ayudarte especificamente?""",
+        # Map problem types to registry keys
+        key_mapping = {
+            "payment": PromptRegistry.AGENTS_SUPPORT_RESPONSE_PAYMENT,
+            "delivery": PromptRegistry.AGENTS_SUPPORT_RESPONSE_DELIVERY,
+            "product": PromptRegistry.AGENTS_SUPPORT_RESPONSE_PRODUCT,
+            "account": PromptRegistry.AGENTS_SUPPORT_RESPONSE_ACCOUNT,
+            "return": PromptRegistry.AGENTS_SUPPORT_RESPONSE_RETURN,
+            "technical": PromptRegistry.AGENTS_SUPPORT_RESPONSE_TECHNICAL,
+            "general": PromptRegistry.AGENTS_SUPPORT_RESPONSE_GENERAL,
         }
 
-        return responses.get(problem_type, responses["general"])
+        prompt_key = key_mapping.get(problem_type, PromptRegistry.AGENTS_SUPPORT_RESPONSE_GENERAL)
+
+        try:
+            response = await self.prompt_manager.get_prompt(prompt_key)
+            return response
+        except Exception as e:
+            logger.warning(f"Failed to load YAML prompt for {problem_type}: {e}")
+            # Fallback to general response
+            try:
+                return await self.prompt_manager.get_prompt(PromptRegistry.AGENTS_SUPPORT_RESPONSE_GENERAL)
+            except Exception:
+                return "Estoy aqui para ayudarte. En que puedo asistirte?"
+
+    async def _generate_excelencia_response(self, message: str, problem_type: str) -> str:
+        """Genera respuesta especializada para soporte de Excelencia ERP usando YAML."""
+        # Extract module name from problem_type
+        module_key = problem_type.replace("excelencia_", "")
+
+        if module_key == "general":
+            try:
+                return await self.prompt_manager.get_prompt(PromptRegistry.AGENTS_SUPPORT_EXCELENCIA_GENERAL)
+            except Exception as e:
+                logger.warning(f"Failed to load Excelencia general prompt: {e}")
+                return "Entiendo que tienes una consulta sobre Excelencia ERP. En que puedo ayudarte?"
+
+        # Get module info
+        module_info = self.EXCELENCIA_MODULES.get(module_key)
+        if not module_info:
+            return await self._generate_excelencia_response(message, "excelencia_general")
+
+        module_name = module_info["name"]
+        support_level = module_info["support_level"]
+        common_issues = module_info["common_issues"]
+
+        # Check for specific issues
+        message_lower = message.lower()
+        detected_issue = None
+        for issue in common_issues:
+            if issue in message_lower:
+                detected_issue = issue
+                break
+
+        # Build variables for YAML template
+        common_issues_list = "\n".join(f"- {issue.title()}" for issue in common_issues)
+        detected_issue_section = ""
+        if detected_issue:
+            detected_issue_section = f"He detectado que mencionas **{detected_issue}**. Este es un problema conocido.\n"
+
+        if support_level == "L2":
+            escalation_message = (
+                "Este modulo requiere soporte especializado. "
+                "Un tecnico de nivel 2 se pondra en contacto contigo en las proximas 4 horas habiles."
+            )
+        else:
+            escalation_message = (
+                "Puedo generar un **ticket de soporte** para dar seguimiento a tu caso. "
+                "Deseas que lo cree ahora?"
+            )
+
+        try:
+            response = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_SUPPORT_EXCELENCIA_MODULE,
+                variables={
+                    "module_name": module_name,
+                    "common_issues_list": common_issues_list,
+                    "support_level": support_level,
+                    "detected_issue_section": detected_issue_section,
+                    "escalation_message": escalation_message,
+                },
+            )
+            return response
+        except Exception as e:
+            logger.warning(f"Failed to load Excelencia module prompt: {e}")
+            # Fallback to general response
+            return await self._generate_excelencia_response(message, "excelencia_general")
 
     def _needs_human_intervention(self, message: str, problem_type: str) -> bool:
         """Determina si el caso requiere intervencion humana."""
@@ -195,8 +337,9 @@ En que puedo ayudarte especificamente?""",
         )
 
     def _load_faq_responses(self) -> dict[str, list[dict[str, Any]]]:
-        """Carga respuestas FAQ predefinidas."""
+        """Carga respuestas FAQ predefinidas (e-commerce + Excelencia)."""
         return {
+            # E-commerce FAQ
             "payment": [
                 {
                     "keywords": ["tarjeta rechazada", "pago rechazado"],
@@ -233,16 +376,184 @@ Todos los pagos son 100% seguros.""",
 Los tiempos pueden variar segun disponibilidad y metodo de envio elegido.""",
                 }
             ],
+            # Excelencia ERP FAQ
+            "excelencia_general": [
+                {
+                    "keywords": ["licencia", "activar licencia", "licenciamiento"],
+                    "response": """Para activar o renovar tu licencia de **Excelencia ERP**:
+
+1. Ingresa a **Configuracion > Licenciamiento**
+2. Haz clic en "Solicitar Activacion"
+3. Copia el codigo de maquina
+4. Contacta a tu ejecutivo para obtener la clave
+
+**Tipos de licencia:**
+- **Monousuario**: 1 usuario simultaneo
+- **Red**: Multiples usuarios
+- **Nube**: Acceso remoto
+
+Tu ejecutivo puede ayudarte con renovaciones y ampliaciones.""",
+                },
+                {
+                    "keywords": ["capacitacion", "entrenamiento", "curso"],
+                    "response": """Ofrecemos diferentes opciones de **capacitacion**:
+
+**Modalidades:**
+- **Presencial**: En tus oficinas (min. 5 personas)
+- **Virtual**: Sesiones por videollamada
+- **E-learning**: Plataforma de cursos online
+
+**Modulos disponibles:**
+- Basico: Ventas, Compras, Inventario
+- Intermedio: Contabilidad, Nomina
+- Avanzado: Produccion, Reportes BI
+
+Contacta a tu ejecutivo para programar una capacitacion.""",
+                },
+                {
+                    "keywords": ["actualizacion", "nueva version", "upgrade"],
+                    "response": """Para **actualizar** Excelencia ERP:
+
+**Proceso recomendado:**
+1. Realizar respaldo completo de la base de datos
+2. Cerrar todas las sesiones de usuarios
+3. Ejecutar el instalador de la nueva version
+4. Verificar la conversion de datos
+
+**Importante:**
+- Revisa las notas de version antes de actualizar
+- Prueba en ambiente de pruebas primero
+- Programa la actualizacion fuera de horario laboral
+
+¿Necesitas asistencia con una actualizacion especifica?""",
+                },
+                {
+                    "keywords": ["respaldo", "backup", "base de datos"],
+                    "response": """Para realizar **respaldos** de Excelencia ERP:
+
+**Respaldo automatico:**
+- Configura en **Herramientas > Respaldos**
+- Programa respaldos diarios/semanales
+- Guarda en ubicacion externa
+
+**Respaldo manual:**
+1. Ve a **Herramientas > Respaldo de BD**
+2. Selecciona la ruta de destino
+3. Haz clic en "Generar Respaldo"
+
+**Mejores practicas:**
+- Respaldo diario minimo
+- Guardar en la nube o disco externo
+- Verificar integridad periodicamente""",
+                },
+            ],
+            "excelencia_facturacion": [
+                {
+                    "keywords": ["timbrado", "cfdi", "sat"],
+                    "response": """Para problemas de **timbrado CFDI**:
+
+**Errores comunes:**
+- **CSD vencido**: Renueva en el portal del SAT
+- **Sello invalido**: Verifica certificado y clave
+- **RFC incorrecto**: Revisa datos del cliente
+- **PAC no disponible**: Intenta mas tarde
+
+**Verificaciones:**
+1. Asegurate de tener internet estable
+2. Verifica que tu CSD este vigente
+3. Revisa que los datos fiscales sean correctos
+
+Si el problema persiste, genera un ticket de soporte.""",
+                },
+                {
+                    "keywords": ["cancelar factura", "cancelacion"],
+                    "response": """Para **cancelar una factura CFDI**:
+
+**Requisitos:**
+- Dentro del mismo ejercicio fiscal
+- Motivo de cancelacion valido
+- Aceptacion del receptor (si aplica)
+
+**Proceso:**
+1. Ve a **Facturacion > Consulta de CFDI**
+2. Localiza la factura a cancelar
+3. Selecciona "Cancelar"
+4. Indica el motivo y documento sustituto
+
+**Nota:** Algunas cancelaciones requieren aceptacion del cliente en un plazo de 72 horas.""",
+                },
+            ],
+            "excelencia_contabilidad": [
+                {
+                    "keywords": ["cierre mes", "cierre contable"],
+                    "response": """Para el **cierre de mes** en Excelencia:
+
+**Pasos previos:**
+1. Verificar todas las polizas del periodo
+2. Conciliar cuentas bancarias
+3. Revisar cuentas por cobrar/pagar
+4. Calcular depreciaciones
+
+**Proceso de cierre:**
+1. Ve a **Contabilidad > Cierre de Periodo**
+2. Selecciona el mes a cerrar
+3. Revisa el prelisting de cierre
+4. Confirma el cierre
+
+Una vez cerrado, no podras agregar polizas a ese periodo sin reabrirlo.""",
+                },
+            ],
+            "excelencia_inventario": [
+                {
+                    "keywords": ["stock negativo", "existencia negativa"],
+                    "response": """Para corregir **stock negativo**:
+
+**Causas comunes:**
+- Ventas sin entrada de compras
+- Ajustes de inventario pendientes
+- Transferencias no procesadas
+
+**Solucion:**
+1. Ve a **Inventarios > Existencias por Almacen**
+2. Identifica los productos con stock negativo
+3. Realiza un ajuste de inventario positivo
+4. Documenta la causa del ajuste
+
+Para prevenir esto, activa **Control de Existencias** en configuracion.""",
+                },
+            ],
+            # General FAQ
             "general": [
                 {
                     "keywords": ["horario", "atencion"],
                     "response": """Nuestros horarios de atencion son:
 
-**Lunes a Viernes**: 9:00 - 18:00
-**Sabados**: 9:00 - 13:00
-**Domingos y feriados**: Cerrado
+**Soporte Tecnico Excelencia:**
+- Lunes a Viernes: 8:00 - 20:00
+- Sabados: 9:00 - 14:00
+
+**E-commerce:**
+- Lunes a Viernes: 9:00 - 18:00
+- Sabados: 9:00 - 13:00
+
+Domingos y feriados: Cerrado
 
 Puedes dejarnos tu consulta y te responderemos a la brevedad.""",
-                }
+                },
+                {
+                    "keywords": ["contacto", "telefono", "email"],
+                    "response": """Nuestros canales de contacto:
+
+**Soporte Excelencia ERP:**
+- Portal: soporte.excelencia.com
+- Email: soporte@excelencia.com
+- Tel: 800-123-4567
+
+**E-commerce:**
+- WhatsApp: Este canal
+- Email: ventas@aynux.com
+
+Para soporte tecnico urgente, genera un ticket en el portal.""",
+                },
             ],
         }

@@ -24,6 +24,12 @@ DOCUMENT_TYPES = [
     "clients",  # Información de clientes actuales
     "success_stories",  # Casos de éxito
     "general",  # Información general
+    # Support-specific document types (for RAG-based support)
+    "support_faq",  # Preguntas frecuentes de soporte
+    "support_guide",  # Guías de solución de problemas
+    "support_contact",  # Información de contacto y escalación
+    "support_training",  # Contenido de capacitación
+    "support_module",  # FAQ específico por módulo
 ]
 
 

@@ -181,6 +181,11 @@ class NodeExecutor:
             # Add response messages if present
             if "messages" in result:
                 updates["messages"] = self._convert_messages(result["messages"])
+            # Fallback: convert 'response' field to messages format
+            elif "response" in result:
+                response_text = result["response"]
+                updates["messages"] = [AIMessage(content=response_text)]
+                logger.debug(f"Converted 'response' field to messages for {agent_name}")
 
             # Copy other fields
             for key in ["retrieved_data", "is_complete", "error_count"]:
@@ -232,6 +237,9 @@ class NodeExecutor:
             "agent_history": state.get("agent_history", []),
             "error_count": state.get("error_count", 0),
             "routing_attempts": state.get("routing_attempts", 0),
+            # Conversation history context for all agents
+            "conversation_context": state.get("conversation_context", {}),
+            "conversation_summary": state.get("conversation_summary", ""),
         }
 
     def _prepare_supervisor_state(self, state: LangGraphState, messages: list) -> Dict[str, Any]:

@@ -1,0 +1,223 @@
+# Excelencia Domain - Support Response Prompts
+# Purpose: Generate RAG-enhanced support and training responses
+
+prompts:
+  # =============================================================================
+  # SUPPORT RESPONSE - For technical support queries
+  # =============================================================================
+  - key: excelencia.support.response
+    name: Excelencia Support Response Generator
+    description: Generates support responses using RAG context from knowledge base
+    version: "1.0.0"
+    template: |
+      Eres un asistente de soporte tecnico especializado en el ERP Excelencia.
+
+      ## CONSULTA DEL USUARIO:
+      "{user_message}"
+
+      ## ANALISIS:
+      - Tipo de consulta: {query_type}
+      - Modulos mencionados: {modules}
+      - Urgencia: {urgency}
+
+      {rag_context}
+
+      ## INSTRUCCIONES:
+      1. **PRIORIDAD**: Usa la informacion de "INFORMACION DE SOPORTE" como fuente principal
+      2. Si hay pasos especificos de solucion en el contexto RAG, incluyelos de forma clara
+      3. Si mencionan un modulo especifico, enfocate en problemas comunes de ese modulo
+      4. Ofrece crear un ticket de soporte si el problema parece complejo o no tiene solucion inmediata
+      5. Usa maximo 8-10 lineas
+      6. Usa 1-2 emojis apropiados (🛠️ ⚙️ 📞 💡 ✅)
+      7. Si no hay informacion especifica en RAG, ofrece alternativas de contacto
+      8. NO inventes informacion tecnica especifica - si no sabes algo, di que consultaras con el equipo tecnico
+      9. Siempre termina con una pregunta de seguimiento o confirmacion
+
+      Genera tu respuesta ahora:
+    metadata:
+      temperature: 0.6
+      max_tokens: 450
+      model: "llama3.1"
+      tags:
+        - excelencia
+        - support
+        - rag
+        - soporte_tecnico
+      variables:
+        required:
+          - user_message
+          - query_type
+        optional:
+          - modules
+          - urgency
+          - rag_context
+      sections:
+        rag_context:
+          description: "Support information retrieved from knowledge base via RAG"
+          example: |
+
+            ## INFORMACION DE SOPORTE (Knowledge Base):
+
+            ### 1. Canales de Soporte Tecnico
+            - Telefono: 800-XXX-XXXX (L-V 8:00-20:00)
+            - Email: soporte@empresa.com
+            - Portal: soporte.empresa.com
+            *Tipo: support_contact*
+
+  # =============================================================================
+  # TRAINING RESPONSE - For training/capacitacion queries
+  # =============================================================================
+  - key: excelencia.support.training
+    name: Excelencia Training Response Generator
+    description: Generates training-related responses using RAG context
+    version: "1.0.0"
+    template: |
+      Eres un asesor de capacitaciones del ERP Excelencia.
+
+      ## CONSULTA DEL USUARIO:
+      "{user_message}"
+
+      ## ANALISIS:
+      - Modulos mencionados: {modules}
+
+      {rag_context}
+
+      ## INSTRUCCIONES:
+      1. Usa la informacion de Knowledge Base si esta disponible
+      2. Describe las opciones de capacitacion disponibles (presencial, virtual, e-learning)
+      3. Si pregunta por un modulo especifico, enfocate en la capacitacion de ese modulo
+      4. Ofrece programar una sesion o enviar material si es apropiado
+      5. Maximo 6-8 lineas
+      6. Usa emojis apropiados (📚 🎓 💻 📖 ✨)
+      7. Siempre ofrece mas informacion o ayuda adicional
+
+      Genera tu respuesta ahora:
+    metadata:
+      temperature: 0.7
+      max_tokens: 400
+      model: "llama3.1"
+      tags:
+        - excelencia
+        - training
+        - capacitacion
+        - rag
+      variables:
+        required:
+          - user_message
+        optional:
+          - modules
+          - rag_context
+
+  # =============================================================================
+  # INCIDENT CONFIRMATION - For confirming ticket creation
+  # =============================================================================
+  - key: excelencia.support.incident_confirmation
+    name: Incident Ticket Confirmation
+    description: Confirmation message after creating an incident ticket
+    version: "1.0.0"
+    template: |
+      🎫 **Incidencia Registrada**
+
+      Tu reporte ha sido creado con el folio: **{ticket_id}**
+
+      **Resumen:**
+      - Categoria: {category}
+      - Prioridad: {priority}
+      - Modulo: {module}
+
+      Nuestro equipo de soporte lo revisara y te contactara pronto.
+      Tiempo de respuesta estimado: {estimated_response_time}
+
+      ¿Hay algo mas en lo que pueda ayudarte?
+    metadata:
+      temperature: 0.3
+      max_tokens: 200
+      tags:
+        - excelencia
+        - ticket
+        - confirmation
+      variables:
+        required:
+          - ticket_id
+        optional:
+          - category
+          - priority
+          - module
+          - estimated_response_time
+
+  # =============================================================================
+  # FEEDBACK CONFIRMATION - For confirming feedback submission
+  # =============================================================================
+  - key: excelencia.support.feedback_confirmation
+    name: Feedback Confirmation
+    description: Confirmation message after submitting feedback
+    version: "1.0.0"
+    template: |
+      💬 **Gracias por tu Feedback**
+
+      Tu comentario ha sido registrado (Ref: {ticket_id}).
+
+      Tu opinion es muy valiosa para nosotros y nos ayuda a mejorar
+      continuamente nuestros servicios y productos.
+
+      ¿Hay algo mas que quieras compartir o alguna otra consulta?
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags:
+        - excelencia
+        - feedback
+        - confirmation
+      variables:
+        required:
+          - ticket_id
+
+  # =============================================================================
+  # FALLBACK SUPPORT - When RAG returns no results
+  # =============================================================================
+  - key: excelencia.support.fallback
+    name: Support Fallback Response
+    description: Generic support response when RAG returns no specific results
+    version: "1.0.0"
+    template: |
+      🛠️ **Soporte Tecnico**
+
+      Disculpa, no encontre informacion especifica sobre tu consulta en este momento.
+
+      Puedes:
+      - Reformular tu pregunta con mas detalles sobre el problema
+      - Contactar a nuestro equipo de soporte directamente
+      - Decirme "quiero reportar una incidencia" para crear un ticket
+
+      ¿En que mas puedo ayudarte?
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags:
+        - excelencia
+        - support
+        - fallback
+
+  # =============================================================================
+  # TRAINING FALLBACK - When RAG returns no training results
+  # =============================================================================
+  - key: excelencia.support.training_fallback
+    name: Training Fallback Response
+    description: Generic training response when RAG returns no specific results
+    version: "1.0.0"
+    template: |
+      📚 **Capacitacion**
+
+      Para informacion sobre capacitaciones, te recomendamos:
+      - Contactar a tu ejecutivo de cuenta
+      - Visitar el portal de capacitaciones
+      - Solicitar una sesion de capacitacion personalizada
+
+      ¿Sobre que modulo necesitas capacitacion?
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags:
+        - excelencia
+        - training
+        - fallback

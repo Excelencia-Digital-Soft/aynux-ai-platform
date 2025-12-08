@@ -3,39 +3,25 @@ import logging
 from typing import Any, Dict
 
 from app.core.schemas import build_intent_prompt_text
+from app.prompts.manager import PromptManager
+
+# Initialize the prompt manager
+prompt_manager = PromptManager()
 
 
-def get_system_prompt() -> str:
+async def get_system_prompt() -> str:
     intent_text = build_intent_prompt_text()
-    prompt = """
-You are an expert intent classifier for an e-commerce assistant.
-Your task is to analyze the context and user message to identify a single primary intent.
-
-Consider conversation history. A message like "what about this one?" depends completely on previous messages.
-Use customer data to better understand their query.
-
-ALWAYS return a valid JSON object in a single line, without explanations, intros, or markdown.
-
-JSON structure:
-{{
-"intent": "one_of_the_valid_intents",
-"confidence": 0.0,
-"reasoning": "Brief explanation of why you chose this intent."
-}}
-
-{intent_text}
-
-If unsure, choose "fallback" with confidence < 0.7. Quality is more important than speed.
-    """
-
-    formatted_prompt = prompt.format(
-        intent_text=intent_text,
+    
+    # Load the system prompt from the YAML file
+    system_prompt_template = await prompt_manager.get_prompt(
+        "intent.analyzer.system",
+        variables={"intent_text": intent_text}
     )
+    
+    return system_prompt_template
 
-    return formatted_prompt
 
-
-def get_build_llm_prompt(message: str, state_dict: Dict[str, Any]) -> str:
+async def get_build_llm_prompt(message: str, state_dict: Dict[str, Any]) -> str:
     """Build complete LLM prompt including context."""
 
     # Add context only if available
@@ -54,7 +40,7 @@ def get_build_llm_prompt(message: str, state_dict: Dict[str, Any]) -> str:
                 context_info.append(f"Language: {language}")
             if context_info:
                 context_parts.append(f"### Context Information\n{', '.join(context_info)}")
-        elif isinstance(conversation_data, dict):
+        elif isinstance(conversation_data, list):
             # If it's a list of messages (actual history)
             try:
                 formatted_history = "\n".join(
@@ -73,13 +59,10 @@ def get_build_llm_prompt(message: str, state_dict: Dict[str, Any]) -> str:
 
     context_string = "\n\n".join(context_parts)
 
-    user_prompt = f"""
-{context_string}
-
-### Current User Message
-"{message}"
-
-Based on ALL the information above (customer data, history and current message), 
-respond only with the intent JSON.
-"""
-    return user_prompt.strip()
+    # Load the user prompt from the YAML file
+    user_prompt_template = await prompt_manager.get_prompt(
+        "intent.analyzer.user",
+        variables={"context_string": context_string, "message": message}
+    )
+    
+    return user_prompt_template

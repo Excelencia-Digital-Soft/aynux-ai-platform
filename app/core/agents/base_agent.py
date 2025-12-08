@@ -1,22 +1,60 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Clase base abstracta para todos los agentes especializados.
+#              Soporta modo dual: global (defaults) y multi-tenant (config de DB).
+# Tenant-Aware: Yes - via apply_tenant_config() puede recibir config por tenant.
+# ============================================================================
 """
 Agente base para todos los agentes especializados
+
+Supports dual-mode operation:
+- Global mode (no tenant): Uses hardcoded Python defaults
+- Multi-tenant mode (with token): Loads configuration from database
+
+The apply_tenant_config() method allows runtime configuration updates
+when processing requests in multi-tenant mode.
 """
 
 import logging
 import time
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.config.langsmith_config import get_tracer
 from app.core.schemas import AgentResponse
 from app.core.utils.tracing import AgentTracer, trace_async_method
 
+if TYPE_CHECKING:
+    from app.core.schemas.tenant_agent_config import AgentConfig
+
 logger = logging.getLogger(__name__)
 
 
+# Default agent configuration values (used in global mode)
+DEFAULT_AGENT_CONFIG = {
+    "model": "llama3.1",
+    "temperature": 0.7,
+    "max_tokens": 2048,
+    "timeout": 30,
+}
+
+
 class BaseAgent(ABC):
-    """Clase base para todos los agentes especializados"""
+    """
+    Base class for all specialized agents.
+
+    Supports dual-mode operation:
+    - Global mode: Uses DEFAULT_AGENT_CONFIG values
+    - Multi-tenant mode: Applies tenant-specific config via apply_tenant_config()
+
+    Attributes:
+        name: Agent identifier
+        config: Current configuration (global defaults or tenant-specific)
+        model: LLM model to use (can be overridden by tenant config)
+        temperature: LLM temperature (can be overridden by tenant config)
+        _tenant_config_applied: Flag indicating if tenant config was applied
+    """
 
     def __init__(self, name: str, config: dict[str, Any], **integrations):
         self.name = name
@@ -26,6 +64,16 @@ class BaseAgent(ABC):
         # Integraciones (Ollama, PostgreSQL, pgvector, etc.)
         self.integrations = integrations
         self.tools = []
+
+        # Default LLM configuration (can be overridden by tenant config)
+        self.model: str = config.get("model", DEFAULT_AGENT_CONFIG["model"])
+        self.temperature: float = config.get("temperature", DEFAULT_AGENT_CONFIG["temperature"])
+        self.max_tokens: int = config.get("max_tokens", DEFAULT_AGENT_CONFIG["max_tokens"])
+        self.timeout: int = config.get("timeout", DEFAULT_AGENT_CONFIG["timeout"])
+
+        # Track if tenant config has been applied
+        self._tenant_config_applied: bool = False
+        self._applied_config_keys: list[str] = []
 
         # Metricas del agente
         self.metrics = {"total_requests": 0, "successful_requests": 0, "average_response_time": 0.0}
@@ -208,3 +256,109 @@ class BaseAgent(ABC):
             Current timestamp as ISO formatted string
         """
         return datetime.now(UTC).isoformat()
+
+    # =========================================================================
+    # Dual-Mode Configuration Methods (Global vs Multi-Tenant)
+    # =========================================================================
+
+    def apply_tenant_config(self, agent_config: "AgentConfig") -> None:
+        """
+        Apply tenant-specific configuration to this agent.
+
+        Called when processing requests in multi-tenant mode. Updates agent
+        configuration from database values, overriding global defaults.
+
+        Args:
+            agent_config: AgentConfig loaded from database for this tenant
+
+        Example:
+            >>> # In multi-tenant mode
+            >>> agent = GreetingAgent(...)
+            >>> tenant_config = registry.get_agent("greeting_agent")
+            >>> agent.apply_tenant_config(tenant_config)
+            >>> # Agent now uses tenant-specific model, temperature, etc.
+        """
+        if not agent_config:
+            self.logger.debug(f"No tenant config provided for {self.name}, using defaults")
+            return
+
+        # Get the agent's custom config from database
+        config = agent_config.config or {}
+        applied_keys: list[str] = []
+
+        # Apply LLM configuration overrides
+        if "model" in config:
+            self.model = config["model"]
+            applied_keys.append("model")
+
+        if "temperature" in config:
+            self.temperature = float(config["temperature"])
+            applied_keys.append("temperature")
+
+        if "max_tokens" in config:
+            self.max_tokens = int(config["max_tokens"])
+            applied_keys.append("max_tokens")
+
+        if "timeout" in config:
+            self.timeout = int(config["timeout"])
+            applied_keys.append("timeout")
+
+        # Merge any additional config values
+        for key, value in config.items():
+            if key not in ("model", "temperature", "max_tokens", "timeout"):
+                self.config[key] = value
+                applied_keys.append(key)
+
+        # Track that tenant config was applied
+        self._tenant_config_applied = True
+        self._applied_config_keys = applied_keys
+
+        if applied_keys:
+            self.logger.info(
+                f"Applied tenant config to {self.name}: {applied_keys}"
+            )
+            self.logger.debug(
+                f"Using model: {self.model}, temperature: {self.temperature}"
+            )
+
+    def reset_to_defaults(self) -> None:
+        """
+        Reset agent configuration to global defaults.
+
+        Called when switching from multi-tenant mode back to global mode,
+        or when cleaning up after a request.
+        """
+        self.model = self.config.get("model", DEFAULT_AGENT_CONFIG["model"])
+        self.temperature = self.config.get("temperature", DEFAULT_AGENT_CONFIG["temperature"])
+        self.max_tokens = self.config.get("max_tokens", DEFAULT_AGENT_CONFIG["max_tokens"])
+        self.timeout = self.config.get("timeout", DEFAULT_AGENT_CONFIG["timeout"])
+
+        self._tenant_config_applied = False
+        self._applied_config_keys = []
+
+        self.logger.debug(f"Reset {self.name} to default configuration")
+
+    def is_tenant_config_applied(self) -> bool:
+        """Check if tenant-specific configuration is currently applied."""
+        return self._tenant_config_applied
+
+    def get_applied_config_keys(self) -> list[str]:
+        """Get list of configuration keys that were applied from tenant config."""
+        return self._applied_config_keys.copy()
+
+    def get_effective_config(self) -> dict[str, Any]:
+        """
+        Get the currently effective configuration.
+
+        Returns:
+            Dict with all effective configuration values (defaults + tenant overrides)
+        """
+        return {
+            "model": self.model,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "timeout": self.timeout,
+            "tenant_config_applied": self._tenant_config_applied,
+            "applied_keys": self._applied_config_keys,
+            **{k: v for k, v in self.config.items() if k not in ("model", "temperature", "max_tokens", "timeout")},
+        }

@@ -2,111 +2,108 @@
 # Defines user-facing service descriptions for each agent with i18n support
 # This file is loaded by PromptLoader and used to dynamically generate
 # service suggestions based on enabled agents.
+#
+# Architecture:
+# - ecommerce_agent: Unified e-commerce service (contains product, tracking, promotions, invoice nodes)
+# - Excelencia domain: excelencia_agent, excelencia_invoice_agent, excelencia_promotions_agent, data_insights_agent
+# - Always available: support_agent, fallback
 
 prompts:
   - key: agents.services.config
     name: Agent Services Configuration
     description: Metadata for agent services with i18n support
-    version: "1.0.0"
+    version: "2.0.0"
     template: |
       services:
-        product_agent:
+        # E-commerce domain - unified service
+        ecommerce_agent:
           emoji: "🛒"
-          keywords: ["productos", "precios", "catalogo", "equipos", "products", "prices"]
+          keywords: ["productos", "precios", "catalogo", "pedido", "envio", "tracking", "ofertas", "promociones", "factura pedido", "products", "prices", "order", "shipping"]
           i18n:
             es:
-              service_name: "productos"
-              description: "Ver productos disponibles"
+              service_name: "E-commerce"
+              description: "Productos, pedidos, promociones y facturacion"
             en:
-              service_name: "products"
-              description: "View available products"
+              service_name: "E-commerce"
+              description: "Products, orders, promotions and billing"
             pt:
-              service_name: "produtos"
-              description: "Ver produtos disponiveis"
+              service_name: "E-commerce"
+              description: "Produtos, pedidos, promocoes e faturamento"
 
-        promotions_agent:
-          emoji: "🎯"
-          keywords: ["ofertas", "descuentos", "promociones", "offers", "discounts"]
-          i18n:
-            es:
-              service_name: "promociones"
-              description: "Ofertas y promociones"
-            en:
-              service_name: "promotions"
-              description: "Offers and promotions"
-            pt:
-              service_name: "promocoes"
-              description: "Ofertas e promocoes"
-
-        tracking_agent:
-          emoji: "📦"
-          keywords: ["pedido", "envio", "tracking", "order", "shipping"]
-          i18n:
-            es:
-              service_name: "pedidos"
-              description: "Seguimiento de pedidos"
-            en:
-              service_name: "orders"
-              description: "Order tracking"
-            pt:
-              service_name: "pedidos"
-              description: "Rastreamento de pedidos"
-
+        # Always available - Support
         support_agent:
           emoji: "🔧"
-          keywords: ["ayuda", "soporte", "problema", "help", "support"]
+          keywords: ["ayuda", "soporte", "problema", "incidencia", "ticket", "help", "support"]
           i18n:
             es:
               service_name: "soporte"
-              description: "Soporte tecnico"
+              description: "Soporte tecnico y atencion al cliente"
             en:
               service_name: "support"
-              description: "Technical support"
+              description: "Technical support and customer service"
             pt:
               service_name: "suporte"
-              description: "Suporte tecnico"
+              description: "Suporte tecnico e atendimento ao cliente"
 
-        invoice_agent:
-          emoji: "📄"
-          keywords: ["factura", "pago", "cuenta", "invoice", "payment"]
-          i18n:
-            es:
-              service_name: "facturacion"
-              description: "Consultas de facturacion"
-            en:
-              service_name: "billing"
-              description: "Billing inquiries"
-            pt:
-              service_name: "faturamento"
-              description: "Consultas de faturamento"
-
+        # Excelencia domain - ERP Info
         excelencia_agent:
           emoji: "💼"
-          keywords: ["erp", "excelencia", "sistema"]
+          keywords: ["erp", "excelencia", "sistema", "modulo", "demo", "mision", "vision"]
           i18n:
             es:
               service_name: "ERP Excelencia"
-              description: "Informacion del sistema ERP"
+              description: "Informacion del sistema ERP, modulos y demos"
             en:
               service_name: "Excelencia ERP"
-              description: "ERP system information"
+              description: "ERP system information, modules and demos"
             pt:
               service_name: "ERP Excelencia"
-              description: "Informacoes do sistema ERP"
+              description: "Informacoes do sistema ERP, modulos e demos"
 
-        data_insights_agent:
-          emoji: "📊"
-          keywords: ["reporte", "analisis", "estadisticas", "report", "analytics"]
+        # Excelencia domain - Client Invoicing
+        excelencia_invoice_agent:
+          emoji: "🧾"
+          keywords: ["factura cliente", "estado cuenta", "cobranza", "deuda cliente", "client invoice"]
           i18n:
             es:
-              service_name: "reportes"
-              description: "Reportes y analisis"
+              service_name: "Facturacion Excelencia"
+              description: "Facturas y cobranzas de clientes"
             en:
-              service_name: "reports"
-              description: "Reports and analytics"
+              service_name: "Excelencia Billing"
+              description: "Client invoices and collections"
             pt:
-              service_name: "relatorios"
-              description: "Relatorios e analises"
+              service_name: "Faturamento Excelencia"
+              description: "Faturas e cobrancas de clientes"
+
+        # Excelencia domain - Software Promotions
+        excelencia_promotions_agent:
+          emoji: "🏷️"
+          keywords: ["promocion software", "descuento modulo", "oferta implementacion", "descuento capacitacion"]
+          i18n:
+            es:
+              service_name: "Promociones Software"
+              description: "Promociones de software Excelencia"
+            en:
+              service_name: "Software Promotions"
+              description: "Excelencia software promotions"
+            pt:
+              service_name: "Promocoes Software"
+              description: "Promocoes de software Excelencia"
+
+        # Excelencia domain - Data & Analytics
+        data_insights_agent:
+          emoji: "📊"
+          keywords: ["reporte", "analisis", "estadisticas", "dashboard", "metricas", "report", "analytics"]
+          i18n:
+            es:
+              service_name: "Reportes Excelencia"
+              description: "Reportes y analisis de datos"
+            en:
+              service_name: "Excelencia Reports"
+              description: "Data reports and analytics"
+            pt:
+              service_name: "Relatorios Excelencia"
+              description: "Relatorios e analises de dados"
 
       fallback:
         emoji: "💬"

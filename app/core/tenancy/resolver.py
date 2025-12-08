@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Resuelve el tenant desde JWT, WhatsApp ID, header, o slug.
+#              Valida membresía de usuario y estado de organización.
+# Tenant-Aware: Yes - responsable de identificar el tenant en cada request.
+# ============================================================================
 """
 TenantResolver - Resolves tenant context from various sources.
 

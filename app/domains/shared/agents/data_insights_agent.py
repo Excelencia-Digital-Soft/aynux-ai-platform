@@ -14,9 +14,12 @@ import logging
 from typing import Any
 
 from app.core.agents import BaseAgent
-from app.integrations.llm import OllamaLLM
 from app.core.tools import DynamicSQLTool, SQLExecutionResult
 from app.core.utils.tracing import trace_async_method
+from app.integrations.llm import OllamaLLM
+from app.integrations.llm.model_provider import ModelComplexity
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,9 @@ class DataInsightsAgent(BaseAgent):
         # Inicializar herramientas
         self.ollama = ollama or OllamaLLM()
         self.sql_tool = DynamicSQLTool(self.ollama)
+
+        # Initialize PromptManager for YAML-based prompts
+        self.prompt_manager = PromptManager()
 
         # Patrones de consultas que puede manejar
         self.supported_patterns = {
@@ -114,38 +120,18 @@ class DataInsightsAgent(BaseAgent):
             }
 
     async def _is_data_query(self, message: str) -> bool:
-        """Determina si la consulta es apropiada para analisis de datos."""
-
-        analysis_prompt = f"""# CLASIFICACION DE CONSULTA
-
-MENSAJE: "{message}"
-
-Esta consulta requiere analisis de datos, estadisticas, busquedas en base de datos o informacion historica?
-
-Ejemplos de consultas de datos:
-- "Cuantos pedidos se hicieron esta semana?"
-- "Cuantos productos tenemos en total?"
-- "Muestra mis ultimas compras"
-- "Cual es el producto mas vendido?"
-- "Estadisticas de ventas del mes pasado"
-- "Total de clientes registrados"
-- "Productos con mas stock"
-
-Ejemplos de consultas NO de datos:
-- "Hola, como estas?"
-- "Ayudame con mi factura"
-- "Tengo un problema tecnico"
-
-IMPORTANTE: Si la consulta contiene palabras como "cuantos", "total", "estadisticas", "ultimos", "mas",
-    es probable que sea una consulta de datos.
-
-Responde EXACTAMENTE: "SI" o "NO"
-"""
-
+        """Determina si la consulta es apropiada para analisis de datos usando YAML prompt."""
         try:
+            # Load prompt from YAML
+            analysis_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_DATA_INSIGHTS_CLASSIFICATION,
+                variables={"message": message},
+            )
+
             response = await self.ollama.generate_response(
                 system_prompt="Eres un clasificador de consultas que determina si requieren analisis de datos.",
                 user_prompt=analysis_prompt,
+                complexity=ModelComplexity.SIMPLE,
                 temperature=0.1,
             )
 
@@ -244,7 +230,7 @@ Responde EXACTAMENTE: "SI" o "NO"
     async def _generate_intelligent_response(
         self, user_query: str, sql_result: SQLExecutionResult, user_id: str | None, state_dict: dict[str, Any]
     ) -> str:
-        """Genera respuesta inteligente basada en los resultados de la consulta."""
+        """Genera respuesta inteligente basada en los resultados de la consulta usando YAML."""
 
         logger.debug(f"Genera respuesta inteligente: user_id={user_id}, state={state_dict}")
 
@@ -252,46 +238,27 @@ Responde EXACTAMENTE: "SI" o "NO"
             return await self._generate_no_results_response(user_query, sql_result)
 
         # Preparar contexto para la respuesta
-        context_data = {
-            "user_query": user_query,
-            "row_count": sql_result.row_count,
-            "execution_time": sql_result.execution_time_ms,
-            "data_summary": sql_result.embedding_context,
-            "sample_data": sql_result.data[:5] if sql_result.data else [],
-        }
-
-        response_prompt = f"""# GENERACION DE RESPUESTA INTELIGENTE
-
-## CONSULTA DEL USUARIO:
-"{user_query}"
-
-## RESULTADOS DE LA CONSULTA:
-- Registros encontrados: {sql_result.row_count}
-- Tiempo de ejecucion: {sql_result.execution_time_ms:.2f}ms
-- SQL ejecutado: {sql_result.generated_sql}
-
-## CONTEXTO DE DATOS:
-{sql_result.embedding_context or "Datos disponibles"}
-
-## MUESTRA DE DATOS:
-{json.dumps(context_data["sample_data"], indent=2, default=str)}
-
-## INSTRUCCIONES:
-1. Responde de manera directa y util a la pregunta del usuario
-2. Incluye numeros especificos y datos relevantes
-3. Proporciona insights adicionales cuando sea apropiado
-4. Usa un tono conversacional y amigable
-5. Si hay muchos resultados, resume los mas importantes
-6. Incluye sugerencias de seguimiento si es util
-
-Maximo 6 lineas de respuesta:
-"""
+        sample_data = sql_result.data[:5] if sql_result.data else []
 
         try:
+            # Load prompt from YAML
+            response_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_DATA_INSIGHTS_RESPONSE,
+                variables={
+                    "user_query": user_query,
+                    "row_count": sql_result.row_count,
+                    "execution_time": f"{sql_result.execution_time_ms:.2f}",
+                    "generated_sql": sql_result.generated_sql,
+                    "embedding_context": sql_result.embedding_context or "Datos disponibles",
+                    "sample_data": json.dumps(sample_data, indent=2, default=str),
+                },
+            )
+
             response = await self.ollama.generate_response(
                 system_prompt="Eres un analista de datos experto que proporciona insights claros "
                 "basados en consultas de base de datos.",
                 user_prompt=response_prompt,
+                complexity=ModelComplexity.COMPLEX,
                 temperature=0.6,
             )
 
@@ -302,22 +269,20 @@ Maximo 6 lineas de respuesta:
             return self._generate_fallback_response(user_query, sql_result)
 
     async def _generate_no_results_response(self, user_query: str, sql_result: SQLExecutionResult) -> str:
-        """Genera respuesta cuando no hay resultados."""
+        """Genera respuesta cuando no hay resultados usando YAML."""
         logger.debug(f"sql_result: {sql_result}")
 
-        no_results_prompt = f"""La consulta "{user_query}" no arrojo resultados.
-
-Genera una respuesta empatica que:
-1. Confirme que no se encontraron datos
-2. Sugiera posibles alternativas o consultas relacionadas
-3. Ofrezca ayuda adicional
-
-Maximo 3 lineas:"""
-
         try:
+            # Load prompt from YAML
+            no_results_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_DATA_INSIGHTS_NO_RESULTS,
+                variables={"user_query": user_query},
+            )
+
             response = await self.ollama.generate_response(
                 system_prompt="Eres un asistente util que maneja consultas sin resultados de manera empatica.",
                 user_prompt=no_results_prompt,
+                complexity=ModelComplexity.SIMPLE,
                 temperature=0.7,
             )
 
@@ -328,21 +293,21 @@ Maximo 3 lineas:"""
             return f"No encontre resultados para '{user_query}'. Te gustaria intentar con una consulta diferente?"
 
     async def _handle_query_error(self, user_query: str, sql_result: SQLExecutionResult) -> str:
-        """Maneja errores en la ejecucion de consultas."""
-
-        error_prompt = f"""La consulta "{user_query}" encontro un error: {sql_result.error_message}
-
-Genera una respuesta que:
-1. Explique que hubo un problema tecnico (sin detalles tecnicos)
-2. Sugiera reformular la pregunta
-3. Ofrezca ayuda alternativa
-
-Maximo 2 lineas, tono amigable:"""
-
+        """Maneja errores en la ejecucion de consultas usando YAML."""
         try:
+            # Load prompt from YAML
+            error_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_DATA_INSIGHTS_ERROR,
+                variables={
+                    "user_query": user_query,
+                    "error_message": sql_result.error_message or "Error desconocido",
+                },
+            )
+
             response = await self.ollama.generate_response(
                 system_prompt="Eres un asistente que maneja errores tecnicos de manera amigable y util.",
                 user_prompt=error_prompt,
+                complexity=ModelComplexity.SIMPLE,
                 temperature=0.5,
             )
 

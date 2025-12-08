@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Configuración de agentes por tenant. Habilitar/deshabilitar,
+#              prioridad, keywords, intent_patterns, config personalizado.
+# Tenant-Aware: Yes - organization_id FK, sobrescribe BUILTIN_AGENT_DEFAULTS.
+# ============================================================================
 """
 TenantAgent model - Per-tenant agent configuration.
 

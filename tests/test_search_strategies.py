@@ -41,10 +41,42 @@ class TestPgVectorSearchStrategy:
     @pytest.mark.asyncio
     async def test_search_success(self, strategy, mock_pgvector):
         """Test successful search."""
-        # Mock search results
+        # Mock Product ORM objects - search_similar_products returns List[Tuple[Product, float]]
+        mock_product1 = Mock()
+        mock_product1.id = 1
+        mock_product1.name = "Laptop"
+        mock_product1.price = 999.99
+        mock_product1.stock = 10
+        mock_product1.description = "Test laptop"
+        mock_product1.short_description = "Test"
+        mock_product1.specs = "i7, 16GB RAM"
+        mock_product1.model = "LP001"
+        mock_product1.sku = "SKU001"
+        mock_product1.category = Mock(display_name="Computers")
+        mock_product1.category_id = 1
+        mock_product1.brand = Mock(name="TestBrand")
+        mock_product1.brand_id = 1
+        mock_product1.image_url = None
+
+        mock_product2 = Mock()
+        mock_product2.id = 2
+        mock_product2.name = "Mouse"
+        mock_product2.price = 29.99
+        mock_product2.stock = 50
+        mock_product2.description = "Test mouse"
+        mock_product2.short_description = "Mouse"
+        mock_product2.specs = "Wireless"
+        mock_product2.model = "MS001"
+        mock_product2.sku = "SKU002"
+        mock_product2.category = Mock(display_name="Peripherals")
+        mock_product2.category_id = 2
+        mock_product2.brand = Mock(name="TestBrand")
+        mock_product2.brand_id = 1
+        mock_product2.image_url = None
+
         mock_pgvector.search_similar_products.return_value = [
-            {"product": {"id": "1", "name": "Laptop"}, "similarity": 0.85},
-            {"product": {"id": "2", "name": "Mouse"}, "similarity": 0.75},
+            (mock_product1, 0.85),
+            (mock_product2, 0.75),
         ]
 
         intent = UserIntent(intent="search_specific_products", search_terms=["laptop"])

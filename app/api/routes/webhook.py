@@ -1,8 +1,18 @@
+# ============================================================================
+# SCOPE: MIXED (Dual-mode: Global + Multi-tenant)
+# Description: Webhook de WhatsApp con soporte dual-mode automático.
+#              Sin token = modo global. Con token = carga config de DB por tenant.
+# Tenant-Aware: Yes - detecta TenantContext y carga TenantAgentRegistry si existe.
+# ============================================================================
 """
 ✅ CLEAN ARCHITECTURE - Webhook Endpoints (VERSION 2)
 
 This is the new version of webhook.py that uses Clean Architecture patterns.
 Replaces legacy webhook.py which used deprecated domain_detector and domain_manager services.
+
+DUAL-MODE SUPPORT:
+  ✅ Global mode (no token): Uses Python default agent configurations
+  ✅ Multi-tenant mode (with token): Loads agent config from database per-request
 
 MIGRATION STATUS:
   ✅ Uses Admin Use Cases for domain detection
@@ -35,6 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import Settings, get_settings
 from app.core.container import DependencyContainer
+from app.core.tenancy.context import get_tenant_context
 from app.database.async_db import get_async_db
 from app.models.message import BotResponse, WhatsAppWebhookRequest
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
@@ -113,17 +124,24 @@ async def _get_langgraph_service() -> LangGraphChatbotService:
 async def process_webhook(
     request: WhatsAppWebhookRequest = Body(...),  # noqa: B008
     db_session: AsyncSession = Depends(get_async_db),  # noqa: B008
+    settings: Settings = Depends(get_settings),  # noqa: B008
 ):
     """
     Procesa las notificaciones del webhook de WhatsApp con Clean Architecture.
 
+    DUAL-MODE SUPPORT:
+    - Global mode: No tenant context → uses Python default configs
+    - Multi-tenant mode: Has tenant context → loads agent config from database
+
     Esta versión usa:
     - GetContactDomainUseCase para detección de dominio
     - LangGraphChatbotService para procesamiento (ya usa Clean Architecture)
+    - TenantAgentService para cargar configuración de agentes (multi-tenant mode)
 
     Args:
         request: WhatsApp webhook request payload
         db_session: Async database session
+        settings: Application settings
 
     Returns:
         Processing result with status and response
@@ -149,17 +167,34 @@ async def process_webhook(
     domain = await _detect_contact_domain(wa_id, db_session)
     logger.info(f"Contact domain detected: {wa_id} -> {domain}")
 
-    # PASO 2: Procesar mensaje con LangGraph Service
-    try:
-        service = await _get_langgraph_service()
+    # PASO 2: Load tenant registry if in multi-tenant mode
+    service = await _get_langgraph_service()
+    tenant_registry = None
+    mode = "global"
 
+    if settings.MULTI_TENANT_MODE:
+        tenant_registry = await _load_tenant_registry_if_available(db_session)
+        if tenant_registry:
+            mode = "multi_tenant"
+            service.set_tenant_registry_for_request(tenant_registry)
+            logger.info(f"Processing in multi-tenant mode for org: {tenant_registry.organization_id}")
+        else:
+            logger.info("No tenant context found, processing in global mode")
+
+    # PASO 3: Procesar mensaje con LangGraph Service
+    try:
         # LangGraphChatbotService ya usa Clean Architecture internamente
         result: BotResponse = await service.process_webhook_message(
             message=message, contact=contact, business_domain=domain
         )
 
         logger.info(f"Message processed successfully: {result.status}")
-        return {"status": "ok", "result": result, "domain": domain}
+
+        # Reset tenant config after processing (cleanup)
+        if mode == "multi_tenant":
+            service.reset_tenant_config()
+
+        return {"status": "ok", "result": result, "domain": domain, "mode": mode}
 
     except Exception as e:
         logger.error(f"Error processing message: {str(e)}", exc_info=True)
@@ -167,20 +202,63 @@ async def process_webhook(
         # Intentar fallback con dominio por defecto
         try:
             logger.info("Attempting fallback to default domain (ecommerce)")
-            service = await _get_langgraph_service()
             result: BotResponse = await service.process_webhook_message(
                 message=message, contact=contact, business_domain="ecommerce"
             )
 
-            return {"status": "ok", "result": result, "domain": "ecommerce", "method": "fallback"}
+            # Reset tenant config after processing
+            if mode == "multi_tenant":
+                service.reset_tenant_config()
+
+            return {"status": "ok", "result": result, "domain": "ecommerce", "method": "fallback", "mode": mode}
 
         except Exception as fallback_error:
             logger.error(f"Fallback also failed: {fallback_error}", exc_info=True)
+            # Ensure cleanup even on error
+            if mode == "multi_tenant":
+                service.reset_tenant_config()
             return {
                 "status": "error",
                 "message": str(e),
                 "fallback_error": str(fallback_error),
             }
+
+
+async def _load_tenant_registry_if_available(db_session: AsyncSession):
+    """
+    Load tenant agent registry from database if tenant context is available.
+
+    In multi-tenant mode, this loads the agent configuration for the current
+    tenant from the database. In global mode, returns None.
+
+    Args:
+        db_session: Async database session
+
+    Returns:
+        TenantAgentRegistry or None if no tenant context
+    """
+    try:
+        # Get current tenant context (set by middleware)
+        ctx = get_tenant_context()
+        if not ctx or not ctx.organization_id:
+            logger.debug("No tenant context available, using global mode")
+            return None
+
+        # Load tenant registry using TenantAgentService
+        from app.core.tenancy.agent_service import TenantAgentService
+
+        service = TenantAgentService(db=db_session)
+        registry = await service.get_agent_registry(ctx.organization_id)
+
+        logger.info(f"Loaded tenant registry for org {ctx.organization_id}")
+        return registry
+
+    except ImportError as e:
+        logger.warning(f"TenantAgentService not available: {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Error loading tenant registry: {e}")
+        return None
 
 
 async def _detect_contact_domain(wa_id: str, db_session: AsyncSession) -> str:

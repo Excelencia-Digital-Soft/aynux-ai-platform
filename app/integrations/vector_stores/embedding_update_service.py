@@ -17,6 +17,7 @@ from typing import Any
 from langchain_ollama import OllamaEmbeddings
 from sqlalchemy import func, select, text
 
+from app.config.settings import get_settings
 from app.database.async_db import get_async_db
 from app.models.db import Product
 
@@ -35,22 +36,17 @@ class EmbeddingUpdateService:
     - Automatic embedding generation with Ollama
     """
 
-    def __init__(
-        self,
-        embedding_model: str = "nomic-embed-text",
-        ollama_base_url: str = "http://localhost:11434",
-    ):
+    def __init__(self):
         """
         Initialize the embedding service.
-
-        Args:
-            embedding_model: Name of the Ollama embedding model
-            ollama_base_url: Base URL for Ollama API
         """
-        self.embedding_model = embedding_model
-        self.embeddings = OllamaEmbeddings(model=embedding_model, base_url=ollama_base_url)
+        settings = get_settings()
+        self.embedding_model = settings.OLLAMA_API_MODEL_EMBEDDING
+        self.embeddings = OllamaEmbeddings(
+            model=settings.OLLAMA_API_MODEL_EMBEDDING, base_url=settings.OLLAMA_API_URL
+        )
 
-        logger.info(f"EmbeddingUpdateService initialized with model={embedding_model} (pgvector)")
+        logger.info(f"EmbeddingUpdateService initialized with model={self.embedding_model} (pgvector)")
 
     def _create_product_content(self, product: Product) -> str:
         """

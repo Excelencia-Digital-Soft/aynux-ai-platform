@@ -1,0 +1,554 @@
+# Agent Prompts - Support Agent
+# Purpose: E-commerce support and Excelencia ERP technical assistance
+
+prompts:
+  # === RESPONSE TEMPLATES ===
+  - key: agents.support.response.payment
+    name: Payment Support Response
+    description: Response for payment-related issues
+    version: "1.0.0"
+    template: |
+      Entiendo que tienes problemas con el pago. Te puedo ayudar con:
+
+      1. **Verificar el estado del pago**
+      2. **Revisar metodos de pago disponibles**
+      3. **Solucionar errores de tarjeta**
+
+      Por favor, indicame especificamente que problema estas teniendo.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags: [support, payment, ecommerce]
+
+  - key: agents.support.response.delivery
+    name: Delivery Support Response
+    description: Response for delivery-related issues
+    version: "1.0.0"
+    template: |
+      Lamento que tengas problemas con la entrega. Puedo ayudarte a:
+
+      1. **Rastrear tu pedido** (necesitare el numero de orden)
+      2. **Reprogramar la entrega**
+      3. **Reportar un paquete perdido**
+
+      Cual es tu numero de orden?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags: [support, delivery, ecommerce]
+
+  - key: agents.support.response.product
+    name: Product Support Response
+    description: Response for product-related issues
+    version: "1.0.0"
+    template: |
+      Siento mucho que hayas tenido problemas con el producto. Te ayudare a resolverlo.
+
+      Opciones disponibles:
+      - **Solicitar cambio o devolucion**
+      - **Obtener soporte tecnico**
+      - **Consultar garantia**
+
+      Podrias describir el problema especifico que estas teniendo?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags: [support, product, ecommerce]
+
+  - key: agents.support.response.account
+    name: Account Support Response
+    description: Response for account-related issues
+    version: "1.0.0"
+    template: |
+      Te ayudare con tu problema de cuenta. Puedo asistirte con:
+
+      - **Recuperar contrasena**
+      - **Actualizar informacion personal**
+      - **Resolver problemas de acceso**
+
+      Que necesitas especificamente?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags: [support, account, ecommerce]
+
+  - key: agents.support.response.return
+    name: Return Support Response
+    description: Response for return/refund requests
+    version: "1.0.0"
+    template: |
+      Te ayudare con el proceso de devolucion.
+
+      **Politica de devoluciones:**
+      - 30 dias desde la recepcion
+      - Producto en condiciones originales
+      - Con empaque original
+
+      Tienes el numero de orden del producto que deseas devolver?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags: [support, return, ecommerce]
+
+  - key: agents.support.response.technical
+    name: Technical Support Response
+    description: Response for technical issues
+    version: "1.0.0"
+    template: |
+      Entiendo que estas experimentando problemas tecnicos. Para ayudarte mejor:
+
+      1. En que dispositivo ocurre el problema? (movil/computadora)
+      2. Que navegador/app estas usando?
+      3. Cuando comenzo el problema?
+
+      Mientras tanto, puedes intentar:
+      - Limpiar cache y cookies
+      - Actualizar la aplicacion
+      - Reiniciar el dispositivo
+    metadata:
+      temperature: 0.7
+      max_tokens: 250
+      tags: [support, technical, ecommerce]
+
+  - key: agents.support.response.general
+    name: General Support Response
+    description: Default support response
+    version: "1.0.0"
+    template: |
+      Estoy aqui para ayudarte. Puedo asistirte con:
+
+      **E-commerce:**
+      - Problemas con pedidos
+      - Consultas de pago
+      - Seguimiento de envios
+      - Devoluciones y cambios
+
+      **Software Excelencia ERP:**
+      - Incidencias de modulos
+      - Soporte tecnico
+      - Capacitaciones
+      - Actualizaciones
+
+      En que puedo ayudarte especificamente?
+    metadata:
+      temperature: 0.7
+      max_tokens: 250
+      tags: [support, general]
+
+  # === EXCELENCIA ERP RESPONSES ===
+  - key: agents.support.excelencia.general
+    name: Excelencia General Support
+    description: General response for Excelencia ERP queries
+    version: "1.0.0"
+    template: |
+      Entiendo que tienes una consulta sobre el software **Excelencia ERP**.
+
+      Puedo ayudarte con:
+
+      **Soporte Tecnico:**
+      - Incidencias en modulos
+      - Errores y bugs
+      - Problemas de rendimiento
+
+      **Capacitacion:**
+      - Programar sesiones
+      - Material de entrenamiento
+      - Videos tutoriales
+
+      **Licenciamiento:**
+      - Estado de licencia
+      - Renovaciones
+      - Ampliacion de usuarios
+
+      **Actualizaciones:**
+      - Nuevas versiones
+      - Parches de seguridad
+      - Migraciones
+
+      Por favor, indicame:
+      1. Cual es el modulo o area afectada?
+      2. Describe el problema que estas experimentando
+    metadata:
+      temperature: 0.7
+      max_tokens: 400
+      tags: [support, excelencia, erp]
+
+  - key: agents.support.excelencia.module_response
+    name: Excelencia Module Support
+    description: Response for specific Excelencia module issues
+    version: "1.0.0"
+    template: |
+      Entiendo que tienes un problema con el **{module_name}** de Excelencia ERP.
+
+      {detected_issue_section}
+
+      **Problemas comunes en este modulo:**
+      {common_issues_list}
+
+      **Nivel de soporte:** {support_level}
+
+      Para ayudarte mejor, necesito:
+      1. Numero de cliente o empresa
+      2. Version del sistema
+      3. Descripcion detallada del error
+      4. Capturas de pantalla (si es posible)
+
+      {escalation_message}
+    metadata:
+      temperature: 0.7
+      max_tokens: 400
+      tags: [support, excelencia, module]
+      variables:
+        required:
+          - module_name
+          - common_issues_list
+          - support_level
+        optional:
+          - detected_issue_section
+          - escalation_message
+      sections:
+        detected_issue_section:
+          template: "He detectado que mencionas **{detected_issue}**. Este es un problema conocido.\n"
+        escalation_message:
+          L1: "Puedo generar un **ticket de soporte** para dar seguimiento a tu caso. Deseas que lo cree ahora?"
+          L2: "Este modulo requiere soporte especializado. Un tecnico de nivel 2 se pondra en contacto contigo en las proximas 4 horas habiles."
+
+  # === FAQ: PAYMENT ===
+  - key: agents.support.faq.payment.rejected_card
+    name: FAQ - Rejected Card
+    description: FAQ response for rejected card issues
+    version: "1.0.0"
+    template: |
+      Tu tarjeta fue rechazada. Esto puede deberse a:
+
+      - **Fondos insuficientes**
+      - **Limite de credito alcanzado**
+      - **Tarjeta vencida**
+      - **Datos incorrectos**
+
+      Por favor, verifica estos puntos o intenta con otro metodo de pago.
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags: [faq, payment]
+      keywords:
+        - tarjeta rechazada
+        - pago rechazado
+
+  - key: agents.support.faq.payment.methods
+    name: FAQ - Payment Methods
+    description: FAQ response for payment methods
+    version: "1.0.0"
+    template: |
+      Aceptamos los siguientes metodos de pago:
+
+      **Tarjetas**: Visa, Mastercard, American Express
+      **Transferencia bancaria**
+      **Mercado Pago**
+      **Billeteras digitales**: PayPal
+
+      Todos los pagos son 100% seguros.
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags: [faq, payment]
+      keywords:
+        - metodos de pago
+        - formas de pago
+
+  # === FAQ: DELIVERY ===
+  - key: agents.support.faq.delivery.time
+    name: FAQ - Delivery Time
+    description: FAQ response for delivery times
+    version: "1.0.0"
+    template: |
+      Los tiempos de entrega son:
+
+      - **CABA**: 24-48 horas
+      - **GBA**: 48-72 horas
+      - **Interior**: 3-7 dias habiles
+
+      Los tiempos pueden variar segun disponibilidad y metodo de envio elegido.
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags: [faq, delivery]
+      keywords:
+        - tiempo de entrega
+        - cuanto tarda
+
+  # === FAQ: EXCELENCIA ===
+  - key: agents.support.faq.excelencia.license
+    name: FAQ - Excelencia License
+    description: FAQ response for license activation
+    version: "1.0.0"
+    template: |
+      Para activar o renovar tu licencia de **Excelencia ERP**:
+
+      1. Ingresa a **Configuracion > Licenciamiento**
+      2. Haz clic en "Solicitar Activacion"
+      3. Copia el codigo de maquina
+      4. Contacta a tu ejecutivo para obtener la clave
+
+      **Tipos de licencia:**
+      - **Monousuario**: 1 usuario simultaneo
+      - **Red**: Multiples usuarios
+      - **Nube**: Acceso remoto
+
+      Tu ejecutivo puede ayudarte con renovaciones y ampliaciones.
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags: [faq, excelencia, license]
+      keywords:
+        - licencia
+        - activar licencia
+        - licenciamiento
+
+  - key: agents.support.faq.excelencia.training
+    name: FAQ - Excelencia Training
+    description: FAQ response for training options
+    version: "1.0.0"
+    template: |
+      Ofrecemos diferentes opciones de **capacitacion**:
+
+      **Modalidades:**
+      - **Presencial**: En tus oficinas (min. 5 personas)
+      - **Virtual**: Sesiones por videollamada
+      - **E-learning**: Plataforma de cursos online
+
+      **Modulos disponibles:**
+      - Basico: Ventas, Compras, Inventario
+      - Intermedio: Contabilidad, Nomina
+      - Avanzado: Produccion, Reportes BI
+
+      Contacta a tu ejecutivo para programar una capacitacion.
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags: [faq, excelencia, training]
+      keywords:
+        - capacitacion
+        - entrenamiento
+        - curso
+
+  - key: agents.support.faq.excelencia.update
+    name: FAQ - Excelencia Update
+    description: FAQ response for software updates
+    version: "1.0.0"
+    template: |
+      Para **actualizar** Excelencia ERP:
+
+      **Proceso recomendado:**
+      1. Realizar respaldo completo de la base de datos
+      2. Cerrar todas las sesiones de usuarios
+      3. Ejecutar el instalador de la nueva version
+      4. Verificar la conversion de datos
+
+      **Importante:**
+      - Revisa las notas de version antes de actualizar
+      - Prueba en ambiente de pruebas primero
+      - Programa la actualizacion fuera de horario laboral
+
+      Necesitas asistencia con una actualizacion especifica?
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags: [faq, excelencia, update]
+      keywords:
+        - actualizacion
+        - nueva version
+        - upgrade
+
+  - key: agents.support.faq.excelencia.backup
+    name: FAQ - Excelencia Backup
+    description: FAQ response for backup procedures
+    version: "1.0.0"
+    template: |
+      Para realizar **respaldos** de Excelencia ERP:
+
+      **Respaldo automatico:**
+      - Configura en **Herramientas > Respaldos**
+      - Programa respaldos diarios/semanales
+      - Guarda en ubicacion externa
+
+      **Respaldo manual:**
+      1. Ve a **Herramientas > Respaldo de BD**
+      2. Selecciona la ruta de destino
+      3. Haz clic en "Generar Respaldo"
+
+      **Mejores practicas:**
+      - Respaldo diario minimo
+      - Guardar en la nube o disco externo
+      - Verificar integridad periodicamente
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags: [faq, excelencia, backup]
+      keywords:
+        - respaldo
+        - backup
+        - base de datos
+
+  - key: agents.support.faq.excelencia.timbrado
+    name: FAQ - CFDI Timbrado
+    description: FAQ response for CFDI stamping issues
+    version: "1.0.0"
+    template: |
+      Para problemas de **timbrado CFDI**:
+
+      **Errores comunes:**
+      - **CSD vencido**: Renueva en el portal del SAT
+      - **Sello invalido**: Verifica certificado y clave
+      - **RFC incorrecto**: Revisa datos del cliente
+      - **PAC no disponible**: Intenta mas tarde
+
+      **Verificaciones:**
+      1. Asegurate de tener internet estable
+      2. Verifica que tu CSD este vigente
+      3. Revisa que los datos fiscales sean correctos
+
+      Si el problema persiste, genera un ticket de soporte.
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags: [faq, excelencia, facturacion, cfdi]
+      keywords:
+        - timbrado
+        - cfdi
+        - sat
+
+  - key: agents.support.faq.excelencia.cancel_invoice
+    name: FAQ - Cancel Invoice
+    description: FAQ response for invoice cancellation
+    version: "1.0.0"
+    template: |
+      Para **cancelar una factura CFDI**:
+
+      **Requisitos:**
+      - Dentro del mismo ejercicio fiscal
+      - Motivo de cancelacion valido
+      - Aceptacion del receptor (si aplica)
+
+      **Proceso:**
+      1. Ve a **Facturacion > Consulta de CFDI**
+      2. Localiza la factura a cancelar
+      3. Selecciona "Cancelar"
+      4. Indica el motivo y documento sustituto
+
+      **Nota:** Algunas cancelaciones requieren aceptacion del cliente en un plazo de 72 horas.
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags: [faq, excelencia, facturacion]
+      keywords:
+        - cancelar factura
+        - cancelacion
+
+  - key: agents.support.faq.excelencia.month_close
+    name: FAQ - Month Close
+    description: FAQ response for monthly closing
+    version: "1.0.0"
+    template: |
+      Para el **cierre de mes** en Excelencia:
+
+      **Pasos previos:**
+      1. Verificar todas las polizas del periodo
+      2. Conciliar cuentas bancarias
+      3. Revisar cuentas por cobrar/pagar
+      4. Calcular depreciaciones
+
+      **Proceso de cierre:**
+      1. Ve a **Contabilidad > Cierre de Periodo**
+      2. Selecciona el mes a cerrar
+      3. Revisa el prelisting de cierre
+      4. Confirma el cierre
+
+      Una vez cerrado, no podras agregar polizas a ese periodo sin reabrirlo.
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags: [faq, excelencia, contabilidad]
+      keywords:
+        - cierre mes
+        - cierre contable
+
+  - key: agents.support.faq.excelencia.negative_stock
+    name: FAQ - Negative Stock
+    description: FAQ response for negative stock issues
+    version: "1.0.0"
+    template: |
+      Para corregir **stock negativo**:
+
+      **Causas comunes:**
+      - Ventas sin entrada de compras
+      - Ajustes de inventario pendientes
+      - Transferencias no procesadas
+
+      **Solucion:**
+      1. Ve a **Inventarios > Existencias por Almacen**
+      2. Identifica los productos con stock negativo
+      3. Realiza un ajuste de inventario positivo
+      4. Documenta la causa del ajuste
+
+      Para prevenir esto, activa **Control de Existencias** en configuracion.
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags: [faq, excelencia, inventario]
+      keywords:
+        - stock negativo
+        - existencia negativa
+
+  # === FAQ: GENERAL ===
+  - key: agents.support.faq.general.schedule
+    name: FAQ - Support Schedule
+    description: FAQ response for support hours
+    version: "1.0.0"
+    template: |
+      Nuestros horarios de atencion son:
+
+      **Soporte Tecnico Excelencia:**
+      - Lunes a Viernes: 8:00 - 20:00
+      - Sabados: 9:00 - 14:00
+
+      **E-commerce:**
+      - Lunes a Viernes: 9:00 - 18:00
+      - Sabados: 9:00 - 13:00
+
+      Domingos y feriados: Cerrado
+
+      Puedes dejarnos tu consulta y te responderemos a la brevedad.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags: [faq, general, schedule]
+      keywords:
+        - horario
+        - atencion
+
+  - key: agents.support.faq.general.contact
+    name: FAQ - Contact Info
+    description: FAQ response for contact information
+    version: "1.0.0"
+    template: |
+      Nuestros canales de contacto:
+
+      **Soporte Excelencia ERP:**
+      - Portal: soporte.excelencia.com
+      - Email: soporte@excelencia.com
+      - Tel: 800-123-4567
+
+      **E-commerce:**
+      - WhatsApp: Este canal
+      - Email: ventas@aynux.com
+
+      Para soporte tecnico urgente, genera un ticket en el portal.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags: [faq, general, contact]
+      keywords:
+        - contacto
+        - telefono
+        - email

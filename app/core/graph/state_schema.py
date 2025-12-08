@@ -33,6 +33,15 @@ def add_cache_keys(left: List[str], right: List[str]) -> List[str]:
     return list(set(left + right))
 
 
+def update_conversation_context(
+    left: Dict[str, Any], right: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Reducer para contexto de conversación - merge con valores más recientes"""
+    if not right:
+        return left
+    return {**left, **right}
+
+
 class LangGraphState(TypedDict):
     """
     Estado principal para LangGraph usando TypedDict para máximo rendimiento.
@@ -50,6 +59,9 @@ class LangGraphState(TypedDict):
 
     # Dominio de negocio (ecommerce, hospital, credit, excelencia)
     business_domain: Optional[str]
+
+    # Dominios habilitados para el tenant (para filtrar servicios en saludos)
+    enabled_domains: Optional[List[str]]
 
     # Información de intención y routing
     current_intent: Optional[Dict[str, Any]]
@@ -87,6 +99,11 @@ class LangGraphState(TypedDict):
     conversation_checkpoint_id: Optional[str]
     cache_keys: Annotated[List[str], add_cache_keys]
     total_processing_time_ms: float
+
+    # Historial de conversación (conversation history management)
+    conversation_context: Annotated[Dict[str, Any], update_conversation_context]
+    conversation_summary: Optional[str]  # Resumen para inyectar en prompts
+    history_loaded: bool  # Flag para indicar si el historial fue cargado
 
 
 GraphState = LangGraphState

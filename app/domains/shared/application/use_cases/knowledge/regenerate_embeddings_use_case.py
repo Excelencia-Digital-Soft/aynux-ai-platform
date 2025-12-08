@@ -47,10 +47,7 @@ class RegenerateKnowledgeEmbeddingsUseCase:
         """
         self.db = db
         self.repository = repository or KnowledgeRepository(db)
-        self.embedding_service = embedding_service or KnowledgeEmbeddingService(
-            embedding_model=settings.OLLAMA_API_MODEL_EMBEDDING,
-            ollama_base_url=settings.OLLAMA_API_URL,
-        )
+        self.embedding_service = embedding_service or KnowledgeEmbeddingService()
 
     async def execute(
         self,

@@ -9,9 +9,10 @@ Guidance for Claude Code working with this repository.
 | Feature | Description |
 |---------|-------------|
 | **Architecture** | Clean Architecture + DDD, multi-domain support |
-| **Orchestrator** | Intelligent routing to domain services |
-| **RAG** | pgvector semantic search per domain |
-| **Domains** | E-commerce, Healthcare, Finance (Credit) |
+| **Orchestrator** | SuperOrchestrator for intelligent domain routing |
+| **RAG** | pgvector semantic search per domain/tenant |
+| **Domains** | Excelencia (primary), E-commerce, Healthcare, Credit |
+| **Modes** | Global (Excelencia-specific) / Multi-tenant (SaaS) |
 
 ## Critical Development Rules
 
@@ -43,6 +44,61 @@ now = datetime.now(UTC)  # ✅ Always UTC
 - `DOCKER_DEPLOYMENT.md` - Docker setup
 - `PGVECTOR_MIGRATION.md` - Vector search
 - `TESTING_GUIDE.md` - Testing strategy
+
+## Operating Modes
+
+Aynux operates in **two modes** with different development patterns:
+
+### Global Mode (Default) - Excelencia-specific
+
+**When**: `MULTI_TENANT_MODE=false` (default)
+
+| Aspect | Pattern |
+|--------|---------|
+| **Configuration** | Environment variables, `settings.py` |
+| **Agents** | `ENABLED_AGENTS` from env |
+| **Data** | Shared `company_knowledge` table |
+| **Code** | ✅ OK to hardcode Excelencia-specific logic |
+| **RAG** | Global pgvector, no org filtering |
+
+```python
+# ✅ OK in Global Mode - hardcoded business logic
+if domain == "excelencia":
+    modules = ["Inventario", "Facturación", "Contabilidad"]  # Hardcoded OK
+```
+
+### Multi-tenant Mode (In Development)
+
+**When**: `MULTI_TENANT_MODE=true`
+
+| Aspect | Pattern |
+|--------|---------|
+| **Configuration** | Database (`TenantConfig`, `TenantAgent`) |
+| **Agents** | Per-org from `tenant_agents` table |
+| **Data** | Isolated by `organization_id` |
+| **Code** | ❌ NEVER hardcode - load from DB |
+| **RAG** | Filtered by `organization_id` |
+
+```python
+# ✅ Multi-tenant - load from database
+from app.core.tenancy import get_tenant_context
+ctx = get_tenant_context()
+config = ctx.config  # TenantConfig from DB
+agents = await TenantAgentService.get_agent_registry(ctx.organization_id)
+
+# ❌ WRONG - hardcoded in multi-tenant
+modules = ["Inventario", "Facturación"]  # Never hardcode!
+```
+
+### Key Tenancy Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `TenantContext` | `app/core/tenancy/context.py` | Request-scoped context (contextvars) |
+| `TenantResolver` | `app/core/tenancy/resolver.py` | JWT/Header/WhatsApp resolution |
+| `TenantVectorStore` | `app/core/tenancy/vector_store.py` | Isolated pgvector per org |
+| `TenantPromptManager` | `app/core/tenancy/prompt_manager.py` | 4-level prompt hierarchy |
+| `TenantAgentFactory` | `app/core/tenancy/agent_factory.py` | Per-org agent filtering |
 
 ## Development Commands
 
@@ -106,24 +162,59 @@ async def search(query: str, uc = Depends(get_search_products_use_case)):
 DB_HOST, DB_NAME, DB_USER, DB_PASSWORD
 
 # Services
-REDIS_HOST, OLLAMA_API_URL, OLLAMA_API_MODEL_COMPLEX
+REDIS_HOST, OLLAMA_API_URL
+
+# LLM Model Tiers (4-tier system)
+OLLAMA_API_MODEL_SIMPLE=deepseek-r1:1.5b    # Intent analysis, classification
+OLLAMA_API_MODEL_COMPLEX=deepseek-r1:7b     # Complex responses
+OLLAMA_API_MODEL_REASONING=deepseek-r1:7b   # Deep analysis
+OLLAMA_API_MODEL_SUMMARY=llama3.2:latest    # Summaries (NON-reasoning!)
+OLLAMA_API_MODEL_EMBEDDING=nomic-embed-text # Vector embeddings (768d)
 
 # Integrations
 WHATSAPP_ACCESS_TOKEN, DUX_API_KEY, LANGSMITH_API_KEY
 
 # Multi-Tenancy
-MULTI_TENANT_MODE=true
+MULTI_TENANT_MODE=false  # true for SaaS mode
 TENANT_HEADER=X-Tenant-ID
 ```
 
+### LLM Model Selection
+
+```python
+from app.integrations.llm.model_provider import ModelComplexity, get_model_name_for_complexity
+
+# Use appropriate tier for task
+model = get_model_name_for_complexity(ModelComplexity.SIMPLE)   # Fast intent
+model = get_model_name_for_complexity(ModelComplexity.COMPLEX)  # Main response
+model = get_model_name_for_complexity(ModelComplexity.SUMMARY)  # Conversation summary
+```
+
+> **Warning**: SUMMARY tier must use non-reasoning models. DeepSeek-R1's "thinking tokens" cause 10-50x slowdown.
+
 ### Agent Enablement
 ```bash
-ENABLED_AGENTS=greeting_agent,product_agent,fallback_agent,farewell_agent
+# Global mode (Excelencia-focused)
+ENABLED_AGENTS=greeting_agent,excelencia_agent,excelencia_invoice_agent,excelencia_support_agent,excelencia_promotions_agent,support_agent,data_insights_agent,fallback_agent,farewell_agent
 ```
 
 **Core Agents** (always on): `orchestrator`, `supervisor`
 
-**Configurable**: `greeting_agent`, `product_agent`, `promotions_agent`, `tracking_agent`, `support_agent`, `invoice_agent`, `excelencia_agent`, `data_insights_agent`, `fallback_agent`, `farewell_agent`
+**Global Agents** (domain_key=None):
+- `greeting_agent` - Multi-domain greeting
+- `support_agent` - General support
+- `fallback_agent` - Catch-all
+- `farewell_agent` - Goodbye
+
+**Excelencia Domain** (domain_key="excelencia"):
+- `excelencia_agent` - Main ERP orchestrator
+- `excelencia_invoice_agent` - Client invoicing
+- `excelencia_support_agent` - Software support
+- `excelencia_promotions_agent` - Software promotions
+- `data_insights_agent` - Analytics
+
+**E-commerce Domain** (domain_key="ecommerce", disabled by default):
+- `ecommerce_agent` - Product search, orders
 
 **Admin APIs**: `GET /api/v1/admin/agents/status|enabled|disabled|config`
 
@@ -221,17 +312,49 @@ See `docs/MULTI_TENANCY.md` for complete documentation.
 ```
 app/
 ├── domains/                    # DDD Bounded Contexts
-│   ├── ecommerce/             # domain/, application/, infrastructure/
-│   ├── healthcare/
-│   ├── credit/
-│   └── shared/
-├── integrations/              # LLM, vector_stores, whatsapp, monitoring
-├── core/                      # container.py, interfaces/, tenancy/
-├── orchestration/             # super_orchestrator.py
-├── api/                       # routes/, dependencies.py, middleware/
-├── agents/                    # graph.py, subagent/, schemas/
-└── services/                  # Legacy (deprecated)
+│   ├── excelencia/            # PRIMARY - ERP software domain
+│   │   ├── agents/            # excelencia_agent, invoice, support, promotions
+│   │   ├── application/       # Use cases
+│   │   └── infrastructure/    # Repositories
+│   ├── ecommerce/             # E-commerce domain (disabled by default)
+│   ├── healthcare/            # Healthcare domain
+│   ├── credit/                # Finance/Credit domain
+│   └── shared/                # Shared agents (greeting, farewell, fallback)
+├── integrations/
+│   ├── llm/                   # OllamaLLM, model_provider.py (4-tier system)
+│   ├── vector_stores/         # pgvector, embeddings
+│   └── whatsapp/              # WhatsApp Business API
+├── core/
+│   ├── tenancy/               # Multi-tenant isolation
+│   │   ├── context.py         # TenantContext (contextvars)
+│   │   ├── middleware.py      # TenantContextMiddleware
+│   │   ├── resolver.py        # JWT/Header/WhatsApp resolution
+│   │   ├── vector_store.py    # TenantVectorStore
+│   │   └── prompt_manager.py  # 4-level prompt hierarchy
+│   ├── container/             # DI containers
+│   ├── interfaces/            # IRepository, ILLM protocols
+│   └── agents/                # BaseAgent
+├── orchestration/             # SuperOrchestrator (domain routing)
+├── api/
+│   ├── routes/admin/          # Admin APIs (orgs, config, agents)
+│   └── routes/webhook.py      # WhatsApp webhook
+├── models/db/tenancy/         # Organization, TenantConfig, TenantAgent...
+└── prompts/templates/         # YAML prompt templates
 ```
+
+### Streamlit Admin Pages
+
+```
+streamlit_admin/pages/
+├── 1_🤖_Chat_Visualizer_[Global].py
+├── 2_📚_Knowledge_Base_[Global].py
+├── 5_🏢_Excelencia_[Global].py
+├── 8_🏢_Organizations_[Multi].py
+├── 10_⚙️_Tenant_Config_[Multi].py
+└── 11_📄_Tenant_Documents_[Multi].py
+```
+
+**Naming**: `[Global]` = system-wide, `[Multi]` = per-tenant
 
 ## Deployment
 

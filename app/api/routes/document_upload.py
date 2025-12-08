@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MIXED (Dual-mode)
+# Description: API para subir documentos a Knowledge Base. Soporta modo global
+#              y multi-tenant via get_di_container_dual().
+# Tenant-Aware: Parcial - usa TenantVectorStore si existe TenantContext.
+# ============================================================================
 """
 Document Upload API Endpoints
 
@@ -24,12 +30,9 @@ from fastapi import (
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies import get_di_container_dual
+from app.core.container import DependencyContainer
 from app.database.async_db import get_async_db
-from app.domains.shared.application.use_cases import (
-    BatchUploadDocumentsUseCase,
-    UploadPDFUseCase,
-    UploadTextUseCase,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +100,7 @@ async def upload_pdf(
     category: Optional[str] = Form(None, description="Category"),  # noqa: B008
     tags: Optional[str] = Form(None, description="Comma-separated tags"),  # noqa: B008
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Upload a PDF document to the knowledge base.
@@ -144,7 +148,7 @@ async def upload_pdf(
             tags_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
 
         # Execute use case
-        use_case = UploadPDFUseCase(db)
+        use_case = container.create_upload_pdf_use_case(db)
         result = await use_case.execute(
             pdf_bytes=pdf_bytes,
             title=title,
@@ -187,6 +191,7 @@ async def upload_pdf(
 async def upload_text(
     request: TextUploadRequest,
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Upload text content to the knowledge base.
@@ -212,7 +217,7 @@ async def upload_text(
     """
     try:
         # Execute use case
-        use_case = UploadTextUseCase(db)
+        use_case = container.create_upload_text_use_case(db)
         result = await use_case.execute(
             content=request.content,
             title=request.title,
@@ -257,6 +262,7 @@ async def batch_upload_documents(
     document_type: str = Form("general", description="Document type for all files"),  # noqa: B008
     category: Optional[str] = Form(None, description="Category for all files"),  # noqa: B008
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Upload multiple documents in batch.
@@ -301,7 +307,7 @@ async def batch_upload_documents(
             )
 
         # Execute batch upload
-        use_case = BatchUploadDocumentsUseCase(db)
+        use_case = container.create_batch_upload_documents_use_case(db)
         result = await use_case.execute(documents=documents)
 
         return BatchUploadResponse(**result)

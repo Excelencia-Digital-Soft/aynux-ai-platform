@@ -50,7 +50,8 @@ class SupervisorAgent(BaseAgent):
         self.quality_threshold = self.config.get("quality_threshold", 0.7)
         self.enable_human_handoff = self.config.get("enable_human_handoff", True)
         self.enable_re_routing = self.config.get("enable_re_routing", True)
-        self.enable_response_enhancement = self.config.get("enable_response_enhancement", True)
+        # Disable enhancement by default for faster responses
+        self.enable_response_enhancement = self.config.get("enable_response_enhancement", False)
 
         # Quality thresholds
         self.quality_thresholds = {

@@ -1,0 +1,214 @@
+# Excelencia Invoice Agent Prompts
+# Purpose: Handle Excelencia client invoicing queries
+
+prompts:
+  - key: excelencia.invoice.intent_analysis
+    name: Invoice Intent Analysis
+    description: Analyzes query intent for invoice operations
+    version: "1.0.0"
+    template: |
+      Analiza la siguiente consulta sobre facturacion de clientes Excelencia:
+
+      "{message}"
+
+      Responde en JSON con esta estructura:
+      {
+        "query_type": "invoice|statement|collection|payment|history|general",
+        "client_name": "nombre del cliente si se menciona o null",
+        "action_requested": "consultar|generar|enviar|imprimir|otro",
+        "period": "mes/ano si se menciona o null",
+        "urgency": "low|medium|high"
+      }
+
+      Responde solo con el JSON, sin texto adicional.
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      model: "deepseek-r1:7b"
+      tags:
+        - excelencia
+        - invoice
+        - intent
+      variables:
+        required:
+          - message
+
+  - key: excelencia.invoice.response_generation
+    name: Invoice Response Generation
+    description: Generates response for invoice queries
+    version: "1.0.0"
+    template: |
+      Eres un asistente especializado en facturacion de clientes de Excelencia.
+
+      ## CONSULTA DEL USUARIO:
+      "{user_message}"
+
+      ## ANALISIS:
+      - Tipo de consulta: {query_type}
+      - Cliente mencionado: {client_name}
+      - Accion solicitada: {action}
+      - Periodo: {period}
+      {rag_context}
+
+      ## INFORMACION SOBRE FACTURACION EXCELENCIA:
+      Excelencia ofrece servicios de software con diferentes modalidades de facturacion:
+      - Licencias mensuales/anuales
+      - Servicios de implementacion
+      - Capacitacion y soporte
+      - Mantenimiento y actualizaciones
+
+      ## INSTRUCCIONES:
+      1. Responde de manera profesional y clara
+      2. Si el usuario pide generar una factura, indica que se procesara la solicitud
+      3. Para consultas de estado de cuenta, ofrece informacion general del proceso
+      4. Usa maximo 6-7 lineas
+      5. Usa 1-2 emojis apropiados (preferir: factura, recibo, dinero, grafico)
+
+      Genera tu respuesta ahora:
+    metadata:
+      temperature: 0.7
+      max_tokens: 400
+      model: "deepseek-r1:7b"
+      tags:
+        - excelencia
+        - invoice
+        - response
+      variables:
+        required:
+          - user_message
+          - query_type
+        optional:
+          - client_name
+          - action
+          - period
+          - rag_context
+
+  # === FALLBACK RESPONSES ===
+  - key: excelencia.invoice.fallback.invoice
+    name: Invoice Fallback Response
+    description: Fallback for invoice queries
+    version: "1.0.0"
+    template: |
+      factura **Facturacion Excelencia**
+
+      Para generar o consultar facturas{client_text}, necesito los siguientes datos:
+      - Nombre o razon social del cliente
+      - Periodo de facturacion
+      - Servicios a facturar
+
+      Podrias proporcionarme esta informacion?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - invoice
+        - fallback
+      variables:
+        optional:
+          - client_text
+
+  - key: excelencia.invoice.fallback.statement
+    name: Statement Fallback Response
+    description: Fallback for account statement queries
+    version: "1.0.0"
+    template: |
+      grafico **Estado de Cuenta{client_text}**
+
+      Para consultar el estado de cuenta necesito:
+      - Nombre del cliente
+      - Periodo a consultar (opcional)
+
+      El estado de cuenta incluye: facturas emitidas, pagos recibidos y saldo pendiente.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - invoice
+        - fallback
+      variables:
+        optional:
+          - client_text
+
+  - key: excelencia.invoice.fallback.collection
+    name: Collection Fallback Response
+    description: Fallback for collection queries
+    version: "1.0.0"
+    template: |
+      dinero **Gestion de Cobranzas**
+
+      Puedo ayudarte con:
+      - Consultar facturas vencidas
+      - Ver clientes en mora
+      - Estado de cobranzas pendientes
+
+      Que informacion necesitas especificamente?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - invoice
+        - fallback
+
+  - key: excelencia.invoice.fallback.payment
+    name: Payment Fallback Response
+    description: Fallback for payment queries
+    version: "1.0.0"
+    template: |
+      recibo **Registro de Pagos**
+
+      Para registrar o consultar un pago necesito:
+      - Cliente que realizo el pago
+      - Monto y fecha
+      - Factura(s) a aplicar
+
+      Podrias proporcionarme estos datos?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - invoice
+        - fallback
+
+  - key: excelencia.invoice.fallback.general
+    name: General Invoice Fallback
+    description: Default fallback for invoice queries
+    version: "1.0.0"
+    template: |
+      factura **Facturacion de Clientes Excelencia**
+
+      Puedo ayudarte con:
+      - Generacion de facturas
+      - Estados de cuenta
+      - Gestion de cobranzas
+      - Registro de pagos
+
+      Que necesitas consultar?
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - excelencia
+        - invoice
+        - fallback
+
+  - key: excelencia.invoice.error
+    name: Invoice Error Response
+    description: Error response for invoice queries
+    version: "1.0.0"
+    template: |
+      Disculpa, tuve un inconveniente procesando tu consulta de facturacion.
+      Podrias reformular tu pregunta? Puedo ayudarte con:
+      - Facturas de clientes
+      - Estados de cuenta
+      - Cobranzas y pagos
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - excelencia
+        - invoice
+        - error

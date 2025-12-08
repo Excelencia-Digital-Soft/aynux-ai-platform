@@ -16,15 +16,19 @@ class IntentType(str, Enum):
 
     SALUDO = "saludo"
     # E-commerce intents (consolidated - all route to ECOMMERCE_AGENT)
-    ECOMMERCE = "ecommerce"  # NEW: Consolidated e-commerce intent
-    PRODUCTO = "producto"  # Legacy: now routes to ecommerce_agent
-    PROMOCIONES = "promociones"  # Legacy: now routes to ecommerce_agent
-    SEGUIMIENTO = "seguimiento"  # Legacy: now routes to ecommerce_agent
-    FACTURACION = "facturacion"  # Legacy: now routes to ecommerce_agent
+    ECOMMERCE = "ecommerce"  # Consolidated e-commerce intent
+    PRODUCTO = "producto"  # Routes to ecommerce_agent
+    PROMOCIONES = "promociones"  # E-commerce promotions → ecommerce_agent
+    SEGUIMIENTO = "seguimiento"  # E-commerce tracking → ecommerce_agent
+    FACTURACION = "facturacion"  # E-commerce invoices → ecommerce_agent
+    # Excelencia-specific intents (NEW)
+    EXCELENCIA = "excelencia"  # General Excelencia queries
+    EXCELENCIA_FACTURACION = "excelencia_facturacion"  # Excelencia client invoices
+    EXCELENCIA_PROMOCIONES = "excelencia_promociones"  # Excelencia software promotions
+    EXCELENCIA_SOPORTE = "excelencia_soporte"  # Excelencia software support/incidents
     # Other intents
-    DATOS = "datos"
-    SOPORTE = "soporte"
-    EXCELENCIA = "excelencia"
+    DATOS = "datos"  # Data insights (Excelencia domain)
+    SOPORTE = "soporte"  # Support (always available)
     FALLBACK = "fallback"
     DESPEDIDA = "despedida"
 
@@ -32,22 +36,32 @@ class IntentType(str, Enum):
 class AgentType(str, Enum):
     """Enumeration of all valid agent types."""
 
+    # System agents (always active)
     ORCHESTRATOR = "orchestrator"
     SUPERVISOR = "supervisor"
+
+    # Always available agents (domain_key=None)
     GREETING_AGENT = "greeting_agent"
-    # E-commerce domain: consolidated into single agent with subgraph
-    ECOMMERCE_AGENT = "ecommerce_agent"
-    # Legacy e-commerce agents (deprecated - use ECOMMERCE_AGENT instead)
+    FAREWELL_AGENT = "farewell_agent"
+    FALLBACK_AGENT = "fallback_agent"
+    SUPPORT_AGENT = "support_agent"  # Enhanced for Excelencia software knowledge
+
+    # Excelencia domain agents (domain_key="excelencia")
+    EXCELENCIA_AGENT = "excelencia_agent"  # Company info, modules, mission/vision
+    EXCELENCIA_INVOICE_AGENT = "excelencia_invoice_agent"  # Client invoices
+    EXCELENCIA_PROMOTIONS_AGENT = "excelencia_promotions_agent"  # Software promotions
+    EXCELENCIA_SUPPORT_AGENT = "excelencia_support_agent"  # Software support/incidents
+    DATA_INSIGHTS_AGENT = "data_insights_agent"  # Software analytics (moved to Excelencia)
+
+    # E-commerce domain agents (domain_key="ecommerce")
+    ECOMMERCE_AGENT = "ecommerce_agent"  # Subgraph with product, tracking, promotions, invoice nodes
+    # Legacy e-commerce agents (deprecated - use ECOMMERCE_AGENT)
     PRODUCT_AGENT = "product_agent"
     PROMOTIONS_AGENT = "promotions_agent"
     TRACKING_AGENT = "tracking_agent"
     INVOICE_AGENT = "invoice_agent"
-    # Other domain agents
-    DATA_INSIGHTS_AGENT = "data_insights_agent"
-    SUPPORT_AGENT = "support_agent"
-    EXCELENCIA_AGENT = "excelencia_agent"
-    FALLBACK_AGENT = "fallback_agent"
-    FAREWELL_AGENT = "farewell_agent"
+
+    # Credit domain (domain_key="credit")
     CREDIT = "credit_agent"
 
 
@@ -295,6 +309,62 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             target_agent=AgentType.EXCELENCIA_AGENT,
             confidence_threshold=0.75,
         ),
+        IntentType.EXCELENCIA_FACTURACION: IntentDefinition(
+            intent=IntentType.EXCELENCIA_FACTURACION,
+            description="Excelencia client invoicing: client invoices, account statements, collections, payments",
+            examples=[
+                "factura del cliente",
+                "estado de cuenta del cliente",
+                "cobranza pendiente",
+                "pago de cliente",
+                "deuda del cliente",
+                "facturar al cliente",
+                "generar factura cliente",
+                "consultar factura de empresa",
+                "invoice for client",
+                "client account statement",
+                "pending collections",
+            ],
+            target_agent=AgentType.EXCELENCIA_INVOICE_AGENT,
+            confidence_threshold=0.75,
+        ),
+        IntentType.EXCELENCIA_PROMOCIONES: IntentDefinition(
+            intent=IntentType.EXCELENCIA_PROMOCIONES,
+            description="Excelencia software promotions: software discounts, module offers, implementation deals",
+            examples=[
+                "promoción de software",
+                "descuento en módulo",
+                "oferta de implementación",
+                "promoción excelencia",
+                "descuento capacitación",
+                "oferta software hospitalario",
+                "promo módulo turnos",
+                "software promotion",
+                "module discount",
+                "implementation offer",
+            ],
+            target_agent=AgentType.EXCELENCIA_PROMOTIONS_AGENT,
+            confidence_threshold=0.75,
+        ),
+        IntentType.EXCELENCIA_SOPORTE: IntentDefinition(
+            intent=IntentType.EXCELENCIA_SOPORTE,
+            description="Excelencia software support: incidents, bugs, errors, tickets, technical issues",
+            examples=[
+                "tengo una incidencia",
+                "reportar un problema",
+                "error en el módulo",
+                "bug en facturación",
+                "el sistema no funciona",
+                "falla en el sistema",
+                "levantar ticket",
+                "problema técnico",
+                "incidencia módulo",
+                "report an issue",
+                "system error",
+            ],
+            target_agent=AgentType.EXCELENCIA_SUPPORT_AGENT,
+            confidence_threshold=0.7,
+        ),
         IntentType.DESPEDIDA: IntentDefinition(
             intent=IntentType.DESPEDIDA,
             description="Conversation closing, thanks",
@@ -427,6 +497,45 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             requires_postgres=True,
             requires_pgvector=True,
             config_key="excelencia",
+        ),
+        AgentType.EXCELENCIA_INVOICE_AGENT: AgentDefinition(
+            agent=AgentType.EXCELENCIA_INVOICE_AGENT,
+            class_name="ExcelenciaInvoiceAgent",
+            display_name="Excelencia Invoice Agent",
+            description=(
+                "Handles Excelencia client invoicing: generates invoices, queries account statements, "
+                "manages collections and client payments for Excelencia software services"
+            ),
+            primary_intents=[IntentType.EXCELENCIA_FACTURACION],
+            requires_postgres=True,
+            requires_pgvector=True,
+            config_key="excelencia_invoice",
+        ),
+        AgentType.EXCELENCIA_PROMOTIONS_AGENT: AgentDefinition(
+            agent=AgentType.EXCELENCIA_PROMOTIONS_AGENT,
+            class_name="ExcelenciaPromotionsAgent",
+            display_name="Excelencia Promotions Agent",
+            description=(
+                "Handles Excelencia software promotions: discounts on modules, "
+                "implementation offers, training deals, and special pricing for software services"
+            ),
+            primary_intents=[IntentType.EXCELENCIA_PROMOCIONES],
+            requires_postgres=True,
+            requires_pgvector=True,
+            config_key="excelencia_promotions",
+        ),
+        AgentType.EXCELENCIA_SUPPORT_AGENT: AgentDefinition(
+            agent=AgentType.EXCELENCIA_SUPPORT_AGENT,
+            class_name="ExcelenciaSupportAgent",
+            display_name="Excelencia Support Agent",
+            description=(
+                "Handles Excelencia software support: technical incidents, bug reports, "
+                "module errors, ticket creation, and troubleshooting for ERP software"
+            ),
+            primary_intents=[IntentType.EXCELENCIA_SOPORTE],
+            requires_postgres=True,
+            requires_pgvector=True,
+            config_key="excelencia_support",
         ),
         AgentType.FALLBACK_AGENT: AgentDefinition(
             agent=AgentType.FALLBACK_AGENT,

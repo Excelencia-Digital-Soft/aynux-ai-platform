@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Contexto de tenant usando contextvars de Python.
+#              Propaga información del tenant a través de llamadas async.
+# Tenant-Aware: Yes - ESTE ES el mecanismo central de tenant-awareness.
+# ============================================================================
 """
 TenantContext - Request-scoped tenant context using Python's contextvars.
 

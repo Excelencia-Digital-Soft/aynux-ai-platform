@@ -5,21 +5,25 @@ prompts:
   - key: agents.fallback.helpful_response
     name: Helpful Fallback Response
     description: Generates friendly guidance when user query is unclear or unrecognized
-    version: "1.0.0"
+    version: "1.1.0"
     template: |
+      ## Contexto de conversación:
+      {conversation_summary}
+
       El usuario escribió: "{message}"
 
       Parece que su consulta no fue clara o no es reconocida.
 
       Responde de forma amable y útil:
-      • Sugiere 3 o 4 cosas comunes que podemos ayudar (ej: precios, soporte, pedidos).
+      • Considera el contexto de conversación anterior si existe
+      • Sugiere 3 o 4 cosas comunes que podemos ayudar (ej: productos, modulos, erp).
       • Sé breve (máximo 4 líneas).
       • Usa emojis para hacerlo más cálido.
       • No repitas el mensaje del usuario.
     metadata:
       temperature: 0.7
       max_tokens: 200
-      model: "llama3.1"
+      model: "deepseek-r1:7b"
       tags:
         - fallback
         - recovery
@@ -27,18 +31,21 @@ prompts:
       variables:
         required:
           - message
+        optional:
+          - conversation_summary
 
   - key: agents.fallback.default_response
     name: Default Fallback Response
     description: Standard fallback response when LLM generation fails
-    version: "1.0.0"
+    version: "2.0.0"
     template: |
       No entendí tu consulta, pero estoy aquí para ayudarte 😊
 
       Puedo asistirte con:
-      • 🛒 Ver productos disponibles
-      • 💰 Consultar precios y ofertas
-      • 📦 Rastrear tu pedido
+      • 💼 Excelencia ERP (módulos, demos, capacitación, información corporativa)
+      • 🧾 Facturación de clientes (estados de cuenta, cobranzas)
+      • 🏷️ Promociones de software (descuentos, ofertas)
+      • 📊 Reportes y análisis de datos
       • 🔧 Soporte técnico
 
       ¿Con qué te gustaría que te ayude?
@@ -54,14 +61,14 @@ prompts:
   - key: agents.fallback.error_response
     name: Error Fallback Response
     description: Fallback response when agent encounters an error
-    version: "1.0.0"
+    version: "2.0.0"
     template: |
       No entendí tu consulta, pero puedo ayudarte con:
-      • 🛍️ Ver productos y categorías
-      • 💻 Buscar equipos específicos
-      • 📦 Seguimiento de pedidos
-      • 🎯 Ofertas y promociones
-      • 💬 Soporte técnico
+      • 💼 Excelencia ERP: módulos, demos, información del sistema
+      • 🧾 Facturación: clientes, cobranzas, estados de cuenta
+      • 🏷️ Promociones: descuentos de software, ofertas
+      • 📊 Reportes: análisis de datos, métricas
+      • 🔧 Soporte: asistencia técnica, incidencias
 
       ¿Con qué te gustaría empezar?
     metadata:
@@ -72,3 +79,219 @@ prompts:
         - fallback
         - error
         - template
+
+  # === MULTI-LANGUAGE DYNAMIC PROMPTS ===
+  - key: agents.fallback.dynamic.es
+    name: Spanish Dynamic Fallback Prompt
+    description: Spanish LLM prompt for generating dynamic fallback responses
+    version: "1.0.0"
+    template: |
+      El usuario escribio: "{message}"
+
+      Servicios disponibles: {services_str}
+
+      Responde de forma amable y util:
+      - Menciona SOLO los servicios disponibles listados arriba
+      - NO menciones servicios que no estan en la lista
+      - Sugiere 2-3 opciones de los servicios disponibles
+      - Se breve (maximo 4 lineas)
+      - Usa emojis para hacerlo mas calido
+      - No repitas el mensaje del usuario
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      model: "deepseek-r1:7b"
+      tags:
+        - fallback
+        - dynamic
+        - spanish
+      variables:
+        required:
+          - message
+          - services_str
+
+  - key: agents.fallback.dynamic.en
+    name: English Dynamic Fallback Prompt
+    description: English LLM prompt for generating dynamic fallback responses
+    version: "1.0.0"
+    template: |
+      The user wrote: "{message}"
+
+      Available services: {services_str}
+
+      Respond in a friendly and helpful way:
+      - Mention ONLY the available services listed above
+      - DO NOT mention services that are not in the list
+      - Suggest 2-3 options from the available services
+      - Be brief (maximum 4 lines)
+      - Use emojis to make it warmer
+      - Do not repeat the user's message
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      model: "deepseek-r1:7b"
+      tags:
+        - fallback
+        - dynamic
+        - english
+      variables:
+        required:
+          - message
+          - services_str
+
+  - key: agents.fallback.dynamic.pt
+    name: Portuguese Dynamic Fallback Prompt
+    description: Portuguese LLM prompt for generating dynamic fallback responses
+    version: "1.0.0"
+    template: |
+      O usuario escreveu: "{message}"
+
+      Servicos disponiveis: {services_str}
+
+      Responda de forma amigavel e util:
+      - Mencione APENAS os servicos disponiveis listados acima
+      - NAO mencione servicos que nao estao na lista
+      - Sugira 2-3 opcoes dos servicos disponiveis
+      - Seja breve (maximo 4 linhas)
+      - Use emojis para torna-lo mais acolhedor
+      - Nao repita a mensagem do usuario
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      model: "deepseek-r1:7b"
+      tags:
+        - fallback
+        - dynamic
+        - portuguese
+      variables:
+        required:
+          - message
+          - services_str
+
+  # === MULTI-LANGUAGE DEFAULT RESPONSES ===
+  - key: agents.fallback.default.es
+    name: Spanish Default Response
+    description: Spanish default response with dynamic services
+    version: "1.0.0"
+    template: |
+      No entendi tu consulta, pero estoy aqui para ayudarte
+
+      Puedo asistirte con:
+      {service_list}
+
+      Que te gustaria hacer?
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - fallback
+        - default
+        - spanish
+      variables:
+        required:
+          - service_list
+
+  - key: agents.fallback.default.en
+    name: English Default Response
+    description: English default response with dynamic services
+    version: "1.0.0"
+    template: |
+      I didn't understand your query, but I'm here to help
+
+      I can assist you with:
+      {service_list}
+
+      What would you like to do?
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - fallback
+        - default
+        - english
+      variables:
+        required:
+          - service_list
+
+  - key: agents.fallback.default.pt
+    name: Portuguese Default Response
+    description: Portuguese default response with dynamic services
+    version: "1.0.0"
+    template: |
+      Nao entendi sua consulta, mas estou aqui para ajudar
+
+      Posso ajuda-lo com:
+      {service_list}
+
+      O que voce gostaria de fazer?
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - fallback
+        - default
+        - portuguese
+      variables:
+        required:
+          - service_list
+
+  # === MULTI-LANGUAGE ERROR RESPONSES ===
+  - key: agents.fallback.error.es
+    name: Spanish Error Response
+    description: Spanish error response with dynamic services
+    version: "1.0.0"
+    template: |
+      No entendi tu consulta, pero puedo ayudarte con:
+      {service_list}
+
+      Con que te gustaria empezar?
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - fallback
+        - error
+        - spanish
+      variables:
+        required:
+          - service_list
+
+  - key: agents.fallback.error.en
+    name: English Error Response
+    description: English error response with dynamic services
+    version: "1.0.0"
+    template: |
+      I didn't understand your query, but I can help you with:
+      {service_list}
+
+      What would you like to start with?
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - fallback
+        - error
+        - english
+      variables:
+        required:
+          - service_list
+
+  - key: agents.fallback.error.pt
+    name: Portuguese Error Response
+    description: Portuguese error response with dynamic services
+    version: "1.0.0"
+    template: |
+      Nao entendi sua consulta, mas posso ajuda-lo com:
+      {service_list}
+
+      Com o que voce gostaria de comecar?
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - fallback
+        - error
+        - portuguese
+      variables:
+        required:
+          - service_list

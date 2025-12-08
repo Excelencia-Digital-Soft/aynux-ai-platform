@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MULTI-TENANT
+# Description: Configuración detallada por tenant. Dominios habilitados, RAG,
+#              agentes, prompts, WhatsApp. Relación 1:1 con Organization.
+# Tenant-Aware: Yes - cada registro pertenece a una organización específica.
+# ============================================================================
 """
 TenantConfig model - Per-tenant configuration.
 

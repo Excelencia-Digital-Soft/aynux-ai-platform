@@ -21,9 +21,25 @@ class LanguageDetector:
     - Sistema de caché para optimizar rendimiento
     - Configuración flexible de idiomas soportados
     - Métricas de confianza
+
+    Implementado como Singleton para evitar cargar modelos múltiples veces.
     """
 
+    # Singleton instance
+    _instance: "LanguageDetector | None" = None
+
+    def __new__(cls, config: Optional[Dict[str, Any]] = None):
+        """Singleton pattern - only create one instance"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self, config: Optional[Dict[str, Any]] = None):
+        # Skip re-initialization if already done
+        if hasattr(self, "_initialized") and self._initialized:
+            return
+
         self.config = config or {}
         self.logger = logging.getLogger(__name__)
 
@@ -138,8 +154,9 @@ class LanguageDetector:
             },
         }
 
+        self._initialized = True
         logger.info(
-            f"LanguageDetector initialized - spaCy available: {self._spacy_available}, "
+            f"LanguageDetector singleton initialized - spaCy available: {self._spacy_available}, "
             f"supported languages: {self.supported_languages}"
         )
 

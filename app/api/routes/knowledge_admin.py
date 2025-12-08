@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: MIXED (Dual-mode)
+# Description: API de administración de Knowledge Base. Soporta modo global
+#              y multi-tenant via get_di_container_dual().
+# Tenant-Aware: Parcial - usa VectorStore dual-mode (TenantVectorStore si hay ctx).
+# ============================================================================
 """
 ✅ CLEAN ARCHITECTURE - Knowledge Base Administration API Endpoints
 
@@ -20,6 +26,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies import get_di_container_dual
 from app.config.settings import get_settings
 from app.core.container import DependencyContainer
 from app.database.async_db import get_async_db
@@ -63,6 +70,7 @@ router = APIRouter(
 )
 async def get_stats(
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Get comprehensive statistics about the knowledge base.
@@ -73,7 +81,6 @@ async def get_stats(
     - Embedding model information
     """
     try:
-        container = DependencyContainer()
         use_case = container.create_get_knowledge_statistics_use_case(db)
         stats = await use_case.execute()
         return stats
@@ -93,6 +100,7 @@ async def get_stats(
 )
 async def health_check(
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Simple health check endpoint to verify API is running.
@@ -100,7 +108,6 @@ async def health_check(
     Returns success message if all systems are operational.
     """
     try:
-        container = DependencyContainer()
         use_case = container.create_get_knowledge_statistics_use_case(db)
         # Quick check: count active documents
         stats = await use_case.execute()
@@ -137,6 +144,7 @@ async def create_knowledge(
     knowledge: KnowledgeCreate,
     auto_embed: bool = Query(True, description="Automatically generate embeddings"),  # noqa: B008
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Create a new knowledge document.
@@ -153,7 +161,6 @@ async def create_knowledge(
     Returns the created document with its UUID.
     """
     try:
-        container = DependencyContainer()
         use_case = container.create_create_knowledge_use_case(db)
         result = await use_case.execute(
             knowledge_data=knowledge.model_dump(),
@@ -179,6 +186,7 @@ async def create_knowledge(
 async def get_knowledge(
     knowledge_id: UUID,
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Get a knowledge document by its UUID.
@@ -186,7 +194,6 @@ async def get_knowledge(
     Returns the complete document including all metadata and content.
     """
     try:
-        container = DependencyContainer()
         use_case = container.create_get_knowledge_use_case(db)
         result = await use_case.execute(knowledge_id)
 
@@ -221,6 +228,7 @@ async def list_knowledge(
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),  # noqa: B008
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),  # noqa: B008
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     List knowledge documents with optional filters and pagination.
@@ -235,7 +243,6 @@ async def list_knowledge(
     Returns paginated list with metadata.
     """
     try:
-        container = DependencyContainer()
         use_case = container.create_list_knowledge_use_case(db)
         result = await use_case.execute(
             document_type=document_type,
@@ -265,6 +272,7 @@ async def update_knowledge(
     knowledge: KnowledgeUpdate,
     regenerate_embedding: bool = Query(True, description="Regenerate embeddings if content changed"),  # noqa: B008
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Update a knowledge document.
@@ -285,7 +293,6 @@ async def update_knowledge(
                 detail="No fields provided for update",
             )
 
-        container = DependencyContainer()
         use_case = container.create_update_knowledge_use_case(db)
         result = await use_case.execute(
             knowledge_id=knowledge_id,
@@ -322,6 +329,7 @@ async def delete_knowledge(
     knowledge_id: UUID,
     hard_delete: bool = Query(False, description="Permanently delete (true) or deactivate (false)"),  # noqa: B008
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Delete a knowledge document.
@@ -332,7 +340,6 @@ async def delete_knowledge(
     Soft delete is recommended to preserve history.
     """
     try:
-        container = DependencyContainer()
         use_case = container.create_delete_knowledge_use_case(db)
         success = await use_case.execute(
             knowledge_id=knowledge_id,
@@ -374,6 +381,7 @@ async def delete_knowledge(
 async def search_knowledge(
     search: KnowledgeSearch,
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Search the knowledge base using pgvector semantic search.
@@ -387,7 +395,6 @@ async def search_knowledge(
     Returns ranked results with similarity scores.
     """
     try:
-        container = DependencyContainer()
         use_case = container.create_search_knowledge_use_case(db)
         results = await use_case.execute(
             query=search.query,
@@ -428,6 +435,7 @@ async def search_knowledge(
 async def regenerate_embedding(
     knowledge_id: UUID,
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Regenerate pgvector embeddings for a specific document.
@@ -438,7 +446,6 @@ async def regenerate_embedding(
     - Re-syncing after manual content edits
     """
     try:
-        container = DependencyContainer()
         use_case = container.create_regenerate_knowledge_embeddings_use_case(db)
 
         # Regenerate embeddings (will verify document exists)
@@ -476,6 +483,7 @@ async def regenerate_embedding(
 )
 async def sync_all_embeddings(
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    container: DependencyContainer = Depends(get_di_container_dual),  # noqa: B008
 ):
     """
     Regenerate pgvector embeddings for ALL knowledge documents.
@@ -491,7 +499,6 @@ async def sync_all_embeddings(
     try:
         logger.info("Starting full pgvector embedding sync")
 
-        container = DependencyContainer()
         use_case = container.create_regenerate_knowledge_embeddings_use_case(db)
 
         # Regenerate all embeddings (knowledge_id=None means all documents)
