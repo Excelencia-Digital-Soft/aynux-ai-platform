@@ -562,7 +562,8 @@ DB_PASSWORD=your_secure_password
 
 # Default LLM (overridable per tenant)
 OLLAMA_API_URL=http://localhost:11434
-OLLAMA_API_MODEL=deepseek-r1:7b
+OLLAMA_API_MODEL_SIMPLE=deepseek-r1:1.5b
+OLLAMA_API_MODEL_COMPLEX=deepseek-r1:7b
 OLLAMA_API_MODEL_EMBEDDING=nomic-embed-text
 
 # Default RAG Settings (overridable per tenant)

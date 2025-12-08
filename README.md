@@ -312,7 +312,6 @@ class SearchProductsUseCase:
 ## 📚 Documentation
 
 ### Core Documentation
-- **[CLAUDE.md](CLAUDE.md)**: Development guide for Claude Code AI with Clean Architecture principles
 - **[docs/FINAL_MIGRATION_SUMMARY.md](docs/FINAL_MIGRATION_SUMMARY.md)**: Clean Architecture migration complete guide
 - **[docs/LangGraph.md](docs/LangGraph.md)**: Complete LangGraph architecture guide
 - **[docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md)**: Testing strategy and best practices
@@ -434,6 +433,14 @@ User interfaces and API endpoints.
 - **Protocol (Interfaces)**: Runtime-checkable interfaces for loose coupling
 - **Multi-Agent System**: LangGraph orchestrates specialized AI agents
 - **Event-Driven**: Domain events for cross-domain communication (planned)
+
+### Prompt Management
+
+Aynux uses a YAML-based system for managing prompts, located in `app/prompts/templates`. This approach allows for easy editing and versioning of prompts without changing the application code.
+
+- **Structure**: Prompts are organized by domain and functionality. For example, a prompt for product search intent is located at `app/prompts/templates/product/search.yaml`.
+- **Access**: Prompts are accessed via a key-based system using the `PromptRegistry` class. For example, `PromptRegistry.PRODUCT_SEARCH_INTENT`.
+- **Loading**: The `PromptManager` class is responsible for loading prompts from YAML files, caching them in memory, and rendering them with variables.
 
 ### Directory Structure
 
@@ -646,7 +653,10 @@ All conversations are automatically traced in LangSmith for debugging and optimi
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OLLAMA_API_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_API_MODEL` | `deepseek-r1:7b` | Default LLM model |
+| `OLLAMA_API_MODEL_SIMPLE` | `deepseek-r1:1.5b` | Fast model for intent analysis |
+| `OLLAMA_API_MODEL_COMPLEX` | `deepseek-r1:7b` | Powerful model for complex responses |
+| `OLLAMA_API_MODEL_REASONING` | `deepseek-r1:7b` | Deep reasoning model |
+| `OLLAMA_API_MODEL_SUMMARY` | `llama3.2:latest` | Fast model for conversation summary |
 | `OLLAMA_API_MODEL_EMBEDDING` | `nomic-embed-text` | Embedding model |
 
 ### Vector Search

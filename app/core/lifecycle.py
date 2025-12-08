@@ -56,6 +56,9 @@ class LifecycleManager:
         # Verify external service connectivity
         await self._verify_external_services()
 
+        # Warmup LLM model to avoid cold starts
+        await self._warmup_llm()
+
         self._initialized = True
         logger.info("Application lifecycle startup completed")
 
@@ -130,7 +133,9 @@ class LifecycleManager:
         try:
             from langchain_ollama import OllamaEmbeddings
 
-            embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
+            embeddings = OllamaEmbeddings(
+                model=settings.OLLAMA_API_MODEL_EMBEDDING, base_url=settings.OLLAMA_API_URL
+            )
             # Simple test embedding
             test_result = embeddings.embed_query("test")
             if test_result and len(test_result) > 0:
@@ -139,6 +144,34 @@ class LifecycleManager:
                 logger.warning("Ollama embeddings test returned empty result")
         except Exception as e:
             logger.warning(f"Ollama embeddings connectivity failed: {e}")
+
+    async def _warmup_llm(self) -> None:
+        """
+        Pre-load the LLM model in GPU/memory to avoid cold starts.
+
+        This ensures the first user request doesn't suffer from model loading latency.
+        """
+        if not settings.OLLAMA_WARMUP_ON_STARTUP:
+            logger.info("LLM warmup disabled via OLLAMA_WARMUP_ON_STARTUP=False")
+            return
+
+        logger.info("Warming up LLM model...")
+        try:
+            from app.integrations.llm.model_provider import ModelComplexity
+            from app.integrations.llm.ollama import OllamaLLM
+
+            # Create OllamaLLM instance and get cached LLM
+            ollama = OllamaLLM()
+            llm = ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.7)
+
+            # Simple warmup call to load model in memory
+            from langchain_core.messages import HumanMessage
+
+            await llm.ainvoke([HumanMessage(content="Hello")])
+            logger.info(f"LLM warmup completed - Model: {settings.OLLAMA_API_MODEL_SIMPLE}")
+
+        except Exception as e:
+            logger.warning(f"LLM warmup failed (non-critical): {e}")
 
 
 # Global lifecycle manager instance

@@ -8,8 +8,12 @@ mensajes en dominios de negocio usando múltiples estrategias.
 import logging
 from typing import Any
 
+from app.config.settings import get_settings
 from app.integrations.llm import OllamaLLM
+from app.integrations.llm.model_provider import ModelComplexity
 from app.models.message import Contact
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 from app.services.orchestration.domain_pattern_repository import DomainPatternRepository
 
 logger = logging.getLogger(__name__)
@@ -69,7 +73,6 @@ class DomainClassifier:
         self,
         pattern_repository: DomainPatternRepository,
         ollama: OllamaLLM | None = None,
-        model: str = "deepseek-r1:7b",
     ):
         """
         Initialize domain classifier.
@@ -77,11 +80,13 @@ class DomainClassifier:
         Args:
             pattern_repository: Repository for domain patterns
             ollama: OllamaLLM instance for AI classification
-            model: LLM model to use for AI classification
         """
         self.pattern_repository = pattern_repository
         self.ollama = ollama or OllamaLLM()
-        self.model = model
+        self.settings = get_settings()
+
+        # Initialize PromptManager for YAML-based prompts
+        self.prompt_manager = PromptManager()
 
     async def classify(
         self,
@@ -235,34 +240,30 @@ class DomainClassifier:
         if contact:
             context_info = f"\nContexto del usuario: {contact.name or contact.wa_id}"
 
-        # Build prompt
-        prompt = f"""# CLASIFICACIÓN DE DOMINIO DE NEGOCIO
-
-MENSAJE DEL USUARIO:
-"{message}"
-{context_info}
-
-DOMINIOS DISPONIBLES:
-{chr(10).join(domain_descriptions)}
-
-INSTRUCCIONES:
-Analiza el mensaje y determina a qué dominio de negocio corresponde.
-Responde SOLO con JSON en este formato:
-
-{{
-  "domain": "ecommerce|hospital|credit",
-  "confidence": float_0_to_1,
-  "reasoning": "breve explicación de la clasificación"
-}}
-
-IMPORTANTE:
-- confidence debe ser 0.0-1.0 (1.0 = muy seguro)
-- Si no estás seguro, usa confidence < 0.5
-- Considera el contexto completo del mensaje"""
+        # Build prompt from YAML
+        try:
+            prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.ORCHESTRATOR_DOMAIN_CLASSIFICATION,
+                variables={
+                    "message": message,
+                    "context_info": context_info,
+                    "domain_descriptions": "\n".join(domain_descriptions),
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Failed to load YAML prompt: {e}")
+            # Fallback to hardcoded prompt
+            prompt = (
+                f"# CLASIFICACIÓN DE DOMINIO DE NEGOCIO\n\n"
+                f'MENSAJE DEL USUARIO:\n"{message}"\n{context_info}\n\n'
+                f"DOMINIOS DISPONIBLES:\n{chr(10).join(domain_descriptions)}\n\n"
+                "INSTRUCCIONES:\nAnaliza el mensaje y determina a qué dominio corresponde.\n"
+                'Responde SOLO con JSON: {"domain": "...", "confidence": 0.0-1.0}'
+            )
 
         try:
             # Call LLM
-            llm = self.ollama.get_llm(temperature=0.2, model=self.model)
+            llm = self.ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.2)
             response = await llm.ainvoke(prompt)
 
             # Parse response
@@ -283,7 +284,7 @@ IMPORTANTE:
                 domain=domain,
                 confidence=confidence,
                 method="ai",
-                metadata={"reasoning": reasoning, "model": self.model},
+                metadata={"reasoning": reasoning, "model": self.settings.OLLAMA_API_MODEL_SIMPLE},
             )
 
         except Exception as e:

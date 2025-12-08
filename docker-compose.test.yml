@@ -21,7 +21,7 @@ services:
   # PostgreSQL for testing (ephemeral)
   # ---------------------------------------------------------------------------
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg18
     container_name: aynux-test-postgres
     environment:
       POSTGRES_USER: test_user
@@ -91,7 +91,10 @@ services:
       - LANGSMITH_TRACING_ENABLED=false
       # Mock Ollama URL (tests should mock LLM calls)
       - OLLAMA_API_URL=http://localhost:11434
-      - OLLAMA_API_MODEL=test-model
+      - OLLAMA_API_MODEL_SIMPLE=test-model
+      - OLLAMA_API_MODEL_COMPLEX=test-model
+      - OLLAMA_API_MODEL_REASONING=test-model
+      - OLLAMA_API_MODEL_SUMMARY=test-model
       - OLLAMA_API_MODEL_EMBEDDING=test-embedding
       # Skip entrypoint DB init - let tests handle their own setup
       - SKIP_DB_INIT=true

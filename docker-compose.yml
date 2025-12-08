@@ -21,7 +21,7 @@ services:
   # Image includes pgvector pre-installed
   # ---------------------------------------------------------------------------
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg18
     container_name: aynux-postgres
     restart: unless-stopped
     environment:
@@ -33,7 +33,7 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-aynux} -d ${DB_NAME:-aynux}"]
@@ -141,7 +141,10 @@ services:
       # For native Ollama on Mac, uses host.docker.internal
       # For Docker Ollama, change to http://ollama:11434
       - OLLAMA_API_URL=${OLLAMA_API_URL:-http://host.docker.internal:11434}
-      - OLLAMA_API_MODEL=${OLLAMA_API_MODEL:-deepseek-r1:7b}
+      - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
+      - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
+      - OLLAMA_API_MODEL_REASONING=${OLLAMA_API_MODEL_REASONING:-deepseek-r1:7b}
+      - OLLAMA_API_MODEL_SUMMARY=${OLLAMA_API_MODEL_SUMMARY:-llama3.2:latest}
       - OLLAMA_API_MODEL_EMBEDDING=${OLLAMA_API_MODEL_EMBEDDING:-nomic-embed-text}
       # pgvector Configuration
       - PGVECTOR_SIMILARITY_THRESHOLD=0.7
@@ -208,7 +211,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - OLLAMA_API_URL=${OLLAMA_API_URL:-http://host.docker.internal:11434}
-      - OLLAMA_API_MODEL=${OLLAMA_API_MODEL:-deepseek-r1:7b}
+      - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
+      - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
       - ENVIRONMENT=development
       # API URL inside Docker network
       - API_BASE_URL=http://app:8001

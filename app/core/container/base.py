@@ -1,3 +1,9 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Contenedor base con singletons compartidos (LLM, VectorStore).
+#              Recursos costosos creados una vez y reutilizados por todos los tenants.
+# Tenant-Aware: No - instancias compartidas sin filtrado por tenant.
+# ============================================================================
 """
 Base Container - Shared Singletons.
 
@@ -47,7 +53,7 @@ class BaseContainer:
         """
         if self._llm_instance is None:
             model_name = self.config.get("llm_model") or getattr(
-                self.settings, "OLLAMA_API_MODEL", "deepseek-r1:7b"
+                self.settings, "OLLAMA_API_MODEL_COMPLEX", "deepseek-r1:7b"
             )
 
             logger.info(f"Creating LLM instance with model: {model_name}")

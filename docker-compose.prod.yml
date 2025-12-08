@@ -20,6 +20,10 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
+    # PostgreSQL 18 PGDATA location change
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     deploy:
       resources:
         limits:
@@ -98,7 +102,10 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       # Ollama Configuration (internal network)
       - OLLAMA_API_URL=http://ollama:11434
-      - OLLAMA_API_MODEL=${OLLAMA_API_MODEL:-deepseek-r1:7b}
+      - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
+      - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
+      - OLLAMA_API_MODEL_REASONING=${OLLAMA_API_MODEL_REASONING:-deepseek-r1:7b}
+      - OLLAMA_API_MODEL_SUMMARY=${OLLAMA_API_MODEL_SUMMARY:-llama3.2:latest}
       - OLLAMA_API_MODEL_EMBEDDING=${OLLAMA_API_MODEL_EMBEDDING:-nomic-embed-text}
       # pgvector
       - PGVECTOR_SIMILARITY_THRESHOLD=0.7

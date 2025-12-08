@@ -52,13 +52,42 @@ class Settings(BaseSettings):
         default=["jpg", "jpeg", "png", "pdf", "doc", "docx"], description="Extensiones de archivo permitidas"
     )
 
-    # AI Service Settings
-    OLLAMA_API_MODEL: str = Field("llama3.2:1b", description="Modelo de ollama a usar")
-    OLLAMA_API_MODEL_FAST: str = Field("llama3.2:1b", description="Modelo rápido para respuestas al usuario")
+    # AI Service Settings - Model Tiers
+    # SIMPLE: Fast model for intent analysis, classification (deepseek-r1:1.5b)
+    # COMPLEX: Powerful model for complex responses (deepseek-r1:7b)
+    # REASONING: Deep reasoning model for complex analysis (deepseek-r1:7b)
+    OLLAMA_API_MODEL_SIMPLE: str = Field(
+        "deepseek-r1:1.5b", description="Modelo rápido para tareas simples (intent analysis)"
+    )
+    OLLAMA_API_MODEL_COMPLEX: str = Field(
+        "deepseek-r1:7b", description="Modelo potente para respuestas complejas"
+    )
+    OLLAMA_API_MODEL_REASONING: str = Field(
+        "deepseek-r1:7b", description="Modelo para razonamiento profundo"
+    )
+
+    # Summary model - Optimized for fast conversation summarization
+    # NOTE: Use a non-reasoning model for speed. DeepSeek-R1 models generate
+    # internal "thinking tokens" which multiply response time 10-50x.
+    # Recommended: llama3.2:3b, qwen3:4b, or similar fast models.
+    OLLAMA_API_MODEL_SUMMARY: str = Field(
+        "llama3.2:latest", description="Modelo rápido para resumen de conversación (evitar modelos reasoning)"
+    )
+
     OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
     OLLAMA_API_MODEL_EMBEDDING: str = Field(
         "nomic-embed-text:v1.5", description="Embedding del modelo de ollama (768 dimensions)"
     )
+
+    # Ollama Performance Settings
+    OLLAMA_KEEP_ALIVE: str = Field("30m", description="Tiempo que el modelo permanece en memoria")
+    OLLAMA_NUM_THREAD: int = Field(8, description="Número de threads para inferencia")
+    OLLAMA_WARMUP_ON_STARTUP: bool = Field(True, description="Pre-cargar modelo LLM en startup")
+    OLLAMA_REQUEST_TIMEOUT: int = Field(60, description="Timeout para requests al LLM en segundos")
+
+    # LLM Streaming Configuration
+    LLM_STREAMING_ENABLED: bool = Field(False, description="Enable streaming for web responses")
+    LLM_STREAMING_FOR_WEBHOOK: bool = Field(False, description="Enable streaming for webhook (usually False)")
 
     # Vector Search Configuration (pgvector only)
     PGVECTOR_SIMILARITY_THRESHOLD: float = Field(
@@ -119,21 +148,28 @@ class Settings(BaseSettings):
     PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")
 
     # Agent Enablement Configuration
+    # Note: product_agent, tracking_agent, promotions_agent, invoice_agent are now
+    # internal nodes of ecommerce_agent (subgraph) - they should NOT be listed here
     ENABLED_AGENTS: list[str] = Field(
         default=[
+            # Always available (domain_key=None)
             "greeting_agent",
-            "product_agent",
-            "data_insights_agent",
-            "promotions_agent",
-            "tracking_agent",
             "support_agent",
-            "invoice_agent",
-            "excelencia_agent",
             "fallback_agent",
             "farewell_agent",
+            # E-commerce domain - DISABLED by default
+            # "ecommerce_agent",
+            # Excelencia domain
+            "excelencia_agent",
+            "excelencia_invoice_agent",
+            "excelencia_promotions_agent",
+            "excelencia_support_agent",
+            "data_insights_agent",
         ],
         description=(
-            "List of enabled agent names (from AgentType enum). " "Orchestrator and Supervisor are always enabled."
+            "List of enabled top-level agent names (from AgentType enum). "
+            "Orchestrator and Supervisor are always enabled. "
+            "E-commerce nodes (product, tracking, promotions, invoice) are internal to ecommerce_agent."
         ),
     )
 
@@ -164,8 +200,20 @@ class Settings(BaseSettings):
     @field_validator("ENABLED_AGENTS", mode="before")
     @classmethod
     def parse_enabled_agents(cls, value):
-        """Parse ENABLED_AGENTS from .env file (comma-separated string) or list"""
+        """Parse ENABLED_AGENTS from .env file (JSON array or comma-separated string)"""
+        import json
+
         if isinstance(value, str):
+            value = value.strip()
+            # Try JSON format first: ["agent1", "agent2"]
+            if value.startswith("[") and value.endswith("]"):
+                try:
+                    parsed = json.loads(value)
+                    if isinstance(parsed, list):
+                        return [str(agent).strip() for agent in parsed if agent]
+                except json.JSONDecodeError:
+                    pass
+            # Fallback to comma-separated format: agent1,agent2
             return [agent.strip() for agent in value.split(",") if agent.strip()]
         return value
 

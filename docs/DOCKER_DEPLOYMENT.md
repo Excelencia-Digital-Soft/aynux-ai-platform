@@ -338,7 +338,8 @@ REDIS_PASSWORD=<strong-random-password>
 
 # Ollama (internal network in production)
 OLLAMA_API_URL=http://ollama:11434
-OLLAMA_API_MODEL=deepseek-r1:7b
+OLLAMA_API_MODEL_SIMPLE=deepseek-r1:1.5b
+OLLAMA_API_MODEL_COMPLEX=deepseek-r1:7b
 
 # Application
 ENVIRONMENT=production
@@ -744,7 +745,10 @@ docker compose top
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OLLAMA_API_URL` | http://host.docker.internal:11434 | Ollama API URL |
-| `OLLAMA_API_MODEL` | deepseek-r1:7b | Main LLM model |
+| `OLLAMA_API_MODEL_SIMPLE` | deepseek-r1:1.5b | Fast model for intent analysis |
+| `OLLAMA_API_MODEL_COMPLEX` | deepseek-r1:7b | Powerful model for complex responses |
+| `OLLAMA_API_MODEL_REASONING` | deepseek-r1:7b | Deep reasoning model |
+| `OLLAMA_API_MODEL_SUMMARY` | llama3.2:latest | Fast model for conversation summary |
 | `OLLAMA_API_MODEL_EMBEDDING` | nomic-embed-text | Embedding model |
 
 ### Application

@@ -1,11 +1,25 @@
+# ============================================================================
+# SCOPE: GLOBAL
+# Description: Implementación Ollama de interfaces ILLM e IEmbeddingModel.
+#              Instancias cacheadas y compartidas entre todos los tenants.
+# Tenant-Aware: No directamente - pero BaseAgent.apply_tenant_config() puede
+#              pasar model/temperature específicos del tenant.
+# ============================================================================
 """
 Ollama implementation of ILLM and IEmbeddingModel interfaces
 
 Provides local LLM capabilities using Ollama service.
 Implements standard interfaces for maximum flexibility and testability.
+
+Features:
+- Model tiering (SIMPLE, COMPLEX, REASONING)
+- Configurable streaming support
+- Automatic deepseek-r1 <think> tag cleaning
+- LRU caching of ChatOllama instances
 """
 
 import logging
+import re
 from typing import AsyncIterator, Dict, List, Optional
 
 import httpx
@@ -22,36 +36,23 @@ from app.core.interfaces.llm import (
     LLMGenerationError,
     LLMProvider,
 )
+from app.integrations.llm.model_provider import ModelComplexity, get_model_name_for_complexity
 
 logger = logging.getLogger(__name__)
+
+# Regex pattern for cleaning deepseek-r1 think tags
+DEEPSEEK_THINK_PATTERN = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class OllamaLLM(ILLM, IChatLLM):
     """
     Ollama implementation of ILLM interface.
-
     Provides local LLM capabilities using Ollama service with langchain integration.
     Supports chat, text generation, and streaming.
-
-    Example:
-        ```python
-        llm = OllamaLLM(model_name="deepseek-r1:7b")
-
-        # Simple generation
-        response = await llm.generate("Tell me about Python")
-
-        # Chat with history
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant"},
-            {"role": "user", "content": "Hello!"}
-        ]
-        response = await llm.generate_chat(messages)
-
-        # Streaming
-        async for token in llm.generate_stream("Tell me a story"):
-            print(token, end="", flush=True)
-        ```
     """
+
+    # Class-level cache for ChatOllama instances (shared across all OllamaLLM instances)
+    _llm_cache: dict[tuple[str, float], ChatOllama] = {}
 
     def __init__(
         self,
@@ -61,85 +62,40 @@ class OllamaLLM(ILLM, IChatLLM):
         **kwargs,
     ):
         """
-        Initialize Ollama LLM.
-
-        Args:
-            model_name: Name of Ollama model (e.g., "deepseek-r1:7b", "llama2")
-            base_url: Ollama API URL (default from settings)
-            temperature: Temperature for generation (0.0-1.0)
-            **kwargs: Additional parameters for ChatOllama
+        Initialize Ollama LLM wrapper.
+        Note: A ChatOllama instance is NOT created here, but on-demand with caching.
         """
         self.settings = get_settings()
-        self._model_name = model_name or self.settings.OLLAMA_API_MODEL
+        self._model_name = model_name or self.settings.OLLAMA_API_MODEL_COMPLEX
         self._base_url = base_url or self.settings.OLLAMA_API_URL
         self._temperature = temperature
-
-        # Initialize ChatOllama instance with explicit parameters
-        self._llm = ChatOllama(
-            model=self._model_name,
-            base_url=self._base_url,
-            temperature=temperature,
-            num_gpu=kwargs.get("num_gpu", 1),
-            num_thread=kwargs.get("num_thread", 4),
-            repeat_penalty=kwargs.get("repeat_penalty", 1.1),
-            top_k=kwargs.get("top_k", 40),
-            top_p=kwargs.get("top_p", 0.9),
-            keep_alive=kwargs.get("keep_alive", "5m"),
-        )
-
-        # Conversation history storage (for IChatLLM)
+        self._kwargs = kwargs
         self._conversations: Dict[str, List[Dict[str, str]]] = {}
-
-        logger.info(f"Initialized OllamaLLM: model={self._model_name}, base_url={self._base_url}")
+        logger.info(f"Initialized OllamaLLM wrapper: default_model={self._model_name}, base_url={self._base_url}")
 
     @property
     def provider(self) -> LLMProvider:
-        """Returns Ollama provider"""
         return LLMProvider.OLLAMA
 
     @property
     def model_name(self) -> str:
-        """Returns current model name"""
         return self._model_name
 
-    async def generate(self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs) -> str:
-        """
-        Generate text from prompt.
-
-        Args:
-            prompt: Input prompt
-            temperature: Generation temperature
-            max_tokens: Maximum tokens to generate
-            **kwargs: Additional parameters
-
-        Returns:
-            Generated text
-
-        Raises:
-            LLMGenerationError: If generation fails
-        """
+    async def generate(
+        self,
+        prompt: str,
+        *,
+        complexity: ModelComplexity = ModelComplexity.COMPLEX,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+        **kwargs,
+    ) -> str:
+        """Generate text from a simple prompt."""
         try:
-            # Update temperature if different
-            if temperature != self._temperature:
-                self._llm.temperature = temperature
-
-            # Set max_tokens if provided
-            if max_tokens:
-                self._llm.num_predict = max_tokens
-
-            # Generate
+            llm = self.get_llm(complexity=complexity, temperature=temperature, num_predict=max_tokens, **kwargs)
             messages = [HumanMessage(content=prompt)]
-            response = await self._llm.ainvoke(messages)
-
-            # Ensure we always return str (response.content can be str | list)
-            if isinstance(response.content, str):
-                return response.content
-            elif isinstance(response.content, list):
-                # Convert list to string representation
-                return " ".join(str(item) for item in response.content)
-            else:
-                return str(response.content)
-
+            response = await llm.ainvoke(messages)
+            return response.content if isinstance(response.content, str) else str(response.content)
         except httpx.ConnectError as e:
             logger.error(f"Connection error to Ollama: {e}")
             raise LLMConnectionError(f"Could not connect to Ollama at {self._base_url}") from e
@@ -148,151 +104,78 @@ class OllamaLLM(ILLM, IChatLLM):
             raise LLMGenerationError(f"Failed to generate text: {e}") from e
 
     async def generate_chat(
-        self, messages: List[Dict[str, str]], temperature: float = 0.7, max_tokens: int = 500, **kwargs
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        complexity: ModelComplexity = ModelComplexity.COMPLEX,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+        **kwargs,
     ) -> str:
-        """
-        Generate response in chat format.
-
-        Args:
-            messages: List of message dicts with 'role' and 'content'
-            temperature: Generation temperature
-            max_tokens: Maximum tokens
-            **kwargs: Additional parameters
-
-        Returns:
-            Generated response
-
-        Raises:
-            LLMGenerationError: If generation fails
-        """
+        """Generate a response in a chat format."""
         try:
-            # Convert messages to LangChain format
-            lc_messages = []
-            for msg in messages:
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-
-                if role == "system":
-                    lc_messages.append(SystemMessage(content=content))
-                elif role == "assistant":
-                    lc_messages.append(AIMessage(content=content))
-                else:  # user
-                    lc_messages.append(HumanMessage(content=content))
-
-            # Update temperature if different
-            if temperature != self._temperature:
-                self._llm.temperature = temperature
-
-            # Set max_tokens
-            if max_tokens:
-                self._llm.num_predict = max_tokens
-
-            # Generate
-            response = await self._llm.ainvoke(lc_messages)
-
-            # Ensure we always return str (response.content can be str | list)
-            if isinstance(response.content, str):
-                return response.content
-            elif isinstance(response.content, list):
-                # Convert list to string representation
-                return " ".join(str(item) for item in response.content)
-            else:
-                return str(response.content)
-
+            llm = self.get_llm(complexity=complexity, temperature=temperature, num_predict=max_tokens, **kwargs)
+            lc_messages = [
+                SystemMessage(content=msg["content"])
+                if msg.get("role") == "system"
+                else AIMessage(content=msg["content"])
+                if msg.get("role") == "assistant"
+                else HumanMessage(content=msg.get("content", ""))
+                for msg in messages
+            ]
+            response = await llm.ainvoke(lc_messages)
+            return response.content if isinstance(response.content, str) else str(response.content)
         except Exception as e:
             logger.error(f"Error in chat generation: {e}")
             raise LLMGenerationError(f"Failed to generate chat response: {e}") from e
 
-    async def generate_stream(  # type: ignore[override]
-        self, prompt: str, temperature: float = 0.7, max_tokens: int = 500, **kwargs
+    def generate_stream(
+        self,
+        prompt: str,
+        *,
+        complexity: ModelComplexity = ModelComplexity.COMPLEX,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+        **kwargs,
     ) -> AsyncIterator[str]:
-        """
-        Generate text in streaming mode.
+        """Generate text in streaming mode."""
+        return self._stream_generator(prompt, complexity, temperature, max_tokens, **kwargs)
 
-        Args:
-            prompt: Input prompt
-            temperature: Generation temperature
-            max_tokens: Maximum tokens
-            **kwargs: Additional parameters
-
-        Yields:
-            Generated tokens one by one
-
-        Raises:
-            LLMGenerationError: If generation fails
-        """
+    async def _stream_generator(
+        self,
+        prompt: str,
+        complexity: ModelComplexity,
+        temperature: float,
+        max_tokens: int,
+        **kwargs,
+    ) -> AsyncIterator[str]:
+        """Internal async generator for streaming."""
         try:
-            # Update temperature if different
-            if temperature != self._temperature:
-                self._llm.temperature = temperature
-
-            # Set max_tokens
-            if max_tokens:
-                self._llm.num_predict = max_tokens
-
-            # Stream
+            llm = self.get_llm(complexity=complexity, temperature=temperature, num_predict=max_tokens, **kwargs)
             messages = [HumanMessage(content=prompt)]
-            async for chunk in self._llm.astream(messages):
-                if hasattr(chunk, "content"):
-                    # Ensure we always yield str (chunk.content can be str | list)
-                    if isinstance(chunk.content, str):
-                        yield chunk.content
-                    elif isinstance(chunk.content, list):
-                        # Convert list to string representation
-                        yield " ".join(str(item) for item in chunk.content)
-                    else:
-                        yield str(chunk.content)
-
+            async for chunk in llm.astream(messages):
+                yield chunk.content if isinstance(chunk.content, str) else str(chunk.content)
         except Exception as e:
             logger.error(f"Error in streaming generation: {e}")
             raise LLMGenerationError(f"Failed to stream text: {e}") from e
 
-    # IChatLLM implementation
     async def chat(self, message: str, conversation_id: str, system_prompt: Optional[str] = None, **kwargs) -> str:
-        """
-        Chat with conversation history.
-
-        Args:
-            message: User message
-            conversation_id: ID to track conversation
-            system_prompt: Optional system prompt
-            **kwargs: Additional parameters
-
-        Returns:
-            Assistant response
-        """
-        # Initialize conversation if new
+        """Chat with conversation history."""
         if conversation_id not in self._conversations:
             self._conversations[conversation_id] = []
-
-            # Add system prompt if provided
             if system_prompt:
                 self._conversations[conversation_id].append({"role": "system", "content": system_prompt})
-
-        # Add user message
         self._conversations[conversation_id].append({"role": "user", "content": message})
-
-        # Generate response
         response = await self.generate_chat(messages=self._conversations[conversation_id], **kwargs)
-
-        # Add assistant response to history
         self._conversations[conversation_id].append({"role": "assistant", "content": response})
-
         return response
 
     async def reset_conversation(self, conversation_id: str) -> None:
-        """Reset conversation history"""
         if conversation_id in self._conversations:
             del self._conversations[conversation_id]
             logger.info(f"Reset conversation: {conversation_id}")
 
     async def health_check(self) -> bool:
-        """
-        Check if Ollama service is available.
-
-        Returns:
-            True if service is reachable
-        """
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{self._base_url}/api/tags", timeout=5.0)
@@ -301,51 +184,134 @@ class OllamaLLM(ILLM, IChatLLM):
             logger.error(f"Ollama health check failed: {e}")
             return False
 
-    # Backward-compatible methods for migration from OllamaIntegration
-    def get_llm(self, temperature: float = 0.7, model: str | None = None, **kwargs) -> ChatOllama:
+    @staticmethod
+    def clean_deepseek_response(response: str) -> str:
         """
-        Get a ChatOllama instance (backward-compatible with OllamaIntegration).
-
-        This method provides compatibility with code that was using OllamaIntegration.get_llm().
-        For new code, prefer using generate() or generate_chat() methods directly.
+        Remove deepseek-r1 <think> tags from response.
 
         Args:
-            temperature: Generation temperature (0.0-1.0)
-            model: Optional model name override
-            **kwargs: Additional parameters for ChatOllama
+            response: Raw response from deepseek model
 
         Returns:
-            ChatOllama instance
+            Cleaned response without think tags
         """
-        model_to_use = model or self._model_name
+        if not response:
+            return response
+        cleaned = DEEPSEEK_THINK_PATTERN.sub("", response)
+        return cleaned.strip()
 
-        # Create a new ChatOllama instance with the specified parameters
-        return ChatOllama(
+    async def generate_with_streaming_option(
+        self,
+        prompt: str,
+        complexity: ModelComplexity = ModelComplexity.COMPLEX,
+        temperature: float = 0.7,
+        max_tokens: int = 500,
+        streaming: bool | None = None,
+        clean_deepseek_tags: bool = True,
+        **kwargs,
+    ) -> str | AsyncIterator[str]:
+        """
+        Generate response with configurable streaming based on context.
+
+        Uses settings to determine streaming mode if not explicitly specified:
+        - LLM_STREAMING_ENABLED for web requests
+        - LLM_STREAMING_FOR_WEBHOOK for webhook requests
+
+        Args:
+            prompt: The prompt to generate from
+            complexity: Model complexity tier (SIMPLE, COMPLEX, REASONING)
+            temperature: Generation temperature
+            max_tokens: Maximum tokens to generate
+            streaming: Override streaming setting (None = use settings)
+            clean_deepseek_tags: Whether to clean <think> tags from response
+            **kwargs: Additional arguments
+
+        Returns:
+            String response if streaming=False, AsyncIterator if streaming=True
+        """
+        # Determine streaming mode from settings if not explicitly set
+        if streaming is None:
+            streaming = self.settings.LLM_STREAMING_ENABLED
+
+        if streaming:
+            # Return async generator for streaming
+            async def stream_with_cleaning():
+                async for chunk in self.generate_stream(
+                    prompt, complexity=complexity, temperature=temperature, max_tokens=max_tokens, **kwargs
+                ):
+                    if clean_deepseek_tags:
+                        # For streaming, we can't clean mid-stream effectively
+                        # Just yield chunks as-is, caller can clean final result
+                        yield chunk
+                    else:
+                        yield chunk
+
+            return stream_with_cleaning()
+        else:
+            # Non-streaming: wait for full response
+            response = await self.generate(
+                prompt, complexity=complexity, temperature=temperature, max_tokens=max_tokens, **kwargs
+            )
+            if clean_deepseek_tags:
+                response = self.clean_deepseek_response(response)
+            return response
+
+    def get_llm(
+        self,
+        complexity: ModelComplexity = ModelComplexity.COMPLEX,
+        temperature: float = 0.7,
+        model: str | None = None,
+        **kwargs,
+    ) -> ChatOllama:
+        """
+        Get a cached ChatOllama instance.
+
+        Instances are cached by (model, temperature) to avoid repeated initialization.
+        Uses settings for keep_alive and num_thread for optimal performance.
+        """
+        if model:
+            logger.warning(
+                "The 'model' parameter in get_llm is deprecated. "
+                "Use the 'complexity' parameter instead. "
+                f"Forcing model to: {model}"
+            )
+            model_to_use = model
+        else:
+            model_to_use = get_model_name_for_complexity(complexity)
+
+        # Cache key based on model and temperature
+        cache_key = (model_to_use, temperature)
+
+        # Return cached instance if available
+        if cache_key in OllamaLLM._llm_cache:
+            return OllamaLLM._llm_cache[cache_key]
+
+        # Combine kwargs from init and the method call
+        final_kwargs = {**self._kwargs, **kwargs}
+
+        # Create new instance with performance-optimized settings
+        # Note: ChatOllama doesn't have a 'streaming' init param - streaming is controlled
+        # via stream() vs invoke() method calls
+        llm_instance = ChatOllama(
             model=model_to_use,
             base_url=self._base_url,
             temperature=temperature,
-            num_gpu=kwargs.get("num_gpu", 1),
-            num_thread=kwargs.get("num_thread", 4),
-            repeat_penalty=kwargs.get("repeat_penalty", 1.1),
-            top_k=kwargs.get("top_k", 40),
-            top_p=kwargs.get("top_p", 0.9),
-            keep_alive=kwargs.get("keep_alive", "5m"),
-            num_predict=kwargs.get("num_predict"),
+            num_gpu=final_kwargs.get("num_gpu", 1),
+            num_thread=final_kwargs.get("num_thread", self.settings.OLLAMA_NUM_THREAD),
+            repeat_penalty=final_kwargs.get("repeat_penalty", 1.1),
+            top_k=final_kwargs.get("top_k", 40),
+            top_p=final_kwargs.get("top_p", 0.9),
+            keep_alive=final_kwargs.get("keep_alive", self.settings.OLLAMA_KEEP_ALIVE),
+            num_predict=final_kwargs.get("num_predict"),
         )
 
+        # Cache the instance
+        OllamaLLM._llm_cache[cache_key] = llm_instance
+        logger.info(f"Created and cached ChatOllama instance: model={model_to_use}, temp={temperature}")
+
+        return llm_instance
+
     def get_embeddings(self, model: str | None = None) -> OllamaEmbeddings:
-        """
-        Get an OllamaEmbeddings instance (backward-compatible with OllamaIntegration).
-
-        This method provides compatibility with code that was using OllamaIntegration.get_embeddings().
-        For new code, prefer using OllamaEmbeddingModel class directly.
-
-        Args:
-            model: Optional embedding model name override
-
-        Returns:
-            OllamaEmbeddings instance
-        """
         embedding_model = model or self.settings.OLLAMA_API_MODEL_EMBEDDING
         return OllamaEmbeddings(model=embedding_model, base_url=self._base_url)
 
@@ -353,38 +319,37 @@ class OllamaLLM(ILLM, IChatLLM):
         self,
         system_prompt: str,
         user_prompt: str,
-        model: str | None = None,
+        complexity: ModelComplexity = ModelComplexity.COMPLEX,
         temperature: float = 0.7,
         max_tokens: int | None = None,
+        model: str | None = None,  # For full backward compatibility
     ) -> str:
-        """
-        Generate a response using system and user prompts (backward-compatible).
-
-        This method provides compatibility with code that was using OllamaIntegration.generate_response().
-        For new code, prefer using generate_chat() with proper message formatting.
-
-        Args:
-            system_prompt: System prompt
-            user_prompt: User prompt
-            model: Optional model name override
-            temperature: Temperature for generation
-            max_tokens: Maximum tokens to generate
-
-        Returns:
-            Generated response text
-        """
+        """(Backward-compatible) Generate a response using system and user prompts."""
         try:
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ]
+            # This method now correctly uses the dynamic instance creation
+            # by calling generate_chat. We pass complexity through.
+            # We also pass the model parameter for full backward compatibility.
+            if model:
+                logger.warning("The 'model' parameter in generate_response is deprecated. Use 'complexity' instead.")
 
-            # Use generate_chat for proper message handling
-            return await self.generate_chat(
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens or 500,
-            )
+            # Here we decide which parameter to use for get_llm, complexity has priority
+            llm = self.get_llm(complexity=complexity, temperature=temperature, model=model, num_predict=max_tokens)
+
+            lc_messages = [
+                SystemMessage(content=msg["content"])
+                if msg.get("role") == "system"
+                else AIMessage(content=msg["content"])
+                if msg.get("role") == "assistant"
+                else HumanMessage(content=msg.get("content", ""))
+                for msg in messages
+            ]
+
+            response = await llm.ainvoke(lc_messages)
+            return response.content if isinstance(response.content, str) else str(response.content)
 
         except Exception as e:
             logger.error(f"Error generating response: {e}")

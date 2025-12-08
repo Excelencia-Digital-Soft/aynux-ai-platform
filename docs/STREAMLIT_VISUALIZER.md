@@ -10,6 +10,31 @@ El **Streamlit Agent Visualizer** es una herramienta de visualización interacti
 - **Revisar la historia de conversación** con mensajes de usuario y respuestas del asistente
 - **Analizar métricas de rendimiento** (tiempos de ejecución, frecuencia de visitas por agente, etc.)
 
+## Arquitectura
+
+El visualizador está integrado en el **Streamlit Admin Dashboard** como una aplicación multi-página:
+
+```
+streamlit_admin/
+├── app.py                               # Punto de entrada principal
+├── lib/
+│   ├── session_state.py                 # Gestión de estado de sesión
+│   ├── auth.py                          # Autenticación
+│   └── api_client.py                    # Cliente API
+└── pages/
+    ├── 0_🔐_Login.py
+    ├── 1_🤖_Chat_Visualizer.py         # ← Chat Visualizer
+    ├── 2_📚_Knowledge_Base.py
+    ├── 3_📤_Upload_Documents.py
+    ├── 4_🔧_Embeddings.py
+    ├── 5_🏢_Excelencia.py
+    ├── 6_⚙️_Agent_Config.py
+    ├── 7_📊_Statistics.py
+    ├── 8_🏢_Organizations.py
+    ├── 9_👥_Users.py
+    └── 10_⚙️_Tenant_Config.py
+```
+
 ## Características Principales
 
 ### 1. 📊 Grafo de Ejecución Interactivo
@@ -124,25 +149,28 @@ Descarga e instala desde: https://graphviz.org/download/
 
 ### Inicio Rápido
 
-Ejecuta el script de inicio:
+Ejecuta el script de inicio para el dashboard completo:
 
 ```bash
-./run_visualizer.sh
+./run_admin.sh
 ```
 
 O manualmente:
 
 ```bash
-streamlit run streamlit_agent_visualizer.py
+streamlit run streamlit_admin/app.py
 ```
+
+Luego navega a la página **"🤖 Chat Visualizer"** desde el menú lateral.
 
 ### Paso a Paso
 
 1. **Iniciar la aplicación**: Ejecuta el comando anterior
 2. **Abrir en navegador**: Streamlit abrirá automáticamente `http://localhost:8501`
-3. **Inicializar el grafo**: Click en "🚀 Inicializar Grafo" en la barra lateral
-4. **Enviar mensajes**: Escribe un mensaje en el input y presiona "📤 Enviar"
-5. **Explorar visualizaciones**: Navega por las pestañas para ver diferentes aspectos
+3. **Navegar a Chat Visualizer**: Click en "🤖 Chat Visualizer" en el menú lateral
+4. **Inicializar el grafo**: Click en "🚀 Inicializar Grafo" en la barra lateral
+5. **Enviar mensajes**: Escribe un mensaje en el input y presiona "📤 Enviar"
+6. **Explorar visualizaciones**: Navega por las pestañas para ver diferentes aspectos
 
 ## Interfaz de Usuario
 
@@ -150,7 +178,7 @@ streamlit run streamlit_agent_visualizer.py
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  🤖 Aynux Agent Visualizer                              │
+│  🤖 Chat Visualizer                                      │
 │  Visualización en tiempo real del sistema multi-agente  │
 │                                                          │
 │  [Estado] [Agentes] [Mensajes] [Pasos]                 │
@@ -248,8 +276,8 @@ streamlit run streamlit_agent_visualizer.py
 ### Componentes Principales
 
 ```
-streamlit_agent_visualizer.py
-├── AgentVisualizerApp (clase principal)
+streamlit_admin/pages/1_🤖_Chat_Visualizer.py
+├── ChatVisualizerPage (clase principal)
 │   ├── initialize_graph()
 │   ├── process_message()
 │   └── _stream_graph_execution()
@@ -327,14 +355,10 @@ El visualizador usa las mismas variables de entorno que la aplicación principal
 
 # Ollama Configuration
 OLLAMA_API_URL=http://localhost:11434
-OLLAMA_API_MODEL=deepseek-r1:7b
+OLLAMA_API_MODEL_COMPLEX=deepseek-r1:7b
 
 # Database
 DATABASE_URL=postgresql://user:pass@localhost/aynux
-
-# ChromaDB
-CHROMA_PERSIST_DIRECTORY=./chroma_data
-CHROMA_COLLECTION_NAME=aynux_knowledge
 
 # Agent Configuration
 ENABLED_AGENTS=greeting_agent,product_agent,promotions_agent,tracking_agent,support_agent,invoice_agent,excelencia_agent,fallback_agent,farewell_agent,data_insights_agent

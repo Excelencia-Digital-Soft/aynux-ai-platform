@@ -53,8 +53,8 @@ def get_llm_config() -> LLMConfig:
     """Get LLM configuration from settings."""
     settings = get_settings()
     return LLMConfig(
-        model=settings.OLLAMA_API_MODEL,
-        model_fast=settings.OLLAMA_API_MODEL_FAST,
+        model=settings.OLLAMA_API_MODEL_COMPLEX,
+        model_fast=settings.OLLAMA_API_MODEL_SIMPLE,
         embedding_model=settings.OLLAMA_API_MODEL_EMBEDDING,
         api_url=settings.OLLAMA_API_URL,
     )
