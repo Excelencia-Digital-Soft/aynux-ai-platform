@@ -381,6 +381,32 @@ BUILTIN_AGENT_DEFAULTS: dict[str, dict] = {
             "show_payment_options": True,
         },
     },
+    # Pharmacy domain agent
+    "pharmacy_operations_agent": {
+        "agent_type": "builtin",
+        "display_name": "Pharmacy Operations Agent",
+        "description": "Handles pharmacy debt queries, confirmations, and invoice generation",
+        "priority": 75,
+        "domain_key": "pharmacy",
+        "keywords": [
+            "deuda",
+            "farmacia",
+            "saldo",
+            "factura",
+            "confirmar",
+            "cuenta",
+            "pendiente",
+            "debo",
+        ],
+        "intent_patterns": [
+            {"pattern": "pharmacy", "weight": 1.0},
+        ],
+        "config": {
+            "enable_bypass": True,
+            "require_confirmation": True,
+            "max_workflow_steps": 3,
+        },
+    },
 }
 
 

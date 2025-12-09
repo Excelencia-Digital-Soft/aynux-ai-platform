@@ -167,6 +167,88 @@ class GraphRouter:
         agent = self._tenant_registry.get_agent(agent_key)
         return agent.config if agent else None
 
+    def check_bypass_routing(self, state: LangGraphState) -> str | None:
+        """
+        Check if request should bypass orchestrator based on tenant config.
+
+        Checks bypass rules in TenantConfig.advanced_config:
+        1. Phone number patterns/lists
+        2. WhatsApp phone_number_id
+
+        Returns:
+            Target agent name if bypass applies, None otherwise
+        """
+        # Get tenant context
+        ctx = get_tenant_context()
+        if not ctx or not ctx.config:
+            return None
+
+        # Get bypass config from advanced_config
+        advanced = ctx.config.advanced_config or {}
+        bypass_config = advanced.get("bypass_routing", {})
+
+        if not bypass_config.get("enabled", False):
+            return None
+
+        rules = bypass_config.get("rules", [])
+
+        # Extract identifiers from state
+        phone_number = state.get("user_id") or state.get("customer_id")
+        whatsapp_phone_id = state.get("whatsapp_phone_number_id")
+
+        for rule in rules:
+            rule_type = rule.get("type")
+            target_agent = rule.get("target_agent")
+
+            if not target_agent:
+                continue
+
+            if rule_type == "phone_number":
+                pattern = rule.get("pattern", "")
+                if self._match_phone_pattern(phone_number, pattern):
+                    logger.info(
+                        f"[BYPASS] Phone pattern match: {phone_number} -> {target_agent}"
+                    )
+                    return target_agent
+
+            elif rule_type == "phone_number_list":
+                phone_list = rule.get("phone_numbers", [])
+                if phone_number in phone_list:
+                    logger.info(
+                        f"[BYPASS] Phone list match: {phone_number} -> {target_agent}"
+                    )
+                    return target_agent
+
+            elif rule_type == "whatsapp_phone_number_id":
+                config_id = rule.get("phone_number_id")
+                if whatsapp_phone_id == config_id:
+                    logger.info(
+                        f"[BYPASS] WhatsApp ID match: {whatsapp_phone_id} -> {target_agent}"
+                    )
+                    return target_agent
+
+        return None
+
+    def _match_phone_pattern(self, phone: str | None, pattern: str) -> bool:
+        """
+        Match phone number against pattern with wildcard support.
+
+        Args:
+            phone: Phone number to match
+            pattern: Pattern to match against (supports * wildcard at end)
+
+        Returns:
+            True if matches, False otherwise
+        """
+        if not phone or not pattern:
+            return False
+
+        # Simple wildcard matching (* at end)
+        if pattern.endswith("*"):
+            return phone.startswith(pattern[:-1])
+
+        return phone == pattern
+
     @trace_sync_method(
         name="route_to_agent", run_type="chain", metadata={"operation": "agent_selection", "component": "router"}
     )

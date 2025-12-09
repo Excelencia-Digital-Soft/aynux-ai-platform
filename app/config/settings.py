@@ -144,6 +144,13 @@ class Settings(BaseSettings):
     DUX_SYNC_HOURS: list[int] = Field([2, 14], description="Horas del día para sincronización automática (0-23)")
     DUX_FORCE_SYNC_THRESHOLD_HOURS: int = Field(24, description="Forzar sync si datos > X horas antiguos")
 
+    # External Service - Pharmacy ERP Integration
+    PHARMACY_ERP_BASE_URL: str | None = Field(
+        None, description="Base URL for Pharmacy ERP API (e.g., https://pharmacy-erp.example.com/api)"
+    )
+    PHARMACY_API_TOKEN: str | None = Field(None, description="Bearer token for Pharmacy ERP authentication")
+    PHARMACY_ERP_TIMEOUT: int = Field(30, description="Timeout for Pharmacy ERP requests in seconds")
+
     # ProductAgent Configuration (always uses PostgreSQL only)
     PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")
 

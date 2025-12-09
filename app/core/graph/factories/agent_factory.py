@@ -56,6 +56,7 @@ from app.domains.excelencia.agents import (
     ExcelenciaPromotionsAgent,
     ExcelenciaSupportAgent,
 )
+from app.domains.pharmacy.agents import PharmacyOperationsAgent
 from app.domains.shared.agents import (
     DataInsightsAgent,
     FallbackAgent,
@@ -90,6 +91,8 @@ BUILTIN_AGENT_CLASSES: dict[str, type] = {
     "promotions_agent": PromotionsAgent,
     "tracking_agent": TrackingAgent,
     "invoice_agent": InvoiceAgent,
+    # Pharmacy domain agents (domain_key="pharmacy")
+    "pharmacy_operations_agent": PharmacyOperationsAgent,
 }
 
 
@@ -269,6 +272,10 @@ class AgentFactory:
                 "farewell_agent": lambda: FarewellAgent(
                     ollama=self.ollama, postgres=self.postgres, config={}
                 ),
+                # Pharmacy domain agent
+                "pharmacy_operations_agent": lambda: PharmacyOperationsAgent(
+                    config=self._extract_config(agent_configs, "pharmacy"),
+                ),
             }
 
             # Initialize only enabled agents
@@ -362,6 +369,8 @@ class AgentFactory:
             "data_insights_agent",
             # E-commerce domain agents (domain_key="ecommerce")
             "ecommerce_agent",
+            # Pharmacy domain agents (domain_key="pharmacy")
+            "pharmacy_operations_agent",
             # Legacy agents (deprecated)
             "product_agent",
             "promotions_agent",

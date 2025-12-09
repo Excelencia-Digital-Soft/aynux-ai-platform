@@ -26,6 +26,8 @@ class IntentType(str, Enum):
     EXCELENCIA_FACTURACION = "excelencia_facturacion"  # Excelencia client invoices
     EXCELENCIA_PROMOCIONES = "excelencia_promociones"  # Excelencia software promotions
     EXCELENCIA_SOPORTE = "excelencia_soporte"  # Excelencia software support/incidents
+    # Pharmacy domain intents
+    PHARMACY = "pharmacy"  # Pharmacy debt queries, confirmations, invoices
     # Other intents
     DATOS = "datos"  # Data insights (Excelencia domain)
     SOPORTE = "soporte"  # Support (always available)
@@ -63,6 +65,9 @@ class AgentType(str, Enum):
 
     # Credit domain (domain_key="credit")
     CREDIT = "credit_agent"
+
+    # Pharmacy domain (domain_key="pharmacy")
+    PHARMACY_OPERATIONS_AGENT = "pharmacy_operations_agent"
 
 
 class IntentDefinition(BaseModel):
@@ -365,6 +370,23 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             target_agent=AgentType.EXCELENCIA_SUPPORT_AGENT,
             confidence_threshold=0.7,
         ),
+        IntentType.PHARMACY: IntentDefinition(
+            intent=IntentType.PHARMACY,
+            description="Pharmacy debt queries, confirmations, and invoice generation",
+            examples=[
+                "consultar deuda",
+                "mi saldo",
+                "cuanto debo",
+                "deuda farmacia",
+                "generar factura farmacia",
+                "confirmar deuda",
+                "estado de cuenta",
+                "check my debt",
+                "pharmacy invoice",
+            ],
+            target_agent=AgentType.PHARMACY_OPERATIONS_AGENT,
+            confidence_threshold=0.75,
+        ),
         IntentType.DESPEDIDA: IntentDefinition(
             intent=IntentType.DESPEDIDA,
             description="Conversation closing, thanks",
@@ -555,6 +577,17 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
             primary_intents=[IntentType.DESPEDIDA],
             requires_postgres=True,
             config_key="farewell",
+        ),
+        AgentType.PHARMACY_OPERATIONS_AGENT: AgentDefinition(
+            agent=AgentType.PHARMACY_OPERATIONS_AGENT,
+            class_name="PharmacyOperationsAgent",
+            display_name="Pharmacy Operations Agent",
+            description="Handles pharmacy debt workflows: check debt, confirm, generate invoice",
+            primary_intents=[IntentType.PHARMACY],
+            requires_postgres=False,
+            requires_pgvector=False,
+            requires_external_apis=True,
+            config_key="pharmacy",
         ),
     },
     human_handoff_intents={"complaint", "legal_issue", "payment_problem", "urgent_support"},
