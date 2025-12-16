@@ -1,0 +1,38 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ "linux-production" ]
+
+jobs:
+  deploy:
+    name: Deploy to Ubuntu Server
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 160
+        script: |
+          # 1. Ir a la carpeta del proyecto (AJUSTA ESTA RUTA si es diferente)
+          cd ~/aynux
+
+          # 2. Obtener los últimos cambios
+          git pull origin main
+
+          # 3. Crear el archivo .env dinámicamente con los secretos
+          echo "${{ secrets.PROD_ENV_FILE }}" > .env
+
+          # 4. Detener contenedores viejos, reconstruir y levantar
+          docker compose -f docker-compose.yml down
+          docker compose -f docker-compose.yml up -d --build --remove-orphans
+
+          # 5. Limpieza opcional de imágenes viejas para no llenar el disco
+          docker image prune -f
