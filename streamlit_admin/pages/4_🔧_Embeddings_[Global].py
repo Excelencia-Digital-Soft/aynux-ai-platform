@@ -21,8 +21,8 @@ from lib.session_state import init_session_state
 
 init_session_state()
 
-st.title("🔧 Embedding Management")
-st.markdown("Monitor and manage document embeddings.")
+st.title("🔧 Gestión de Embeddings")
+st.markdown("Monitorea y gestiona los embeddings de documentos.")
 
 # Get stats
 stats = get_knowledge_stats()
@@ -31,16 +31,16 @@ if stats:
     db_stats = stats.get("database", {})
 
     # Metrics
-    st.subheader("📊 Embedding Statistics")
+    st.subheader("📊 Estadísticas de Embeddings")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("📄 Active Documents", db_stats.get("total_active", 0))
+        st.metric("📄 Documentos Activos", db_stats.get("total_active", 0))
 
     with col2:
         missing = db_stats.get("missing_embeddings", 0)
         st.metric(
-            "⚠️ Missing Embeddings",
+            "⚠️ Embeddings Faltantes",
             missing,
             delta=-missing if missing > 0 else None,
             delta_color="inverse",
@@ -48,10 +48,10 @@ if stats:
 
     with col3:
         coverage = db_stats.get("embedding_coverage", 0)
-        st.metric("✅ Coverage", f"{coverage}%")
+        st.metric("✅ Cobertura", f"{coverage}%")
 
     with col4:
-        st.metric("🤖 Model", stats.get("embedding_model", "N/A"))
+        st.metric("🤖 Modelo", stats.get("embedding_model", "N/A"))
 
     # Coverage progress bar
     st.progress(coverage / 100)
@@ -60,69 +60,82 @@ if stats:
 
     # Health status
     if missing > 0:
-        st.warning(f"⚠️ {missing} documents are missing embeddings")
+        st.warning(f"⚠️ {missing} documentos no tienen embeddings")
     else:
-        st.success("✅ All documents have embeddings")
+        st.success("✅ Todos los documentos tienen embeddings")
 
     # Actions
-    st.subheader("🛠️ Actions")
+    st.subheader("🛠️ Acciones")
 
     col_sync, col_info = st.columns([1, 2])
 
     with col_sync:
-        if st.button("🔄 Sync All Embeddings", type="primary", use_container_width=True):
-            with st.spinner("Syncing all embeddings... This may take a while."):
+        if st.button("🔄 Sincronizar Todos los Embeddings", type="primary", use_container_width=True):
+            with st.spinner("Sincronizando todos los embeddings... Esto puede tomar un momento."):
                 result = sync_all_embeddings()
                 if result:
                     st.success(
-                        f"✅ Synced! Processed: {result.get('details', {}).get('processed_documents', 'N/A')} documents"
+                        f"✅ ¡Sincronizado! Procesados: {result.get('details', {}).get('processed_documents', 'N/A')} documentos"
                     )
                     st.rerun()
 
     with col_info:
         st.info(
             """
-            **When to regenerate embeddings:**
-            - After changing embedding models
-            - After bulk content updates
-            - When search quality degrades
+            **Cuándo regenerar embeddings:**
+            - Después de cambiar modelos de embedding
+            - Después de actualizaciones masivas de contenido
+            - Cuando la calidad de búsqueda se degrada
             """
         )
 
     # Inactive documents
     st.markdown("---")
-    st.subheader("📴 Inactive Documents")
+    st.subheader("📴 Documentos Inactivos")
     inactive = db_stats.get("total_inactive", 0)
 
     if inactive > 0:
-        st.warning(f"📴 {inactive} documents are inactive")
+        st.warning(f"📴 {inactive} documentos están inactivos")
     else:
-        st.success("✅ No inactive documents")
+        st.success("✅ No hay documentos inactivos")
 
     # Detailed stats
     st.markdown("---")
-    st.subheader("📋 Detailed Statistics")
+    st.subheader("📋 Estadísticas Detalladas")
 
-    with st.expander("View raw statistics"):
+    with st.expander("Ver estadísticas completas"):
         st.json(stats)
 
 else:
-    st.error("❌ Unable to fetch statistics. Is the API running?")
+    st.error("❌ No se pudieron obtener las estadísticas. ¿Está corriendo la API?")
 
 # Sidebar tips
-st.sidebar.subheader("💡 Tips")
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔧 Gestión de Embeddings")
 st.sidebar.markdown(
     """
-**Embeddings** are vector representations of your documents
-that enable semantic search.
+Los embeddings son representaciones vectoriales de documentos
+que permiten la búsqueda semántica inteligente.
 
-- **Coverage**: Percentage of documents with embeddings
-- **Missing**: Documents that need embedding generation
-- **Sync**: Generate embeddings for all missing documents
+**Indicadores:**
+- ✅ **Cobertura**: % de documentos con embedding
+- ⚠️ **Faltantes**: Documentos sin procesar
+- 📴 **Inactivos**: Documentos desactivados
 
-**When to regenerate:**
-1. After changing the embedding model
-2. After significant content updates
-3. If search results seem off
+**Acciones:**
+- 🔄 **Sincronizar**: Genera embeddings faltantes
+- Esta operación puede tomar varios minutos
+"""
+)
+
+st.sidebar.subheader("💡 Consejos")
+st.sidebar.markdown(
+    """
+**Cuándo regenerar embeddings:**
+1. Después de cambiar el modelo de embedding
+2. Después de actualizaciones masivas de contenido
+3. Si los resultados de búsqueda parecen incorrectos
+
+**Modelo actual:** `nomic-embed-text:v1.5` (768 dimensiones)
 """
 )

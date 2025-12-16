@@ -281,7 +281,6 @@ Antes de hacer commit, ejecuta:
 **Vector Store fixtures:**
 - `mock_vector_store` - Mock vector store
 - `mock_pgvector_service` - Mock pgvector
-- `mock_chroma_db` - Mock ChromaDB
 
 **Repository fixtures:**
 - `mock_product_repository`

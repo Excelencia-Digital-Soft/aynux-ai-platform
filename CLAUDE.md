@@ -164,30 +164,69 @@ DB_HOST, DB_NAME, DB_USER, DB_PASSWORD
 # Services
 REDIS_HOST, OLLAMA_API_URL
 
-# LLM Model Tiers (4-tier system)
-OLLAMA_API_MODEL_SIMPLE=deepseek-r1:1.5b    # Intent analysis, classification
-OLLAMA_API_MODEL_COMPLEX=deepseek-r1:7b     # Complex responses
-OLLAMA_API_MODEL_REASONING=deepseek-r1:7b   # Deep analysis
-OLLAMA_API_MODEL_SUMMARY=llama3.2:latest    # Summaries (NON-reasoning!)
-OLLAMA_API_MODEL_EMBEDDING=nomic-embed-text # Vector embeddings (768d)
-
-# Integrations
-WHATSAPP_ACCESS_TOKEN, DUX_API_KEY, LANGSMITH_API_KEY
-
 # Multi-Tenancy
 MULTI_TENANT_MODE=false  # true for SaaS mode
 TENANT_HEADER=X-Tenant-ID
+
+# Integrations
+WHATSAPP_ACCESS_TOKEN, DUX_API_KEY, LANGSMITH_API_KEY
 ```
+
+### LLM Configuration (Hybrid Architecture)
+
+The system supports two LLM modes:
+
+| Mode | Description |
+|------|-------------|
+| **Ollama Only** (default) | All tiers use local Ollama models |
+| **Hybrid** | COMPLEX/REASONING → External API, SIMPLE/SUMMARY → Ollama |
+
+**Model Tiers**:
+
+| Tier | Purpose | Ollama Mode | Hybrid Mode |
+|------|---------|-------------|-------------|
+| SIMPLE | Intent analysis, classification | gemma3 | gemma3 (Ollama) |
+| SUMMARY | Conversation summaries | llama3.2 | llama3.2 (Ollama) |
+| COMPLEX | Complex responses | gemma2 | deepseek-chat (DeepSeek API) |
+| REASONING | Deep multi-step analysis | deepseek-r1:8b | deepseek-reasoner (DeepSeek API) |
+
+**Ollama-Only Mode** (default):
+```bash
+# All tiers use Ollama local
+EXTERNAL_LLM_ENABLED=false
+OLLAMA_API_MODEL_SIMPLE=gemma3
+OLLAMA_API_MODEL_SUMMARY=llama3.2
+OLLAMA_API_MODEL_COMPLEX=gemma2
+OLLAMA_API_MODEL_REASONING=deepseek-r1:8b
+OLLAMA_API_MODEL_EMBEDDING=nomic-embed-text
+```
+
+**Hybrid Mode** (DeepSeek API + Ollama):
+```bash
+# External API for COMPLEX/REASONING
+EXTERNAL_LLM_ENABLED=true
+EXTERNAL_LLM_PROVIDER=deepseek
+EXTERNAL_LLM_API_KEY=sk-your-deepseek-key
+EXTERNAL_LLM_MODEL_COMPLEX=deepseek-chat
+EXTERNAL_LLM_MODEL_REASONING=deepseek-reasoner
+EXTERNAL_LLM_FALLBACK_MODEL=llama3.1
+EXTERNAL_LLM_TIMEOUT=120
+
+# Ollama for SIMPLE/SUMMARY
+OLLAMA_API_MODEL_SIMPLE=gemma3
+OLLAMA_API_MODEL_SUMMARY=llama3.2
+```
+
+**Fallback Behavior**: If DeepSeek API fails, automatically falls back to Ollama with `EXTERNAL_LLM_FALLBACK_MODEL`.
 
 ### LLM Model Selection
 
 ```python
-from app.integrations.llm.model_provider import ModelComplexity, get_model_name_for_complexity
+from app.integrations.llm import ModelComplexity
 
-# Use appropriate tier for task
-model = get_model_name_for_complexity(ModelComplexity.SIMPLE)   # Fast intent
-model = get_model_name_for_complexity(ModelComplexity.COMPLEX)  # Main response
-model = get_model_name_for_complexity(ModelComplexity.SUMMARY)  # Conversation summary
+# Agents use complexity tiers - routing is automatic
+response = await llm.generate("query", complexity=ModelComplexity.SIMPLE)   # → Ollama
+response = await llm.generate("query", complexity=ModelComplexity.COMPLEX)  # → DeepSeek (if enabled)
 ```
 
 > **Warning**: SUMMARY tier must use non-reasoning models. DeepSeek-R1's "thinking tokens" cause 10-50x slowdown.

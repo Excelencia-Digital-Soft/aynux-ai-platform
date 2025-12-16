@@ -29,7 +29,8 @@ from lib.auth import check_auth, render_user_menu
 init_session_state()
 
 # Configuration
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8001")
+# Hardcoded API URL for Streamlit admin (not configurable via .env)
+API_BASE_URL = "http://localhost:8001"
 
 # Page configuration
 st.set_page_config(
@@ -47,21 +48,29 @@ st.markdown(
     """
 ### Herramientas Disponibles
 
-Usa el menu lateral para navegar entre las secciones.
+Usa el menú lateral para navegar entre las secciones.
 
-| Seccion | Descripcion |
+#### 🌐 Modo Global (Sistema Excelencia)
+
+| Sección | Descripción |
 |---------|-------------|
-| 🔐 **Login** | Autenticacion y perfil de usuario |
-| 🤖 **Chat Visualizer** | Probar chat y visualizar flujo de agentes |
-| 📚 **Knowledge Base** | Explorar, editar y buscar documentos RAG |
-| 📤 **Upload Documents** | Subir PDFs y texto al knowledge base |
-| 🔧 **Embeddings** | Dashboard de embeddings y sincronizacion |
-| 🏢 **Excelencia** | Gestion de modulos y demos ERP |
-| ⚙️ **Agent Config** | Configuracion de agentes |
-| 📊 **Statistics** | Estadisticas del knowledge base |
-| 🏢 **Organizations** | Gestion de organizaciones (multi-tenant) |
-| 👥 **Users** | Gestion de usuarios por organizacion |
-| ⚙️ **Tenant Config** | Configuracion del tenant (dominios, RAG, agentes, prompts) |
+| 🔐 **Login** | Autenticación de usuarios y gestión de sesiones |
+| 🤖 **Chat Visualizer** | Prueba el chatbot en tiempo real. Visualiza el flujo de ejecución de agentes, razonamiento del orquestador y métricas de rendimiento |
+| 📚 **Knowledge Base** | Gestiona la base de conocimiento RAG. Explora, edita, busca y elimina documentos con búsqueda semántica |
+| 📤 **Upload Documents** | Sube archivos PDF o texto plano a la base de conocimiento con extracción automática de contenido |
+| 🔧 **Embeddings** | Dashboard de gestión de embeddings vectoriales. Monitorea cobertura y sincroniza embeddings faltantes |
+| 🏢 **Excelencia** | Gestiona el catálogo de software Excelencia: módulos, demos, precios y categorías de productos ERP |
+| ⚙️ **Agent Config** | Configura agentes del sistema: habilita/deshabilita, ajusta prioridades y parámetros |
+| 📊 **Statistics** | Estadísticas completas de la base de conocimiento: documentos por tipo, cobertura de embeddings |
+
+#### 🏢 Modo Multi-Tenant (SaaS)
+
+| Sección | Descripción |
+|---------|-------------|
+| 🏢 **Organizations** | Gestiona organizaciones: crear, editar, asignar planes y límites de uso |
+| 👥 **Users** | Gestiona usuarios por organización: roles, permisos y acceso |
+| ⚙️ **Tenant Config** | Configuración por tenant: dominios habilitados, RAG, agentes y prompts personalizados |
+| 📄 **Tenant Documents** | Documentos aislados por organización con búsqueda semántica independiente |
 """
 )
 
@@ -103,18 +112,18 @@ st.subheader("⚡ Acciones Rápidas")
 col_action1, col_action2, col_action3 = st.columns(3)
 
 with col_action1:
-    st.markdown("**Knowledge Base**")
-    st.page_link("pages/2_📚_Knowledge_Base.py", label="📋 Browse Documents", icon="📋")
-    st.page_link("pages/3_📤_Upload_Documents.py", label="📤 Upload New", icon="📤")
+    st.markdown("**Base de Conocimiento**")
+    st.page_link("pages/2_📚_Knowledge_Base_[Global].py", label="📋 Explorar Documentos", icon="📋")
+    st.page_link("pages/3_📤_Upload_Documents_[Global].py", label="📤 Subir Nuevo", icon="📤")
 
 with col_action2:
     st.markdown("**Excelencia**")
-    st.page_link("pages/5_🏢_Excelencia.py", label="🏢 Manage Modules", icon="🏢")
+    st.page_link("pages/5_🏢_Excelencia_[Global].py", label="🏢 Gestionar Módulos", icon="🏢")
 
 with col_action3:
-    st.markdown("**System**")
-    st.page_link("pages/4_🔧_Embeddings.py", label="🔧 Embeddings", icon="🔧")
-    st.page_link("pages/7_📊_Statistics.py", label="📊 Statistics", icon="📊")
+    st.markdown("**Sistema**")
+    st.page_link("pages/4_🔧_Embeddings_[Global].py", label="🔧 Embeddings", icon="🔧")
+    st.page_link("pages/7_📊_Statistics_[Global].py", label="📊 Estadísticas", icon="📊")
 
 # Footer
 st.markdown("---")

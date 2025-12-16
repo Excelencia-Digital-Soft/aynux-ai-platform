@@ -67,7 +67,6 @@ OLLAMA_API_MODEL_EMBEDDING=nomic-embed-text
 USE_PGVECTOR=true
 PRODUCT_SEARCH_STRATEGY=pgvector_primary
 PGVECTOR_SIMILARITY_THRESHOLD=0.7
-CHROMA_SIMILARITY_THRESHOLD=0.5
 ```
 
 **Pull embedding model** (if not already available):
@@ -77,56 +76,7 @@ ollama pull nomic-embed-text
 
 ---
 
-## Step 4: Migrate Embeddings
-
-### Dry Run First (Recommended)
-```bash
-uv run python app/scripts/migrate_chroma_to_pgvector.py --dry-run
-```
-
-**Expected Output**:
-```
-[Step 1/6] Running pre-flight checks...
-  ✓ pgvector extension available
-  ✓ ChromaDB collection 'products_all_products' found
-  ✓ Database connection successful
-
-[Step 2/6] Analyzing current state...
-  Total products in database: 1500
-  Products missing pgvector embeddings: 1500
-
-[Step 3/6] Building migration plan...
-  Would migrate 1500 products (DRY RUN)
-```
-
-### Execute Migration
-```bash
-uv run python app/scripts/migrate_chroma_to_pgvector.py
-```
-
-**Expected Progress**:
-```
-[Step 4/6] Migrating 1500 products...
-  Processing batch 1/30 (50 products)...
-  Progress: 50/1500 (3.3%) - Migrated: 48, Errors: 2
-  ...
-  Progress: 1500/1500 (100.0%) - Migrated: 1497, Errors: 3
-
-[Step 5/6] Verifying migration integrity...
-  Products with pgvector embeddings after migration: 1497
-  ✓ Verification successful
-
-MIGRATION SUMMARY
-================================================================================
-Total products: 1500
-Successfully migrated: 1497
-Errors: 3
-Final pgvector coverage: 99.8%
-```
-
----
-
-## Step 5: Restart & Test
+## Step 4: Restart & Test
 
 ```bash
 # Restart application to load new configuration
@@ -206,9 +156,6 @@ psql -h localhost -U enzo -d aynux -c "
 SELECT COUNT(*) as total, COUNT(embedding) as with_embeddings
 FROM products WHERE active = true;
 "
-
-# Re-run migration if needed
-uv run python app/scripts/migrate_chroma_to_pgvector.py --force
 ```
 
 ### Issue: "Slow searches"
@@ -227,21 +174,6 @@ REINDEX INDEX CONCURRENTLY idx_products_embedding_hnsw;
 
 ---
 
-## 🔄 Rollback (If Needed)
-
-```bash
-# 1. Update .env
-USE_PGVECTOR=false
-PRODUCT_SEARCH_STRATEGY=chroma_primary
-
-# 2. Restart
-./dev-uv.sh
-
-# Done! Back to ChromaDB
-```
-
----
-
 ## 📚 More Information
 
 - **Full Migration Guide**: `docs/PGVECTOR_MIGRATION.md`
@@ -255,7 +187,6 @@ PRODUCT_SEARCH_STRATEGY=chroma_primary
 - [ ] pgvector extension installed
 - [ ] Database schema updated
 - [ ] Environment configured
-- [ ] Embeddings migrated (≥95% coverage)
 - [ ] Application restarted
 - [ ] Search working with pgvector
 - [ ] Tests passing

@@ -53,25 +53,47 @@ class Settings(BaseSettings):
     )
 
     # AI Service Settings - Model Tiers
-    # SIMPLE: Fast model for intent analysis, classification (deepseek-r1:1.5b)
-    # COMPLEX: Powerful model for complex responses (deepseek-r1:7b)
-    # REASONING: Deep reasoning model for complex analysis (deepseek-r1:7b)
-    OLLAMA_API_MODEL_SIMPLE: str = Field(
-        "deepseek-r1:1.5b", description="Modelo rápido para tareas simples (intent analysis)"
-    )
+    # SIMPLE: Fast model for intent analysis, classification
+    # COMPLEX: Powerful model for complex responses
+    # REASONING: Deep reasoning model for complex analysis
+    # SUMMARY: Fast non-reasoning model for conversation summarization
+    #
+    # When EXTERNAL_LLM_ENABLED=true:
+    #   - COMPLEX/REASONING → External API (DeepSeek, KIMI, etc.)
+    #   - SIMPLE/SUMMARY → Ollama local
+    # When EXTERNAL_LLM_ENABLED=false (default):
+    #   - All tiers → Ollama local
+
+    # Ollama models (used for SIMPLE/SUMMARY tiers, and as fallback)
+    OLLAMA_API_MODEL_SIMPLE: str = Field("gemma3", description="Modelo rápido para tareas simples (intent analysis)")
     OLLAMA_API_MODEL_COMPLEX: str = Field(
-        "deepseek-r1:7b", description="Modelo potente para respuestas complejas"
+        "gemma2", description="Modelo potente para respuestas complejas (usado si EXTERNAL_LLM_ENABLED=false)"
     )
     OLLAMA_API_MODEL_REASONING: str = Field(
-        "deepseek-r1:7b", description="Modelo para razonamiento profundo"
+        "deepseek-r1:8b", description="Modelo para razonamiento profundo (usado si EXTERNAL_LLM_ENABLED=false)"
+    )
+    OLLAMA_API_MODEL_SUMMARY: str = Field(
+        "llama3.2", description="Modelo rápido para resumen de conversación (evitar modelos reasoning)"
     )
 
-    # Summary model - Optimized for fast conversation summarization
-    # NOTE: Use a non-reasoning model for speed. DeepSeek-R1 models generate
-    # internal "thinking tokens" which multiply response time 10-50x.
-    # Recommended: llama3.2:3b, qwen3:4b, or similar fast models.
-    OLLAMA_API_MODEL_SUMMARY: str = Field(
-        "llama3.2:latest", description="Modelo rápido para resumen de conversación (evitar modelos reasoning)"
+    # External LLM API Configuration (DeepSeek, KIMI, OpenAI-compatible)
+    # When enabled, COMPLEX and REASONING tiers use the external API
+    EXTERNAL_LLM_ENABLED: bool = Field(
+        False, description="Enable external API for COMPLEX/REASONING tiers (DeepSeek, KIMI, etc.)"
+    )
+    EXTERNAL_LLM_PROVIDER: str = Field("deepseek", description="External LLM provider: deepseek, kimi, openai")
+    EXTERNAL_LLM_API_KEY: str | None = Field(None, description="API key for external LLM provider")
+    EXTERNAL_LLM_BASE_URL: str | None = Field(
+        None, description="Base URL override (auto-detected for known providers if not set)"
+    )
+    EXTERNAL_LLM_MODEL_COMPLEX: str = Field("deepseek-chat", description="Model for COMPLEX tier on external API")
+    EXTERNAL_LLM_MODEL_REASONING: str = Field(
+        "deepseek-reasoner", description="Model for REASONING tier on external API"
+    )
+    EXTERNAL_LLM_TIMEOUT: int = Field(120, description="Timeout for external API calls in seconds")
+    EXTERNAL_LLM_MAX_RETRIES: int = Field(3, description="Max retries for external API calls")
+    EXTERNAL_LLM_FALLBACK_MODEL: str = Field(
+        "llama3.1:8b", description="Ollama model to use as fallback when external API fails"
     )
 
     OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
@@ -96,21 +118,8 @@ class Settings(BaseSettings):
 
     # Knowledge Base Configuration
     KNOWLEDGE_BASE_ENABLED: bool = Field(True, description="Enable company knowledge base with RAG")
-    KNOWLEDGE_EMBEDDING_MODEL: str = Field(
-        "nomic-embed-text",
-        description="Embedding model for knowledge base (must match OLLAMA_API_MODEL_EMBEDDING)",
-    )
-    KNOWLEDGE_SIMILARITY_THRESHOLD: float = Field(
-        0.7, description="Minimum similarity threshold for knowledge base search (0.0-1.0)"
-    )
-
-    # ProductAgent SOLID Refactoring Feature Flags
-    USE_REFACTORED_INTENT_ANALYZER: bool = Field(
-        False, description="Enable refactored IntentAnalyzer component (Phase 2)"
-    )
-    USE_REFACTORED_SEARCH_STRATEGIES: bool = Field(
-        False, description="Enable refactored search strategies with SearchStrategyManager (Phase 3)"
-    )
+    # Note: Knowledge base uses OLLAMA_API_MODEL_EMBEDDING for embeddings
+    # and PGVECTOR_SIMILARITY_THRESHOLD for similarity matching
 
     # JWT Settings
     JWT_SECRET_KEY: str = Field(..., description="Clave secreta para JWT")
@@ -144,12 +153,15 @@ class Settings(BaseSettings):
     DUX_SYNC_HOURS: list[int] = Field([2, 14], description="Horas del día para sincronización automática (0-23)")
     DUX_FORCE_SYNC_THRESHOLD_HOURS: int = Field(24, description="Forzar sync si datos > X horas antiguos")
 
-    # External Service - Pharmacy ERP Integration
-    PHARMACY_ERP_BASE_URL: str | None = Field(
-        None, description="Base URL for Pharmacy ERP API (e.g., https://pharmacy-erp.example.com/api)"
+    # External Service - Plex ERP Integration (Pharmacy)
+    # Connection: Local network, requires VPN
+    # Auth: HTTP Basic Auth
+    PLEX_API_BASE_URL: str = Field(
+        "http://192.168.100.10:8081/wsplex", description="Base URL for Plex ERP API (local network, requires VPN)"
     )
-    PHARMACY_API_TOKEN: str | None = Field(None, description="Bearer token for Pharmacy ERP authentication")
-    PHARMACY_ERP_TIMEOUT: int = Field(30, description="Timeout for Pharmacy ERP requests in seconds")
+    PLEX_API_USER: str = Field("fciacuyo", description="HTTP Basic Auth username for Plex API")
+    PLEX_API_PASS: str = Field("cuyo202$", description="HTTP Basic Auth password for Plex API")
+    PLEX_API_TIMEOUT: int = Field(30, description="Timeout for Plex API requests in seconds")
 
     # ProductAgent Configuration (always uses PostgreSQL only)
     PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")
@@ -186,6 +198,10 @@ class Settings(BaseSettings):
     LANGSMITH_API_KEY: str | None = Field(None, description="LangSmith API key")
     LANGSMITH_PROJECT: str = Field("aynux-production", description="LangSmith project name")
     LANGSMITH_VERBOSE: bool = Field(False, description="Enable verbose LangSmith logging")
+    LANGSMITH_SAMPLE_RATE: float = Field(1.0, description="Trace sampling rate (0.0-1.0)")
+    LANGSMITH_AUTO_EVAL: bool = Field(False, description="Enable automatic evaluation of traces")
+    LANGSMITH_METRICS_ENABLED: bool = Field(True, description="Enable metrics collection")
+    LANGSMITH_DATASET_NAME: str = Field("aynux-evals", description="Dataset name for evaluations")
 
     model_config = SettingsConfigDict(
         case_sensitive=True,
@@ -286,6 +302,27 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Determina si está en modo desarrollo"""
         return self.DEBUG or self.ENVIRONMENT.lower() in ["development", "dev", "local"]
+
+    @computed_field
+    @property
+    def external_llm_base_url_resolved(self) -> str:
+        """
+        Resuelve la base URL para el LLM externo.
+
+        Si EXTERNAL_LLM_BASE_URL está configurado, lo usa directamente.
+        Si no, detecta automáticamente según el provider:
+        - deepseek: https://api.deepseek.com/v1
+        - kimi: https://api.moonshot.ai/v1
+        - openai: https://api.openai.com/v1
+        """
+        if self.EXTERNAL_LLM_BASE_URL:
+            return self.EXTERNAL_LLM_BASE_URL
+        provider_urls = {
+            "deepseek": "https://api.deepseek.com/v1",
+            "kimi": "https://api.moonshot.ai/v1",
+            "openai": "https://api.openai.com/v1",
+        }
+        return provider_urls.get(self.EXTERNAL_LLM_PROVIDER, "https://api.deepseek.com/v1")
 
     @computed_field
     @property

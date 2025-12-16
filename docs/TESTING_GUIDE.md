@@ -643,7 +643,7 @@ python tests/test_langsmith_verification.py
 
 3. **Vector Search**:
    - Reducir número de resultados retornados
-   - Usar pgvector en vez de ChromaDB si es más rápido
+   - Verificar que pgvector esté optimizado correctamente
    - Pre-calcular embeddings
 
 4. **Network**:

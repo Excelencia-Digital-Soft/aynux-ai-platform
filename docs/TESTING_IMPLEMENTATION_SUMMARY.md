@@ -109,7 +109,7 @@ Se ha implementado un sistema completo de testing y monitoreo para Aynux Bot con
 - ✅ **Specialized Agents**: Product, Category, Support, Credit, etc.
 - ✅ **Supervisor Agent**: Validación y continuación
 - ✅ **State Management**: PostgreSQL checkpointing
-- ✅ **Vector Search**: ChromaDB y pgvector
+- ✅ **Vector Search**: pgvector
 
 ---
 

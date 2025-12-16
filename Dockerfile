@@ -34,14 +34,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Install UV via official installer script (more reliable than ghcr.io)
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
-    && mv /root/.local/bin/uv /usr/local/bin/uv \
-    && mv /root/.local/bin/uvx /usr/local/bin/uvx \
-    && rm -rf /root/.local
-
-# Verify UV installation
-RUN uv --version
+# Install UV via pip (fallback when astral.sh is unavailable)
+# Alternative: curl -LsSf https://astral.sh/uv/install.sh | sh
+RUN pip install --no-cache-dir uv \
+    && uv --version
 
 # -----------------------------------------------------------------------------
 # Stage 2: Builder - Install all dependencies

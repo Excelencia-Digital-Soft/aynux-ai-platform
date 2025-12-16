@@ -19,8 +19,23 @@ from app.domains.pharmacy.application.use_cases.generate_invoice import (
     GenerateInvoiceResponse,
     GenerateInvoiceUseCase,
 )
+from app.domains.pharmacy.application.use_cases.identify_customer import (
+    IdentificationStatus,
+    IdentifyCustomerRequest,
+    IdentifyCustomerResponse,
+    IdentifyCustomerUseCase,
+)
+from app.domains.pharmacy.application.use_cases.register_customer import (
+    RegisterCustomerRequest,
+    RegisterCustomerResponse,
+    RegisterCustomerUseCase,
+    RegistrationData,
+    RegistrationStatus,
+    RegistrationStep,
+)
 
 __all__ = [
+    # Debt management
     "CheckDebtUseCase",
     "CheckDebtRequest",
     "CheckDebtResponse",
@@ -30,4 +45,16 @@ __all__ = [
     "GenerateInvoiceUseCase",
     "GenerateInvoiceRequest",
     "GenerateInvoiceResponse",
+    # Customer identification
+    "IdentifyCustomerUseCase",
+    "IdentifyCustomerRequest",
+    "IdentifyCustomerResponse",
+    "IdentificationStatus",
+    # Customer registration
+    "RegisterCustomerUseCase",
+    "RegisterCustomerRequest",
+    "RegisterCustomerResponse",
+    "RegistrationData",
+    "RegistrationStatus",
+    "RegistrationStep",
 ]

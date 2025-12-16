@@ -16,6 +16,9 @@ class LLMProvider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GROQ = "groq"
+    DEEPSEEK = "deepseek"  # OpenAI-compatible API
+    KIMI = "kimi"  # OpenAI-compatible API (Moonshot)
+    HYBRID = "hybrid"  # Routes between providers based on complexity
 
 
 @runtime_checkable

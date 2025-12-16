@@ -5,7 +5,6 @@ Application use case for confirming customer debt in pharmacy ERP.
 """
 
 from dataclasses import dataclass
-from typing import Any
 
 from app.domains.pharmacy.application.ports import IPharmacyERPPort
 from app.domains.pharmacy.domain.entities.pharmacy_debt import PharmacyDebt

@@ -44,7 +44,6 @@ class VectorSearchConfig:
     """Vector search configuration settings."""
 
     similarity_threshold: float
-    knowledge_similarity_threshold: float
     knowledge_enabled: bool
     embedding_model: str
 
@@ -65,9 +64,8 @@ def get_vector_search_config() -> VectorSearchConfig:
     settings = get_settings()
     return VectorSearchConfig(
         similarity_threshold=settings.PGVECTOR_SIMILARITY_THRESHOLD,
-        knowledge_similarity_threshold=settings.KNOWLEDGE_SIMILARITY_THRESHOLD,
         knowledge_enabled=settings.KNOWLEDGE_BASE_ENABLED,
-        embedding_model=settings.KNOWLEDGE_EMBEDDING_MODEL,
+        embedding_model=settings.OLLAMA_API_MODEL_EMBEDDING,
     )
 
 

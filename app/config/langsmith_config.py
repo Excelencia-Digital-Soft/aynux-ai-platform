@@ -73,43 +73,28 @@ class LangSmithTracer:
         self._initialize_client()
 
     def _load_config(self) -> LangSmithConfig:
-        """Load configuration from environment variables and settings."""
+        """Load configuration from centralized Settings class."""
         try:
             from app.config.settings import get_settings
 
             settings = get_settings()
 
-            # Use settings if available, fallback to environment variables
+            # All LangSmith settings now come from centralized Settings class
             return LangSmithConfig(
-                api_key=settings.LANGSMITH_API_KEY or os.getenv("LANGSMITH_API_KEY"),
-                api_url=settings.LANGSMITH_ENDPOINT
-                or os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
-                project_name=settings.LANGSMITH_PROJECT or os.getenv("LANGSMITH_PROJECT", "aynux-production"),
-                tracing_enabled=(
-                    settings.LANGSMITH_TRACING
-                    if hasattr(settings, "LANGSMITH_TRACING")
-                    else os.getenv("LANGSMITH_TRACING", "true").lower() == "true"
-                ),
-                verbose_tracing=(
-                    settings.LANGSMITH_VERBOSE
-                    if hasattr(settings, "LANGSMITH_VERBOSE")
-                    else os.getenv("LANGSMITH_VERBOSE", "false").lower() == "true"
-                ),
-                trace_sample_rate=float(os.getenv("LANGSMITH_SAMPLE_RATE", "1.0")),
-                auto_eval_enabled=os.getenv("LANGSMITH_AUTO_EVAL", "false").lower() == "true",
-                metrics_enabled=os.getenv("LANGSMITH_METRICS_ENABLED", "true").lower() == "true",
+                api_key=settings.LANGSMITH_API_KEY,
+                api_url=settings.LANGSMITH_ENDPOINT,
+                project_name=settings.LANGSMITH_PROJECT,
+                tracing_enabled=settings.LANGSMITH_TRACING,
+                verbose_tracing=settings.LANGSMITH_VERBOSE,
+                trace_sample_rate=settings.LANGSMITH_SAMPLE_RATE,
+                auto_eval_enabled=settings.LANGSMITH_AUTO_EVAL,
+                metrics_enabled=settings.LANGSMITH_METRICS_ENABLED,
+                dataset_name=settings.LANGSMITH_DATASET_NAME,
             )
         except ImportError:
-            # Fallback to environment variables if settings not available
-            return LangSmithConfig(
-                api_key=os.getenv("LANGSMITH_API_KEY"),
-                project_name=os.getenv("LANGSMITH_PROJECT", "aynux-production"),
-                tracing_enabled=os.getenv("LANGSMITH_TRACING", "true").lower() == "true",
-                verbose_tracing=os.getenv("LANGSMITH_VERBOSE", "false").lower() == "true",
-                trace_sample_rate=float(os.getenv("LANGSMITH_SAMPLE_RATE", "1.0")),
-                auto_eval_enabled=os.getenv("LANGSMITH_AUTO_EVAL", "false").lower() == "true",
-                metrics_enabled=os.getenv("LANGSMITH_METRICS_ENABLED", "true").lower() == "true",
-            )
+            # Fallback to defaults if settings not available (e.g., during testing)
+            logger.warning("Settings not available, using LangSmith defaults")
+            return LangSmithConfig()
 
     def _initialize_client(self):
         """Initialize the LangSmith client."""

@@ -9,5 +9,12 @@ from app.domains.pharmacy.domain.entities.pharmacy_invoice import (
     InvoiceItem,
     PharmacyInvoice,
 )
+from app.domains.pharmacy.domain.entities.plex_customer import PlexCustomer
 
-__all__ = ["PharmacyDebt", "DebtItem", "PharmacyInvoice", "InvoiceItem"]
+__all__ = [
+    "PharmacyDebt",
+    "DebtItem",
+    "PharmacyInvoice",
+    "InvoiceItem",
+    "PlexCustomer",
+]

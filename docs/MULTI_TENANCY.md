@@ -567,9 +567,8 @@ OLLAMA_API_MODEL_COMPLEX=deepseek-r1:7b
 OLLAMA_API_MODEL_EMBEDDING=nomic-embed-text
 
 # Default RAG Settings (overridable per tenant)
-USE_PGVECTOR=true
+# Note: Single threshold for both product and knowledge base search
 PGVECTOR_SIMILARITY_THRESHOLD=0.7
-KNOWLEDGE_SIMILARITY_THRESHOLD=0.7
 
 # Default Agents (overridable per tenant)
 ENABLED_AGENTS=["greeting_agent","ecommerce_agent","fallback_agent","farewell_agent"]

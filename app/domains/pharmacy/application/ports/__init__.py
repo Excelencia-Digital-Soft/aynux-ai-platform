@@ -2,61 +2,152 @@
 Pharmacy Application Ports
 
 Protocol interfaces defining the contracts for external services.
+These ports enable dependency inversion - use cases depend on abstractions,
+not concrete implementations.
 """
 
-from typing import Protocol, runtime_checkable
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from app.domains.pharmacy.domain.entities.plex_customer import PlexCustomer
 
 
 @runtime_checkable
-class IPharmacyERPPort(Protocol):
+class IPlexERPPort(Protocol):
     """
-    Port interface for Pharmacy ERP integration.
+    Port interface for Plex ERP integration.
 
-    Defines the contract for external ERP communication.
-    Implemented by PharmacyERPClient in infrastructure.
+    Defines the contract for external Plex ERP communication.
+    Implemented by PlexClient in app/clients/plex_client.py.
+
+    The Plex API uses HTTP Basic Auth and requires a 2-step flow:
+    1. Search customer by phone/document to get internal ID
+    2. Query balance/create receipt using the internal ID
     """
 
-    async def get_customer_debt(self, customer_id: str) -> dict | None:
+    # =========================================================================
+    # Customer Search Methods
+    # =========================================================================
+
+    async def search_customer(
+        self,
+        phone: str | None = None,
+        document: str | None = None,
+        email: str | None = None,
+        cuit: str | None = None,
+        customer_id: int | None = None,
+    ) -> list[PlexCustomer]:
         """
-        Fetch customer's current debt from ERP.
+        Search for customers by criteria.
 
         Args:
-            customer_id: Customer phone number or ERP ID
+            phone: Phone number (will be normalized from WhatsApp format)
+            document: Document number (DNI)
+            email: Email address
+            cuit: Tax ID
+            customer_id: Direct Plex customer ID
 
         Returns:
-            Debt data dict or None if no debt found
+            List of matching PlexCustomer entities.
+            May be empty (no matches) or contain multiple (disambiguation needed).
         """
         ...
 
-    async def confirm_debt(self, debt_id: str, customer_id: str) -> dict:
+    # =========================================================================
+    # Balance Query Methods
+    # =========================================================================
+
+    async def get_customer_balance(
+        self,
+        customer_id: int,
+        detailed: bool = True,
+        fecha_hasta: date | None = None,
+    ) -> dict | None:
         """
-        Confirm a debt in the ERP system.
+        Get customer balance/debt details.
 
         Args:
-            debt_id: Debt identifier
-            customer_id: Customer identifier
+            customer_id: Plex internal customer ID (from search_customer)
+            detailed: True for line items, False for summary only
+            fecha_hasta: Balance cutoff date (defaults to today)
 
         Returns:
-            Confirmation result with status
+            Balance data dict with saldo, detalle, etc.
+            None if no balance found.
         """
         ...
 
-    async def generate_invoice(self, debt_id: str, customer_id: str) -> dict:
+    # =========================================================================
+    # Receipt/Payment Methods
+    # =========================================================================
+
+    async def create_receipt(
+        self,
+        customer_id: int,
+        amount: Decimal,
+        items: list[dict] | None = None,
+        fecha: date | None = None,
+    ) -> dict:
         """
-        Generate invoice for confirmed debt.
+        Create a payment receipt in Plex ERP.
 
         Args:
-            debt_id: Confirmed debt identifier
-            customer_id: Customer identifier
+            customer_id: Plex internal customer ID
+            amount: Total payment amount
+            items: List of payment items/details (optional)
+            fecha: Receipt date (defaults to today)
 
         Returns:
-            Invoice data including invoice_number and optional pdf_url
+            Receipt confirmation data including receipt number
         """
         ...
+
+    # =========================================================================
+    # Customer Registration Methods
+    # =========================================================================
+
+    async def create_customer(
+        self,
+        nombre: str,
+        documento: str,
+        telefono: str,
+        email: str | None = None,
+        direccion: str | None = None,
+    ) -> PlexCustomer:
+        """
+        Register a new customer in Plex ERP.
+
+        Args:
+            nombre: Customer full name
+            documento: Document number (DNI)
+            telefono: Phone number
+            email: Email address (optional)
+            direccion: Address (optional)
+
+        Returns:
+            Created PlexCustomer instance with assigned ID
+        """
+        ...
+
+    # =========================================================================
+    # Connection Test
+    # =========================================================================
 
     async def test_connection(self) -> bool:
-        """Test ERP connectivity."""
+        """
+        Test Plex ERP connectivity.
+
+        Returns:
+            True if connection successful, False otherwise
+        """
         ...
 
 
-__all__ = ["IPharmacyERPPort"]
+# Backward compatibility alias
+IPharmacyERPPort = IPlexERPPort
+
+__all__ = ["IPlexERPPort", "IPharmacyERPPort"]

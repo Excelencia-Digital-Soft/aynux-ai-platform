@@ -9,8 +9,9 @@ Architecture:
 - application/: Use cases and port interfaces
 - domain/: Entities and value objects
 - infrastructure/: External service adapters
+
+Note: PharmacyOperationsAgent is NOT imported here to avoid circular imports.
+Import directly from: app.domains.pharmacy.agents.pharmacy_operations_agent
 """
 
-from app.domains.pharmacy.agents import PharmacyOperationsAgent
-
-__all__ = ["PharmacyOperationsAgent"]
+__all__: list[str] = []

@@ -1,0 +1,244 @@
+# Pharmacy Response Templates
+prompts:
+  - key: pharmacy.response.debt_query
+    name: Debt Query Response
+    description: Response template for showing customer debt
+    version: "1.0.0"
+    template: |
+      **Consulta de Deuda**
+
+      Hola {customer_name},
+
+      Tu deuda pendiente es de **${total_debt_formatted}**
+
+      **Detalle:**
+      {items_formatted}
+
+      Fecha de vencimiento: {due_date}
+
+      Para confirmar esta deuda y proceder con el pago, responde *SI*.
+      Para cancelar, responde *NO*.
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - total_debt_formatted
+          - items_formatted
+          - due_date
+
+  - key: pharmacy.response.no_debt
+    name: No Debt Response
+    description: Response when customer has no pending debt
+    version: "1.0.0"
+    template: |
+      Hola {customer_name}, no tienes deudas pendientes.
+
+      ¿Hay algo más en que pueda ayudarte?
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  - key: pharmacy.response.debt_confirmed
+    name: Debt Confirmed Response
+    description: Response after customer confirms their debt
+    version: "1.0.0"
+    template: |
+      Perfecto, {customer_name}. Tu deuda de **${total_debt_formatted}** ha sido confirmada.
+
+      Puedo generarte un recibo/factura para proceder con el pago.
+      Responde *FACTURA* para generar el comprobante.
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - total_debt_formatted
+
+  - key: pharmacy.response.debt_rejected
+    name: Debt Rejected Response
+    description: Response when customer rejects/cancels
+    version: "1.0.0"
+    template: |
+      Entendido. La operación ha sido cancelada.
+
+      ¿Hay algo más en que pueda ayudarte?
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.fallback
+    name: Fallback Response
+    description: Response when intent is unknown or out of scope
+    version: "1.0.0"
+    template: |
+      No entendí tu mensaje.
+
+      Puedo ayudarte con:
+      - Consultar tu deuda - "¿cuánto debo?"
+      - Confirmar deuda - "sí, confirmo"
+      - Generar recibo - "quiero pagar"
+      - Registrarte si eres cliente nuevo
+
+      ¿En qué puedo ayudarte?
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.capabilities
+    name: Capabilities Message
+    description: Message showing bot capabilities
+    version: "1.0.0"
+    template: |
+      Puedo ayudarte con:
+
+      - Consultar tu deuda/saldo pendiente
+      - Confirmar deuda para pago
+      - Generar recibo/factura
+      - Registrarte como cliente nuevo
+
+      ¿En qué puedo ayudarte?
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.no_customer
+    name: No Customer Identified
+    description: Response when customer is not identified
+    version: "1.0.0"
+    template: |
+      No pude identificar tu cuenta.
+      Por favor escribe tu número de DNI para buscarte.
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.error
+    name: Error Response
+    description: Generic error response
+    version: "1.0.0"
+    template: |
+      Disculpa, tuve un problema procesando tu solicitud.
+      Por favor intenta de nuevo en unos momentos.
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.invoice_generated
+    name: Invoice Generated Response
+    description: Response after invoice/receipt is generated
+    version: "1.0.0"
+    template: |
+      Tu recibo ha sido generado exitosamente.
+
+      **Recibo #{invoice_number}**
+      Cliente: {customer_name}
+      Monto: ${total_amount_formatted}
+      Fecha: {invoice_date}
+
+      Gracias por tu pago.
+    metadata:
+      variables:
+        required:
+          - invoice_number
+          - customer_name
+          - total_amount_formatted
+          - invoice_date
+
+  # LLM-powered templates
+  - key: pharmacy.greeting.generate
+    name: Greeting Generator (LLM)
+    description: LLM prompt to generate natural greeting responses
+    version: "1.0.0"
+    template: |
+      Eres un asistente amable de una farmacia. El cliente acaba de saludar.
+
+      Nombre del cliente: {customer_name}
+      Mensaje del cliente: "{user_message}"
+
+      Responde con un saludo cálido y breve. Luego menciona que puedes ayudar con:
+      {capabilities}
+
+      REGLAS:
+      - Mantén la respuesta corta (2-3 oraciones máximo)
+      - No uses emojis
+      - Sé profesional pero amigable
+      - Si el cliente tiene nombre, úsalo para personalizar
+      - Termina invitando a preguntar en qué puedes ayudar
+    metadata:
+      variables:
+        required:
+          - user_message
+          - capabilities
+        optional:
+          - customer_name
+
+  - key: pharmacy.response.debt_query_llm
+    name: Debt Query Response (LLM)
+    description: LLM prompt to generate natural debt response
+    version: "1.0.0"
+    template: |
+      Eres un asistente de farmacia informando a un cliente sobre su deuda pendiente.
+
+      Cliente: {customer_name}
+      Monto total de deuda: {total_debt}
+      Cantidad de productos: {item_count}
+
+      Resumen de productos:
+      {items_summary}
+
+      Genera una respuesta amigable pero profesional que:
+      1. Salude al cliente por su nombre
+      2. Informe el monto total de deuda de forma clara
+      3. Muestre el resumen de productos
+      4. Explique que puede confirmar con "SI" para proceder al pago o "NO" para cancelar
+
+      REGLAS:
+      - No uses emojis
+      - Sé empático pero directo
+      - El monto debe destacar visualmente (usa **negrita**)
+      - Mantén un tono profesional de farmacia
+      - NO agregues firmas, despedidas formales ni "[Tu nombre]"
+      - NO termines con "Atentamente" ni frases de cierre similares
+      - Termina directamente con la instrucción de confirmar con SI o NO
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - total_debt
+          - item_count
+          - items_summary
+
+  - key: pharmacy.summary.generate
+    name: Summary Generator (LLM)
+    description: LLM prompt to generate intelligent summary of medications and products
+    version: "1.0.0"
+    template: |
+      Eres un asistente de farmacia. El cliente pidió un resumen de sus productos/medicamentos.
+
+      Cliente: {customer_name}
+      Solicitud del cliente: "{user_message}"
+      Total pendiente: {total_debt}
+      Cantidad de productos: {item_count}
+
+      Lista completa de productos:
+      {items_list}
+
+      Genera un resumen inteligente que:
+      1. Agrupe los productos por categoría (medicamentos, perfumería, otros)
+      2. Muestre subtotales por categoría
+      3. Destaque los productos con mayor monto
+      4. Mencione el total general
+      5. Si hay muchos medicamentos repetidos, indícalo
+
+      REGLAS:
+      - No uses emojis
+      - Sé claro y organizado
+      - Usa **negrita** para totales y categorías
+      - Si el cliente preguntó por algo específico (ej: medicamentos), enfócate en eso
+      - Mantén la respuesta concisa pero informativa
+      - Al final, pregunta si necesita más detalles o quiere proceder al pago
+      - NO agregues firmas, despedidas formales ni "[Tu nombre]"
+      - NO termines con "Atentamente" ni frases de cierre similares
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - user_message
+          - total_debt
+          - item_count
+          - items_list

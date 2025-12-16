@@ -6,7 +6,6 @@ Uses modern Starlette middleware patterns.
 """
 
 import logging
-import os
 from collections.abc import Callable
 from typing import Any
 
@@ -15,11 +14,14 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from app.config.settings import get_settings
 from app.services.token_service import TokenService
 
 logger = logging.getLogger(__name__)
 
-API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
+# Use settings instead of os.getenv for consistency
+_settings = get_settings()
+API_V1_STR = _settings.API_V1_STR
 
 
 class AuthenticationMiddleware(BaseHTTPMiddleware):

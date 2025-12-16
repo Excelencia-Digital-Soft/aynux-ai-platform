@@ -105,11 +105,10 @@ services:
   app:
     image: aynux-app:dev
     pull_policy: never  # Use local image, don't try to pull from registry
-    # Uncomment below to build instead of using pre-built image:
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
-    #   target: development
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
     container_name: aynux-app
     restart: unless-stopped
     ports:
@@ -138,9 +137,9 @@ services:
       - REDIS_DB=0
       - REDIS_PASSWORD=
       # Ollama Configuration
-      # For native Ollama on Mac, uses host.docker.internal
-      # For Docker Ollama, change to http://ollama:11434
-      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://host.docker.internal:11434}
+      # Default: localhost (for SSH tunnel or native Ollama)
+      # For Docker Ollama: http://ollama:11434
+      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://localhost:11434}
       - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
       - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
       - OLLAMA_API_MODEL_REASONING=${OLLAMA_API_MODEL_REASONING:-deepseek-r1:7b}
@@ -179,9 +178,6 @@ services:
       start_period: 60s
     networks:
       - aynux-network
-    extra_hosts:
-      # Allow connecting to host machine (for native Ollama on Mac)
-      - "host.docker.internal:host-gateway"
 
   # ---------------------------------------------------------------------------
   # Streamlit Admin Dashboard (Unified admin tools - optional profile)
@@ -210,7 +206,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-aynux_dev}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://host.docker.internal:11434}
+      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://localhost:11434}
       - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
       - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
       - ENVIRONMENT=development
@@ -220,11 +216,10 @@ services:
       - path: .env
         required: false
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     networks:
       - aynux-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     profiles:
       - tools  # Only starts with: docker compose --profile tools up
 

@@ -21,6 +21,8 @@ class DebtItem:
     quantity: int = 1
     unit_price: Decimal | None = None
     product_code: str | None = None
+    invoice_number: str | None = None  # comprobante from Plex
+    invoice_date: str | None = None  # fecha from Plex (YYYY-MM-DD)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -30,6 +32,8 @@ class DebtItem:
             "quantity": self.quantity,
             "unit_price": float(self.unit_price) if self.unit_price else None,
             "product_code": self.product_code,
+            "invoice_number": self.invoice_number,
+            "invoice_date": self.invoice_date,
         }
 
 
@@ -93,9 +97,7 @@ class PharmacyDebt:
             ValueError: If debt cannot be confirmed
         """
         if not self.is_confirmable:
-            raise ValueError(
-                f"Debt cannot be confirmed. Status: {self.status}, Amount: {self.total_debt}"
-            )
+            raise ValueError(f"Debt cannot be confirmed. Status: {self.status}, Amount: {self.total_debt}")
         self.status = DebtStatus.CONFIRMED
         self.confirmed_at = datetime.now()
 
@@ -166,10 +168,10 @@ class PharmacyDebt:
                 description=item.get("description", ""),
                 amount=Decimal(str(item.get("amount", 0))),
                 quantity=item.get("quantity", 1),
-                unit_price=(
-                    Decimal(str(item["unit_price"])) if item.get("unit_price") else None
-                ),
+                unit_price=(Decimal(str(item["unit_price"])) if item.get("unit_price") else None),
                 product_code=item.get("product_code"),
+                invoice_number=item.get("invoice_number"),
+                invoice_date=item.get("invoice_date"),
             )
             for item in data.get("items", [])
         ]

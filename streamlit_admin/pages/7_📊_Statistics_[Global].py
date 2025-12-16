@@ -20,11 +20,11 @@ from lib.session_state import init_session_state
 
 init_session_state()
 
-st.title("📊 Knowledge Base Statistics")
-st.markdown("View statistics and metrics for the knowledge base.")
+st.title("📊 Estadísticas de la Base de Conocimiento")
+st.markdown("Visualiza estadísticas y métricas de la base de conocimiento.")
 
 # Refresh button
-if st.button("🔄 Refresh Statistics"):
+if st.button("🔄 Actualizar Estadísticas"):
     st.rerun()
 
 stats = get_knowledge_stats()
@@ -33,19 +33,19 @@ if stats:
     # Database stats
     db_stats = stats.get("database", {})
 
-    st.subheader("📊 Document Statistics")
+    st.subheader("📊 Estadísticas de Documentos")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("📄 Active Documents", db_stats.get("total_active", 0))
+        st.metric("📄 Documentos Activos", db_stats.get("total_active", 0))
 
     with col2:
-        st.metric("🗂️ Inactive Documents", db_stats.get("total_inactive", 0))
+        st.metric("🗂️ Documentos Inactivos", db_stats.get("total_inactive", 0))
 
     with col3:
         missing = db_stats.get("missing_embeddings", 0)
         st.metric(
-            "⚠️ Missing Embeddings",
+            "⚠️ Embeddings Faltantes",
             missing,
             delta=-missing if missing > 0 else None,
             delta_color="inverse",
@@ -53,68 +53,70 @@ if stats:
 
     with col4:
         coverage = db_stats.get("embedding_coverage", 0)
-        st.metric("✅ Embedding Coverage", f"{coverage}%")
+        st.metric("✅ Cobertura de Embeddings", f"{coverage}%")
 
     # Coverage visualization
     st.markdown("---")
-    st.subheader("📈 Embedding Coverage")
+    st.subheader("📈 Cobertura de Embeddings")
     st.progress(coverage / 100)
 
     if coverage < 100:
-        st.warning(f"⚠️ {100 - coverage:.1f}% of documents are missing embeddings")
+        st.warning(f"⚠️ {100 - coverage:.1f}% de los documentos no tienen embeddings")
     else:
-        st.success("✅ All documents have embeddings!")
-
-    # ChromaDB collections
-    st.markdown("---")
-    st.subheader("🗃️ ChromaDB Collections")
-    chroma_stats = stats.get("chromadb_collections", {})
-
-    if chroma_stats:
-        cols = st.columns(len(chroma_stats))
-        for idx, (collection_name, count) in enumerate(chroma_stats.items()):
-            with cols[idx]:
-                st.metric(f"Collection: {collection_name}", count)
-    else:
-        st.info("No ChromaDB collection stats available")
+        st.success("✅ ¡Todos los documentos tienen embeddings!")
 
     # Model info
     st.markdown("---")
-    st.subheader("🤖 Embedding Model")
+    st.subheader("🤖 Modelo de Embedding")
     st.code(stats.get("embedding_model", "N/A"))
 
     # By document type (if available)
     by_type = db_stats.get("by_type", {})
     if by_type:
         st.markdown("---")
-        st.subheader("📋 Documents by Type")
+        st.subheader("📋 Documentos por Tipo")
 
         import pandas as pd
 
-        df = pd.DataFrame(list(by_type.items()), columns=["Type", "Count"])
-        st.bar_chart(df.set_index("Type"))
+        df = pd.DataFrame(list(by_type.items()), columns=["Tipo", "Cantidad"])
+        st.bar_chart(df.set_index("Tipo"))
 
     # Raw stats
     st.markdown("---")
-    with st.expander("🔍 View Raw Statistics"):
+    with st.expander("🔍 Ver Estadísticas Completas"):
         st.json(stats)
 
 else:
-    st.error("❌ Unable to fetch statistics. Is the API running?")
+    st.error("❌ No se pudieron obtener las estadísticas. ¿Está corriendo la API?")
 
 # Sidebar
-st.sidebar.subheader("📊 About Statistics")
+st.sidebar.markdown("---")
+st.sidebar.subheader("📊 Estadísticas")
 st.sidebar.markdown(
     """
-This page shows:
+Visualiza métricas de salud y uso de la base
+de conocimiento.
 
-- **Active Documents**: Documents available for search
-- **Inactive Documents**: Deactivated documents
-- **Missing Embeddings**: Documents without vector representations
-- **Embedding Coverage**: Percentage of documents with embeddings
+**Métricas principales:**
+- 📄 Total de documentos activos/inactivos
+- 🔄 Cobertura de embeddings
+- 📋 Distribución por tipo de documento
+- 🤖 Modelo de embedding en uso
 
-**ChromaDB Collections** shows the document counts in the vector database.
+Usa esta información para identificar
+documentos sin procesar o problemas de cobertura.
+"""
+)
 
-**Embedding Model** shows which model is used to generate document embeddings.
+st.sidebar.subheader("📖 Acerca de Estadísticas")
+st.sidebar.markdown(
+    """
+- **Documentos Activos**: Disponibles para búsqueda
+- **Documentos Inactivos**: Desactivados del sistema
+- **Embeddings Faltantes**: Sin representación vectorial
+- **Cobertura**: % de documentos con embeddings
+
+**Modelo de Embedding** muestra el modelo usado
+para generar embeddings de documentos.
 """
 )

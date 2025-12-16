@@ -49,7 +49,7 @@
 
 ### 🔧 Technical Capabilities
 - **Multi-Agent Architecture**: Powered by LangGraph for sophisticated conversation flows
-- **Vector Search**: pgvector + ChromaDB for semantic search capabilities
+- **Vector Search**: pgvector for semantic search capabilities
 - **Real-time Processing**: Async architecture for high-performance message handling
 - **External Integrations**: DUX ERP, WhatsApp Business API, Ollama AI
 - **Monitoring**: LangSmith tracing and Sentry error tracking
@@ -474,7 +474,7 @@ External systems, databases, and integrations.
 
 - **Repositories**: Data access implementations (`ProductRepository`)
 - **External Services**: API clients (`DuxApiClient`, `WhatsAppService`)
-- **Vector Stores**: Semantic search (`PgVectorService`, `ChromaDBService`)
+- **Vector Stores**: Semantic search (`PgVectorService`)
 - **LLM Integration**: AI models (`OllamaLLM`)
 
 #### 4. **Presentation Layer** (`app/api/`)
@@ -527,7 +527,7 @@ app/
 │
 ├── integrations/              # Infrastructure - External Systems
 │   ├── llm/                   # Ollama LLM, AI Data Pipeline
-│   ├── vector_stores/         # PgVector, ChromaDB, Embeddings
+│   ├── vector_stores/         # PgVector, Embeddings
 │   ├── whatsapp/              # WhatsApp Business API
 │   ├── databases/             # Database connectors
 │   └── monitoring/            # LangSmith, Sentry
@@ -617,7 +617,19 @@ Agents use different model tiers based on task complexity:
 
 ## 📊 Streamlit Admin Pages
 
-The admin dashboard (`streamlit_admin/`) has pages organized by scope:
+The admin dashboard (`streamlit_admin/`) has pages organized by scope.
+
+### Running the Admin Dashboard
+
+```bash
+# Start the Streamlit admin dashboard
+uv run streamlit run streamlit_admin/app.py
+
+# Or with custom port
+uv run streamlit run streamlit_admin/app.py --server.port 8501
+```
+
+The dashboard will be available at: http://localhost:8501
 
 ### [Global] Pages - System-wide
 
@@ -689,7 +701,6 @@ All conversations are automatically traced in LangSmith for debugging and optimi
 ### AI & Vector Search
 - **Ollama**: Local LLM inference (deepseek-r1:7b)
 - **pgvector**: PostgreSQL vector similarity search
-- **ChromaDB**: Legacy semantic search (being phased out)
 - **nomic-embed-text**: 1024-dimension embeddings
 
 ### Data & Caching

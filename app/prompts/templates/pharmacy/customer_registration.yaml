@@ -1,0 +1,123 @@
+# Pharmacy Customer Registration Prompts
+prompts:
+  - key: pharmacy.registration.yes_no_validation
+    name: Yes/No Validation
+    description: Prompts user for yes/no response during registration
+    version: "1.0.0"
+    template: "Por favor responde SI para {action} o NO para {cancel_action}."
+    metadata:
+      variables:
+        required: [action, cancel_action]
+
+  - key: pharmacy.registration.start
+    name: Registration Start
+    description: Initial message when starting registration flow
+    version: "1.0.0"
+    template: |
+      ¡Perfecto! Vamos a registrarte.
+
+      Por favor ingresa tu nombre completo:
+
+  - key: pharmacy.registration.name_error
+    name: Name Validation Error
+    description: Error when name is too short
+    version: "1.0.0"
+    template: "El nombre debe tener al menos 3 caracteres. Por favor ingresa tu nombre completo:"
+
+  - key: pharmacy.registration.document_prompt
+    name: Document Prompt
+    description: Prompts for DNI after name is collected
+    version: "1.0.0"
+    template: "Gracias. Ahora ingresa tu número de DNI:"
+
+  - key: pharmacy.registration.document_error
+    name: Document Validation Error
+    description: Error when DNI format is invalid
+    version: "1.0.0"
+    template: "El DNI debe tener entre 6 y 11 dígitos. Por favor ingresa tu DNI:"
+
+  - key: pharmacy.registration.confirm_data
+    name: Confirm Data
+    description: Shows collected data for confirmation
+    version: "1.0.0"
+    template: |
+      ¿Confirmas estos datos?
+
+      **Nombre:** {nombre}
+      **DNI:** {documento}
+
+      Responde *SI* para confirmar o *NO* para cancelar.
+    metadata:
+      variables:
+        required: [nombre, documento]
+
+  - key: pharmacy.registration.success
+    name: Registration Success
+    description: Success message after registration
+    version: "1.0.0"
+    template: |
+      ¡Registro exitoso!
+
+      Bienvenido/a {customer_name}.
+
+      ¿En qué puedo ayudarte hoy? Puedes consultar tu *deuda*, *pagar* o ver tu *estado de cuenta*.
+    metadata:
+      variables:
+        required: [customer_name]
+
+  - key: pharmacy.registration.duplicate_with_name
+    name: Duplicate With Name
+    description: When customer already exists and we have their name
+    version: "1.0.0"
+    template: |
+      Ya existe una cuenta con esos datos a nombre de {customer_name}.
+
+      ¿En qué puedo ayudarte hoy?
+    metadata:
+      variables:
+        required: [customer_name]
+
+  - key: pharmacy.registration.duplicate_no_name
+    name: Duplicate Without Name
+    description: When customer already exists but no name available
+    version: "1.0.0"
+    template: |
+      Ya existe una cuenta con esos datos.
+
+      Por favor contacta a la farmacia para verificar tu información.
+
+  - key: pharmacy.registration.not_supported
+    name: Not Supported
+    description: When registration feature is not available
+    version: "1.0.0"
+    template: |
+      Lo siento, el registro de clientes no está disponible en este momento.
+
+      Por favor contacta directamente a la farmacia para registrarte.
+
+  - key: pharmacy.registration.error
+    name: Registration Error
+    description: Generic error during registration
+    version: "1.0.0"
+    template: |
+      No pude completar el registro: {error}
+
+      Por favor contacta a la farmacia directamente.
+    metadata:
+      variables:
+        required: [error]
+
+  - key: pharmacy.registration.cancelled
+    name: Registration Cancelled
+    description: When user cancels registration
+    version: "1.0.0"
+    template: |
+      Registro cancelado. ¿Hay algo más en que pueda ayudarte?
+
+      Puedes contactar a la farmacia directamente si necesitas asistencia.
+
+  - key: pharmacy.registration.exception
+    name: Exception Handler
+    description: Generic exception during processing
+    version: "1.0.0"
+    template: "Tuve un problema procesando tu registro. Por favor intenta de nuevo o contacta a la farmacia."

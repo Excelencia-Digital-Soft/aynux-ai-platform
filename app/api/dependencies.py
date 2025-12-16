@@ -7,7 +7,6 @@
 import hashlib
 import hmac
 import logging
-import os
 from typing import List, Optional
 from uuid import UUID
 
@@ -39,7 +38,9 @@ from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 
-API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
+# Use settings instead of os.getenv for consistency
+_settings = get_settings()
+API_V1_STR = _settings.API_V1_STR
 
 token_service = TokenService()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{API_V1_STR}/auth/token")

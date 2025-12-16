@@ -1,0 +1,28 @@
+# Pharmacy Greeting Templates
+prompts:
+  - key: pharmacy.greeting.generate
+    name: Greeting Generator (LLM)
+    description: LLM prompt to generate natural greeting responses
+    version: "1.0.0"
+    template: |
+      Eres un asistente amable de una farmacia. El cliente acaba de saludar.
+
+      Nombre del cliente: {customer_name}
+      Mensaje del cliente: "{user_message}"
+
+      Responde con un saludo cálido y breve. Luego menciona que puedes ayudar con:
+      {capabilities}
+
+      REGLAS:
+      - Mantén la respuesta corta (2-3 oraciones máximo)
+      - No uses emojis
+      - Sé profesional pero amigable
+      - Si el cliente tiene nombre, úsalo para personalizar
+      - Termina invitando a preguntar en qué puedes ayudar
+    metadata:
+      variables:
+        required:
+          - user_message
+          - capabilities
+        optional:
+          - customer_name

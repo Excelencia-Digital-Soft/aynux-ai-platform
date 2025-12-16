@@ -10,45 +10,35 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from app.core.agents import BaseAgent
-from app.domains.pharmacy.application.use_cases.confirm_debt import (
-    ConfirmDebtRequest,
-    ConfirmDebtUseCase,
-)
 
 if TYPE_CHECKING:
-    from app.clients.pharmacy_erp_client import PharmacyERPClient
+    from app.clients.plex_client import PlexClient
 
 logger = logging.getLogger(__name__)
 
 
 class ConfirmationNode(BaseAgent):
-    """Pharmacy node specialized in debt confirmation."""
+    """
+    Pharmacy node specialized in debt confirmation.
+
+    This node handles user confirmation of their debt before proceeding
+    to payment/receipt generation.
+    """
 
     def __init__(
         self,
-        erp_client: PharmacyERPClient | None = None,
+        plex_client: PlexClient | None = None,
         config: dict[str, Any] | None = None,
     ):
         """
         Initialize confirmation node.
 
         Args:
-            erp_client: Pharmacy ERP client instance
+            plex_client: PlexClient instance (for future use)
             config: Node configuration
         """
         super().__init__("confirmation_node", config or {})
-        self._erp_client = erp_client
-        self._use_case: ConfirmDebtUseCase | None = None
-
-    def _get_use_case(self) -> ConfirmDebtUseCase:
-        """Get or create the use case with lazy initialization."""
-        if self._use_case is None:
-            if self._erp_client is None:
-                from app.clients.pharmacy_erp_client import PharmacyERPClient
-
-                self._erp_client = PharmacyERPClient()
-            self._use_case = ConfirmDebtUseCase(self._erp_client)
-        return self._use_case
+        self._plex_client = plex_client
 
     async def _process_internal(
         self,
@@ -67,61 +57,104 @@ class ConfirmationNode(BaseAgent):
         """
         try:
             debt_id = state_dict.get("debt_id")
-            customer_id = state_dict.get("customer_id") or state_dict.get("user_id")
+            plex_customer_id = state_dict.get("plex_customer_id")
 
             if not debt_id:
                 return self._handle_no_debt_id()
 
-            if not customer_id:
+            if not plex_customer_id:
                 return self._handle_no_customer()
 
-            # Execute use case (ensures _erp_client is initialized)
-            use_case = self._get_use_case()
+            # Parse user response
+            message_clean = message.strip().upper()
 
-            # Need to use context manager for httpx client
-            # _get_use_case() guarantees _erp_client is not None
-            erp_client = self._erp_client
-            if erp_client is None:
-                return self._handle_error("ERP client not configured", state_dict)
-
-            async with erp_client:
-                request = ConfirmDebtRequest(
-                    debt_id=debt_id,
-                    customer_id=customer_id,
-                )
-                response = await use_case.execute(request)
-
-            if not response.success or not response.confirmed:
-                return self._handle_confirmation_failed(
-                    response.error or "Confirmation failed",
-                    state_dict,
-                )
-
-            # Confirmation successful
-            total_debt = state_dict.get("total_debt", 0)
-
-            return {
-                "messages": [
-                    {
-                        "role": "assistant",
-                        "content": (
-                            f"Tu deuda de **${total_debt:,.2f}** ha sido confirmada.\n\n"
-                            "Para generar la factura, escribe *FACTURA*."
-                        ),
-                    }
-                ],
-                "current_agent": self.name,
-                "agent_history": [self.name],
-                "debt_status": "confirmed",
-                "awaiting_confirmation": False,
-                "confirmation_received": True,
-                "workflow_step": "confirmed",
-                "is_complete": False,
-            }
+            if message_clean in ["SI", "SÍ", "YES", "S", "CONFIRMO", "CONFIRMAR"]:
+                return self._confirm_debt(state_dict)
+            elif message_clean in ["NO", "N", "CANCELAR"]:
+                return self._cancel_confirmation()
+            else:
+                return self._request_clear_response()
 
         except Exception as e:
             logger.error(f"Error in confirmation node: {e!s}", exc_info=True)
             return self._handle_error(str(e), state_dict)
+
+    def _confirm_debt(self, state_dict: dict[str, Any]) -> dict[str, Any]:
+        """Handle debt confirmation (full or partial payment)."""
+        total_debt = state_dict.get("total_debt", 0) or 0
+        payment_amount = state_dict.get("payment_amount") or total_debt
+        is_partial = state_dict.get("is_partial_payment", False)
+        customer_name = state_dict.get("customer_name", "Cliente")
+
+        # Calculate remaining balance for partial payments
+        remaining_balance = total_debt - payment_amount if is_partial else 0
+
+        if is_partial:
+            logger.info(
+                f"Partial payment confirmed: customer={customer_name}, "
+                f"payment=${payment_amount}, total_debt=${total_debt}, remaining=${remaining_balance}"
+            )
+            message = (
+                f"Tu pago parcial de **${payment_amount:,.2f}** ha sido confirmado.\n\n"
+                f"📊 **Resumen:**\n"
+                f"• Deuda total: ${total_debt:,.2f}\n"
+                f"• Monto a pagar: ${payment_amount:,.2f}\n"
+                f"• Saldo pendiente: ${remaining_balance:,.2f}\n\n"
+                "Para generar el recibo de pago, escribe *PAGAR* o *RECIBO*."
+            )
+        else:
+            logger.info(f"Full debt confirmed: customer={customer_name}, amount=${total_debt}")
+            message = (
+                f"Tu deuda de **${total_debt:,.2f}** ha sido confirmada.\n\n"
+                "Para generar el recibo de pago, escribe *PAGAR* o *RECIBO*."
+            )
+
+        return {
+            "messages": [{"role": "assistant", "content": message}],
+            "current_agent": self.name,
+            "agent_history": [self.name],
+            "debt_status": "confirmed",
+            "awaiting_confirmation": False,
+            "confirmation_received": True,
+            "workflow_step": "confirmed",
+            "is_complete": False,
+            "remaining_balance": remaining_balance,
+        }
+
+    def _cancel_confirmation(self) -> dict[str, Any]:
+        """Handle confirmation cancellation."""
+        return {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Entendido, la confirmación ha sido cancelada.\n\n"
+                        "¿Hay algo más en que pueda ayudarte?"
+                    ),
+                }
+            ],
+            "current_agent": self.name,
+            "awaiting_confirmation": False,
+            "is_complete": True,
+        }
+
+    def _request_clear_response(self) -> dict[str, Any]:
+        """Request clear yes/no response."""
+        return {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Por favor responde *SI* para confirmar tu deuda "
+                        "o *NO* para cancelar."
+                    ),
+                }
+            ],
+            "current_agent": self.name,
+            "awaiting_confirmation": True,
+            "confirmation_received": False,
+            "is_complete": False,
+        }
 
     def _handle_no_debt_id(self) -> dict[str, Any]:
         """Handle missing debt ID."""
@@ -131,7 +164,7 @@ class ConfirmationNode(BaseAgent):
                     "role": "assistant",
                     "content": (
                         "No hay una deuda seleccionada para confirmar. "
-                        "Por favor primero consulta tu deuda."
+                        "Por favor primero consulta tu deuda escribiendo *DEUDA*."
                     ),
                 }
             ],
@@ -140,7 +173,7 @@ class ConfirmationNode(BaseAgent):
         }
 
     def _handle_no_customer(self) -> dict[str, Any]:
-        """Handle missing customer ID."""
+        """Handle missing customer identification."""
         return {
             "messages": [
                 {
@@ -155,27 +188,6 @@ class ConfirmationNode(BaseAgent):
             "is_complete": True,
         }
 
-    def _handle_confirmation_failed(
-        self,
-        error: str,
-        state_dict: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Handle confirmation failure."""
-        logger.warning(f"Debt confirmation failed: {error}")
-        return {
-            "messages": [
-                {
-                    "role": "assistant",
-                    "content": (
-                        "No se pudo confirmar la deuda. "
-                        "Por favor intenta de nuevo o contacta a soporte."
-                    ),
-                }
-            ],
-            "current_agent": self.name,
-            "error_count": state_dict.get("error_count", 0) + 1,
-        }
-
     def _handle_error(self, error: str, state_dict: dict[str, Any]) -> dict[str, Any]:
         """Handle processing error."""
         logger.error(f"Confirmation node error: {error}")
@@ -184,7 +196,7 @@ class ConfirmationNode(BaseAgent):
                 {
                     "role": "assistant",
                     "content": (
-                        "Disculpa, tuve un problema procesando la confirmacion. "
+                        "Disculpa, tuve un problema procesando la confirmación. "
                         "Por favor intenta de nuevo."
                     ),
                 }

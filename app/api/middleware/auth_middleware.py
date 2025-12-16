@@ -1,12 +1,14 @@
-import os
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPBearer
 
+from app.config.settings import get_settings
 from app.services.token_service import TokenService
 
-API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
+# Use settings instead of os.getenv for consistency
+_settings = get_settings()
+API_V1_STR = _settings.API_V1_STR
 
 token_service = TokenService()
 security = HTTPBearer()
