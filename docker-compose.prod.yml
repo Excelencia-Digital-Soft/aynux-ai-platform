@@ -56,21 +56,11 @@ services:
     ports: !reset []
 
   # ---------------------------------------------------------------------------
-  # Ollama - Production settings (remove profile restriction)
+  # Ollama - DISABLED in production (uses external server at 192.168.0.140)
   # ---------------------------------------------------------------------------
-  ollama:
-    restart: always
-    profiles: []  # Enable by default in production
-    deploy:
-      resources:
-        limits:
-          memory: 8G
-          cpus: '4'
-        reservations:
-          memory: 4G
-          cpus: '2'
-    # Don't expose port externally in production
-    ports: !reset []
+  # ollama:
+  #   # Ollama runs on separate server (192.168.0.140:11434)
+  #   # Configure via OLLAMA_API_URL environment variable
 
   # ---------------------------------------------------------------------------
   # FastAPI Application - Production build
@@ -100,8 +90,8 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=0
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      # Ollama Configuration (internal network)
-      - OLLAMA_API_URL=http://ollama:11434
+      # Ollama Configuration (external server on same network)
+      - OLLAMA_API_URL=http://192.168.0.140:11434
       - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
       - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
       - OLLAMA_API_MODEL_REASONING=${OLLAMA_API_MODEL_REASONING:-deepseek-r1:7b}
@@ -175,7 +165,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - OLLAMA_API_URL=http://ollama:11434
+      - OLLAMA_API_URL=http://192.168.0.140:11434
       - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
       - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
       - ENVIRONMENT=production
