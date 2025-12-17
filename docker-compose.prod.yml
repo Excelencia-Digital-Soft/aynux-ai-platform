@@ -161,11 +161,33 @@ services:
     extra_hosts: []
 
   # ---------------------------------------------------------------------------
-  # Visualizer - Disabled in production
+  # Streamlit Admin Dashboard - Enabled in production
   # ---------------------------------------------------------------------------
-  visualizer:
+  admin:
+    restart: always
+    profiles: !reset []  # Enable by default in production (removes 'tools' profile restriction)
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - OLLAMA_API_URL=http://ollama:11434
+      - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
+      - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
+      - ENVIRONMENT=production
+      - API_BASE_URL=http://app:8001
     deploy:
-      replicas: 0
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    # Don't expose port externally - use reverse proxy
+    ports: !reset []
 
 # =============================================================================
 # Networks - Production settings

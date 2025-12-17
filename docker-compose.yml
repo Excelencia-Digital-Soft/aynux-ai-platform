@@ -109,7 +109,6 @@ services:
       context: .
       dockerfile: Dockerfile
       target: development
-    container_name: aynux-app
     restart: unless-stopped
     ports:
       - "8001:8001"
