@@ -8,7 +8,7 @@ jobs:
   deploy:
     name: Deploy to Ubuntu Server
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -24,9 +24,17 @@ jobs:
         command_timeout: 30m
         script: |
           cd ~/aynux
-          git pull origin main
+
+          # Fetch and force reset to avoid divergent branch issues
+          git fetch origin main
+          git reset --hard origin/main
+
+          # Write environment file
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
-          # Usamos la opción 2 combinada que es más segura
+
+          # Deploy with docker compose (combined base + prod)
           docker compose -f docker-compose.yml -f docker-compose.prod.yml down
           docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
+
+          # Cleanup unused images
           docker image prune -f
