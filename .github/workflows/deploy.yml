@@ -20,19 +20,13 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 160
+        timeout: 30m
+        command_timeout: 30m
         script: |
-          # 1. Ir a la carpeta del proyecto (AJUSTA ESTA RUTA si es diferente)
           cd ~/aynux
-
-          # 2. Obtener los últimos cambios
           git pull origin main
-
-          # 3. Crear el archivo .env dinámicamente con los secretos
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
-
-          # 4. Detener contenedores viejos, reconstruir y levantar
-          docker compose -f docker-compose.yml down
-          docker compose -f docker-compose.yml up -d --build --remove-orphans
-
-          # 5. Limpieza opcional de imágenes viejas para no llenar el disco
+          # Usamos la opción 2 combinada que es más segura
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
           docker image prune -f
