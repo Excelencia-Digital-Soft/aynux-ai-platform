@@ -214,11 +214,15 @@ class PharmacyTesterPage:
             import app.domains.pharmacy.agents.nodes.customer_registration_node as reg_node
             import app.domains.pharmacy.agents.nodes.confirmation_node as conf_node
             import app.domains.pharmacy.agents.nodes.debt_check_node as debt_node
+            import app.domains.pharmacy.agents.nodes.payment_link_node as payment_node
+            import app.domains.pharmacy.agents.nodes as nodes_pkg
 
             importlib.reload(id_node)
             importlib.reload(reg_node)
             importlib.reload(conf_node)
             importlib.reload(debt_node)
+            importlib.reload(payment_node)
+            importlib.reload(nodes_pkg)
             importlib.reload(graph_module)
 
             from app.domains.pharmacy.agents.graph import PharmacyGraph as FreshPharmacyGraph
