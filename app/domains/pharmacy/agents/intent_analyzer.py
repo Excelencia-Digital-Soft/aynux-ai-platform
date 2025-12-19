@@ -156,8 +156,19 @@ class PharmacyIntentAnalyzer:
             "exact_match": True,
         },  # Use CONFIRMATION_PATTERNS
         "invoice": {
-            "lemmas": {"factura", "recibo", "comprobante", "pagar", "pago", "facturar"},
-            "phrases": ["generar factura", "quiero pagar", "mi factura", "generar recibo"],
+            "lemmas": {"factura", "recibo", "comprobante", "pagar", "pago", "facturar", "abonar"},
+            "phrases": [
+                "generar factura",
+                "quiero pagar",
+                "mi factura",
+                "generar recibo",
+                "pagar mi deuda",
+                "pagar la deuda",
+                "pagar todo",
+                "hacer un pago",
+                "realizar pago",
+                "abonar deuda",
+            ],
             "weight": 1.0,
         },
         "register": {
@@ -191,7 +202,7 @@ class PharmacyIntentAnalyzer:
                 "compra",
                 "valor",
                 "importe",
-                "factura",
+                # "factura" removed - conflicts with invoice/payment intent
                 "análisis",
             },
             "phrases": [
@@ -320,6 +331,20 @@ class PharmacyIntentAnalyzer:
         if result := self._match_greeting_priority(text_lower):
             return result
 
+        # Extract entities early for payment detection
+        entities = self._extract_entities(doc, text_lower)
+
+        # Priority 3: Detect payment intent (pagar + cantidad)
+        if self._is_payment_intent(text_lower, entities):
+            return PharmacyIntentResult(
+                intent="invoice",
+                confidence=CONFIDENCE_EXACT_MATCH,  # 0.95
+                is_out_of_scope=False,
+                entities=entities,
+                method="payment_detection",
+                analysis={"detected": "payment_with_amount"},
+            )
+
         lemmas = {token.lemma_.lower() for token in doc if not token.is_stop and not token.is_punct}
         scores = {
             intent: self._calculate_intent_score(text_lower, lemmas, patterns, doc)
@@ -333,7 +358,7 @@ class PharmacyIntentAnalyzer:
             intent=best_intent if not is_out_of_scope else "unknown",
             confidence=min(best_score, CONFIDENCE_MAX_SPACY),
             is_out_of_scope=is_out_of_scope,
-            entities=self._extract_entities(doc, text_lower),
+            entities=entities,  # Reuse already extracted entities
             method="spacy",
             analysis={"lemmas": list(lemmas), "scores": scores, "token_count": len(doc)},
         )
@@ -380,6 +405,33 @@ class PharmacyIntentAnalyzer:
 
         return None
 
+    def _is_payment_intent(self, text_lower: str, entities: dict[str, Any]) -> bool:
+        """
+        Detect if the message is clearly a payment intent.
+
+        This runs with high priority to catch patterns like "pagar 50 mil"
+        that would otherwise be misclassified as data_query.
+        """
+        payment_verbs = {"pagar", "pago", "abonar", "abono", "depositar"}
+        has_payment_verb = any(verb in text_lower for verb in payment_verbs)
+        has_amount = entities.get("amount") is not None
+
+        # "pagar X" with amount = definitely payment
+        if has_payment_verb and has_amount:
+            return True
+
+        # Explicit payment phrases (with and without amount)
+        payment_phrases = [
+            "quiero pagar",
+            "voy a pagar",
+            "necesito pagar",
+            "hacer pago",
+            "pagar mi deuda",
+            "pagar la deuda",
+            "pagar todo",
+        ]
+        return any(phrase in text_lower for phrase in payment_phrases)
+
     def _create_match_result(
         self, intent: str, confidence: float, match_type: str, pattern: str
     ) -> PharmacyIntentResult:
@@ -419,13 +471,45 @@ class PharmacyIntentAnalyzer:
         """Extract pharmacy-relevant entities from message."""
         entities: dict[str, Any] = {"amount": None, "date": None, "document_number": None}
 
-        # Amount extraction
-        amount_pattern = r"\$?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?|\d+(?:[.,]\d+)?)"
-        if amount_matches := re.findall(amount_pattern, text_lower):
+        # Amount extraction with Spanish multipliers (mil, millón, millones)
+        # Pattern: "50 mil", "2 millones", "$50.000", "50000"
+        mil_pattern = r"(\d+(?:[.,]\d+)?)\s*mil(?:es)?\b"
+        millon_pattern = r"(\d+(?:[.,]\d+)?)\s*millon(?:es)?\b"
+
+        if mil_matches := re.findall(mil_pattern, text_lower):
             try:
-                entities["amount"] = float(amount_matches[0].replace(".", "").replace(",", "."))
+                base_num = float(mil_matches[0].replace(".", "").replace(",", "."))
+                entities["amount"] = base_num * 1000
             except ValueError:
                 pass
+        elif millon_matches := re.findall(millon_pattern, text_lower):
+            try:
+                base_num = float(millon_matches[0].replace(".", "").replace(",", "."))
+                entities["amount"] = base_num * 1000000
+            except ValueError:
+                pass
+        else:
+            # Standard amount pattern: $50.000 or 50000
+            # First try pattern with thousand separators, then plain numbers
+            formatted_pattern = r"\$?\s*(\d{1,3}(?:[.,]\d{3})+)"  # 50.000 or 1.234.567
+            plain_pattern = r"\$?\s*(\d{4,})"  # 50000 (4+ digits without separators)
+            simple_pattern = r"\$?\s*(\d+)"  # Any remaining number
+
+            amount_str = None
+            if formatted_matches := re.findall(formatted_pattern, text_lower):
+                amount_str = formatted_matches[0]
+            elif plain_matches := re.findall(plain_pattern, text_lower):
+                amount_str = plain_matches[0]
+            elif simple_matches := re.findall(simple_pattern, text_lower):
+                amount_str = simple_matches[0]
+
+            if amount_str:
+                try:
+                    # Remove thousand separators (. or ,) and convert decimal separator
+                    cleaned = amount_str.replace(".", "").replace(",", ".")
+                    entities["amount"] = float(cleaned)
+                except ValueError:
+                    pass
 
         # DNI extraction
         if dni_matches := re.findall(r"\b(\d{7,8})\b", text_lower):

@@ -56,6 +56,7 @@ class CustomerIdentificationNode(BaseAgent):
         """Get or create Plex client."""
         if self._plex_client is None:
             from app.clients.plex_client import PlexClient
+
             self._plex_client = PlexClient()
         return self._plex_client
 
@@ -129,17 +130,11 @@ class CustomerIdentificationNode(BaseAgent):
             return self._request_document_input()
 
         logger.info(f"Identifying customer by phone: {phone}")
-        print(f"[DEBUG] _initial_identification: phone={phone}")  # DEBUG
 
         plex_client = self._get_plex_client()
-        print(f"[DEBUG] plex_client created: base_url={plex_client.base_url}")  # DEBUG
 
         async with plex_client:
-            print(f"[DEBUG] Executing use case with phone={phone}")  # DEBUG
-            response = await self._get_use_case().execute(
-                IdentifyCustomerRequest(phone=phone)
-            )
-            print(f"[DEBUG] Use case response: status={response.status}, customer={response.customer}, error={response.error}")  # DEBUG
+            response = await self._get_use_case().execute(IdentifyCustomerRequest(phone=phone))
 
         if response.status == IdentificationStatus.IDENTIFIED:
             customer = response.customer
@@ -190,13 +185,16 @@ class CustomerIdentificationNode(BaseAgent):
                 return self._request_document_input_from_disambiguation()
 
             return {
-                "messages": [{
-                    "role": "assistant",
-                    "content": (
-                        f"Por favor ingresa el número de la opción que corresponde a tu cuenta (1 a {len(candidates)}).\n\n"
-                        "O escribe 'DNI' si prefieres buscar por documento."
-                    ),
-                }],
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": (
+                            f"Por favor ingresa el número de la opción que corresponde \
+                                a tu cuenta (1 a {len(candidates)}).\n\n"
+                            "O escribe 'DNI' si prefieres buscar por documento."
+                        ),
+                    }
+                ],
             }
 
         # Validate selection
@@ -226,10 +224,12 @@ class CustomerIdentificationNode(BaseAgent):
             return result
 
         return {
-            "messages": [{
-                "role": "assistant",
-                "content": f"Opción inválida. Por favor elige un número entre 1 y {len(candidates)}.",
-            }],
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": f"Opción inválida. Por favor elige un número entre 1 y {len(candidates)}.",
+                }
+            ],
         }
 
     async def _handle_document_input(
@@ -245,13 +245,15 @@ class CustomerIdentificationNode(BaseAgent):
 
         if not cleaned_doc or len(cleaned_doc) < 6:
             return {
-                "messages": [{
-                    "role": "assistant",
-                    "content": (
-                        "El número de documento ingresado no parece válido. "
-                        "Por favor ingresa tu DNI (solo números, mínimo 6 dígitos)."
-                    ),
-                }],
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": (
+                            "El número de documento ingresado no parece válido. "
+                            "Por favor ingresa tu DNI (solo números, mínimo 6 dígitos)."
+                        ),
+                    }
+                ],
                 "awaiting_document_input": True,
                 "is_complete": False,
             }
@@ -261,9 +263,7 @@ class CustomerIdentificationNode(BaseAgent):
         plex_client = self._get_plex_client()
 
         async with plex_client:
-            response = await self._get_use_case().execute(
-                IdentifyCustomerRequest(document=cleaned_doc)
-            )
+            response = await self._get_use_case().execute(IdentifyCustomerRequest(document=cleaned_doc))
 
         phone = state_dict.get("customer_id") or state_dict.get("user_id")
 
@@ -334,21 +334,20 @@ class CustomerIdentificationNode(BaseAgent):
         candidates: list[PlexCustomer],
     ) -> dict[str, Any]:
         """Request user to select from multiple matches."""
-        options = "\n".join([
-            f"{i+1}. {c.display_name} (Doc: {c.masked_document})"
-            for i, c in enumerate(candidates)
-        ])
+        options = "\n".join([f"{i + 1}. {c.display_name} (Doc: {c.masked_document})" for i, c in enumerate(candidates)])
 
         return {
-            "messages": [{
-                "role": "assistant",
-                "content": (
-                    "Encontré varias cuentas asociadas a tu número. "
-                    "Por favor indica cuál es la tuya:\n\n"
-                    f"{options}\n\n"
-                    "Responde con el número de opción (ej: 1)"
-                ),
-            }],
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Encontré varias cuentas asociadas a tu número. "
+                        "Por favor indica cuál es la tuya:\n\n"
+                        f"{options}\n\n"
+                        "Responde con el número de opción (ej: 1)"
+                    ),
+                }
+            ],
             "requires_disambiguation": True,
             "disambiguation_candidates": [c.to_dict() for c in candidates],
             "awaiting_document_input": False,
@@ -358,13 +357,15 @@ class CustomerIdentificationNode(BaseAgent):
     def _request_document_input(self) -> dict[str, Any]:
         """Request user to provide document number."""
         return {
-            "messages": [{
-                "role": "assistant",
-                "content": (
-                    "No encontré una cuenta asociada a tu número de teléfono. "
-                    "Por favor ingresa tu número de documento (DNI) para buscarte."
-                ),
-            }],
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "No encontré una cuenta asociada a tu número de teléfono. "
+                        "Por favor ingresa tu número de documento (DNI) para buscarte."
+                    ),
+                }
+            ],
             "awaiting_document_input": True,
             "requires_disambiguation": False,
             "is_complete": False,
@@ -373,10 +374,12 @@ class CustomerIdentificationNode(BaseAgent):
     def _request_document_input_from_disambiguation(self) -> dict[str, Any]:
         """Request document when user prefers over disambiguation."""
         return {
-            "messages": [{
-                "role": "assistant",
-                "content": "Por favor ingresa tu número de documento (DNI):",
-            }],
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "Por favor ingresa tu número de documento (DNI):",
+                }
+            ],
             "awaiting_document_input": True,
             "requires_disambiguation": False,
             "disambiguation_candidates": None,
@@ -386,14 +389,16 @@ class CustomerIdentificationNode(BaseAgent):
     def _offer_registration(self, phone: str | None) -> dict[str, Any]:
         """Offer registration to new customer."""
         return {
-            "messages": [{
-                "role": "assistant",
-                "content": (
-                    "No encontré una cuenta con esos datos. "
-                    "¿Te gustaría registrarte como nuevo cliente?\n\n"
-                    "Responde *SI* para registrarte o *NO* para salir."
-                ),
-            }],
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "No encontré una cuenta con esos datos. "
+                        "¿Te gustaría registrarte como nuevo cliente?\n\n"
+                        "Responde *SI* para registrarte o *NO* para salir."
+                    ),
+                }
+            ],
             "awaiting_document_input": False,
             "awaiting_registration_data": False,
             "pharmacy_intent_type": "register_prompt",
@@ -404,35 +409,37 @@ class CustomerIdentificationNode(BaseAgent):
     def _handle_error(self, error: str, state_dict: dict[str, Any]) -> dict[str, Any]:
         """Handle processing error."""
         import traceback
+
         tb = traceback.format_exc()
         logger.error(f"Customer identification error: {error}")
         logger.error(f"Full traceback:\n{tb}")
-        print(f"[DEBUG] _handle_error called with: {error}")  # DEBUG
-        print(f"[DEBUG] Traceback:\n{tb}")  # DEBUG
         error_count = state_dict.get("error_count", 0) + 1
 
         if error_count >= state_dict.get("max_errors", 3):
             return {
-                "messages": [{
-                    "role": "assistant",
-                    "content": (
-                        "Tuve varios problemas intentando identificarte. "
-                        "Por favor contacta a la farmacia directamente."
-                    ),
-                }],
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": (
+                            "Tuve varios problemas intentando identificarte. "
+                            "Por favor contacta a la farmacia directamente."
+                        ),
+                    }
+                ],
                 "error_count": error_count,
                 "is_complete": True,
                 "requires_human": True,
             }
 
         return {
-            "messages": [{
-                "role": "assistant",
-                "content": (
-                    "Tuve un problema identificando tu cuenta. "
-                    "Por favor intenta de nuevo o ingresa tu DNI."
-                ),
-            }],
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Tuve un problema identificando tu cuenta. Por favor intenta de nuevo o ingresa tu DNI."
+                    ),
+                }
+            ],
             "error_count": error_count,
             "awaiting_document_input": True,
         }

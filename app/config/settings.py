@@ -163,6 +163,19 @@ class Settings(BaseSettings):
     PLEX_API_PASS: str = Field("cuyo202$", description="HTTP Basic Auth password for Plex API")
     PLEX_API_TIMEOUT: int = Field(30, description="Timeout for Plex API requests in seconds")
 
+    # External Service - Mercado Pago Payment Processing
+    # Connection: HTTPS API
+    # Auth: Bearer Token (Access Token)
+    MERCADO_PAGO_ENABLED: bool = Field(False, description="Enable Mercado Pago integration")
+    MERCADO_PAGO_ACCESS_TOKEN: str | None = Field(None, description="Mercado Pago Access Token (APP_USR-xxx)")
+    MERCADO_PAGO_PUBLIC_KEY: str | None = Field(None, description="Mercado Pago Public Key (APP_USR-xxx)")
+    MERCADO_PAGO_WEBHOOK_SECRET: str | None = Field(None, description="Secret for validating MP webhook signatures")
+    MERCADO_PAGO_SANDBOX: bool = Field(True, description="Use Mercado Pago sandbox mode for testing")
+    MERCADO_PAGO_TIMEOUT: int = Field(30, description="Timeout for Mercado Pago API requests in seconds")
+    MERCADO_PAGO_NOTIFICATION_URL: str | None = Field(
+        None, description="Public URL for Mercado Pago webhook notifications (e.g., https://yourdomain.com/api/v1/webhooks/mercadopago)"
+    )
+
     # ProductAgent Configuration (always uses PostgreSQL only)
     PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")
 

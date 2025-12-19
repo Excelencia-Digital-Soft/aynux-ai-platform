@@ -11,6 +11,7 @@ from app.api.routes import (
     dux_sync_admin,
     knowledge_admin,
     langsmith_status,
+    mercadopago_webhook,
     phone_normalization,
     sync_status,
     webhook,
@@ -34,6 +35,7 @@ api_router = APIRouter()
 # API routes (all have /api/v1 prefix from main.py)
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(webhook.router, tags=["webhook"])
+api_router.include_router(mercadopago_webhook.router, tags=["Mercado Pago Webhook"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(phone_normalization.router, prefix="/phone", tags=["phone"])
 api_router.include_router(sync_status.router, prefix="/dux", tags=["sync"])

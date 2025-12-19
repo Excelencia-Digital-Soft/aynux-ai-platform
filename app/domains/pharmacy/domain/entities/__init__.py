@@ -4,6 +4,10 @@ Pharmacy Domain Entities
 Business entities for pharmacy operations.
 """
 
+from app.domains.pharmacy.domain.entities.payment_transaction import (
+    PaymentStatus,
+    PaymentTransaction,
+)
 from app.domains.pharmacy.domain.entities.pharmacy_debt import DebtItem, PharmacyDebt
 from app.domains.pharmacy.domain.entities.pharmacy_invoice import (
     InvoiceItem,
@@ -17,4 +21,6 @@ __all__ = [
     "PharmacyInvoice",
     "InvoiceItem",
     "PlexCustomer",
+    "PaymentTransaction",
+    "PaymentStatus",
 ]

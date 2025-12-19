@@ -15,6 +15,7 @@ from app.domains.pharmacy.agents.nodes.debt_check_node import DebtCheckNode
 from app.domains.pharmacy.agents.nodes.invoice_generation_node import (
     InvoiceGenerationNode,
 )
+from app.domains.pharmacy.agents.nodes.payment_link_node import PaymentLinkNode
 
 __all__ = [
     "CustomerIdentificationNode",
@@ -22,4 +23,5 @@ __all__ = [
     "DebtCheckNode",
     "ConfirmationNode",
     "InvoiceGenerationNode",
+    "PaymentLinkNode",
 ]

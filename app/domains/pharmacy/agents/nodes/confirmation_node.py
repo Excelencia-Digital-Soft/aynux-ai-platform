@@ -80,11 +80,12 @@ class ConfirmationNode(BaseAgent):
             return self._handle_error(str(e), state_dict)
 
     def _confirm_debt(self, state_dict: dict[str, Any]) -> dict[str, Any]:
-        """Handle debt confirmation (full or partial payment)."""
+        """Handle debt confirmation (full or partial payment) - auto-proceed to payment link."""
         total_debt = state_dict.get("total_debt", 0) or 0
         payment_amount = state_dict.get("payment_amount") or total_debt
         is_partial = state_dict.get("is_partial_payment", False)
         customer_name = state_dict.get("customer_name", "Cliente")
+        auto_proceed = state_dict.get("auto_proceed_to_invoice", False)
 
         # Calculate remaining balance for partial payments
         remaining_balance = total_debt - payment_amount if is_partial else 0
@@ -96,20 +97,20 @@ class ConfirmationNode(BaseAgent):
             )
             message = (
                 f"Tu pago parcial de **${payment_amount:,.2f}** ha sido confirmado.\n\n"
-                f"📊 **Resumen:**\n"
-                f"• Deuda total: ${total_debt:,.2f}\n"
-                f"• Monto a pagar: ${payment_amount:,.2f}\n"
-                f"• Saldo pendiente: ${remaining_balance:,.2f}\n\n"
-                "Para generar el recibo de pago, escribe *PAGAR* o *RECIBO*."
+                f"**Resumen:**\n"
+                f"- Deuda total: ${total_debt:,.2f}\n"
+                f"- Monto a pagar: ${payment_amount:,.2f}\n"
+                f"- Saldo pendiente: ${remaining_balance:,.2f}\n\n"
+                "Generando link de pago..."
             )
         else:
             logger.info(f"Full debt confirmed: customer={customer_name}, amount=${total_debt}")
             message = (
                 f"Tu deuda de **${total_debt:,.2f}** ha sido confirmada.\n\n"
-                "Para generar el recibo de pago, escribe *PAGAR* o *RECIBO*."
+                "Generando link de pago..."
             )
 
-        return {
+        result = {
             "messages": [{"role": "assistant", "content": message}],
             "current_agent": self.name,
             "agent_history": [self.name],
@@ -117,9 +118,15 @@ class ConfirmationNode(BaseAgent):
             "awaiting_confirmation": False,
             "confirmation_received": True,
             "workflow_step": "confirmed",
-            "is_complete": False,
             "remaining_balance": remaining_balance,
         }
+
+        # Auto-proceed to payment link generation
+        # Always go to payment_link_node after confirmation
+        result["next_agent"] = "payment_link_node"
+        result["is_complete"] = False
+
+        return result
 
     def _cancel_confirmation(self) -> dict[str, Any]:
         """Handle confirmation cancellation."""

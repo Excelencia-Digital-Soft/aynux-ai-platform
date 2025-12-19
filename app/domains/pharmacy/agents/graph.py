@@ -23,6 +23,7 @@ from app.domains.pharmacy.agents.nodes import (
     CustomerRegistrationNode,
     DebtCheckNode,
     InvoiceGenerationNode,
+    PaymentLinkNode,
 )
 from app.domains.pharmacy.agents.nodes.fallback_handler import PharmacyFallbackHandler
 from app.domains.pharmacy.agents.state import PharmacyState
@@ -39,6 +40,7 @@ class PharmacyNodeType:
     DEBT_CHECK = "debt_check_node"
     CONFIRMATION = "confirmation_node"
     INVOICE = "invoice_generation_node"
+    PAYMENT_LINK = "payment_link_node"
 
 
 # Node registry: node_type -> (node_class, config_key)
@@ -48,6 +50,7 @@ NODE_REGISTRY: dict[str, tuple[type, str]] = {
     PharmacyNodeType.DEBT_CHECK: (DebtCheckNode, "debt_check"),
     PharmacyNodeType.CONFIRMATION: (ConfirmationNode, "confirmation"),
     PharmacyNodeType.INVOICE: (InvoiceGenerationNode, "invoice"),
+    PharmacyNodeType.PAYMENT_LINK: (PaymentLinkNode, "payment_link"),
 }
 
 # Intent to node mapping
@@ -55,6 +58,7 @@ INTENT_NODE_MAP: dict[str, str] = {
     "debt_query": PharmacyNodeType.DEBT_CHECK,
     "confirm": PharmacyNodeType.CONFIRMATION,
     "invoice": PharmacyNodeType.INVOICE,
+    "payment_link": PharmacyNodeType.PAYMENT_LINK,
     "register": PharmacyNodeType.CUSTOMER_REGISTRATION,
 }
 
@@ -139,6 +143,7 @@ class PharmacyGraph:
             PharmacyNodeType.DEBT_CHECK: PharmacyNodeType.DEBT_CHECK,
             PharmacyNodeType.CONFIRMATION: PharmacyNodeType.CONFIRMATION,
             PharmacyNodeType.INVOICE: PharmacyNodeType.INVOICE,
+            PharmacyNodeType.PAYMENT_LINK: PharmacyNodeType.PAYMENT_LINK,
             "__end__": END,
         }
         workflow.add_conditional_edges(
@@ -148,9 +153,16 @@ class PharmacyGraph:
         # Operation nodes edges (debt_check, confirmation -> router or end)
         for node in [PharmacyNodeType.DEBT_CHECK, PharmacyNodeType.CONFIRMATION]:
             workflow.add_conditional_edges(
-                node, self._route_after_operation, {"router": PharmacyNodeType.ROUTER, "__end__": END}
+                node,
+                self._route_after_operation,
+                {
+                    "router": PharmacyNodeType.ROUTER,
+                    "payment_link": PharmacyNodeType.PAYMENT_LINK,
+                    "__end__": END,
+                },
             )
         workflow.add_edge(PharmacyNodeType.INVOICE, END)
+        workflow.add_edge(PharmacyNodeType.PAYMENT_LINK, END)
 
         return workflow
 
@@ -226,8 +238,18 @@ class PharmacyGraph:
 
     def _route_after_operation(self, state: PharmacyState) -> str:
         """Route after debt check or confirmation."""
-        if state.get("is_complete") or state.get("awaiting_confirmation") or state.get("debt_status") == "confirmed":
+        # Check for explicit next_agent routing (e.g., from confirmation to payment_link)
+        next_agent = state.get("next_agent")
+        if next_agent == "payment_link_node":
+            return "payment_link"
+
+        if state.get("is_complete") or state.get("awaiting_confirmation"):
             return "__end__"
+
+        # If debt is confirmed but not awaiting payment, continue flow
+        if state.get("debt_status") == "confirmed" and not state.get("awaiting_payment"):
+            return "payment_link"
+
         return "router"
 
     def _extract_last_human_message(self, state: PharmacyState) -> str | None:

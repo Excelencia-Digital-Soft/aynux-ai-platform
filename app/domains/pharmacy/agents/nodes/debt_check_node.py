@@ -196,8 +196,13 @@ class DebtCheckNode(BaseAgent):
                         else None
                     ),
                     product_code=item_data.get("codigo"),
+                    invoice_number=item_data.get("comprobante"),
+                    invoice_date=item_data.get("fecha"),
                 )
             )
+
+        # Sort items by amount descending to ensure highest values are first
+        items.sort(key=lambda x: x.amount, reverse=True)
 
         # Build debt entity
         return PharmacyDebt.from_dict({

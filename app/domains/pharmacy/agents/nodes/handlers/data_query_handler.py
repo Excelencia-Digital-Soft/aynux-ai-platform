@@ -123,11 +123,14 @@ class DataQueryHandler(BasePharmacyHandler):
                     "description": item_data.get("descripcion", "Item"),
                     "amount": float(item_data.get("importe", 0)),
                     "quantity": item_data.get("cantidad", 1),
-                    "comprobante": item_data.get("comprobante", ""),
-                    "fecha": item_data.get("fecha", ""),
+                    "invoice_number": item_data.get("comprobante", ""),
+                    "invoice_date": item_data.get("fecha", ""),
                 }
                 for item_data in balance_data.get("detalle", [])
             ]
+
+            # Sort items by amount descending
+            items.sort(key=lambda x: x["amount"], reverse=True)
 
             return {
                 "items": items,
@@ -155,41 +158,69 @@ class DataQueryHandler(BasePharmacyHandler):
         Returns:
             Generated analysis response
         """
+        from app.domains.pharmacy.domain.services.debt_grouping_service import (
+            DebtGroupingService,
+        )
+
         items = debt_data.get("items", [])
         total_debt = debt_data.get("total_debt", 0)
 
-        # Build items text with invoice details if available
-        items_lines = []
-        for item in items:
-            desc = item.get("description", "Item")
-            amount = float(item.get("amount", 0))
-            comprobante = item.get("comprobante", "")
-            fecha = item.get("fecha", "")
-            line = f"- {desc}: ${amount:,.2f}"
-            if comprobante or fecha:
-                line += f" (Fact: {comprobante or 'N/A'}, Fecha: {fecha or 'N/A'})"
-            items_lines.append(line)
-        items_text = "\n".join(items_lines)
+        # Group items by invoice for accurate analysis
+        invoice_groups = DebtGroupingService.group_by_invoice(items)
+        invoice_count = len(invoice_groups)
+
+        # Build grouped items text
+        grouped_lines = []
+        for group in invoice_groups[:10]:  # Limit to top 10 invoices
+            grouped_lines.append(
+                f"\n**Factura {group.invoice_number}** "
+                f"(Total: ${float(group.total_amount):,.2f}, Fecha: {group.invoice_date or 'N/A'})"
+            )
+            for item in group.items[:5]:  # Limit to 5 items per invoice
+                if isinstance(item, dict):
+                    desc = item.get("description", "Item")
+                    amount = float(item.get("amount", 0))
+                else:
+                    desc = item.description
+                    amount = float(item.amount)
+                grouped_lines.append(f"  - {desc}: ${amount:,.2f}")
+            if group.item_count > 5:
+                grouped_lines.append(f"  ... y {group.item_count - 5} productos más")
+        grouped_items_text = "\n".join(grouped_lines)
+
+        # Get highest individual item
+        highest_item = DebtGroupingService.get_highest_individual_item(items)
+        highest_item_text = "N/A"
+        if highest_item:
+            if isinstance(highest_item, dict):
+                highest_item_text = f"{highest_item.get('description', 'Item')}: ${float(highest_item.get('amount', 0)):,.2f}"
+            else:
+                highest_item_text = f"{highest_item.description}: ${float(highest_item.amount):,.2f}"
 
         prompt = f"""Eres un asistente de farmacia analizando los datos de deuda de un cliente.
 
 **Datos de deuda del cliente {customer_name}:**
 Total pendiente: ${float(total_debt):,.2f}
 Cantidad de productos: {len(items)}
+Cantidad de facturas/comprobantes: {invoice_count}
 
-**Detalle de productos pendientes:**
-{items_text}
+**Mayor producto individual:** {highest_item_text}
+
+**Detalle agrupado por factura:**
+{grouped_items_text}
 
 **Pregunta del cliente:** {user_question}
 
-**Instrucciones:**
-1. Analiza los datos disponibles y responde la pregunta del cliente
-2. Si la pregunta es sobre "qué medicamento debo más", busca el item con mayor importe
-3. Si la pregunta es sobre "cuántos productos", cuenta los items
-4. Si la pregunta requiere información histórica que NO tenemos (ej: compras pasadas),
-   explica amablemente que solo tienes información de la deuda actual
-5. Sé conciso y directo en tu respuesta
-6. Usa formato amigable con emojis si es apropiado
+**Instrucciones IMPORTANTES:**
+1. Analiza los datos y responde la pregunta del cliente
+2. CONTEXTO INTELIGENTE:
+   - Si pregunta por "medicamento", "producto" o "remedio" más caro → responde con el PRODUCTO individual de mayor valor
+   - Si pregunta por "factura", "comprobante" o "mayor deuda" → responde con la FACTURA con mayor deuda total (suma de productos)
+   - Si solo dice "qué debo más" sin especificar → responde con la FACTURA de mayor deuda total
+3. Si la pregunta es sobre "cuántos productos", cuenta los items totales
+4. Si la pregunta requiere información que NO tenemos, explícalo amablemente
+5. Sé conciso y directo
+6. Usa formato amigable con emojis
 
 Responde SOLO basándote en los datos proporcionados:"""
 
@@ -211,46 +242,124 @@ Responde SOLO basándote en los datos proporcionados:"""
         customer_name: str,
         debt_data: dict[str, Any],
     ) -> str:
-        """Fallback data analysis when LLM is unavailable."""
+        """
+        Fallback data analysis when LLM is unavailable.
+
+        Uses contextual logic:
+        - "medicamento/producto/remedio" → individual item with highest value
+        - "factura/comprobante/deuda" → invoice with highest total
+        - Just "debo" without context → invoice with highest total (default)
+        """
+        from app.domains.pharmacy.domain.services.debt_grouping_service import (
+            DebtGroupingService,
+        )
+
         items = debt_data.get("items", [])
         total_debt = debt_data.get("total_debt", 0)
         question_lower = question.lower()
 
-        max_desc = "N/A"
-        max_amount = 0.0
-        max_comprobante = ""
-        max_fecha = ""
-        if items:
-            max_item = max(items, key=lambda x: float(x.get("amount", 0)))
-            max_desc = max_item.get("description", "Item")
-            max_amount = float(max_item.get("amount", 0))
-            max_comprobante = max_item.get("comprobante", "")
-            max_fecha = max_item.get("fecha", "")
+        # Get grouped data
+        invoice_groups = DebtGroupingService.group_by_invoice(items)
+        highest_invoice = DebtGroupingService.get_highest_debt_invoice(items)
+        highest_item = DebtGroupingService.get_highest_individual_item(items)
 
-        # Build invoice info string if available
-        invoice_info = ""
-        if max_comprobante or max_fecha:
-            invoice_info = f"\n📄 Factura: {max_comprobante or 'N/A'} | Fecha: {max_fecha or 'N/A'}"
+        # Detect context from question
+        asks_for_item = any(
+            word in question_lower
+            for word in ["medicamento", "producto", "remedio", "más caro"]
+        )
+        asks_for_invoice = any(
+            word in question_lower
+            for word in ["factura", "comprobante", "deuda total"]
+        )
 
-        if any(word in question_lower for word in ["más debo", "mayor", "más caro", "mayor valor"]):
-            return (
-                f"**{customer_name}**, según tu deuda actual:\n\n"
-                f"💊 El producto con mayor importe pendiente es:\n"
-                f"**{max_desc}** - ${max_amount:,.2f}{invoice_info}\n\n"
-                f"📊 Total de tu deuda: ${float(total_debt):,.2f}"
-            )
+        # Handle "mayor deuda" type questions with intelligent context
+        if any(word in question_lower for word in ["más debo", "mayor", "mayor valor", "debo", "caro"]):
+            # Context: Asking for individual product
+            if asks_for_item and not asks_for_invoice and highest_item:
+                if isinstance(highest_item, dict):
+                    max_desc = highest_item.get("description", "Item")
+                    max_amount = float(highest_item.get("amount", 0))
+                    invoice_num = highest_item.get("invoice_number", "")
+                    invoice_date = highest_item.get("invoice_date", "")
+                else:
+                    max_desc = highest_item.description
+                    max_amount = float(highest_item.amount)
+                    invoice_num = highest_item.invoice_number or ""
+                    invoice_date = highest_item.invoice_date or ""
 
+                invoice_info = ""
+                if invoice_num or invoice_date:
+                    invoice_info = f"\n📄 Factura: {invoice_num or 'N/A'} | Fecha: {invoice_date or 'N/A'}"
+
+                return (
+                    f"**{customer_name}**, según tu deuda actual:\n\n"
+                    f"💊 El producto con mayor importe pendiente es:\n"
+                    f"**{max_desc}** - ${max_amount:,.2f}{invoice_info}\n\n"
+                    f"📊 Total de tu deuda: ${float(total_debt):,.2f}"
+                )
+
+            # Context: Asking for invoice/grouped debt (default for ambiguous queries)
+            if highest_invoice:
+                products_lines = []
+                for item in highest_invoice.items[:5]:
+                    if isinstance(item, dict):
+                        desc = item.get("description", "Item")
+                        amount = float(item.get("amount", 0))
+                    else:
+                        desc = item.description
+                        amount = float(item.amount)
+                    products_lines.append(f"  - {desc}: ${amount:,.2f}")
+
+                if highest_invoice.item_count > 5:
+                    products_lines.append(f"  ... y {highest_invoice.item_count - 5} productos más")
+
+                products_text = "\n".join(products_lines)
+
+                date_info = ""
+                if highest_invoice.invoice_date:
+                    date_info = f"\n📅 Fecha: {highest_invoice.invoice_date}"
+
+                return (
+                    f"**{customer_name}**, según tu deuda actual:\n\n"
+                    f"📄 Tu mayor deuda es la factura **{highest_invoice.invoice_number}** "
+                    f"con un total de **${float(highest_invoice.total_amount):,.2f}**{date_info}\n\n"
+                    f"**Productos en esta factura:**\n{products_text}\n\n"
+                    f"📊 Total de tu deuda: ${float(total_debt):,.2f}\n"
+                    f"📦 Distribuida en {len(invoice_groups)} facturas"
+                )
+
+        # Question about quantity
         if any(word in question_lower for word in ["cuántos", "cuantos", "cantidad"]):
+            invoice_summary = ""
+            if invoice_groups:
+                invoice_summary = f"\n📄 Distribuidos en **{len(invoice_groups)} facturas**"
+
             return (
                 f"**{customer_name}**, tienes **{len(items)} productos** "
-                f"pendientes de pago.\n\n"
+                f"pendientes de pago.{invoice_summary}\n\n"
                 f"📊 Total: ${float(total_debt):,.2f}"
+            )
+
+        # Default summary with both individual and grouped info
+        highest_item_text = "N/A"
+        if highest_item:
+            if isinstance(highest_item, dict):
+                highest_item_text = f"{highest_item.get('description', 'Item')} (${float(highest_item.get('amount', 0)):,.2f})"
+            else:
+                highest_item_text = f"{highest_item.description} (${float(highest_item.amount):,.2f})"
+
+        highest_invoice_text = ""
+        if highest_invoice:
+            highest_invoice_text = (
+                f"\n📄 **Mayor factura:** {highest_invoice.invoice_number} "
+                f"(${float(highest_invoice.total_amount):,.2f})"
             )
 
         return (
             f"**{customer_name}**, aquí está la información de tu cuenta:\n\n"
             f"📦 **Productos pendientes:** {len(items)}\n"
             f"💰 **Total:** ${float(total_debt):,.2f}\n"
-            f"📊 **Mayor importe:** {max_desc} (${max_amount:,.2f}){invoice_info}\n\n"
+            f"💊 **Mayor producto:** {highest_item_text}{highest_invoice_text}\n\n"
             "¿Necesitas más detalles? Escribe *deuda* para ver el listado completo."
         )

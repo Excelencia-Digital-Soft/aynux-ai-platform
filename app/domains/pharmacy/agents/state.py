@@ -82,6 +82,18 @@ class PharmacyState(TypedDict):
     remaining_balance: float | None  # Balance after payment
 
     # =========================================================================
+    # Mercado Pago Payment Context
+    # =========================================================================
+    mp_preference_id: str | None  # Mercado Pago preference ID
+    mp_payment_id: str | None  # MP payment ID (after payment completes)
+    mp_init_point: str | None  # Payment link URL
+    mp_payment_status: str | None  # pending, approved, rejected, cancelled
+    mp_external_reference: str | None  # Reference for webhook correlation (customer_id:debt_id:uuid)
+    awaiting_payment: bool  # True when payment link sent, waiting for payment
+    plex_receipt_number: str | None  # PLEX receipt after REGISTRAR_PAGO_CLIENTE (e.g., RC X 0001-00016790)
+    plex_new_balance: float | None  # Customer's new balance after payment
+
+    # =========================================================================
     # Invoice/Receipt Context
     # =========================================================================
     invoice_id: str | None

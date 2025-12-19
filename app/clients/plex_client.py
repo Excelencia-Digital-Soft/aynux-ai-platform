@@ -395,6 +395,97 @@ class PlexClient:
 
         return {}
 
+    async def register_payment(
+        self,
+        customer_id: int,
+        amount: float,
+        operation_number: str,
+    ) -> dict[str, Any]:
+        """
+        Register a payment in Plex ERP using REGISTRAR_PAGO_CLIENTE.
+
+        This endpoint records a payment made through an external payment processor
+        (like Mercado Pago) in the Plex ERP system.
+
+        Args:
+            customer_id: Plex internal customer ID
+            amount: Payment amount
+            operation_number: External operation number (e.g., Mercado Pago payment ID)
+
+        Returns:
+            dict with:
+                - respcode: "0" for success
+                - respmsg: "OK" for success
+                - content:
+                    - idcliente: Customer ID
+                    - acreditado: Amount credited
+                    - comprobante: PLEX receipt number (e.g., "RC X 0001-00016790")
+                    - nuevo_saldo: New customer balance
+
+        Raises:
+            PlexAPIError: On API errors or registration failure
+
+        Example:
+            async with PlexClient() as client:
+                result = await client.register_payment(
+                    customer_id=697,
+                    amount=50000.00,
+                    operation_number="123456789",  # MP payment ID
+                )
+                # result["content"]["comprobante"] = "RC X 0001-00016790"
+        """
+        client = self._get_client()
+
+        payload = {
+            "request": {
+                "type": "REGISTRAR_PAGO_CLIENTE",
+                "content": {
+                    "idcliente": str(customer_id),
+                    "importe": str(amount),
+                    "nro_operacion": operation_number,
+                },
+            }
+        }
+
+        try:
+            logger.info(
+                f"Plex register payment: customer_id={customer_id}, "
+                f"amount={amount}, operation={operation_number}"
+            )
+            response = await client.post("/saldo_cliente", json=payload)
+            response.raise_for_status()
+
+            data = response.json()
+
+            # Validate response
+            resp = data.get("response", {})
+            if resp.get("respcode") != "0":
+                error_msg = resp.get("respmsg", "Unknown error")
+                logger.error(f"Plex payment registration failed: {error_msg}")
+                raise PlexAPIError("PAYMENT_REGISTRATION_FAILED", error_msg)
+
+            content = resp.get("content", {})
+            logger.info(
+                f"Plex payment registered: customer={customer_id}, "
+                f"receipt={content.get('comprobante')}, "
+                f"new_balance={content.get('nuevo_saldo')}"
+            )
+
+            return resp
+
+        except httpx.HTTPStatusError as e:
+            self._handle_http_error(e)
+        except httpx.TimeoutException as e:
+            raise PlexConnectionError(f"Request timed out: {e}") from e
+        except httpx.RequestError as e:
+            raise PlexConnectionError(f"Connection error (VPN?): {e}") from e
+        except PlexAPIError:
+            raise
+        except Exception as e:
+            raise PlexAPIError("UNEXPECTED", str(e)) from e
+
+        return {}
+
     # =========================================================================
     # Customer Registration Methods
     # =========================================================================
