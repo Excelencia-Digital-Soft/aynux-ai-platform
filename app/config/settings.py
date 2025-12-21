@@ -163,17 +163,22 @@ class Settings(BaseSettings):
     PLEX_API_PASS: str = Field("cuyo202$", description="HTTP Basic Auth password for Plex API")
     PLEX_API_TIMEOUT: int = Field(30, description="Timeout for Plex API requests in seconds")
 
-    # External Service - Mercado Pago Payment Processing
-    # Connection: HTTPS API
-    # Auth: Bearer Token (Access Token)
-    MERCADO_PAGO_ENABLED: bool = Field(False, description="Enable Mercado Pago integration")
-    MERCADO_PAGO_ACCESS_TOKEN: str | None = Field(None, description="Mercado Pago Access Token (APP_USR-xxx)")
-    MERCADO_PAGO_PUBLIC_KEY: str | None = Field(None, description="Mercado Pago Public Key (APP_USR-xxx)")
-    MERCADO_PAGO_WEBHOOK_SECRET: str | None = Field(None, description="Secret for validating MP webhook signatures")
-    MERCADO_PAGO_SANDBOX: bool = Field(True, description="Use Mercado Pago sandbox mode for testing")
-    MERCADO_PAGO_TIMEOUT: int = Field(30, description="Timeout for Mercado Pago API requests in seconds")
-    MERCADO_PAGO_NOTIFICATION_URL: str | None = Field(
-        None, description="Public URL for Mercado Pago webhook notifications (e.g., https://yourdomain.com/api/v1/webhooks/mercadopago)"
+    # Receipt Generation Settings
+    # Note: Mercado Pago and pharmacy info are now stored per-organization in the database
+    # See: PharmacyMerchantConfig table and PharmacyConfigService
+    RECEIPT_STORAGE_PATH: str = Field(
+        "app/static/receipts", description="Directory path for storing PDF receipts"
+    )
+    RECEIPT_CLEANUP_DAYS: int = Field(
+        30, description="Number of days to keep receipts before cleanup"
+    )
+
+    # WhatsApp Template Settings for Payment Notifications
+    WA_PAYMENT_RECEIPT_TEMPLATE: str = Field(
+        "payment_receipt", description="WhatsApp template name for payment receipts"
+    )
+    WA_PAYMENT_RECEIPT_LANGUAGE: str = Field(
+        "es", description="Language code for payment receipt template"
     )
 
     # ProductAgent Configuration (always uses PostgreSQL only)

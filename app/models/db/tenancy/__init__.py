@@ -18,6 +18,7 @@ This package contains all models related to multi-tenancy support:
 
 from .organization import Organization
 from .organization_user import OrganizationUser
+from .pharmacy_merchant_config import PharmacyMerchantConfig
 from .tenant_agent import TenantAgent
 from .tenant_config import TenantConfig
 from .tenant_document import TenantDocument
@@ -26,6 +27,7 @@ from .tenant_prompt import TenantPrompt
 __all__ = [
     "Organization",
     "OrganizationUser",
+    "PharmacyMerchantConfig",
     "TenantConfig",
     "TenantAgent",
     "TenantPrompt",

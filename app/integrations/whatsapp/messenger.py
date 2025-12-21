@@ -263,3 +263,124 @@ class WhatsAppMessenger:
         except Exception as e:
             logger.error(f"Error creating Flow message: {e}")
             return WhatsAppApiResponse(success=False, error=str(e))
+
+    async def send_template(
+        self,
+        numero: str,
+        template_name: str,
+        language_code: str = "es",
+        components: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Send a WhatsApp template message (HSM - Highly Structured Message).
+
+        Template messages must be pre-approved in Meta Business Manager.
+        Supports headers (document, image, video), body parameters, and buttons.
+
+        Args:
+            numero: Recipient phone number
+            template_name: Name of the pre-approved template
+            language_code: Template language code (default: "es")
+            components: Template components (header, body, button parameters)
+                       Example for document header + body params:
+                       [
+                           {
+                               "type": "header",
+                               "parameters": [{
+                                   "type": "document",
+                                   "document": {
+                                       "link": "https://example.com/doc.pdf",
+                                       "filename": "Receipt.pdf"
+                                   }
+                               }]
+                           },
+                           {
+                               "type": "body",
+                               "parameters": [
+                                   {"type": "text", "text": "value1"},
+                                   {"type": "text", "text": "value2"}
+                               ]
+                           }
+                       ]
+
+        Returns:
+            API response dict with success status and data
+        """
+        if not numero or not template_name:
+            return {"success": False, "error": "Number and template name required"}
+
+        numero = self._normalize_number(numero)
+
+        payload: dict[str, Any] = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": numero,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": language_code},
+            },
+        }
+
+        # Add components if provided (header, body, buttons)
+        if components:
+            payload["template"]["components"] = components
+
+        logger.info(f"Sending template '{template_name}' to {numero}")
+        return await self._client.post(payload)
+
+    async def send_template_with_document(
+        self,
+        numero: str,
+        template_name: str,
+        document_url: str,
+        document_filename: str,
+        body_params: list[str] | None = None,
+        language_code: str = "es",
+    ) -> dict[str, Any]:
+        """
+        Send a template message with a document header and optional body parameters.
+
+        Convenience method for common receipt/invoice templates.
+
+        Args:
+            numero: Recipient phone number
+            template_name: Name of the pre-approved template
+            document_url: Public URL of the document (PDF)
+            document_filename: Filename to show to recipient
+            body_params: List of body parameter values ({{1}}, {{2}}, etc.)
+            language_code: Template language code (default: "es")
+
+        Returns:
+            API response dict with success status and data
+        """
+        components: list[dict[str, Any]] = [
+            {
+                "type": "header",
+                "parameters": [
+                    {
+                        "type": "document",
+                        "document": {
+                            "link": document_url,
+                            "filename": document_filename,
+                        },
+                    }
+                ],
+            }
+        ]
+
+        # Add body parameters if provided
+        if body_params:
+            components.append(
+                {
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": param} for param in body_params],
+                }
+            )
+
+        return await self.send_template(
+            numero=numero,
+            template_name=template_name,
+            language_code=language_code,
+            components=components,
+        )

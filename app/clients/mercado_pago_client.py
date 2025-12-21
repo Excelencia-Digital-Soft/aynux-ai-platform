@@ -14,6 +14,10 @@ Endpoints:
 
 Documentation:
     - https://www.mercadopago.com.ar/developers/en/docs/checkout-pro/overview
+
+Note:
+    This client requires explicit credentials. Configuration should be loaded
+    from PharmacyConfigService which reads from the database.
 """
 
 from __future__ import annotations
@@ -23,8 +27,6 @@ from decimal import Decimal
 from typing import Any
 
 import httpx
-
-from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -72,50 +74,64 @@ class MercadoPagoClient:
     Implements payment preference creation and payment status queries
     using Bearer Token authentication over httpx.
 
-    Environment Variables:
-        MERCADO_PAGO_ENABLED: Enable/disable MP integration
-        MERCADO_PAGO_ACCESS_TOKEN: Bearer token for API auth
-        MERCADO_PAGO_SANDBOX: Use sandbox mode for testing
-        MERCADO_PAGO_TIMEOUT: Request timeout in seconds (default: 30)
-        MERCADO_PAGO_NOTIFICATION_URL: Webhook URL for payment notifications
+    Requires explicit credentials - configuration should be loaded from
+    PharmacyConfigService which reads from the database.
 
     Example:
-        async with MercadoPagoClient() as client:
-            preference = await client.create_preference(
-                amount=Decimal("1500.00"),
-                description="Pago de deuda",
-                external_reference="customer123:debt456",
-            )
-            # preference["init_point"] contains the payment URL
+        # Load config from database
+        config_service = PharmacyConfigService(db)
+        pharmacy_config = await config_service.get_config(org_id)
+
+        # Create client with explicit credentials
+        async with MercadoPagoClient(
+            access_token=pharmacy_config.mp_access_token,
+            notification_url=pharmacy_config.mp_notification_url,
+            sandbox=pharmacy_config.mp_sandbox,
+            timeout=pharmacy_config.mp_timeout,
+        ) as client:
+            preference = await client.create_preference(...)
     """
 
     BASE_URL = "https://api.mercadopago.com"
-    SANDBOX_BASE_URL = "https://api.mercadopago.com"  # Same URL, different behavior
 
-    def __init__(self):
-        """Initialize Mercado Pago client with settings."""
-        settings = get_settings()
+    def __init__(
+        self,
+        access_token: str,
+        notification_url: str | None = None,
+        sandbox: bool = True,
+        timeout: int = 30,
+    ):
+        """
+        Initialize Mercado Pago client.
 
-        if not settings.MERCADO_PAGO_ENABLED:
-            logger.warning("MercadoPagoClient initialized but MERCADO_PAGO_ENABLED=false")
+        Args:
+            access_token: MP access token (required)
+            notification_url: Webhook URL for payment notifications
+            sandbox: Use sandbox mode (default: True)
+            timeout: Request timeout in seconds (default: 30)
 
-        self._access_token = settings.MERCADO_PAGO_ACCESS_TOKEN
-        self._notification_url = settings.MERCADO_PAGO_NOTIFICATION_URL
-        self._timeout = settings.MERCADO_PAGO_TIMEOUT
-        self._sandbox = settings.MERCADO_PAGO_SANDBOX
+        Raises:
+            ValueError: If access_token is not provided
+        """
+        if not access_token:
+            raise ValueError("MercadoPagoClient requires an access_token")
+
+        self._access_token = access_token
+        self._notification_url = notification_url
+        self._timeout = timeout
+        self._sandbox = sandbox
         self._client: httpx.AsyncClient | None = None
 
-        if not self._access_token:
-            logger.error("MERCADO_PAGO_ACCESS_TOKEN not configured")
+        logger.debug(f"MercadoPagoClient initialized (sandbox={sandbox})")
 
     async def __aenter__(self) -> MercadoPagoClient:
         """Enter async context and create HTTP client."""
+
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             headers={
                 "Authorization": f"Bearer {self._access_token}",
                 "Content-Type": "application/json",
-                "X-Idempotency-Key": None,  # Will be set per-request if needed
             },
             timeout=self._timeout,
         )
@@ -313,6 +329,5 @@ class MercadoPagoClient:
 
     @property
     def is_enabled(self) -> bool:
-        """Check if MP integration is enabled."""
-        settings = get_settings()
-        return settings.MERCADO_PAGO_ENABLED and bool(self._access_token)
+        """Check if MP integration is enabled (always True since credentials are required)."""
+        return True

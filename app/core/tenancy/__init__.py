@@ -33,6 +33,11 @@ from .middleware import (
     get_optional_tenant_dependency,
     get_tenant_dependency,
 )
+from .pharmacy_config_service import (
+    PharmacyConfig,
+    PharmacyConfigService,
+    TEST_PHARMACY_ORG_ID,
+)
 from .prompt_manager import PromptNotFoundError, PromptScope, TenantPromptManager
 from .resolver import TenantResolutionError, TenantResolver
 from .vector_store import TenantVectorStore
@@ -61,4 +66,8 @@ __all__ = [
     "TenantAgentFactory",
     "get_tenant_enabled_agents",
     "is_agent_enabled_for_tenant",
+    # Pharmacy Config Service
+    "PharmacyConfigService",
+    "PharmacyConfig",
+    "TEST_PHARMACY_ORG_ID",
 ]

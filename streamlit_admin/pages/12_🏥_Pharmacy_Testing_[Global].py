@@ -38,6 +38,7 @@ if not os.getenv("PLEX_API_BASE_URL"):
 
 from langchain_core.messages import AIMessage, HumanMessage
 
+from app.core.tenancy import TEST_PHARMACY_ORG_ID
 from app.domains.pharmacy.agents.graph import PharmacyGraph
 from lib.session_state import init_session_state
 
@@ -251,6 +252,8 @@ class PharmacyTesterPage:
             "messages": new_messages,
             "customer_id": phone,
             "is_bypass_route": True,
+            # Use test pharmacy org for Streamlit testing
+            "organization_id": str(TEST_PHARMACY_ORG_ID),
         })
 
         try:

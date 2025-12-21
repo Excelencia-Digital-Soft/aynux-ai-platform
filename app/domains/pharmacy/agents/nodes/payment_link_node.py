@@ -3,6 +3,8 @@ Payment Link Generation Node
 
 Pharmacy domain node for generating Mercado Pago payment links.
 Creates a Checkout Pro preference and sends the payment link to the customer.
+
+Requires organization_id in state to load pharmacy configuration from database.
 """
 
 from __future__ import annotations
@@ -10,13 +12,16 @@ from __future__ import annotations
 import logging
 import uuid
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
-from app.config.settings import get_settings
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.clients.mercado_pago_client import MercadoPagoClient
 from app.core.agents import BaseAgent
+from app.core.tenancy import PharmacyConfigService
 
 if TYPE_CHECKING:
-    from app.clients.mercado_pago_client import MercadoPagoClient
+    from app.core.tenancy import PharmacyConfig
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +37,7 @@ class PaymentLinkNode(BaseAgent):
         - debt_status = "confirmed"
         - plex_customer_id set
         - payment_amount or total_debt set
+        - organization_id set (for loading pharmacy config from DB)
 
     Produces:
         - mp_preference_id: Mercado Pago preference ID
@@ -44,7 +50,7 @@ class PaymentLinkNode(BaseAgent):
     def __init__(
         self,
         plex_client: Any = None,  # Accept for graph compatibility, not used
-        mp_client: MercadoPagoClient | None = None,
+        db_session_factory: Callable[[], AsyncSession] | None = None,
         config: dict[str, Any] | None = None,
     ):
         """
@@ -52,21 +58,13 @@ class PaymentLinkNode(BaseAgent):
 
         Args:
             plex_client: PlexClient (accepted for graph compatibility, not used)
-            mp_client: MercadoPagoClient instance (optional, created lazily)
+            db_session_factory: Factory function to create async DB sessions
             config: Node configuration
         """
         super().__init__("payment_link_node", config or {})
-        self._mp_client = mp_client
+        self._db_session_factory = db_session_factory
         # Note: plex_client is accepted for graph initialization compatibility
         # but PaymentLinkNode uses MercadoPagoClient for payment link generation
-
-    def _get_mp_client(self) -> MercadoPagoClient:
-        """Get or create Mercado Pago client."""
-        if self._mp_client is None:
-            from app.clients.mercado_pago_client import MercadoPagoClient
-
-            self._mp_client = MercadoPagoClient()
-        return self._mp_client
 
     async def _process_internal(
         self,
@@ -84,11 +82,33 @@ class PaymentLinkNode(BaseAgent):
             State updates with payment link info
         """
         try:
-            # Check if MP is enabled
-            settings = get_settings()
-            if not settings.MERCADO_PAGO_ENABLED:
-                logger.warning("Mercado Pago integration is disabled")
+            # Validate organization_id (required for DB config)
+            org_id_str = state_dict.get("organization_id")
+            if not org_id_str:
+                logger.error("Cannot generate payment link: no organization_id in state")
+                return self._handle_no_organization()
+
+            from uuid import UUID
+            try:
+                org_id = UUID(str(org_id_str))
+            except ValueError:
+                logger.error(f"Invalid organization_id format: {org_id_str}")
+                return self._handle_no_organization()
+
+            # Load pharmacy config from database
+            pharmacy_config = await self._load_pharmacy_config(org_id)
+            if not pharmacy_config:
+                return self._handle_config_not_found()
+
+            # Check if MP is enabled for this pharmacy
+            if not pharmacy_config.mp_enabled:
+                logger.warning(f"Mercado Pago integration is disabled for org {org_id}")
                 return self._handle_mp_disabled()
+
+            # Validate MP credentials
+            if not pharmacy_config.mp_access_token:
+                logger.error(f"No MP access token configured for org {org_id}")
+                return self._handle_mp_not_configured()
 
             # Validate prerequisites
             debt_status = state_dict.get("debt_status")
@@ -101,8 +121,8 @@ class PaymentLinkNode(BaseAgent):
                 logger.warning("Cannot generate payment link: no plex_customer_id")
                 return self._handle_no_customer()
 
-            # Get payment details
-            total_debt = state_dict.get("total_debt", 0) or 0
+            # Get payment details (convert to Decimal for financial precision)
+            total_debt = Decimal(str(state_dict.get("total_debt", 0) or 0))
             payment_amount = state_dict.get("payment_amount") or total_debt
             is_partial = state_dict.get("is_partial_payment", False)
             customer_name = state_dict.get("customer_name", "Cliente")
@@ -115,17 +135,22 @@ class PaymentLinkNode(BaseAgent):
                 return self._handle_invalid_amount()
 
             # Create external reference for webhook correlation
-            # Format: customer_id:debt_id:uuid (allows webhook to identify transaction)
+            # Format: customer_id:debt_id:org_id:uuid (org_id is required)
             unique_id = uuid.uuid4().hex[:8]
-            external_reference = f"{plex_customer_id}:{debt_id}:{unique_id}"
+            external_reference = f"{plex_customer_id}:{debt_id}:{org_id}:{unique_id}"
 
             logger.info(
                 f"Creating MP payment link: customer={plex_customer_id}, "
                 f"amount=${amount}, is_partial={is_partial}, ref={external_reference}"
             )
 
-            # Create Mercado Pago preference
-            mp_client = self._get_mp_client()
+            # Create Mercado Pago client with pharmacy-specific credentials
+            mp_client = MercadoPagoClient(
+                access_token=pharmacy_config.mp_access_token,
+                notification_url=pharmacy_config.mp_notification_url,
+                sandbox=pharmacy_config.mp_sandbox,
+                timeout=pharmacy_config.mp_timeout,
+            )
 
             async with mp_client:
                 preference = await mp_client.create_preference(
@@ -140,7 +165,7 @@ class PaymentLinkNode(BaseAgent):
             preference_id = preference["preference_id"]
 
             # Use sandbox URL in sandbox mode
-            if settings.MERCADO_PAGO_SANDBOX and preference.get("sandbox_init_point"):
+            if pharmacy_config.mp_sandbox and preference.get("sandbox_init_point"):
                 init_point = preference["sandbox_init_point"]
 
             logger.info(f"MP preference created: {preference_id}, link={init_point[:50]}...")
@@ -174,6 +199,23 @@ class PaymentLinkNode(BaseAgent):
         except Exception as e:
             logger.error(f"Error generating payment link: {e!s}", exc_info=True)
             return self._handle_error(str(e), state_dict)
+
+    async def _load_pharmacy_config(self, org_id) -> PharmacyConfig | None:
+        """Load pharmacy configuration from database."""
+        if not self._db_session_factory:
+            logger.error("No db_session_factory configured for PaymentLinkNode")
+            return None
+
+        try:
+            async with self._db_session_factory() as session:
+                config_service = PharmacyConfigService(session)
+                return await config_service.get_config(org_id)
+        except ValueError as e:
+            logger.error(f"Failed to load pharmacy config: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error loading pharmacy config: {e}", exc_info=True)
+            return None
 
     def _format_payment_link_message(
         self,
@@ -218,6 +260,38 @@ Recibiras una confirmacion automatica cuando el pago se procese.
 
 _Este link es valido por 24 horas._"""
 
+    def _handle_no_organization(self) -> dict[str, Any]:
+        """Handle when organization_id is missing."""
+        return {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Disculpa, no se pudo identificar la farmacia. "
+                        "Por favor contacta a soporte."
+                    ),
+                }
+            ],
+            "current_agent": self.name,
+            "is_complete": True,
+        }
+
+    def _handle_config_not_found(self) -> dict[str, Any]:
+        """Handle when pharmacy config is not found in database."""
+        return {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Disculpa, la configuracion de pago no esta disponible. "
+                        "Por favor contacta a la farmacia."
+                    ),
+                }
+            ],
+            "current_agent": self.name,
+            "is_complete": True,
+        }
+
     def _handle_mp_disabled(self) -> dict[str, Any]:
         """Handle when Mercado Pago is disabled."""
         return {
@@ -227,6 +301,22 @@ _Este link es valido por 24 horas._"""
                     "content": (
                         "Disculpa, el sistema de pagos en linea no esta disponible en este momento. "
                         "Por favor contacta directamente a la farmacia para realizar tu pago."
+                    ),
+                }
+            ],
+            "current_agent": self.name,
+            "is_complete": True,
+        }
+
+    def _handle_mp_not_configured(self) -> dict[str, Any]:
+        """Handle when Mercado Pago is not configured."""
+        return {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Disculpa, el sistema de pagos no esta configurado. "
+                        "Por favor contacta a la farmacia."
                     ),
                 }
             ],

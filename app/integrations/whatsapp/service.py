@@ -151,6 +151,63 @@ class WhatsAppService:
             numero, flow_id, flow_cta, body_text, header_text, flow_token, flow_data
         )
 
+    async def enviar_template(
+        self,
+        numero: str,
+        template_name: str,
+        language_code: str = "es",
+        components: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Send a WhatsApp template message (HSM).
+
+        Args:
+            numero: Recipient phone number
+            template_name: Name of the pre-approved template
+            language_code: Template language code (default: "es")
+            components: Template components (header, body, button parameters)
+
+        Returns:
+            API response dict
+        """
+        return await self._messenger.send_template(
+            numero, template_name, language_code, components
+        )
+
+    async def enviar_template_con_documento(
+        self,
+        numero: str,
+        template_name: str,
+        document_url: str,
+        document_filename: str,
+        body_params: list[str] | None = None,
+        language_code: str = "es",
+    ) -> dict[str, Any]:
+        """
+        Send a template message with a document header.
+
+        Convenience method for payment receipts and invoices.
+
+        Args:
+            numero: Recipient phone number
+            template_name: Name of the pre-approved template
+            document_url: Public URL of the document (PDF)
+            document_filename: Filename to show to recipient
+            body_params: List of body parameter values ({{1}}, {{2}}, etc.)
+            language_code: Template language code (default: "es")
+
+        Returns:
+            API response dict
+        """
+        return await self._messenger.send_template_with_document(
+            numero, template_name, document_url, document_filename, body_params, language_code
+        )
+
+    # Aliases in English
+    send_message = enviar_mensaje_texto
+    send_template = enviar_template
+    send_template_with_document = enviar_template_con_documento
+
     # Catalog methods
     async def get_catalog_products(
         self,
