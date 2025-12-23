@@ -3,10 +3,17 @@ WhatsApp Service.
 
 Single Responsibility: Facade for WhatsApp Business API operations.
 Uses composition with HttpClient, Messenger for messaging operations.
+
+Multi-Tenant Support:
+  - Use WhatsAppService.from_credentials() for database-driven credentials
+  - Default constructor still works for global mode (env vars)
 """
 
 import logging
 from typing import Any
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import get_settings
 from app.integrations.whatsapp.http_client import WhatsAppHttpClient
@@ -324,3 +331,116 @@ class WhatsAppService:
                 "products_url": f"{self.base_url}/{self.version}/{self.catalog_id}/products",
             },
         }
+
+    # =========================================================================
+    # Multi-Tenant Factory Methods
+    # =========================================================================
+
+    @classmethod
+    async def from_organization(
+        cls,
+        db: AsyncSession,
+        organization_id: UUID,
+        catalog_id: str | None = None,
+    ) -> "WhatsAppService":
+        """
+        Create WhatsAppService instance with credentials from database.
+
+        This factory method loads WhatsApp credentials from the tenant_credentials
+        table and creates a properly configured service instance.
+
+        Args:
+            db: Database session
+            organization_id: Organization UUID to load credentials for
+            catalog_id: Optional catalog ID override (uses settings default if not provided)
+
+        Returns:
+            WhatsAppService configured with organization's credentials
+
+        Raises:
+            CredentialNotFoundError: If no credentials found for organization
+            ValueError: If credentials are incomplete
+
+        Example:
+            async with get_async_db() as db:
+                service = await WhatsAppService.from_organization(db, org_id)
+                await service.send_message("5491234567890", "Hello!")
+        """
+        from app.core.tenancy.credential_service import get_credential_service
+
+        credential_service = get_credential_service()
+        creds = await credential_service.get_whatsapp_credentials(db, organization_id)
+
+        # Create instance with database credentials
+        instance = cls.__new__(cls)
+        instance.settings = get_settings()
+        instance.base_url = instance.settings.WHATSAPP_API_BASE
+        instance.version = instance.settings.WHATSAPP_API_VERSION
+        instance.phone_number_id = creds.phone_number_id
+        instance.access_token = creds.access_token
+        instance.catalog_id = catalog_id or instance.settings.WHATSAPP_CATALOG_ID
+
+        # Initialize composed dependencies
+        instance._http_client = WhatsAppHttpClient(
+            base_url=instance.base_url,
+            version=instance.version,
+            phone_number_id=instance.phone_number_id,
+            access_token=instance.access_token,
+        )
+
+        instance._messenger = WhatsAppMessenger(
+            http_client=instance._http_client,
+            catalog_id=instance.catalog_id,
+            is_development=instance.settings.is_development,
+        )
+
+        logger.info(f"WhatsApp Service initialized for org {organization_id}:")
+        logger.info(f"  Phone ID: {instance.phone_number_id}")
+        logger.info(f"  Catalog ID: {instance.catalog_id}")
+
+        return instance
+
+    @classmethod
+    def from_credentials(
+        cls,
+        access_token: str,
+        phone_number_id: str,
+        catalog_id: str | None = None,
+    ) -> "WhatsAppService":
+        """
+        Create WhatsAppService with explicit credentials.
+
+        Useful when credentials are already decrypted or for testing.
+
+        Args:
+            access_token: WhatsApp Graph API access token
+            phone_number_id: WhatsApp Business phone number ID
+            catalog_id: Optional catalog ID (uses settings default if not provided)
+
+        Returns:
+            WhatsAppService configured with provided credentials
+        """
+        instance = cls.__new__(cls)
+        instance.settings = get_settings()
+        instance.base_url = instance.settings.WHATSAPP_API_BASE
+        instance.version = instance.settings.WHATSAPP_API_VERSION
+        instance.phone_number_id = phone_number_id
+        instance.access_token = access_token
+        instance.catalog_id = catalog_id or instance.settings.WHATSAPP_CATALOG_ID
+
+        # Initialize composed dependencies
+        instance._http_client = WhatsAppHttpClient(
+            base_url=instance.base_url,
+            version=instance.version,
+            phone_number_id=instance.phone_number_id,
+            access_token=instance.access_token,
+        )
+
+        instance._messenger = WhatsAppMessenger(
+            http_client=instance._http_client,
+            catalog_id=instance.catalog_id,
+            is_development=instance.settings.is_development,
+        )
+
+        logger.info("WhatsApp Service initialized with explicit credentials")
+        return instance

@@ -25,6 +25,7 @@ from app.api.routes.admin import (
     organizations,
     tenant_agents,
     tenant_config,
+    tenant_credentials,
     tenant_documents,
     tenant_prompts,
 )
@@ -68,6 +69,11 @@ api_router.include_router(
     tenant_config.router,
     prefix="/admin/organizations",
     tags=["Tenant Configuration"],
+)
+api_router.include_router(
+    tenant_credentials.router,
+    prefix="/admin/organizations",
+    tags=["Tenant Credentials"],
 )
 api_router.include_router(
     tenant_agents.router,

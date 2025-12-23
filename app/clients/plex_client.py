@@ -691,3 +691,46 @@ async def get_plex_client() -> PlexClient:
                 return await client.search_customer(phone=phone)
     """
     return PlexClient()
+
+
+async def get_plex_client_for_org(
+    db: "AsyncSession",
+    organization_id: "UUID",
+) -> PlexClient:
+    """
+    Get a Plex client instance with credentials from database.
+
+    This factory method loads Plex credentials from the tenant_credentials
+    table and creates a properly configured client instance.
+
+    Args:
+        db: Database session
+        organization_id: Organization UUID to load credentials for
+
+    Returns:
+        PlexClient configured with organization's credentials
+
+    Raises:
+        CredentialNotFoundError: If no credentials found for organization
+        ValueError: If credentials are incomplete
+
+    Example:
+        async with get_async_db() as db:
+            client = await get_plex_client_for_org(db, org_id)
+            async with client:
+                customers = await client.search_customer(phone="1234567890")
+    """
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.core.tenancy.credential_service import get_credential_service
+
+    credential_service = get_credential_service()
+    creds = await credential_service.get_plex_credentials(db, organization_id)
+
+    return PlexClient(
+        base_url=creds.api_url,
+        username=creds.username,
+        password=creds.password,
+    )

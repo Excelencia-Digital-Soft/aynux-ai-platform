@@ -159,6 +159,11 @@ class PharmacyState(TypedDict):
     is_bypass_route: bool  # True if came via bypass routing
 
     # =========================================================================
+    # Multi-Tenant Context
+    # =========================================================================
+    organization_id: str | None  # Organization UUID for multi-tenant config lookup
+
+    # =========================================================================
     # Greeting State (daily tracking)
     # =========================================================================
     greeted_today: bool  # True if customer was greeted in current session/day

@@ -303,6 +303,57 @@ class MercadoPagoClient:
             logger.error(f"MP timeout error: {e}")
             raise MercadoPagoConnectionError(f"Mercado Pago request timed out: {e}") from e
 
+    async def search_payments_by_external_reference(
+        self, external_reference: str
+    ) -> list[dict[str, Any]]:
+        """
+        Search for payments by external_reference.
+
+        Useful for finding payments associated with a specific preference.
+
+        Args:
+            external_reference: The external reference used when creating the preference
+
+        Returns:
+            List of payment dictionaries matching the external_reference
+
+        Raises:
+            MercadoPagoAuthError: Invalid access token
+            MercadoPagoError: API error
+        """
+        if not self._client:
+            raise MercadoPagoError(
+                "CLIENT_NOT_INITIALIZED",
+                "Client not initialized. Use 'async with' context.",
+            )
+
+        try:
+            logger.info(f"Searching MP payments by external_reference: {external_reference[:30]}...")
+
+            response = await self._client.get(
+                "/v1/payments/search",
+                params={"external_reference": external_reference},
+            )
+
+            if response.status_code == 401:
+                raise MercadoPagoAuthError("Invalid or expired access token")
+
+            response.raise_for_status()
+
+            data = response.json()
+            results = data.get("results", [])
+            logger.info(f"Found {len(results)} payments for external_reference")
+
+            return results
+
+        except httpx.ConnectError as e:
+            logger.error(f"MP connection error: {e}")
+            raise MercadoPagoConnectionError(f"Could not connect to Mercado Pago: {e}") from e
+
+        except httpx.TimeoutException as e:
+            logger.error(f"MP timeout error: {e}")
+            raise MercadoPagoConnectionError(f"Mercado Pago request timed out: {e}") from e
+
     async def test_connection(self) -> bool:
         """
         Test API connection and credentials.

@@ -29,7 +29,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.mercado_pago_client import MercadoPagoClient, MercadoPagoError
@@ -46,28 +47,71 @@ logger = logging.getLogger(__name__)
 
 
 class MPWebhookPayload(BaseModel):
-    """Mercado Pago webhook payload structure."""
+    """
+    Mercado Pago webhook payload - supports both IPN v1 and topic formats.
 
-    action: str  # e.g., "payment.created", "payment.updated"
+    IPN v1 format (new):
+        {"id": 123, "type": "payment", "action": "payment.created", "data": {"id": "456"}}
+
+    Topic-based format (legacy):
+        {"resource": "/v1/payments/456", "topic": "payment"}
+    """
+
+    # IPN v1 format fields (all optional individually)
+    action: str | None = None
     api_version: str | None = None
-    data: dict[str, Any]  # Contains "id" for the payment ID
+    data: dict[str, Any] | None = None
     date_created: str | None = None
-    id: str | int  # Webhook notification ID
+    id: str | int | None = None
     live_mode: bool | None = None
-    type: str  # e.g., "payment"
+    type: str | None = None
     user_id: str | int | None = None
+
+    # Topic-based format fields (legacy)
+    resource: str | None = None
+    topic: str | None = None
+
+    @model_validator(mode="after")
+    def validate_has_required_data(self) -> "MPWebhookPayload":
+        """Ensure we have enough data to process the webhook."""
+        has_ipn_format = self.type and self.data and self.data.get("id")
+        has_topic_format = self.topic and self.resource
+
+        if not has_ipn_format and not has_topic_format:
+            raise ValueError(
+                "Webhook must have either IPN format (type, data.id) "
+                "or topic format (topic, resource)"
+            )
+        return self
+
+    def get_payment_id(self) -> str | None:
+        """Extract payment ID from either format."""
+        # Try IPN v1 format first
+        if self.data and self.data.get("id"):
+            return str(self.data["id"])
+
+        # Try topic-based format: "/v1/payments/123456789"
+        if self.resource:
+            return self.resource.split("/")[-1]
+
+        return None
+
+    def get_notification_type(self) -> str | None:
+        """Get notification type from either format."""
+        return self.type or self.topic
 
 
 @router.post("/mercadopago")
 async def mercadopago_webhook(
     request: Request,
-    payload: MPWebhookPayload,
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
 ):
     """
     Handle Mercado Pago payment notifications.
 
     This webhook is called by Mercado Pago when a payment status changes.
+    Supports both IPN v1 format and legacy topic-based format.
+
     For approved payments, it:
     1. Parses external_reference to get org_id
     2. Loads pharmacy config from database
@@ -78,7 +122,6 @@ async def mercadopago_webhook(
 
     Args:
         request: FastAPI request object
-        payload: Webhook payload from Mercado Pago
         db: Database session for loading config
 
     Returns:
@@ -90,67 +133,65 @@ async def mercadopago_webhook(
     """
     settings = get_settings()
 
+    # Read raw body BEFORE Pydantic parsing for debugging
+    raw_body = await request.body()
+    logger.info(f"[MP-WEBHOOK] Raw payload received: {raw_body.decode()[:500]}")
+
+    # Parse payload with flexible model
     try:
-        # Log incoming webhook
+        payload = MPWebhookPayload.model_validate_json(raw_body)
+    except Exception as e:
+        logger.error(f"[MP-WEBHOOK] Payload validation failed: {e}")
+        # Return 200 to prevent MP retries on validation errors
+        return {
+            "status": "error",
+            "reason": "validation_failed",
+            "error": str(e),
+            "raw_sample": raw_body.decode()[:200],
+        }
+
+    try:
+        notification_type = payload.get_notification_type()
+        payment_id = payload.get_payment_id()
+
         logger.info(
-            f"MP webhook received: type={payload.type}, action={payload.action}, "
-            f"data_id={payload.data.get('id')}, live_mode={payload.live_mode}"
+            f"[MP-WEBHOOK] Parsed: type={notification_type}, action={payload.action}, "
+            f"payment_id={payment_id}, live_mode={payload.live_mode}"
         )
 
         # Only process payment notifications
-        if payload.type != "payment":
-            logger.info(f"Ignoring non-payment notification: type={payload.type}")
-            return {"status": "ignored", "reason": f"type={payload.type}"}
+        if notification_type != "payment":
+            logger.info(f"[MP-WEBHOOK] Ignoring non-payment: type={notification_type}")
+            return {"status": "ignored", "reason": f"type={notification_type}"}
 
-        # Get payment ID from payload
-        payment_id = payload.data.get("id")
+        # Check we have a payment ID
         if not payment_id:
-            logger.warning("MP webhook missing payment ID in data")
+            logger.warning("[MP-WEBHOOK] Missing payment ID in payload")
             return {"status": "ignored", "reason": "missing_payment_id"}
 
-        # We need to fetch payment to get external_reference for org identification
-        # First, try to get external_reference from the initial webhook if available
-        # Otherwise we'll need to make a preliminary API call
-        # For now, we proceed with a two-phase approach:
-        # 1. Parse external_reference from webhook data if available
-        # 2. Fetch full payment details using org-specific credentials
-
-        # Note: MP webhooks don't include external_reference directly in the payload
-        # We need to fetch the payment first. For this, we'll do an initial lookup
-        # using a temporary approach - ideally we'd have a way to identify the org
-        # from the webhook payload itself, but MP doesn't support that.
+        # Two-phase approach for multi-tenant webhook handling:
+        # 1. Use any active MP config to fetch payment details (MP allows cross-org fetch)
+        # 2. Parse external_reference from payment to identify the real tenant
+        # 3. Load org-specific config for processing (PDF branding, PLEX, etc.)
         #
-        # Workaround: We'll try to look up the payment by ID across orgs
-        # or use a default/test config for the initial fetch
+        # This works because MP webhooks don't include external_reference in payload,
+        # so we need to fetch the payment first to get tenant identification.
 
-        # For production, you might want to:
-        # 1. Store payment_id -> org_id mapping when creating preferences
-        # 2. Use a default org for fetching payment details
-        # 3. Parse org from webhook URL path if using per-org webhook URLs
-
-        # Current approach: Fetch payment using test org credentials first,
-        # then use the external_reference to get the real org config
-        # This works because MP allows fetching any payment with a valid token
-
-        # Load test pharmacy config for initial payment fetch
-        # In production, you'd want a better approach
-        from app.core.tenancy import TEST_PHARMACY_ORG_ID
-
+        # Load any active MP config for initial payment fetch
+        # The actual org-specific config is loaded from external_reference later
         try:
             config_service = PharmacyConfigService(db)
-            # Try to get a pharmacy config to fetch payment details
-            # We'll use the external_reference later to get the right config
-            initial_config = await config_service.get_config(TEST_PHARMACY_ORG_ID)
+            initial_config = await config_service.get_any_active_mp_config()
         except ValueError:
-            logger.error("No pharmacy config available to fetch payment details")
+            logger.error("[MP-WEBHOOK] No active MP configuration available")
             return {
                 "status": "error",
                 "reason": "no_pharmacy_config",
-                "error": "No pharmacy configuration found in database",
+                "error": "No active Mercado Pago configuration found in database",
             }
 
         if not initial_config.mp_enabled or not initial_config.mp_access_token:
-            logger.error("Initial pharmacy config has MP disabled or no access token")
+            logger.error("[MP-WEBHOOK] Initial config has MP disabled or no token")
             return {
                 "status": "error",
                 "reason": "mp_not_configured",
@@ -168,11 +209,11 @@ async def mercadopago_webhook(
 
         status = payment.get("status")
         status_detail = payment.get("status_detail")
-        logger.info(f"MP payment {payment_id} status: {status} ({status_detail})")
+        logger.info(f"[MP-WEBHOOK] Payment {payment_id} status: {status} ({status_detail})")
 
         # Only process approved payments
         if status != "approved":
-            logger.info(f"Ignoring payment {payment_id}: status={status}")
+            logger.info(f"[MP-WEBHOOK] Ignoring payment {payment_id}: status={status}")
             return {
                 "status": "ignored",
                 "reason": f"payment_status={status}",
@@ -191,11 +232,10 @@ async def mercadopago_webhook(
             org_id = ref_data["org_id"]
 
             logger.info(
-                f"Resolved pharmacy config: org_id={org_id}, "
-                f"pharmacy={pharmacy_config.pharmacy_name}"
+                f"[MP-WEBHOOK] Org resolved: {org_id} ({pharmacy_config.pharmacy_name})"
             )
         except ValueError as e:
-            logger.error(f"Invalid external_reference format: {external_ref} - {e}")
+            logger.error(f"[MP-WEBHOOK] Invalid external_reference: {external_ref} - {e}")
             return {
                 "status": "error",
                 "reason": "invalid_external_reference",
@@ -205,7 +245,7 @@ async def mercadopago_webhook(
 
         # Check if MP is enabled for this specific pharmacy
         if not pharmacy_config.mp_enabled:
-            logger.warning(f"MP integration is disabled for org {org_id}")
+            logger.warning(f"[MP-WEBHOOK] MP disabled for org {org_id}")
             return {
                 "status": "error",
                 "reason": "mp_disabled_for_org",
@@ -215,7 +255,7 @@ async def mercadopago_webhook(
         amount = payment.get("transaction_amount", 0)
 
         logger.info(
-            f"Processing approved payment: payment_id={payment_id}, "
+            f"[MP-WEBHOOK] Processing: payment_id={payment_id}, "
             f"customer_id={plex_customer_id}, amount=${amount}"
         )
 
@@ -235,8 +275,8 @@ async def mercadopago_webhook(
         acreditado = content.get("acreditado", str(amount))
 
         logger.info(
-            f"Payment registered in PLEX: customer={plex_customer_id}, "
-            f"receipt={plex_receipt}, new_balance={new_balance}"
+            f"[MP-WEBHOOK] PLEX registered: receipt={plex_receipt}, "
+            f"balance={new_balance}, acreditado={acreditado}"
         )
 
         # Extract payer info for notification
@@ -259,6 +299,7 @@ async def mercadopago_webhook(
             )
 
             if pdf_url:
+                logger.info(f"[MP-WEBHOOK] PDF generated: {pdf_url}")
                 # Send WhatsApp notification with PDF
                 notification_result = await _send_payment_notification(
                     settings=settings,
@@ -269,8 +310,11 @@ async def mercadopago_webhook(
                     pdf_url=pdf_url,
                     customer_name=customer_name,
                 )
+                logger.info(
+                    f"[MP-WEBHOOK] WhatsApp sent: {notification_result.get('method', 'unknown')}"
+                )
             else:
-                logger.warning("PDF generation failed, sending text-only notification")
+                logger.warning("[MP-WEBHOOK] PDF generation failed, sending text-only")
                 notification_result = await _send_text_only_notification(
                     phone=payer_phone,
                     amount=amount,
@@ -278,7 +322,7 @@ async def mercadopago_webhook(
                     new_balance=new_balance,
                 )
         else:
-            logger.warning(f"Could not send WhatsApp confirmation: no phone for payment {payment_id}")
+            logger.warning(f"[MP-WEBHOOK] No phone for payment {payment_id}, skipping notification")
 
         return {
             "status": "success",
@@ -292,7 +336,7 @@ async def mercadopago_webhook(
         }
 
     except MercadoPagoError as e:
-        logger.error(f"MP API error processing webhook: {e}")
+        logger.error(f"[MP-WEBHOOK] MP API error: {e}")
         # Return 200 to avoid retries for API errors
         return {
             "status": "error",
@@ -301,7 +345,7 @@ async def mercadopago_webhook(
         }
 
     except PlexAPIError as e:
-        logger.error(f"PLEX API error processing webhook: {e}")
+        logger.error(f"[MP-WEBHOOK] PLEX API error: {e}")
         # Return 200 to avoid retries, but log for manual follow-up
         return {
             "status": "error",
@@ -310,7 +354,7 @@ async def mercadopago_webhook(
         }
 
     except Exception as e:
-        logger.error(f"Unexpected error processing MP webhook: {e}", exc_info=True)
+        logger.error(f"[MP-WEBHOOK] Unexpected error: {e}", exc_info=True)
         # Return 500 for unexpected errors - MP will retry
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -330,6 +374,340 @@ async def mercadopago_webhook_health():
         "receipt_template": settings.WA_PAYMENT_RECEIPT_TEMPLATE,
         "note": "MP configuration is per-organization in database",
     }
+
+
+# =============================================================================
+# User Redirect Routes (back_urls from MP checkout)
+# =============================================================================
+
+
+def _generate_success_html(
+    payment_id: str | None,
+    status: str | None,
+    external_reference: str | None,
+) -> str:
+    """Generate success confirmation HTML page."""
+    return f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pago Exitoso</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }}
+        .card {{
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }}
+        .icon {{ font-size: 64px; margin-bottom: 16px; }}
+        h1 {{ color: #28a745; font-size: 28px; margin-bottom: 12px; }}
+        .message {{ color: #666; font-size: 16px; margin-bottom: 24px; }}
+        .details {{
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: left;
+            margin-bottom: 24px;
+        }}
+        .details p {{ margin: 8px 0; color: #444; font-size: 14px; }}
+        .details strong {{ color: #333; }}
+        .whatsapp-note {{
+            background: #dcfce7;
+            color: #166534;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }}
+        .close-note {{ color: #999; font-size: 13px; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">✅</div>
+        <h1>¡Pago Exitoso!</h1>
+        <p class="message">Tu pago ha sido procesado correctamente.</p>
+        <div class="details">
+            <p><strong>ID de Pago:</strong> {payment_id or 'N/A'}</p>
+            <p><strong>Estado:</strong> {status or 'approved'}</p>
+        </div>
+        <div class="whatsapp-note">
+            📱 Recibirás el comprobante por WhatsApp en breve.
+        </div>
+        <p class="close-note">Puedes cerrar esta ventana.</p>
+    </div>
+</body>
+</html>
+"""
+
+
+def _generate_failure_html(
+    payment_id: str | None,
+    status: str | None,
+    external_reference: str | None,
+) -> str:
+    """Generate failure/rejection HTML page."""
+    return f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pago No Procesado</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }}
+        .card {{
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }}
+        .icon {{ font-size: 64px; margin-bottom: 16px; }}
+        h1 {{ color: #dc3545; font-size: 28px; margin-bottom: 12px; }}
+        .message {{ color: #666; font-size: 16px; margin-bottom: 24px; }}
+        .details {{
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: left;
+            margin-bottom: 24px;
+        }}
+        .details p {{ margin: 8px 0; color: #444; font-size: 14px; }}
+        .details strong {{ color: #333; }}
+        .retry-note {{
+            background: #fef3cd;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }}
+        .close-note {{ color: #999; font-size: 13px; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">❌</div>
+        <h1>Pago No Procesado</h1>
+        <p class="message">No pudimos procesar tu pago.</p>
+        <div class="details">
+            <p><strong>ID de Pago:</strong> {payment_id or 'N/A'}</p>
+            <p><strong>Estado:</strong> {status or 'rejected'}</p>
+        </div>
+        <div class="retry-note">
+            💡 Puedes intentar nuevamente o contactar a tu farmacia para más información.
+        </div>
+        <p class="close-note">Puedes cerrar esta ventana.</p>
+    </div>
+</body>
+</html>
+"""
+
+
+def _generate_pending_html(
+    payment_id: str | None,
+    status: str | None,
+    external_reference: str | None,
+) -> str:
+    """Generate pending payment HTML page."""
+    return f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pago Pendiente</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }}
+        .card {{
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }}
+        .icon {{ font-size: 64px; margin-bottom: 16px; }}
+        h1 {{ color: #856404; font-size: 28px; margin-bottom: 12px; }}
+        .message {{ color: #666; font-size: 16px; margin-bottom: 24px; }}
+        .details {{
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: left;
+            margin-bottom: 24px;
+        }}
+        .details p {{ margin: 8px 0; color: #444; font-size: 14px; }}
+        .details strong {{ color: #333; }}
+        .pending-note {{
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }}
+        .close-note {{ color: #999; font-size: 13px; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">⏳</div>
+        <h1>Pago Pendiente</h1>
+        <p class="message">Tu pago está siendo procesado.</p>
+        <div class="details">
+            <p><strong>ID de Pago:</strong> {payment_id or 'N/A'}</p>
+            <p><strong>Estado:</strong> {status or 'pending'}</p>
+        </div>
+        <div class="pending-note">
+            🔄 Te notificaremos por WhatsApp cuando se confirme el pago.
+        </div>
+        <p class="close-note">Puedes cerrar esta ventana.</p>
+    </div>
+</body>
+</html>
+"""
+
+
+@router.get("/mercadopago/success")
+async def mercadopago_success(
+    collection_id: str | None = None,
+    collection_status: str | None = None,
+    payment_id: str | None = None,
+    status: str | None = None,
+    external_reference: str | None = None,
+    payment_type: str | None = None,
+    merchant_order_id: str | None = None,
+    preference_id: str | None = None,
+    site_id: str | None = None,
+    processing_mode: str | None = None,
+    merchant_account_id: str | None = None,
+):
+    """
+    Handle user redirect after successful MP payment.
+
+    This is a USER-FACING endpoint (not a webhook).
+    MP redirects customers here after approved payment.
+
+    Query parameters come from MP's back_url redirect.
+    """
+    logger.info(
+        f"[MP-REDIRECT] Success: payment_id={payment_id or collection_id}, "
+        f"status={status or collection_status}, ref={external_reference}"
+    )
+
+    return HTMLResponse(
+        content=_generate_success_html(
+            payment_id=payment_id or collection_id,
+            status=status or collection_status,
+            external_reference=external_reference,
+        )
+    )
+
+
+@router.get("/mercadopago/failure")
+async def mercadopago_failure(
+    collection_id: str | None = None,
+    collection_status: str | None = None,
+    payment_id: str | None = None,
+    status: str | None = None,
+    external_reference: str | None = None,
+    payment_type: str | None = None,
+    merchant_order_id: str | None = None,
+    preference_id: str | None = None,
+    site_id: str | None = None,
+    processing_mode: str | None = None,
+    merchant_account_id: str | None = None,
+):
+    """
+    Handle user redirect after failed/rejected MP payment.
+
+    This is a USER-FACING endpoint (not a webhook).
+    MP redirects customers here after rejected payment.
+    """
+    logger.info(
+        f"[MP-REDIRECT] Failure: payment_id={payment_id or collection_id}, "
+        f"status={status or collection_status}, ref={external_reference}"
+    )
+
+    return HTMLResponse(
+        content=_generate_failure_html(
+            payment_id=payment_id or collection_id,
+            status=status or collection_status,
+            external_reference=external_reference,
+        )
+    )
+
+
+@router.get("/mercadopago/pending")
+async def mercadopago_pending(
+    collection_id: str | None = None,
+    collection_status: str | None = None,
+    payment_id: str | None = None,
+    status: str | None = None,
+    external_reference: str | None = None,
+    payment_type: str | None = None,
+    merchant_order_id: str | None = None,
+    preference_id: str | None = None,
+    site_id: str | None = None,
+    processing_mode: str | None = None,
+    merchant_account_id: str | None = None,
+):
+    """
+    Handle user redirect when MP payment is pending.
+
+    This is a USER-FACING endpoint (not a webhook).
+    MP redirects customers here when payment needs review.
+    """
+    logger.info(
+        f"[MP-REDIRECT] Pending: payment_id={payment_id or collection_id}, "
+        f"status={status or collection_status}, ref={external_reference}"
+    )
+
+    return HTMLResponse(
+        content=_generate_pending_html(
+            payment_id=payment_id or collection_id,
+            status=status or collection_status,
+            external_reference=external_reference,
+        )
+    )
 
 
 def _extract_payer_phone(payment: dict[str, Any]) -> str | None:

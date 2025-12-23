@@ -1,0 +1,5 @@
+### USUARIO COMPRADOR
+
+## User ID: 701938
+## Usuario: TESTUSER3717434933673282790
+## Contraseña: GuZsjiy4Gw

@@ -1,15 +1,24 @@
 """
 Cliente HTTP para la API DUX
 Responsabilidad: Manejar las comunicaciones HTTP con la API de DUX
+
+Multi-Tenant Support:
+  - Use DuxApiClientFactory.from_organization() for database-driven credentials
+  - Default factory still works for global mode (env vars)
+
+SECURITY: Hardcoded tokens have been REMOVED. All credentials must come from
+environment variables or database.
 """
 
 import asyncio
 import logging
 from typing import Optional
+from uuid import UUID
 
 import aiohttp
 from aiohttp import ClientTimeout
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.langsmith_config import trace_integration
 from app.config.settings import get_settings
@@ -23,13 +32,28 @@ class DuxApiClient:
 
     def __init__(
         self,
-        base_url: str = "https://erp.duxsoftware.com.ar/WSERP/rest/services",
-        auth_token: str = "UyJ9PjF8mojO9NaexobUURe6mDlnts2J35jnaO8wKVxoSZK4RBTFa6tYZMvyJD7i",
+        base_url: str | None = None,
+        auth_token: str | None = None,
         timeout_seconds: int = 30,
     ):
         self.settings = get_settings()
-        self.base_url = self.settings.DUX_API_BASE_URL or base_url.rstrip("/")
-        self.auth_token = self.settings.DUX_API_KEY or auth_token
+
+        # Base URL: parameter > env var > raise error
+        self.base_url = (base_url or self.settings.DUX_API_BASE_URL or "").rstrip("/")
+        if not self.base_url:
+            raise ValueError(
+                "DUX API base URL not configured. "
+                "Set DUX_API_BASE_URL environment variable or use from_organization()."
+            )
+
+        # Auth token: parameter > env var > raise error
+        self.auth_token = auth_token or self.settings.DUX_API_KEY
+        if not self.auth_token:
+            raise ValueError(
+                "DUX API key not configured. "
+                "Set DUX_API_KEY environment variable or use from_organization()."
+            )
+
         timeout_value = self.settings.DUX_API_TIMEOUT or timeout_seconds
         self.timeout = ClientTimeout(total=timeout_value)
         self.logger = logging.getLogger(__name__)
@@ -241,17 +265,67 @@ class DuxApiClientFactory:
     """Factory para crear instancias del cliente DUX"""
 
     @staticmethod
-    def create_client(auth_token: Optional[str] = None, timeout_seconds: int = 30) -> DuxApiClient:
+    def create_client(
+        auth_token: Optional[str] = None,
+        base_url: Optional[str] = None,
+        timeout_seconds: int = 30,
+    ) -> DuxApiClient:
         """
-        Crea una instancia del cliente DUX
+        Crea una instancia del cliente DUX usando env vars o parámetros explícitos.
 
         Args:
-            auth_token: Token de autenticación (usa el default si no se proporciona)
+            auth_token: Token de autenticación (usa env var si no se proporciona)
+            base_url: URL base de la API (usa env var si no se proporciona)
             timeout_seconds: Timeout para las requests
 
         Returns:
             DuxApiClient: Instancia del cliente
-        """
-        token = auth_token or "UyJ9PjF8mojO9NaexobUURe6mDlnts2J35jnaO8wKVxoSZK4RBTFa6tYZMvyJD7i"
 
-        return DuxApiClient(auth_token=token, timeout_seconds=timeout_seconds)
+        Raises:
+            ValueError: If credentials are not configured
+        """
+        return DuxApiClient(
+            auth_token=auth_token,
+            base_url=base_url,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @staticmethod
+    async def from_organization(
+        db: AsyncSession,
+        organization_id: UUID,
+        timeout_seconds: int = 30,
+    ) -> DuxApiClient:
+        """
+        Crea una instancia del cliente DUX con credenciales de base de datos.
+
+        Carga las credenciales desde tenant_credentials usando el credential_service.
+
+        Args:
+            db: Sesión de base de datos
+            organization_id: UUID de la organización
+            timeout_seconds: Timeout para las requests
+
+        Returns:
+            DuxApiClient: Instancia del cliente configurada
+
+        Raises:
+            CredentialNotFoundError: Si no hay credenciales para la organización
+            ValueError: Si las credenciales están incompletas
+
+        Example:
+            async with get_async_db() as db:
+                client = await DuxApiClientFactory.from_organization(db, org_id)
+                async with client:
+                    items = await client.get_items()
+        """
+        from app.core.tenancy.credential_service import get_credential_service
+
+        credential_service = get_credential_service()
+        creds = await credential_service.get_dux_credentials(db, organization_id)
+
+        return DuxApiClient(
+            base_url=creds.base_url,
+            auth_token=creds.api_key,
+            timeout_seconds=timeout_seconds,
+        )

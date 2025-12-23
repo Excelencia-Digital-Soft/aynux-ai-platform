@@ -38,15 +38,22 @@ READY TO REPLACE: webhook.py can now be replaced with this file
 
 import logging
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import Settings, get_settings
 from app.core.container import DependencyContainer
 from app.core.tenancy.context import get_tenant_context
+from app.core.tenancy.credential_service import (
+    CredentialNotFoundError,
+    get_credential_service,
+)
 from app.database.async_db import get_async_db
+from app.models.db.tenancy import Organization
 from app.models.message import BotResponse, WhatsAppWebhookRequest
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
 
@@ -66,13 +73,21 @@ _langgraph_service: Optional[LangGraphChatbotService] = None
 @router.get("/webhook")
 async def verify_webhook(
     request: Request,
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
     settings: Settings = Depends(get_settings),  # noqa: B008
 ):
     """
     Verifica el webhook para WhatsApp.
 
     Esta ruta es llamada por WhatsApp para verificar que el webhook esté configurado correctamente.
-    No requiere migración - es lógica simple sin dependencias.
+
+    CREDENTIAL RESOLUTION:
+    1. If org_id query param provided → load verify_token from DB for that org
+    2. If no org_id → load from default organization (slug='excelencia' or 'system')
+    3. Compare provided token with stored token
+
+    The webhook URL should include org_id for multi-tenant deployments:
+    https://yourdomain.com/webhook?org_id=<organization-uuid>
     """
     query_params = dict(request.query_params)
 
@@ -81,17 +96,136 @@ async def verify_webhook(
     token = query_params.get("hub.verify_token")
     challenge = query_params.get("hub.challenge")
 
-    # Verificar que los parámetros sean correctos
-    if mode and token:
-        if mode == "subscribe" and token == settings.WHATSAPP_VERIFY_TOKEN:
-            logger.info("WEBHOOK_VERIFIED")
-            return PlainTextResponse(content=challenge)
-        else:
-            logger.warning("VERIFICATION_FAILED")
-            raise HTTPException(status_code=403, detail="Verification failed: token mismatch")
-    else:
+    if not mode or not token:
         logger.warning("MISSING_PARAMETER")
         raise HTTPException(status_code=400, detail="Missing required parameters")
+
+    if mode != "subscribe":
+        logger.warning(f"INVALID_MODE: {mode}")
+        raise HTTPException(status_code=400, detail="Invalid mode")
+
+    # Resolver organización
+    org_id = await _resolve_organization_for_webhook(
+        db=db,
+        query_params=query_params,
+        headers=dict(request.headers),
+    )
+
+    # Obtener verify_token esperado desde base de datos
+    expected_token = await _get_expected_verify_token(db, org_id)
+
+    # Verificar token
+    if token == expected_token:
+        logger.info(f"WEBHOOK_VERIFIED for org {org_id}")
+        return PlainTextResponse(content=challenge)
+    else:
+        logger.warning(f"VERIFICATION_FAILED for org {org_id}")
+        raise HTTPException(status_code=403, detail="Verification failed: token mismatch")
+
+
+async def _resolve_organization_for_webhook(
+    db: AsyncSession,
+    query_params: dict,
+    headers: dict,
+) -> UUID:
+    """
+    Resolve organization ID for webhook verification.
+
+    Priority:
+    1. Query parameter: org_id
+    2. Header: X-Organization-ID
+    3. Default organization (excelencia or system)
+
+    Args:
+        db: Database session
+        query_params: Query parameters from request
+        headers: HTTP headers from request
+
+    Returns:
+        Organization UUID
+
+    Raises:
+        HTTPException: If no organization can be resolved
+    """
+    # Try query parameter
+    org_id_str = query_params.get("org_id")
+    if org_id_str:
+        try:
+            return UUID(org_id_str)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid org_id format: {org_id_str}"
+            ) from e
+
+    # Try header
+    org_id_header = headers.get("x-organization-id")
+    if org_id_header:
+        try:
+            return UUID(org_id_header)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid X-Organization-ID format: {org_id_header}"
+            ) from e
+
+    # Fallback to default organization
+    default_org = await _get_default_organization(db)
+    if default_org:
+        return default_org.id
+
+    raise HTTPException(
+        status_code=404,
+        detail="No organization found. Provide org_id query param or create default organization.",
+    )
+
+
+async def _get_default_organization(db: AsyncSession) -> Organization | None:
+    """
+    Get the default organization for global mode.
+
+    Tries 'excelencia' first, then 'system'.
+    """
+    for slug in ["excelencia", "system"]:
+        result = await db.execute(
+            select(Organization).where(Organization.slug == slug)
+        )
+        org = result.scalar_one_or_none()
+        if org:
+            return org
+    return None
+
+
+async def _get_expected_verify_token(db: AsyncSession, org_id: UUID) -> str:
+    """
+    Get the expected verify token for an organization from the database.
+
+    Args:
+        db: Database session
+        org_id: Organization UUID
+
+    Returns:
+        Expected verify token string
+
+    Raises:
+        HTTPException: If credentials not found or incomplete
+    """
+    credential_service = get_credential_service()
+
+    try:
+        creds = await credential_service.get_whatsapp_credentials(db, org_id)
+        return creds.verify_token
+    except CredentialNotFoundError as e:
+        logger.error(f"Credentials not found for org {org_id}: {e}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"WhatsApp credentials not configured for organization {org_id}. "
+            "Use the Admin API to configure credentials.",
+        ) from e
+    except ValueError as e:
+        logger.error(f"Incomplete credentials for org {org_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Incomplete WhatsApp credentials for organization {org_id}: {e}",
+        ) from e
 
 
 # ============================================================

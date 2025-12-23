@@ -181,6 +181,101 @@ class PharmacyConfigService:
         result = await self._db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_any_active_mp_config(self) -> PharmacyConfig:
+        """
+        Get any pharmacy config with Mercado Pago enabled.
+
+        Used for initial payment fetch in webhooks when org_id is not yet known.
+        The actual org-specific config is loaded later from external_reference.
+
+        Returns:
+            PharmacyConfig with MP enabled and valid access token
+
+        Raises:
+            ValueError: If no active MP configuration found in database
+        """
+        from app.models.db.tenancy.pharmacy_merchant_config import PharmacyMerchantConfig
+
+        stmt = select(PharmacyMerchantConfig).where(
+            PharmacyMerchantConfig.mp_enabled == True,  # noqa: E712
+            PharmacyMerchantConfig.mp_access_token.isnot(None),
+        ).limit(1)
+        result = await self._db.execute(stmt)
+        db_config = result.scalar_one_or_none()
+
+        if not db_config:
+            raise ValueError(
+                "No active Mercado Pago configuration found in database. "
+                "Please configure at least one organization with MP credentials."
+            )
+
+        logger.debug(
+            f"Using MP config from org {db_config.organization_id} for initial payment fetch"
+        )
+        return self._db_to_config(db_config, db_config.organization_id)
+
+    async def get_config_by_whatsapp_phone(
+        self,
+        whatsapp_phone: str,
+    ) -> PharmacyConfig:
+        """
+        Get pharmacy config by WhatsApp phone number.
+
+        Used to identify which pharmacy a message was sent to.
+
+        Args:
+            whatsapp_phone: The WhatsApp phone number of the pharmacy
+                            (stored in pharmacy_merchant_config.whatsapp_phone_number)
+
+        Returns:
+            PharmacyConfig for the matched organization
+
+        Raises:
+            ValueError: If no pharmacy found with that phone number
+        """
+        from app.models.db.tenancy.pharmacy_merchant_config import PharmacyMerchantConfig
+
+        stmt = select(PharmacyMerchantConfig).where(
+            PharmacyMerchantConfig.whatsapp_phone_number == whatsapp_phone
+        )
+        result = await self._db.execute(stmt)
+        db_config = result.scalar_one_or_none()
+
+        if not db_config:
+            raise ValueError(
+                f"No pharmacy found with WhatsApp number: {whatsapp_phone}. "
+                f"Please configure whatsapp_phone_number in pharmacy_merchant_configs."
+            )
+
+        logger.info(
+            f"Resolved pharmacy by WhatsApp phone {whatsapp_phone} → org {db_config.organization_id}"
+        )
+        return self._db_to_config(db_config, db_config.organization_id)
+
+    async def list_all_pharmacies(self) -> list[dict]:
+        """
+        List all pharmacy configurations for UI selectors.
+
+        Returns:
+            List of dicts with pharmacy info for dropdown display
+        """
+        from app.models.db.tenancy.pharmacy_merchant_config import PharmacyMerchantConfig
+
+        stmt = select(PharmacyMerchantConfig).order_by(PharmacyMerchantConfig.pharmacy_name)
+        result = await self._db.execute(stmt)
+        configs = result.scalars().all()
+
+        return [
+            {
+                "organization_id": str(cfg.organization_id),
+                "pharmacy_name": cfg.pharmacy_name,
+                "whatsapp_phone_number": cfg.whatsapp_phone_number,
+                "mp_enabled": cfg.mp_enabled,
+                "display_label": f"{cfg.pharmacy_name} ({cfg.whatsapp_phone_number or 'Sin número'})",
+            }
+            for cfg in configs
+        ]
+
     def _db_to_config(
         self,
         db_config: PharmacyMerchantConfig,

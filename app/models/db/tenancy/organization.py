@@ -195,6 +195,13 @@ class Organization(Base, TimestampMixin):
         cascade="all, delete-orphan",
     )
 
+    credentials = relationship(
+        "TenantCredentials",
+        back_populates="organization",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     # Table configuration
     __table_args__ = (
         Index("idx_organizations_slug", slug),

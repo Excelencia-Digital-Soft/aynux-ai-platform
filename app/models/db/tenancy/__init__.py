@@ -21,6 +21,7 @@ from .organization_user import OrganizationUser
 from .pharmacy_merchant_config import PharmacyMerchantConfig
 from .tenant_agent import TenantAgent
 from .tenant_config import TenantConfig
+from .tenant_credentials import TenantCredentials
 from .tenant_document import TenantDocument
 from .tenant_prompt import TenantPrompt
 
@@ -29,6 +30,7 @@ __all__ = [
     "OrganizationUser",
     "PharmacyMerchantConfig",
     "TenantConfig",
+    "TenantCredentials",
     "TenantAgent",
     "TenantPrompt",
     "TenantDocument",

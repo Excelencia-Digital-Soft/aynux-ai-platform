@@ -202,14 +202,18 @@ class PaymentLinkNode(BaseAgent):
 
     async def _load_pharmacy_config(self, org_id) -> PharmacyConfig | None:
         """Load pharmacy configuration from database."""
-        if not self._db_session_factory:
-            logger.error("No db_session_factory configured for PaymentLinkNode")
-            return None
-
         try:
-            async with self._db_session_factory() as session:
-                config_service = PharmacyConfigService(session)
-                return await config_service.get_config(org_id)
+            # Use db_session_factory if provided, otherwise use global context
+            if self._db_session_factory:
+                async with self._db_session_factory() as session:
+                    config_service = PharmacyConfigService(session)
+                    return await config_service.get_config(org_id)
+            else:
+                # Fallback to global async db context
+                from app.database.async_db import get_async_db_context
+                async with get_async_db_context() as session:
+                    config_service = PharmacyConfigService(session)
+                    return await config_service.get_config(org_id)
         except ValueError as e:
             logger.error(f"Failed to load pharmacy config: {e}")
             return None

@@ -33,6 +33,18 @@ from .middleware import (
     get_optional_tenant_dependency,
     get_tenant_dependency,
 )
+from .credential_models import (
+    CredentialUpdateRequest,
+    DuxCredentials,
+    PlexCredentials,
+    WhatsAppCredentials,
+)
+from .credential_service import (
+    CredentialEncryptionError,
+    CredentialNotFoundError,
+    TenantCredentialService,
+    get_credential_service,
+)
 from .pharmacy_config_service import (
     PharmacyConfig,
     PharmacyConfigService,
@@ -70,4 +82,13 @@ __all__ = [
     "PharmacyConfigService",
     "PharmacyConfig",
     "TEST_PHARMACY_ORG_ID",
+    # Credential Service
+    "TenantCredentialService",
+    "get_credential_service",
+    "CredentialNotFoundError",
+    "CredentialEncryptionError",
+    "WhatsAppCredentials",
+    "DuxCredentials",
+    "PlexCredentials",
+    "CredentialUpdateRequest",
 ]
