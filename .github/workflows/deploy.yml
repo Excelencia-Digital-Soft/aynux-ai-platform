@@ -23,16 +23,38 @@ jobs:
         timeout: 30m
         command_timeout: 30m
         script: |
-          cd ~/aynux
+          # Create parent structure
+          mkdir -p ~/aynux
 
-          # Fetch and force reset to avoid divergent branch issues
+          # One-time migration: move existing backend if at wrong level
+          if [ -f ~/aynux/docker-compose.yml ] && [ ! -d ~/aynux/python ]; then
+            echo "Migrating backend to ~/aynux/python..."
+            mv ~/aynux ~/aynux-backup-tmp
+            mkdir -p ~/aynux
+            mv ~/aynux-backup-tmp ~/aynux/python
+          fi
+
+          # Clone/update backend
+          if [ ! -d ~/aynux/python ]; then
+            git clone https://github.com/Excelencia-Digital-Soft/aynux-ai-platform.git ~/aynux/python
+          fi
+          cd ~/aynux/python
+          git fetch origin main
+          git reset --hard origin/main
+
+          # Clone/update frontend (sibling directory)
+          if [ ! -d ~/aynux/vuejs ]; then
+            git clone https://github.com/Excelencia-Digital-Soft/aynux-admin-dashboard.git ~/aynux/vuejs
+          fi
+          cd ~/aynux/vuejs
           git fetch origin main
           git reset --hard origin/main
 
           # Write environment file
+          cd ~/aynux/python
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
 
-          # Deploy with docker compose (combined base + prod)
+          # Deploy with docker compose
           docker compose -f docker-compose.yml -f docker-compose.prod.yml down
           docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
 
