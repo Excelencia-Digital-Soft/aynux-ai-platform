@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Deploy Backend to Production
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Ubuntu Server
+    name: Deploy Backend to Ubuntu Server
     runs-on: ubuntu-latest
 
     steps:
@@ -34,7 +34,7 @@ jobs:
             mv ~/aynux-backup-tmp ~/aynux/python
           fi
 
-          # Clone/update backend
+          # Clone/update backend only
           if [ ! -d ~/aynux/python ]; then
             git clone https://github.com/Excelencia-Digital-Soft/aynux-ai-platform.git ~/aynux/python
           fi
@@ -42,21 +42,18 @@ jobs:
           git fetch origin main
           git reset --hard origin/main
 
-          # Clone/update frontend (sibling directory)
+          # Create vuejs placeholder for docker-compose validation (if frontend not deployed yet)
           if [ ! -d ~/aynux/vuejs ]; then
-            git clone https://github.com/Excelencia-Digital-Soft/aynux-admin-dashboard.git ~/aynux/vuejs
+            mkdir -p ~/aynux/vuejs
+            echo 'FROM nginx:alpine' > ~/aynux/vuejs/Dockerfile
+            echo 'RUN echo "Frontend not deployed yet" > /usr/share/nginx/html/index.html' >> ~/aynux/vuejs/Dockerfile
           fi
-          cd ~/aynux/vuejs
-          git fetch origin main
-          git reset --hard origin/main
 
           # Write environment file
-          cd ~/aynux/python
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
 
-          # Deploy with docker compose
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml down
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
+          # Deploy ONLY backend services (postgres, redis, app)
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --no-deps postgres redis app
 
           # Cleanup unused images
           docker image prune -f
