@@ -9,6 +9,7 @@ from .contact_domains import ContactDomain, DomainConfig
 from .conversations import Conversation, Message
 from .customers import Customer
 from .inquiries import ProductInquiry
+from .agent_knowledge import AgentKnowledge
 from .knowledge_base import CompanyKnowledge
 from .orders import Order, OrderItem
 from .promotions import Promotion
@@ -17,6 +18,16 @@ from .reviews import ProductReview
 from .support_ticket import SupportTicket
 from .user import UserDB
 from .conversation_history import ConversationContext, ConversationMessage
+
+# Soporte schema models
+from .soporte import (
+    Incident,
+    IncidentCategory,
+    IncidentComment,
+    IncidentHistory,
+    JiraConfig,
+    PendingTicket,
+)
 
 __all__ = [
     # Base
@@ -54,6 +65,7 @@ __all__ = [
     "Prompt",
     "PromptVersion",
     # Knowledge Base
+    "AgentKnowledge",
     "CompanyKnowledge",
     # Support Tickets
     "SupportTicket",
@@ -62,4 +74,11 @@ __all__ = [
     # Conversation History
     "ConversationContext",
     "ConversationMessage",
+    # Soporte (Incidents)
+    "Incident",
+    "IncidentCategory",
+    "IncidentComment",
+    "IncidentHistory",
+    "JiraConfig",
+    "PendingTicket",
 ]

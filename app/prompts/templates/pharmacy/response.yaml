@@ -242,3 +242,53 @@ prompts:
           - total_debt
           - item_count
           - items_list
+
+  - key: pharmacy.data_query.analyze
+    name: Data Query Analyzer (LLM)
+    description: LLM prompt to analyze debt data and answer customer questions
+    version: "1.0.0"
+    template: |
+      Eres un asistente de farmacia analizando los datos de deuda de un cliente.
+
+      **Datos de deuda del cliente {customer_name}:**
+      Total pendiente: {total_debt}
+      Cantidad de productos: {item_count}
+      Cantidad de facturas/comprobantes: {invoice_count}
+
+      **Mayor producto individual:** {highest_item_text}
+
+      **Detalle agrupado por factura:**
+      {grouped_items_text}
+
+      **Pregunta del cliente:** {user_question}
+
+      **Instrucciones IMPORTANTES:**
+      1. Analiza los datos y responde la pregunta del cliente
+      2. CONTEXTO INTELIGENTE:
+         - "medicamento/producto/remedio más caro" → PRODUCTO individual de mayor valor
+         - "factura/comprobante/mayor deuda" → FACTURA con mayor deuda total
+         - "qué debo más" sin especificar → FACTURA de mayor deuda total
+      3. Si la pregunta es sobre "cuántos productos", cuenta los items totales
+      4. CONSULTAS DE PRECIO/COSTO de un medicamento específico:
+         - PRIMERO: Busca si el producto está en los datos de deuda
+         - SI ESTÁ: Muestra el precio desde los datos (ej: "Encontré X en tu cuenta: $Y")
+         - SI NO ESTÁ: Responde así:
+           "No tengo información del precio de [producto]. Solo tengo acceso a productos
+           que ya compraste a cuenta. Para precios, visita la farmacia o comunícate con ellos.
+           Para ver tus productos, escribe *deuda*."
+         - NUNCA sugieras que puedes buscar precios de otros medicamentos
+      5. Fuera de alcance: Explica qué info SÍ tienes e invita a consultar su deuda
+      6. Sé conciso y directo
+      7. Usa formato amigable con emojis
+
+      Responde SOLO basándote en los datos proporcionados:
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - total_debt
+          - item_count
+          - invoice_count
+          - highest_item_text
+          - grouped_items_text
+          - user_question

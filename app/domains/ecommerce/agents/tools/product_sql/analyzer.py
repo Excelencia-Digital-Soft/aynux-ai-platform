@@ -9,6 +9,8 @@ import logging
 from typing import Any
 
 from app.integrations.llm import OllamaLLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,7 @@ class QueryComplexityAnalyzer:
 
     def __init__(self, ollama: OllamaLLM):
         self.ollama = ollama
+        self.prompt_manager = PromptManager()
 
     async def analyze(self, user_query: str, intent: dict[str, Any]) -> dict[str, Any]:
         """
@@ -50,8 +53,12 @@ CRITERIOS:
 - very_complex: múltiples joins, queries anidadas, análisis estadístico"""
 
         try:
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.ECOMMERCE_PRODUCT_SQL_ANALYZER_SYSTEM,
+            )
             response = await self.ollama.generate_response(
-                system_prompt="Eres un experto en optimización de consultas SQL para e-commerce.",
+                system_prompt=system_prompt,
                 user_prompt=complexity_prompt,
                 temperature=0.2,
             )

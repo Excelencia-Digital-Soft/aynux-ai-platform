@@ -10,11 +10,11 @@ This agent manages invoice queries for Excelencia software clients:
 Uses RAG from company_knowledge for invoice-related information.
 """
 
-import json
 import logging
 from typing import Any
 
 from app.config.settings import get_settings
+from app.utils.json_extractor import extract_json_from_text
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
 from app.database.async_db import get_async_db_context
@@ -139,20 +139,26 @@ class ExcelenciaInvoiceAgent(BaseAgent):
             )
             response = await llm.ainvoke(prompt)
 
-            try:
-                response_text = response.content if isinstance(response.content, str) else str(response.content)
-                response_text = OllamaLLM.clean_deepseek_response(response_text)
-                ai_analysis = json.loads(response_text)
-                return {
-                    "query_type": ai_analysis.get("query_type", query_type),
-                    "client_name": ai_analysis.get("client_name"),
-                    "action_requested": ai_analysis.get("action_requested", "consultar"),
-                    "period": ai_analysis.get("period"),
-                    "urgency": ai_analysis.get("urgency", "medium"),
-                }
-            except json.JSONDecodeError:
-                logger.warning("ExcelenciaInvoiceAgent: JSON decode failed, using fallback")
+            response_text = response.content if isinstance(response.content, str) else str(response.content)
+
+            # Use robust JSON extractor that handles <think> tags, markdown, and Python booleans
+            ai_analysis = extract_json_from_text(
+                response_text,
+                required_keys=["query_type"],
+                default=None,
+            )
+
+            if not ai_analysis:
+                logger.warning("ExcelenciaInvoiceAgent: JSON extraction failed, using fallback")
                 return self._create_fallback_analysis(query_type)
+
+            return {
+                "query_type": ai_analysis.get("query_type", query_type),
+                "client_name": ai_analysis.get("client_name"),
+                "action_requested": ai_analysis.get("action_requested", "consultar"),
+                "period": ai_analysis.get("period"),
+                "urgency": ai_analysis.get("urgency", "medium"),
+            }
 
         except Exception as e:
             logger.error(f"Error in AI analysis: {e}")

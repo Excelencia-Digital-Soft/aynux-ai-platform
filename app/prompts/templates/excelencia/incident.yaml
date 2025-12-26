@@ -1,0 +1,160 @@
+# ============================================================================
+# EXCELENCIA INCIDENT FLOW PROMPTS
+# Description: Prompts for the conversational 3-step incident creation flow
+# Flow: Description -> Priority -> Confirmation
+# ============================================================================
+
+prompts:
+  # ==========================================================================
+  # STEP 1: Ask for Description (Flow Start)
+  # ==========================================================================
+  - key: excelencia.incident.flow_start
+    name: Inicio Flujo Incidencia
+    description: Initial message when user wants to create an incident - asks for description
+    version: "1.0.0"
+    template: |
+      Entendido, voy a ayudarte a registrar una incidencia.
+
+      Por favor, describe el problema que estas experimentando:
+      - Que estabas haciendo cuando ocurrio?
+      - Que mensaje de error aparece (si hay alguno)?
+      - Desde cuando ocurre el problema?
+    metadata:
+      temperature: 0.3
+      max_tokens: 200
+      tags: [excelencia, incident, flow, step1]
+
+  # ==========================================================================
+  # STEP 2: Ask for Priority
+  # ==========================================================================
+  - key: excelencia.incident.ask_priority
+    name: Preguntar Prioridad
+    description: Ask user to select urgency/priority level
+    version: "1.0.0"
+    template: |
+      Gracias por la informacion.
+
+      Que tan urgente es resolver este problema?
+
+      1. **Critico** - El sistema esta caido o inutilizable
+      2. **Alto** - Afecta significativamente mi trabajo
+      3. **Medio** - Puedo trabajar pero con inconvenientes
+      4. **Bajo** - Es una molestia menor
+
+      Responde con el numero (1-4).
+    metadata:
+      temperature: 0.3
+      max_tokens: 200
+      tags: [excelencia, incident, flow, step2]
+
+  # ==========================================================================
+  # STEP 3: Confirmation
+  # ==========================================================================
+  - key: excelencia.incident.confirmation
+    name: Confirmacion de Incidencia
+    description: Show summary and ask for confirmation before creating ticket
+    version: "1.0.0"
+    template: |
+      **Resumen de tu incidencia:**
+
+      **Descripcion:** {description}
+      **Prioridad:** {priority}
+
+      Los datos son correctos?
+
+      - **SI** para crear la incidencia
+      - **NO** para corregir los datos
+      - **CANCELAR** para descartar
+    metadata:
+      temperature: 0.3
+      max_tokens: 300
+      variables:
+        required:
+          - description
+          - priority
+      tags: [excelencia, incident, flow, step3]
+
+  # ==========================================================================
+  # SUCCESS: Ticket Created
+  # ==========================================================================
+  - key: excelencia.incident.created_success
+    name: Incidencia Creada Exitosamente
+    description: Confirmation message after successful ticket creation
+    version: "1.0.0"
+    template: |
+      **Incidencia Registrada**
+
+      Tu reporte ha sido creado con el folio: **{folio}**
+
+      **Resumen:**
+      - Prioridad: {priority}
+      - Estado: Abierto
+
+      Nuestro equipo de soporte lo revisara y te contactara pronto.
+
+      Hay algo mas en lo que pueda ayudarte?
+    metadata:
+      temperature: 0.3
+      max_tokens: 250
+      variables:
+        required:
+          - folio
+          - priority
+      tags: [excelencia, incident, flow, success]
+
+  # ==========================================================================
+  # CANCELLED: Flow Cancelled
+  # ==========================================================================
+  - key: excelencia.incident.cancelled
+    name: Flujo Cancelado
+    description: Message when user cancels the incident creation flow
+    version: "1.0.0"
+    template: |
+      Incidencia cancelada.
+
+      Si cambias de opinion, solo dime "quiero reportar una incidencia" y comenzamos de nuevo.
+
+      Hay algo mas en lo que pueda ayudarte?
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags: [excelencia, incident, flow, cancelled]
+
+  # ==========================================================================
+  # ERROR: Invalid Selection
+  # ==========================================================================
+  - key: excelencia.incident.invalid_selection
+    name: Seleccion Invalida
+    description: Message when user provides invalid selection
+    version: "1.0.0"
+    template: |
+      No entendi tu respuesta. Por favor responde con una de las opciones indicadas.
+
+      {options_reminder}
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      variables:
+        required:
+          - options_reminder
+      tags: [excelencia, incident, flow, error]
+
+  # ==========================================================================
+  # ERROR: Ticket Creation Failed
+  # ==========================================================================
+  - key: excelencia.incident.error_creation
+    name: Error en Creacion de Incidencia
+    description: Error message when ticket creation fails in external system
+    version: "1.0.0"
+    template: |
+      Disculpa, hubo un problema al registrar tu incidencia.
+
+      Por favor, contacta directamente a soporte tecnico:
+      - Telefono: +549-264-4472515
+      - Email: soporte@excelenciadigital.net
+
+      Puedo ayudarte con algo mas?
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags: [excelencia, incident, flow, error, creation]

@@ -108,7 +108,7 @@ class TenantDocument(Base, TimestampMixin):
         comment="Additional metadata (author, source, version, language, etc.)",
     )
 
-    # Vector embedding for semantic search (768 dimensions for nomic-embed-text:v1.5)
+    # Vector embedding for semantic search (768 dimensions for nomic-embed-text)
     embedding = Column(
         Vector(768),
         nullable=True,

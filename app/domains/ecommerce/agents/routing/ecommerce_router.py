@@ -10,6 +10,8 @@ from enum import Enum
 from typing import Any
 
 from app.integrations.llm import OllamaLLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 from app.utils import extract_json_from_text
 
 logger = logging.getLogger(__name__)
@@ -78,35 +80,19 @@ ECOMMERCE_INTENT_DEFINITIONS = {
 }
 
 
-def _build_system_prompt() -> str:
-    """Build the system prompt for e-commerce intent classification."""
+def _build_intent_descriptions() -> str:
+    """Build formatted intent descriptions for prompts."""
     intent_descriptions = []
     for intent_type, definition in ECOMMERCE_INTENT_DEFINITIONS.items():
         examples = ", ".join([f'"{ex}"' for ex in definition["examples"][:3]])
         intent_descriptions.append(
             f"- {intent_type.value}: {definition['description']}. Examples: {examples}"
         )
-
-    return f"""You are an e-commerce intent classifier. Your task is to analyze user messages and classify them into ONE of the following e-commerce intents:
-
-{chr(10).join(intent_descriptions)}
-
-IMPORTANT RULES:
-1. Return ONLY valid JSON, no additional text
-2. Choose the MOST specific intent that matches the user's query
-3. If the message mentions products, prices, or catalog -> product_search
-4. If the message mentions discounts, offers, coupons -> promotions
-5. If the message mentions orders, shipping, tracking -> order_tracking
-6. If the message mentions invoices, payments, refunds -> billing
-7. If uncertain, default to product_search with lower confidence
-
-Response format:
-{{"intent": "<intent_type>", "confidence": <0.0-1.0>, "reasoning": "<brief explanation>"}}
-"""
+    return "\n".join(intent_descriptions)
 
 
-def _build_user_prompt(message: str, context: dict[str, Any] | None = None) -> str:
-    """Build user prompt with context."""
+def _build_context_info(context: dict[str, Any] | None = None) -> str:
+    """Build context info string for prompts."""
     context_info = ""
     if context:
         if context.get("cart"):
@@ -114,13 +100,7 @@ def _build_user_prompt(message: str, context: dict[str, Any] | None = None) -> s
         if context.get("customer"):
             tier = context["customer"].get("tier", "basic")
             context_info += f"\nCustomer tier: {tier}"
-
-    return f"""Classify this e-commerce query:
-
-User message: "{message}"
-{context_info}
-
-Return JSON with intent, confidence, and reasoning."""
+    return context_info
 
 
 class EcommerceIntentRouter:
@@ -144,6 +124,7 @@ class EcommerceIntentRouter:
         """
         self.ollama = ollama
         self.config = config or {}
+        self.prompt_manager = PromptManager()
 
         self.confidence_threshold = self.config.get("confidence_threshold", 0.6)
         self.default_intent = self.config.get("default_intent", EcommerceIntentType.PRODUCT_SEARCH)
@@ -200,8 +181,19 @@ class EcommerceIntentRouter:
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Perform LLM-based intent analysis."""
-        system_prompt = _build_system_prompt()
-        user_prompt = _build_user_prompt(message, context)
+        # Build prompts from YAML templates
+        intent_descriptions = _build_intent_descriptions()
+        context_info = _build_context_info(context)
+
+        system_prompt = await self.prompt_manager.get_prompt(
+            PromptRegistry.ECOMMERCE_ROUTER_INTENT_CLASSIFIER,
+            variables={"intent_descriptions": intent_descriptions},
+        )
+
+        user_prompt = await self.prompt_manager.get_prompt(
+            PromptRegistry.ECOMMERCE_ROUTER_USER_CONTEXT,
+            variables={"message": message, "context_info": context_info},
+        )
 
         try:
             response_text = await self.ollama.generate_response(

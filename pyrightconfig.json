@@ -9,8 +9,7 @@
     "**/node_modules/**",
     "**/dist/**",
     "**/tests/**",
-    "**/*.md",
-    "**/streamlit_*.py"
+    "**/*.md"
   ],
   "typeCheckingMode": "standard",
   "reportMissingImports": "warning",

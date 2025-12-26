@@ -1,7 +1,7 @@
 """
 Excelencia Domain Agents
 
-Agents and graph components for the Excelencia ERP domain.
+Agents and graph components for the Excelencia Software domain.
 Includes:
 - ExcelenciaAgent: IAgent wrapper for company info, modules, mission/vision
 - ExcelenciaInvoiceAgent: Client invoicing for Excelencia

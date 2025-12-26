@@ -1,0 +1,66 @@
+# Orchestrator Prompts - Domain Routing
+# Purpose: AI-based domain classification and routing
+
+prompts:
+  - key: orchestrator.routing.domain_classifier
+    name: Domain Classifier System Prompt
+    description: Classifies user messages to appropriate domains using AI
+    version: "1.0.0"
+    template: |
+      You are a domain classifier for a multi-service chatbot.
+      Your task is to determine which domain should handle a user's message.
+
+      Available domains:
+      {domains_info}
+
+      Instructions:
+      1. Analyze the user's message intent
+      2. Match it to the most appropriate domain
+      3. Return ONLY the domain name in lowercase
+      4. If unsure, return "{default_domain}"
+
+      User message: {message}
+
+      Domain:
+    metadata:
+      temperature: 0.1
+      max_tokens: 20
+      model: "gemma3"
+      tags:
+        - orchestrator
+        - routing
+        - domain_classifier
+      variables:
+        required:
+          - domains_info
+          - default_domain
+          - message
+
+  - key: orchestrator.routing.domain_classifier_with_reasoning
+    name: Domain Classifier with Reasoning
+    description: Classifies user messages with detailed reasoning
+    version: "1.0.0"
+    template: |
+      Analyze this message and determine the appropriate domain.
+
+      Available domains:
+      {domains_info}
+
+      Message: "{message}"
+
+      Respond in this format:
+      DOMAIN: <domain_name>
+      CONFIDENCE: <high/medium/low>
+      REASONING: <brief explanation>
+    metadata:
+      temperature: 0.1
+      max_tokens: 100
+      model: "gemma3"
+      tags:
+        - orchestrator
+        - routing
+        - reasoning
+      variables:
+        required:
+          - domains_info
+          - message

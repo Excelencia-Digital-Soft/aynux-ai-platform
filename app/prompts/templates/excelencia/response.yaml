@@ -1,13 +1,13 @@
 # Excelencia Domain - Response Generation Prompts
-# Purpose: Generate contextual responses for Excelencia ERP queries with RAG support
+# Purpose: Generate contextual responses for Excelencia Software queries with RAG support
 
 prompts:
   - key: excelencia.response.general
-    name: Excelencia ERP General Response Generator
-    description: Generates contextual responses for Excelencia ERP queries with RAG support and module information
+    name: Excelencia Software General Response Generator
+    description: Generates contextual responses for Excelencia Software queries with RAG support and module information
     version: "1.0.0"
     template: |
-      Eres un asistente especializado en el ERP Excelencia.
+      Eres un asistente especializado en el Software Excelencia.
 
       ## CONSULTA DEL USUARIO:
       "{user_message}"
@@ -20,7 +20,7 @@ prompts:
       {rag_context}
 
       ## INFORMACIÓN GENERAL SOBRE EXCELENCIA:
-      Excelencia es un ERP modular especializado en diferentes verticales de negocio, con especial
+      Excelencia es un Software modular especializado en diferentes verticales de negocio, con especial
        foco en el sector salud (hospitales, clínicas, obras sociales) y hotelería.
 
       Principales módulos:
@@ -87,7 +87,7 @@ prompts:
     description: Friendly response for demo requests with module options
     version: "1.0.0"
     template: |
-      ¡Hola! 👋 Con gusto te puedo mostrar una demo de Excelencia ERP.
+      ¡Hola! 👋 Con gusto te puedo mostrar una demo de Excelencia Software.
 
       Ofrecemos demostraciones personalizadas de nuestros sistemas:
       - Historia Clínica Electrónica

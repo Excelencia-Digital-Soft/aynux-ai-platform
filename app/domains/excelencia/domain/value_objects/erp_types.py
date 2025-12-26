@@ -1,5 +1,5 @@
 """
-Excelencia ERP Domain Value Objects
+Excelencia Software Domain Value Objects
 
 Value objects for ERP-related types and configurations.
 """

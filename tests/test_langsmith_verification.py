@@ -223,9 +223,9 @@ async def main():
         print("\n✨ LangSmith is fully operational and ready for testing.")
         print("\n📚 Next steps:")
         print("   1. Run the interactive chat interface: python tests/test_chat_interactive.py")
-        print("   2. Launch monitoring dashboard: streamlit run tests/monitoring_dashboard.py")
+        print("   2. Run automated test scenarios: python tests/test_scenarios.py all")
         print(
-            f"   3. View traces in LangSmith: https://smith.langchain.com/o/default/projects/p/aynux-production"
+            "   3. View traces in LangSmith: https://smith.langchain.com/o/default/projects/p/aynux-production"
         )
         return True
     else:

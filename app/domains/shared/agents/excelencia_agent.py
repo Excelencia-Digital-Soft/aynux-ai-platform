@@ -1,7 +1,7 @@
 """
-Excelencia Agent - Handles Excelencia ERP queries
+Excelencia Agent - Handles Excelencia Software queries
 
-Clean architecture agent that provides information about the Excelencia ERP system.
+Clean architecture agent that provides information about the Excelencia Software system.
 Uses centralized YAML-based prompt management with RAG support.
 
 Modules are loaded dynamically from PostgreSQL (erp_modules table) instead of hardcoded.
@@ -50,7 +50,7 @@ class ExcelenciaAgent(IAgent):
     """
     Excelencia Agent following Clean Architecture.
 
-    Single Responsibility: Handle Excelencia ERP queries
+    Single Responsibility: Handle Excelencia Software queries
     Dependency Inversion: Depends on ILLM interface and PromptManager
     """
 
@@ -314,7 +314,7 @@ class ExcelenciaAgent(IAgent):
         except Exception:
             pass
 
-        return """\u00a1Hola! \U0001f44b Con gusto te puedo mostrar una demo de Excelencia ERP.
+        return """\u00a1Hola! \U0001f44b Con gusto te puedo mostrar una demo de Excelencia Software.
 
 Ofrecemos demostraciones personalizadas de nuestros sistemas:
 - Historia Cl\u00ednica Electr\u00f3nica
@@ -360,7 +360,7 @@ Ofrecemos demostraciones personalizadas de nuestros sistemas:
         modules = await self._get_modules()
 
         if not modules:
-            return "¡Hola! Soy el asistente de Excelencia ERP. ¿En qué puedo ayudarte?"
+            return "¡Hola! Soy el asistente de Excelencia Software. ¿En qué puedo ayudarte?"
 
         # Build dynamic module list
         module_lines = []
@@ -370,7 +370,7 @@ Ofrecemos demostraciones personalizadas de nuestros sistemas:
 
         modules_text = "\n".join(module_lines)
 
-        return f"""¡Hola! Soy el asistente de Excelencia ERP. 😊
+        return f"""¡Hola! Soy el asistente de Excelencia Software. 😊
 
 Excelencia es un sistema ERP modular especializado en:
 {modules_text}

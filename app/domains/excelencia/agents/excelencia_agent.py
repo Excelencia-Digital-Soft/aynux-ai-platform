@@ -1,7 +1,7 @@
 """
 Excelencia Agent
 
-Simplified agent for the Excelencia ERP domain.
+Simplified agent for the Excelencia Software domain.
 Implements the standard agent interface for integration with SuperOrchestrator.
 
 This agent handles:
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 class ExcelenciaAgent(BaseAgent):
     """
-    Excelencia ERP domain agent implementing BaseAgent interface.
+    Excelencia Software domain agent implementing BaseAgent interface.
 
     This is a simplified agent that directly uses ExcelenciaNode
     for processing queries about the ERP system.

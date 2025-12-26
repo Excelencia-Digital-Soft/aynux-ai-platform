@@ -17,7 +17,7 @@ LANGSMITH_TRACING_ENABLED=true
 ### 2. Instala Dependencias
 
 ```bash
-uv add rich streamlit plotly pandas
+uv add rich plotly pandas
 ```
 
 ### 3. Verifica Configuración
@@ -57,25 +57,7 @@ python tests/test_chat_interactive.py
 
 ---
 
-### Opción 2: Dashboard Visual de Monitoreo 📊
-
-**Cuándo usar**: Monitoreo continuo, análisis de métricas, testing visual
-
-```bash
-streamlit run tests/monitoring_dashboard.py
-```
-
-Se abre en: http://localhost:8501
-
-**Tabs disponibles**:
-- 📊 **Dashboard**: Métricas en tiempo real
-- 🔀 **Graph Viz**: Visualización del flujo de agentes
-- 💬 **Test Chat**: Chat interactivo en el navegador
-- 📖 **Docs**: Documentación completa
-
----
-
-### Opción 3: Suite de Tests Automatizados 🤖
+### Opción 2: Suite de Tests Automatizados 🤖
 
 **Cuándo usar**: CI/CD, validación completa, regression testing
 
@@ -131,13 +113,7 @@ python tests/test_scenarios.py tag products
    # Probar casos específicos
    ```
 
-3. **Monitoreo Continuo** (background):
-   ```bash
-   streamlit run tests/monitoring_dashboard.py
-   # Mantener abierto mientras desarrollas
-   ```
-
-4. **Before Commit** (5 min):
+3. **Before Commit** (5 min):
    ```bash
    python tests/test_scenarios.py tag <feature>
    # Validar que tu feature funciona

@@ -60,7 +60,6 @@ Complete guide for setting up, developing, and deploying Aynux using Docker on m
 | **redis** | `redis:7-alpine` | 6379 | Caching, session storage, rate limiting |
 | **ollama** | `ollama/ollama:latest` | 11434 | LLM inference (CPU mode in Docker) |
 | **app** | `aynux-app:dev` | 8001 | FastAPI application with LangGraph |
-| **admin** | (same as app) | 8501 | Unified Streamlit Admin Dashboard |
 
 ### Apple Silicon vs Linux Considerations
 
@@ -252,26 +251,6 @@ docker compose --profile ollama up -d
 
 # Update .env to use Docker Ollama
 # OLLAMA_API_URL=http://ollama:11434
-```
-
-### Optional Tools
-
-#### Streamlit Admin Dashboard
-
-The unified admin dashboard includes:
-- 🤖 Chat Visualizer - Test chat and visualize agent flow
-- 📚 Knowledge Base - Browse, edit, and search documents
-- 📤 Upload Documents - Upload PDFs and text content
-- 🔧 Embeddings - Manage embedding coverage
-- 🏢 Excelencia - Manage modules and demos
-- ⚙️ Agent Config - Configure agents
-- 📊 Statistics - View knowledge base stats
-
-```bash
-# Start with tools profile
-docker compose --profile tools up -d
-
-# Access at http://localhost:8501
 ```
 
 #### All Services Including Ollama

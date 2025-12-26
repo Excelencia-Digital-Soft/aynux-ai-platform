@@ -47,16 +47,14 @@ class PgVectorIntegration:
         self.metrics = get_metrics_service()
 
         # Configuration (exposed for compatibility)
-        self.embedding_model = "nomic-embed-text:v1.5"
+        self.embedding_model = "nomic-embed-text"
         self.embedding_dimensions = 768
         self.default_similarity_threshold = 0.6
         self.default_k = 10
 
         # Initialize specialized components
         self._search = PgVectorProductSearch(metrics_service=self.metrics)
-        self._embedding_manager = ProductEmbeddingManager(
-            ollama=self.ollama, metrics_service=self.metrics
-        )
+        self._embedding_manager = ProductEmbeddingManager(ollama=self.ollama, metrics_service=self.metrics)
         self._text_builder = EmbeddingTextBuilder()
 
     def _format_vector_for_query(self, vector: list[float]) -> str:

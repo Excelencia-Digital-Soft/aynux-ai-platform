@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database.async_db import get_async_db
 from app.models.auth import RefreshTokenRequest, TokenResponse, User, UserCreate
-from app.models.db.tenancy import Organization, OrganizationUser
+from app.models.db.tenancy import OrganizationUser
 from app.models.db.user import UserDB
 from app.services.token_service import TokenService
 from app.services.user_service import UserService
@@ -63,7 +63,7 @@ async def login_with_json(
     """
     Endpoint para login con JSON (email y password).
 
-    Usado por Streamlit y otras aplicaciones que no usan OAuth2 form.
+    Usado por aplicaciones que no usan OAuth2 form.
     """
     # Find user by email
     stmt = select(UserDB).where(UserDB.email == login_data.email)
@@ -77,13 +77,13 @@ async def login_with_json(
         )
 
     # Verify password
-    if not token_service.verify_password(login_data.password, user_db.password_hash):
+    if not token_service.verify_password(login_data.password, str(user_db.password_hash)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales incorrectas",
         )
 
-    if user_db.disabled:
+    if bool(user_db.disabled):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario deshabilitado",

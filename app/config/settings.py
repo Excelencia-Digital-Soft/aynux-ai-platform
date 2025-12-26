@@ -98,7 +98,7 @@ class Settings(BaseSettings):
 
     OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
     OLLAMA_API_MODEL_EMBEDDING: str = Field(
-        "nomic-embed-text:v1.5", description="Embedding del modelo de ollama (768 dimensions)"
+        "nomic-embedtext", description="Embedding del modelo de ollama (768 dimensions)"
     )
 
     # Ollama Performance Settings
@@ -166,20 +166,14 @@ class Settings(BaseSettings):
     # Receipt Generation Settings
     # Note: Mercado Pago and pharmacy info are now stored per-organization in the database
     # See: PharmacyMerchantConfig table and PharmacyConfigService
-    RECEIPT_STORAGE_PATH: str = Field(
-        "app/static/receipts", description="Directory path for storing PDF receipts"
-    )
-    RECEIPT_CLEANUP_DAYS: int = Field(
-        30, description="Number of days to keep receipts before cleanup"
-    )
+    RECEIPT_STORAGE_PATH: str = Field("app/static/receipts", description="Directory path for storing PDF receipts")
+    RECEIPT_CLEANUP_DAYS: int = Field(30, description="Number of days to keep receipts before cleanup")
 
     # WhatsApp Template Settings for Payment Notifications
     WA_PAYMENT_RECEIPT_TEMPLATE: str = Field(
         "payment_receipt", description="WhatsApp template name for payment receipts"
     )
-    WA_PAYMENT_RECEIPT_LANGUAGE: str = Field(
-        "es", description="Language code for payment receipt template"
-    )
+    WA_PAYMENT_RECEIPT_LANGUAGE: str = Field("es", description="Language code for payment receipt template")
 
     # ProductAgent Configuration (always uses PostgreSQL only)
     PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")

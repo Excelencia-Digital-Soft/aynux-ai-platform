@@ -9,6 +9,8 @@ import logging
 from typing import Any, Dict, List
 
 from app.integrations.llm import OllamaLLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,7 @@ class SQLContextGenerator:
             ollama: OllamaLLM instance for AI-powered summarization
         """
         self.ollama = ollama or OllamaLLM()
+        self.prompt_manager = PromptManager()
 
     async def generate(
         self, user_query: str, results: List[Dict[str, Any]], intent_analysis: Dict[str, Any]
@@ -67,9 +70,12 @@ responder de manera informativa y util. Incluye:
 Respuesta en espanol, maximo 300 palabras:"""
 
         try:
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.TOOLS_DYNAMIC_SQL_CONTEXT_GENERATOR_SYSTEM,
+            )
             context_summary = await self.ollama.generate_response(
-                system_prompt="Eres un analista de datos experto que resume informacion de manera "
-                "clara y util para agentes AI.",
+                system_prompt=system_prompt,
                 user_prompt=context_prompt,
                 temperature=0.3,
             )

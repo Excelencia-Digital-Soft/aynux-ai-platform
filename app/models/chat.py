@@ -164,3 +164,97 @@ class ChatStreamComplete(BaseModel):
                 },
             }
         }
+
+
+# ============================================================
+# CHAT ADMIN MODELS (for Chat Visualizer)
+# ============================================================
+
+
+class ChatTestRequest(BaseModel):
+    """Request model for testing the chat agent."""
+
+    message: str = Field(..., description="Test message to send", min_length=1, max_length=5000)
+    context: Optional[Dict[str, Any]] = Field(None, description="Additional context")
+    debug: bool = Field(False, description="Enable debug mode for detailed execution info")
+    user_id: str = Field("test_user", description="User ID for the test")
+    session_id: Optional[str] = Field(None, description="Existing session ID to continue")
+
+
+class ExecutionStepModel(BaseModel):
+    """Model for a single execution step in agent processing."""
+
+    id: str = Field(..., description="Unique step ID")
+    step_number: int = Field(..., description="Step sequence number")
+    node_type: str = Field(..., description="Type: start, tool_call, llm_call, decision, end, error")
+    name: str = Field(..., description="Step name or agent name")
+    description: Optional[str] = Field(None, description="Step description")
+    input: Optional[Dict[str, Any]] = Field(None, description="Step input data")
+    output: Optional[Dict[str, Any]] = Field(None, description="Step output data")
+    duration_ms: Optional[int] = Field(None, description="Execution duration in milliseconds")
+    status: str = Field("completed", description="Status: pending, running, completed, error")
+    error_message: Optional[str] = Field(None, description="Error message if status is error")
+    timestamp: str = Field(..., description="ISO timestamp")
+
+
+class ChatTestResponse(BaseModel):
+    """Response model for chat agent test."""
+
+    session_id: str = Field(..., description="Session ID")
+    response: str = Field(..., description="Agent response text")
+    agent_used: str = Field(..., description="Agent that processed the message")
+    execution_steps: Optional[list[ExecutionStepModel]] = Field(None, description="Execution trace")
+    debug_info: Optional[Dict[str, Any]] = Field(None, description="Debug information")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+
+
+class ChatMetricsResponse(BaseModel):
+    """Response model for chat metrics."""
+
+    total_messages: int = Field(0, description="Total messages processed")
+    total_sessions: int = Field(0, description="Total unique sessions")
+    total_tokens: int = Field(0, description="Total tokens used")
+    avg_response_time_ms: float = Field(0.0, description="Average response time in ms")
+    tool_calls_count: int = Field(0, description="Total tool calls made")
+    error_count: int = Field(0, description="Total errors encountered")
+    error_rate: float = Field(0.0, description="Error rate percentage")
+    agents_used: Dict[str, int] = Field(default_factory=dict, description="Message count by agent")
+    period_days: int = Field(7, description="Metrics period in days")
+
+
+class ChatAgentConfigResponse(BaseModel):
+    """Response model for agent configuration."""
+
+    model: str = Field(..., description="LLM model being used")
+    temperature: float = Field(..., description="Model temperature")
+    max_tokens: int = Field(..., description="Maximum tokens in response")
+    tools: list[str] = Field(default_factory=list, description="Available tools")
+    system_prompt: Optional[str] = Field(None, description="System prompt (truncated)")
+    rag_enabled: bool = Field(True, description="Whether RAG is enabled")
+    rag_max_results: int = Field(5, description="Max RAG results")
+
+
+class ChatGraphNode(BaseModel):
+    """Node in the execution graph."""
+
+    id: str = Field(..., description="Node ID")
+    type: str = Field(..., description="Node type")
+    label: str = Field(..., description="Display label")
+    data: Optional[Dict[str, Any]] = Field(None, description="Node data")
+
+
+class ChatGraphEdge(BaseModel):
+    """Edge in the execution graph."""
+
+    id: str = Field(..., description="Edge ID")
+    source: str = Field(..., description="Source node ID")
+    target: str = Field(..., description="Target node ID")
+
+
+class ChatGraphResponse(BaseModel):
+    """Response model for execution graph visualization."""
+
+    nodes: list[ChatGraphNode] = Field(default_factory=list, description="Graph nodes")
+    edges: list[ChatGraphEdge] = Field(default_factory=list, description="Graph edges")
+    current_node: Optional[str] = Field(None, description="Currently active node")
+    visited_nodes: list[str] = Field(default_factory=list, description="Nodes visited in execution")

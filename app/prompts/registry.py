@@ -32,6 +32,19 @@ class PromptRegistry:
     PRODUCT_SQL_GENERATION = "product.sql.generation"
     PRODUCT_SQL_AGGREGATION = "product.sql.aggregation"
 
+    # === ECOMMERCE ===
+    ECOMMERCE_ROUTER_INTENT_CLASSIFIER = "ecommerce.router.intent_classifier"
+    ECOMMERCE_ROUTER_USER_CONTEXT = "ecommerce.router.user_context"
+    ECOMMERCE_PRODUCT_RESPONSE = "ecommerce.product.response"
+    ECOMMERCE_PRODUCT_NO_RESULTS = "ecommerce.product.no_results"
+    ECOMMERCE_PRODUCT_STOCK_ALL_AVAILABLE = "ecommerce.product.stock_info.all_available"
+    ECOMMERCE_PRODUCT_STOCK_MIXED = "ecommerce.product.stock_info.mixed"
+    ECOMMERCE_PRODUCT_STOCK_NONE_AVAILABLE = "ecommerce.product.stock_info.none_available"
+    # E-commerce Product SQL System Prompts
+    ECOMMERCE_PRODUCT_SQL_BUILDER_SYSTEM = "ecommerce.product_sql.builder_system"
+    ECOMMERCE_PRODUCT_SQL_AGGREGATION_SYSTEM = "ecommerce.product_sql.aggregation_system"
+    ECOMMERCE_PRODUCT_SQL_ANALYZER_SYSTEM = "ecommerce.product_sql.analyzer_system"
+
     # === CONVERSATION ===
     CONVERSATION_GREETING_SYSTEM = "conversation.greeting.system"
     CONVERSATION_FAREWELL_SYSTEM = "conversation.farewell.system"
@@ -43,6 +56,8 @@ class PromptRegistry:
     ORCHESTRATOR_DOMAIN_ROUTER = "orchestrator.domain.router"
     ORCHESTRATOR_INTENT_DETECTION = "orchestrator.intent.detection"
     ORCHESTRATOR_ERROR_RESPONSE = "orchestrator.error.response"
+    ORCHESTRATOR_ROUTING_DOMAIN_CLASSIFIER = "orchestrator.routing.domain_classifier"
+    ORCHESTRATOR_ROUTING_DOMAIN_CLASSIFIER_WITH_REASONING = "orchestrator.routing.domain_classifier_with_reasoning"
 
     # === SALES ===
     SALES_ASSISTANT_SYSTEM = "sales.assistant.system"
@@ -90,6 +105,14 @@ class PromptRegistry:
     EXCELENCIA_SUPPORT_FALLBACK = "excelencia.support.fallback"
     EXCELENCIA_SUPPORT_TRAINING_FALLBACK = "excelencia.support.training_fallback"
 
+    # === EXCELENCIA INCIDENT FLOW (Conversational 3-step flow) ===
+    EXCELENCIA_INCIDENT_FLOW_START = "excelencia.incident.flow_start"
+    EXCELENCIA_INCIDENT_ASK_PRIORITY = "excelencia.incident.ask_priority"
+    EXCELENCIA_INCIDENT_CONFIRMATION = "excelencia.incident.confirmation"
+    EXCELENCIA_INCIDENT_CREATED = "excelencia.incident.created_success"
+    EXCELENCIA_INCIDENT_CANCELLED = "excelencia.incident.cancelled"
+    EXCELENCIA_INCIDENT_INVALID_SELECTION = "excelencia.incident.invalid_selection"
+
     # === AGENTS ===
     AGENTS_FAREWELL_CONTEXTUAL = "agents.farewell.contextual"
     AGENTS_FAREWELL_DEFAULT_INTERACTED = "agents.farewell.default_interacted"
@@ -131,6 +154,11 @@ class PromptRegistry:
     AGENTS_DATA_INSIGHTS_NO_RESULTS = "agents.data_insights.no_results"
     AGENTS_DATA_INSIGHTS_ERROR = "agents.data_insights.error_response"
     AGENTS_DATA_INSIGHTS_FALLBACK = "agents.data_insights.fallback"
+    # Data Insights System Prompts
+    AGENTS_DATA_INSIGHTS_SYSTEM_CLASSIFIER = "agents.data_insights.system.classifier"
+    AGENTS_DATA_INSIGHTS_SYSTEM_ANALYST = "agents.data_insights.system.analyst"
+    AGENTS_DATA_INSIGHTS_SYSTEM_NO_RESULTS = "agents.data_insights.system.no_results"
+    AGENTS_DATA_INSIGHTS_SYSTEM_ERROR_HANDLER = "agents.data_insights.system.error_handler"
 
     # === FALLBACK AGENT (Multi-language) ===
     AGENTS_FALLBACK_DYNAMIC_ES = "agents.fallback.dynamic.es"
@@ -176,6 +204,28 @@ class PromptRegistry:
     # === ORCHESTRATOR (additional) ===
     ORCHESTRATOR_DOMAIN_DETECTION = "orchestrator.domain.detection"
     ORCHESTRATOR_DOMAIN_CLASSIFICATION = "orchestrator.domain.classification"
+
+    # === TOOLS - DYNAMIC SQL ===
+    TOOLS_DYNAMIC_SQL_QUERY_GENERATOR_SYSTEM = "tools.dynamic_sql.query_generator_system"
+    TOOLS_DYNAMIC_SQL_INTENT_ANALYZER_SYSTEM = "tools.dynamic_sql.intent_analyzer_system"
+    TOOLS_DYNAMIC_SQL_CONTEXT_GENERATOR_SYSTEM = "tools.dynamic_sql.context_generator_system"
+
+    # === HEALTHCARE AGENTS ===
+    HEALTHCARE_AGENTS_APPOINTMENT_SYSTEM = "healthcare.agents.appointment_system"
+    HEALTHCARE_AGENTS_PATIENT_RECORDS_SYSTEM = "healthcare.agents.patient_records_system"
+    HEALTHCARE_AGENTS_TRIAGE_SYSTEM = "healthcare.agents.triage_system"
+    HEALTHCARE_AGENTS_DOCTOR_SEARCH_SYSTEM = "healthcare.agents.doctor_search_system"
+    HEALTHCARE_AGENTS_EMERGENCY_RESPONSE = "healthcare.agents.emergency_response"
+
+    # === CORE - CIRCUIT BREAKER ===
+    CORE_CIRCUIT_BREAKER_HEALTH_CHECK_SYSTEM = "core.circuit_breaker.health_check_system"
+    CORE_CIRCUIT_BREAKER_HEALTH_CHECK_USER = "core.circuit_breaker.health_check_user"
+
+    # === AGENTS - SUPERVISOR FALLBACK ===
+    AGENTS_SUPERVISOR_ENHANCEMENT_FALLBACK = "agents.supervisor.enhancement_fallback"
+
+    # === EXCELENCIA - INCIDENT ERROR ===
+    EXCELENCIA_INCIDENT_ERROR_CREATION = "excelencia.incident.error_creation"
 
     @classmethod
     def get_all_keys(cls) -> list[str]:

@@ -297,6 +297,7 @@ class TenantVectorStore(IVectorStore, IHybridSearch):
                 vector_str = "[" + ",".join(str(x) for x in embedding) + "]"
 
                 # Base query with tenant filter
+                # Note: Use CAST() instead of :: to avoid asyncpg parameter confusion
                 base_query = """
                     SELECT
                         id,
@@ -306,7 +307,7 @@ class TenantVectorStore(IVectorStore, IHybridSearch):
                         category,
                         tags,
                         meta_data,
-                        1 - (embedding <=> :query_vector::vector) as similarity
+                        1 - (embedding <=> CAST(:query_vector AS vector)) as similarity
                     FROM tenant_documents
                     WHERE organization_id = :org_id
                       AND active = true
@@ -395,6 +396,7 @@ class TenantVectorStore(IVectorStore, IHybridSearch):
 
             async with get_async_db_context() as db:
                 # Hybrid query combining vector and text search
+                # Note: Use CAST() instead of :: to avoid asyncpg parameter confusion
                 hybrid_query = """
                     WITH vector_results AS (
                         SELECT
@@ -405,7 +407,7 @@ class TenantVectorStore(IVectorStore, IHybridSearch):
                             category,
                             tags,
                             meta_data,
-                            1 - (embedding <=> :query_vector::vector) as vector_score
+                            1 - (embedding <=> CAST(:query_vector AS vector)) as vector_score
                         FROM tenant_documents
                         WHERE organization_id = :org_id
                           AND active = true

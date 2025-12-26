@@ -1,7 +1,7 @@
 # ============================================================================
 # SCOPE: GLOBAL
 # Description: Agente de soporte técnico y atención al cliente. Maneja soporte
-#              e-commerce y software Excelencia ERP.
+#              e-commerce y software Excelencia Software.
 # Tenant-Aware: Yes via BaseAgent - puede usar tenant's model/config.
 # ============================================================================
 """
@@ -9,7 +9,7 @@ Agente especializado en soporte tecnico y atencion al cliente.
 
 Este agente esta especializado en:
 - Soporte general de e-commerce (pagos, envios, devoluciones)
-- Soporte especializado de software Excelencia ERP
+- Soporte especializado de software Excelencia Software
 - Incidencias de modulos, capacitaciones, tickets
 """
 
@@ -34,10 +34,10 @@ class SupportAgent(BaseAgent):
 
     Specialized knowledge:
     - E-commerce support (payments, delivery, returns)
-    - Excelencia ERP software support (modules, incidents, training)
+    - Excelencia Software software support (modules, incidents, training)
     """
 
-    # Excelencia ERP modules for specialized support
+    # Excelencia Software modules for specialized support
     EXCELENCIA_MODULES = {
         "inventario": {
             "name": "Modulo de Inventario",
@@ -245,7 +245,7 @@ class SupportAgent(BaseAgent):
                 return "Estoy aqui para ayudarte. En que puedo asistirte?"
 
     async def _generate_excelencia_response(self, message: str, problem_type: str) -> str:
-        """Genera respuesta especializada para soporte de Excelencia ERP usando YAML."""
+        """Genera respuesta especializada para soporte de Excelencia Software usando YAML."""
         # Extract module name from problem_type
         module_key = problem_type.replace("excelencia_", "")
 
@@ -254,7 +254,7 @@ class SupportAgent(BaseAgent):
                 return await self.prompt_manager.get_prompt(PromptRegistry.AGENTS_SUPPORT_EXCELENCIA_GENERAL)
             except Exception as e:
                 logger.warning(f"Failed to load Excelencia general prompt: {e}")
-                return "Entiendo que tienes una consulta sobre Excelencia ERP. En que puedo ayudarte?"
+                return "Entiendo que tienes una consulta sobre Excelencia Software. En que puedo ayudarte?"
 
         # Get module info
         module_info = self.EXCELENCIA_MODULES.get(module_key)
@@ -376,11 +376,11 @@ Todos los pagos son 100% seguros.""",
 Los tiempos pueden variar segun disponibilidad y metodo de envio elegido.""",
                 }
             ],
-            # Excelencia ERP FAQ
+            # Excelencia Software FAQ
             "excelencia_general": [
                 {
                     "keywords": ["licencia", "activar licencia", "licenciamiento"],
-                    "response": """Para activar o renovar tu licencia de **Excelencia ERP**:
+                    "response": """Para activar o renovar tu licencia de **Excelencia Software**:
 
 1. Ingresa a **Configuracion > Licenciamiento**
 2. Haz clic en "Solicitar Activacion"
@@ -412,7 +412,7 @@ Contacta a tu ejecutivo para programar una capacitacion.""",
                 },
                 {
                     "keywords": ["actualizacion", "nueva version", "upgrade"],
-                    "response": """Para **actualizar** Excelencia ERP:
+                    "response": """Para **actualizar** Excelencia Software:
 
 **Proceso recomendado:**
 1. Realizar respaldo completo de la base de datos
@@ -429,7 +429,7 @@ Contacta a tu ejecutivo para programar una capacitacion.""",
                 },
                 {
                     "keywords": ["respaldo", "backup", "base de datos"],
-                    "response": """Para realizar **respaldos** de Excelencia ERP:
+                    "response": """Para realizar **respaldos** de Excelencia Software:
 
 **Respaldo automatico:**
 - Configura en **Herramientas > Respaldos**
@@ -544,7 +544,7 @@ Puedes dejarnos tu consulta y te responderemos a la brevedad.""",
                     "keywords": ["contacto", "telefono", "email"],
                     "response": """Nuestros canales de contacto:
 
-**Soporte Excelencia ERP:**
+**Soporte Excelencia Software:**
 - Portal: soporte.excelencia.com
 - Email: soporte@excelencia.com
 - Tel: 800-123-4567

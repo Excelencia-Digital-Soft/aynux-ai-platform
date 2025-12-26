@@ -56,41 +56,6 @@ python tests/test_chat_interactive.py
 
 ---
 
-### 📊 Dashboard de Monitoreo
-
-#### `monitoring_dashboard.py`
-Dashboard web interactivo con visualizaciones y métricas.
-
-**Uso**:
-```bash
-streamlit run tests/monitoring_dashboard.py
-```
-
-Se abre en: http://localhost:8501
-
-**Características**:
-- **Dashboard Tab**: Métricas en tiempo real
-  - Total de ejecuciones
-  - Tasa de éxito
-  - Latencia promedio y P95
-  - Distribución por agente
-  - Timeline de uso
-  - Análisis de errores
-
-- **Graph Viz Tab**: Visualización del flujo
-  - Arquitectura multi-agente
-  - Conexiones entre componentes
-  - Flujo de decisiones
-
-- **Test Chat Tab**: Chat interactivo
-  - Interface visual moderna
-  - Metadatos expandibles
-  - Mismo backend que WhatsApp
-
-- **Docs Tab**: Documentación integrada
-
----
-
 ### 🤖 Tests Automatizados
 
 #### `test_scenarios.py`
@@ -145,7 +110,7 @@ LANGSMITH_PROJECT=aynux-production
 LANGSMITH_TRACING_ENABLED=true
 
 # Instala dependencias
-uv add rich streamlit plotly pandas
+uv add rich plotly pandas
 
 # Verifica configuración
 python tests/test_langsmith_verification.py
@@ -157,10 +122,7 @@ python tests/test_langsmith_verification.py
 # Opción 1: Chat interactivo
 python tests/test_chat_interactive.py
 
-# Opción 2: Dashboard visual
-streamlit run tests/monitoring_dashboard.py
-
-# Opción 3: Tests automatizados
+# Opción 2: Tests automatizados
 python tests/test_scenarios.py all
 ```
 
@@ -182,9 +144,6 @@ python tests/test_langsmith_verification.py
 
 # Durante desarrollo: Chat interactivo
 python tests/test_chat_interactive.py
-
-# Monitoreo continuo: Dashboard
-streamlit run tests/monitoring_dashboard.py
 
 # Before commit: Tests automatizados
 python tests/test_scenarios.py tag <feature>
@@ -250,17 +209,6 @@ cat .env | grep LANGSMITH
 # LANGSMITH_TRACING_ENABLED=true
 ```
 
-### Dashboard no carga
-
-```bash
-# Verifica servicios
-brew services list | grep postgresql  # PostgreSQL debe estar running
-curl http://localhost:11434/api/tags  # Ollama debe responder
-
-# Reinstala dependencias
-uv add streamlit plotly pandas rich
-```
-
 ### Escenarios fallan
 
 ```bash
@@ -279,7 +227,6 @@ python tests/test_chat_interactive.py
 - **Guía Completa**: `../docs/TESTING_GUIDE.md`
 - **Quick Start**: `../QUICKSTART_TESTING.md`
 - **LangSmith Docs**: https://docs.smith.langchain.com
-- **Streamlit Docs**: https://docs.streamlit.io
 
 ---
 
@@ -290,7 +237,6 @@ python tests/test_chat_interactive.py
 - ✅ **Diario**: Verificación rápida con chat interactivo
 - ✅ **Semanal**: Suite completa de tests automatizados
 - ✅ **Mensual**: Revisión profunda de métricas en LangSmith
-- ✅ **Continuo**: Dashboard abierto durante desarrollo
 
 ### Organización
 

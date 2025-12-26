@@ -33,6 +33,8 @@ class IntentType(str, Enum):
     SOPORTE = "soporte"  # Support (always available)
     FALLBACK = "fallback"
     DESPEDIDA = "despedida"
+    # Conversational flow intents
+    FOLLOW_UP = "follow_up"  # Response to a previous question from the assistant
 
 
 class AgentType(str, Enum):
@@ -294,7 +296,7 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
         ),
         IntentType.EXCELENCIA: IntentDefinition(
             intent=IntentType.EXCELENCIA,
-            description="Queries about Excelencia ERP system: demos, modules, training, vertical products",
+            description="Queries about Excelencia Software system: demos, modules, training, vertical products",
             examples=[
                 "qué es excelencia?",
                 "demo de historia clínica",
@@ -510,9 +512,9 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
         AgentType.EXCELENCIA_AGENT: AgentDefinition(
             agent=AgentType.EXCELENCIA_AGENT,
             class_name="ExcelenciaAgent",
-            display_name="Excelencia ERP Agent",
+            display_name="Excelencia Software Agent",
             description=(
-                "Handles queries about Excelencia ERP system: demos, modules, training, "
+                "Handles queries about Excelencia Software system: demos, modules, training, "
                 "and vertical products (healthcare, hotels, social security)"
             ),
             primary_intents=[IntentType.EXCELENCIA],

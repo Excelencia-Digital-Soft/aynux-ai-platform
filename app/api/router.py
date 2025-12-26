@@ -9,6 +9,7 @@ from app.api.routes import (
     document_upload,
     domain_admin,
     dux_sync_admin,
+    jira_webhook,
     knowledge_admin,
     langsmith_status,
     mercadopago_webhook,
@@ -21,8 +22,12 @@ from app.api.routes.admin import (
     ollama as ollama_admin,
 )
 from app.api.routes.admin import (
+    agent_knowledge,
+    analytics as analytics_admin,
+    chat_admin,
     org_users,
     organizations,
+    pharmacy as pharmacy_admin,
     tenant_agents,
     tenant_config,
     tenant_credentials,
@@ -37,6 +42,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(webhook.router, tags=["webhook"])
 api_router.include_router(mercadopago_webhook.router, tags=["Mercado Pago Webhook"])
+api_router.include_router(jira_webhook.router, tags=["Jira Webhook"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(phone_normalization.router, prefix="/phone", tags=["phone"])
 api_router.include_router(sync_status.router, prefix="/dux", tags=["sync"])
@@ -91,9 +97,36 @@ api_router.include_router(
     tags=["Tenant Documents"],
 )
 
+# Admin routes - Agent Knowledge Management (Global per-agent knowledge bases)
+api_router.include_router(
+    agent_knowledge.router,
+    prefix="/admin",
+    tags=["Agent Knowledge"],
+)
+
+# Admin routes - Analytics (Embedding statistics and management)
+api_router.include_router(
+    analytics_admin.router,
+    prefix="/admin/analytics",
+    tags=["Analytics"],
+)
+
 # Admin routes - Ollama Model Management (public - no auth required)
 api_router.include_router(
     ollama_admin.router,
     prefix="/admin/ollama",
     tags=["Ollama Admin"],
+)
+
+# Admin routes - Pharmacy Testing (public - for Vue.js testing interface)
+api_router.include_router(
+    pharmacy_admin.router,
+    tags=["Pharmacy Admin"],
+)
+
+# Admin routes - Chat Admin (for Chat Visualizer testing interface)
+api_router.include_router(
+    chat_admin.router,
+    prefix="/admin/chat",
+    tags=["Chat Admin"],
 )

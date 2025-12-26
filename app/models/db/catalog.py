@@ -166,7 +166,7 @@ class Product(Base, TimestampMixin):
     search_vector = Column(TSVECTOR)
 
     # Vector embedding for semantic search (pgvector)
-    # nomic-embed-text:v1.5 generates 768-dimensional vectors
+    # nomic-embed-text generates 768-dimensional vectors
     embedding = Column(Vector(768), nullable=True)
 
     # Metadatos adicionales

@@ -1,5 +1,5 @@
 # Agent Prompts - Support Agent
-# Purpose: E-commerce support and Excelencia ERP technical assistance
+# Purpose: E-commerce support and Excelencia Software technical assistance
 
 prompts:
   # === RESPONSE TEMPLATES ===
@@ -123,7 +123,7 @@ prompts:
       - Seguimiento de envios
       - Devoluciones y cambios
 
-      **Software Excelencia ERP:**
+      **Software Excelencia:**
       - Incidencias de modulos
       - Soporte tecnico
       - Capacitaciones
@@ -138,10 +138,10 @@ prompts:
   # === EXCELENCIA ERP RESPONSES ===
   - key: agents.support.excelencia.general
     name: Excelencia General Support
-    description: General response for Excelencia ERP queries
+    description: General response for Excelencia Software queries
     version: "1.0.0"
     template: |
-      Entiendo que tienes una consulta sobre el software **Excelencia ERP**.
+      Entiendo que tienes una consulta sobre el software **Excelencia Software**.
 
       Puedo ayudarte con:
 
@@ -178,7 +178,7 @@ prompts:
     description: Response for specific Excelencia module issues
     version: "1.0.0"
     template: |
-      Entiendo que tienes un problema con el **{module_name}** de Excelencia ERP.
+      Entiendo que tienes un problema con el **{module_name}** de Excelencia Software.
 
       {detected_issue_section}
 
@@ -283,7 +283,7 @@ prompts:
     description: FAQ response for license activation
     version: "1.0.0"
     template: |
-      Para activar o renovar tu licencia de **Excelencia ERP**:
+      Para activar o renovar tu licencia de **Excelencia Software**:
 
       1. Ingresa a **Configuracion > Licenciamiento**
       2. Haz clic en "Solicitar Activacion"
@@ -337,7 +337,7 @@ prompts:
     description: FAQ response for software updates
     version: "1.0.0"
     template: |
-      Para **actualizar** Excelencia ERP:
+      Para **actualizar** Excelencia Software:
 
       **Proceso recomendado:**
       1. Realizar respaldo completo de la base de datos
@@ -365,7 +365,7 @@ prompts:
     description: FAQ response for backup procedures
     version: "1.0.0"
     template: |
-      Para realizar **respaldos** de Excelencia ERP:
+      Para realizar **respaldos** de Excelencia Software:
 
       **Respaldo automatico:**
       - Configura en **Herramientas > Respaldos**
@@ -534,7 +534,7 @@ prompts:
     template: |
       Nuestros canales de contacto:
 
-      **Soporte Excelencia ERP:**
+      **Soporte Excelencia Software:**
       - Portal: soporte.excelencia.com
       - Email: soporte@excelencia.com
       - Tel: 800-123-4567

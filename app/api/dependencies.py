@@ -300,7 +300,7 @@ async def get_current_user_db(
             detail="Usuario no encontrado",
         )
 
-    if user.disabled:
+    if bool(user.disabled):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuario deshabilitado",

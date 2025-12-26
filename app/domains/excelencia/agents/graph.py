@@ -1,7 +1,7 @@
 """
 Excelencia Domain Graph
 
-LangGraph StateGraph implementation for the Excelencia ERP domain.
+LangGraph StateGraph implementation for the Excelencia Software domain.
 Handles ERP information queries, demos, modules, support, and corporate information.
 """
 
@@ -32,7 +32,7 @@ class ExcelenciaGraph:
     """
     Excelencia domain LangGraph implementation.
 
-    Handles routing and processing for all Excelencia ERP queries:
+    Handles routing and processing for all Excelencia Software queries:
     - Module information
     - Demo requests
     - Training and support

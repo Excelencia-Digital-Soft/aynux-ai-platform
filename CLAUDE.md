@@ -36,6 +36,21 @@ from datetime import UTC, datetime
 now = datetime.now(UTC)  # ✅ Always UTC
 ```
 
+### 4. pgvector with asyncpg - CRITICAL Bug
+When using SQLAlchemy `text()` with asyncpg and pgvector, **NEVER use `::vector` cast syntax** with named parameters:
+
+```python
+# ❌ BROKEN - asyncpg confuses :param::type syntax
+sql = text("SELECT * FROM docs WHERE 1 - (embedding <=> :vec::vector) > 0.5")
+
+# ✅ CORRECT - use CAST() instead
+sql = text("SELECT * FROM docs WHERE 1 - (embedding <=> CAST(:vec AS vector)) > 0.5")
+```
+
+**Why**: asyncpg interprets `:vec` as a parameter placeholder, then `::vector` causes a syntax error.
+
+**Affected operations**: All vector searches and updates using named parameters.
+
 ## Documentation Reference
 
 **Before changes, review `docs/`**:
@@ -109,10 +124,6 @@ uv run uvicorn app.main:app --reload --port 8000
 # Quality
 uv run black app && uv run isort app && uv run ruff check app --fix
 uv run pytest -v
-
-# Tools
-streamlit run streamlit_agent_visualizer.py    # Agent debugger
-streamlit run streamlit_knowledge_manager.py   # Knowledge base
 ```
 
 ## Architecture (Clean Architecture + DDD)
@@ -246,7 +257,7 @@ ENABLED_AGENTS=greeting_agent,excelencia_agent,excelencia_invoice_agent,excelenc
 - `farewell_agent` - Goodbye
 
 **Excelencia Domain** (domain_key="excelencia"):
-- `excelencia_agent` - Main ERP orchestrator
+- `excelencia_agent` - Main Software orchestrator
 - `excelencia_invoice_agent` - Client invoicing
 - `excelencia_support_agent` - Software support
 - `excelencia_promotions_agent` - Software promotions
@@ -351,7 +362,7 @@ See `docs/MULTI_TENANCY.md` for complete documentation.
 ```
 app/
 ├── domains/                    # DDD Bounded Contexts
-│   ├── excelencia/            # PRIMARY - ERP software domain
+│   ├── excelencia/            # PRIMARY - Software domain
 │   │   ├── agents/            # excelencia_agent, invoice, support, promotions
 │   │   ├── application/       # Use cases
 │   │   └── infrastructure/    # Repositories
@@ -380,20 +391,6 @@ app/
 ├── models/db/tenancy/         # Organization, TenantConfig, TenantAgent...
 └── prompts/templates/         # YAML prompt templates
 ```
-
-### Streamlit Admin Pages
-
-```
-streamlit_admin/pages/
-├── 1_🤖_Chat_Visualizer_[Global].py
-├── 2_📚_Knowledge_Base_[Global].py
-├── 5_🏢_Excelencia_[Global].py
-├── 8_🏢_Organizations_[Multi].py
-├── 10_⚙️_Tenant_Config_[Multi].py
-└── 11_📄_Tenant_Documents_[Multi].py
-```
-
-**Naming**: `[Global]` = system-wide, `[Multi]` = per-tenant
 
 ## Deployment
 

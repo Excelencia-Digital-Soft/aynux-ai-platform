@@ -105,5 +105,13 @@ class LangGraphState(TypedDict):
     conversation_summary: Optional[str]  # Resumen para inyectar en prompts
     history_loaded: bool  # Flag para indicar si el historial fue cargado
 
+    # Identification fields (must be preserved across nodes for flow continuity)
+    conversation_id: Optional[str]
+    user_phone: Optional[str]
+    sender: Optional[str]  # Alias for WhatsApp user identification
+
+    # RAG metrics for frontend visualization
+    rag_metrics: Optional[Dict[str, Any]]  # {used, query, results_count, duration_ms, sources}
+
 
 GraphState = LangGraphState

@@ -139,7 +139,7 @@ async def invite_user(
     result = await db.execute(stmt)
     current_count = len(result.scalars().all())
 
-    if current_count >= org.max_users:
+    if current_count >= int(org.max_users):  # type: ignore[arg-type]
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Límite de usuarios alcanzado ({org.max_users})",
@@ -261,7 +261,7 @@ async def update_user_role(
         )
 
     # Prevent owner from changing their own role
-    if target_membership.user_id == membership.user_id:
+    if str(target_membership.user_id) == str(membership.user_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No puedes cambiar tu propio rol",
@@ -328,7 +328,7 @@ async def remove_user(
         )
 
     # Admin removing admin requires owner permission
-    if target_membership.role == "admin" and membership.role != "owner":
+    if str(target_membership.role) == "admin" and str(membership.role) != "owner":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo el propietario puede eliminar administradores",

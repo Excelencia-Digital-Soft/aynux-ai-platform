@@ -41,6 +41,21 @@ from app.domains.shared.application.use_cases.upload_document_use_case import (
     UploadPDFUseCase,
     UploadTextUseCase,
 )
+from app.domains.shared.application.use_cases.agent_knowledge_use_cases import (
+    CreateAgentKnowledgeUseCase,
+    DeleteAgentKnowledgeUseCase,
+    GetAgentKnowledgeStatsUseCase,
+    ListAgentKnowledgeUseCase,
+    RegenerateAgentKnowledgeEmbeddingUseCase,
+    SearchAgentKnowledgeUseCase,
+    UploadAgentDocumentUseCase,
+)
+from app.domains.shared.application.use_cases.batch_knowledge_use_cases import (
+    BatchDeleteDocumentsUseCase,
+    BatchOperationResult,
+    BatchRegenerateEmbeddingsUseCase,
+    BatchUpdateDocumentsUseCase,
+)
 
 __all__ = [
     # Customer Use Cases
@@ -72,4 +87,17 @@ __all__ = [
     "RemoveContactDomainUseCase",
     "ClearDomainAssignmentsUseCase",
     "GetDomainStatsUseCase",
+    # Agent Knowledge Use Cases
+    "SearchAgentKnowledgeUseCase",
+    "UploadAgentDocumentUseCase",
+    "CreateAgentKnowledgeUseCase",
+    "ListAgentKnowledgeUseCase",
+    "DeleteAgentKnowledgeUseCase",
+    "GetAgentKnowledgeStatsUseCase",
+    "RegenerateAgentKnowledgeEmbeddingUseCase",
+    # Batch Knowledge Use Cases
+    "BatchOperationResult",
+    "BatchUpdateDocumentsUseCase",
+    "BatchDeleteDocumentsUseCase",
+    "BatchRegenerateEmbeddingsUseCase",
 ]

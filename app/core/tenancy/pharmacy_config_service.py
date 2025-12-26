@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Well-known test organization UUID (used by Streamlit for testing)
+# Well-known test organization UUID (used for testing)
 TEST_PHARMACY_ORG_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 

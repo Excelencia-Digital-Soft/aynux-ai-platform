@@ -10,6 +10,8 @@ import re
 from typing import Any, Dict
 
 from app.integrations.llm import OllamaLLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,7 @@ class SQLIntentAnalyzer:
             ollama: OllamaLLM instance for AI-powered analysis
         """
         self.ollama = ollama or OllamaLLM()
+        self.prompt_manager = PromptManager()
 
     async def analyze(self, user_query: str) -> Dict[str, Any]:
         """
@@ -80,9 +83,12 @@ Analiza la consulta y extrae los siguientes componentes en formato JSON:
 Responde SOLO el JSON valido:"""
 
         try:
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.TOOLS_DYNAMIC_SQL_INTENT_ANALYZER_SYSTEM,
+            )
             response = await self.ollama.generate_response(
-                system_prompt="Eres un experto en analisis de consultas SQL. "
-                "Extrae informacion estructurada de consultas en lenguaje natural.",
+                system_prompt=system_prompt,
                 user_prompt=intent_prompt,
                 temperature=0.1,
             )

@@ -11,16 +11,17 @@ prompts:
 
       "{message}"
 
-      Responde en JSON con esta estructura:
-      {
-        "query_type": "discount|offer|bundle|training|implementation|license|general",
-        "modules_interested": ["modulo1", "modulo2"],
-        "is_new_client": true|false|null,
-        "budget_mentioned": true|false,
-        "urgency": "low|medium|high"
-      }
+      Responde SOLO con un objeto JSON válido. Los valores posibles son:
+      - query_type: elegir UNO de estos valores exactos: "discount", "offer", "bundle", "training", "implementation", "license", "general"
+      - modules_interested: lista de módulos mencionados (puede estar vacía)
+      - is_new_client: true, false o null (booleano o null, no texto)
+      - budget_mentioned: true o false (booleano, no texto)
+      - urgency: "low", "medium" o "high"
 
-      Responde solo con el JSON, sin texto adicional.
+      Ejemplo de respuesta válida:
+      {"query_type": "discount", "modules_interested": [], "is_new_client": null, "budget_mentioned": false, "urgency": "medium"}
+
+      Responde SOLO con el JSON, sin explicaciones ni texto adicional.
     metadata:
       temperature: 0.3
       max_tokens: 150

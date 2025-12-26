@@ -20,9 +20,13 @@ import logging
 import re
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 import httpx
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import get_settings
 from app.domains.pharmacy.domain.entities.plex_customer import PlexCustomer
@@ -366,7 +370,7 @@ class PlexClient:
         if fecha is None:
             fecha = date.today()
 
-        payload = {
+        payload: dict[str, Any] = {
             "idcliente": customer_id,
             "fecha": fecha.strftime("%Y-%m-%d"),
             "monto": float(amount),
@@ -694,8 +698,8 @@ async def get_plex_client() -> PlexClient:
 
 
 async def get_plex_client_for_org(
-    db: "AsyncSession",
-    organization_id: "UUID",
+    db: AsyncSession,
+    organization_id: UUID,
 ) -> PlexClient:
     """
     Get a Plex client instance with credentials from database.
@@ -720,10 +724,6 @@ async def get_plex_client_for_org(
             async with client:
                 customers = await client.search_customer(phone="1234567890")
     """
-    from uuid import UUID
-
-    from sqlalchemy.ext.asyncio import AsyncSession
-
     from app.core.tenancy.credential_service import get_credential_service
 
     credential_service = get_credential_service()

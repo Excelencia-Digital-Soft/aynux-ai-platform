@@ -239,8 +239,8 @@ BUILTIN_AGENT_DEFAULTS: dict[str, dict] = {
     },
     "excelencia_agent": {
         "agent_type": "builtin",
-        "display_name": "Excelencia ERP Agent",
-        "description": "Handles queries about Excelencia ERP: demos, modules, training, verticals",
+        "display_name": "Excelencia Software Agent",
+        "description": "Handles queries about Excelencia Software: demos, modules, training, verticals",
         "priority": 70,
         "domain_key": "excelencia",
         "keywords": [

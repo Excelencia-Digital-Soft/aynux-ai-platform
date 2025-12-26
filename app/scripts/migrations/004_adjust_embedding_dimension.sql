@@ -1,6 +1,6 @@
 -- Migración 004: Ajustar dimensión de embeddings de 1024 a 768
 -- Fecha: 2025-10-17
--- Razón: nomic-embed-text:v1.5 genera embeddings de 768 dimensiones
+-- Razón: nomic-embed-text genera embeddings de 768 dimensiones
 -- Autor: Sistema de migración automática
 
 BEGIN;
@@ -17,7 +17,7 @@ ALTER TABLE products ADD COLUMN embedding vector(768);
 -- 4. Agregar columnas de tracking si no existen
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS last_embedding_update TIMESTAMP,
-  ADD COLUMN IF NOT EXISTS embedding_model VARCHAR(100) DEFAULT 'nomic-embed-text:v1.5';
+  ADD COLUMN IF NOT EXISTS embedding_model VARCHAR(100) DEFAULT 'nomic-embed-text';
 
 -- 5. Recrear índice HNSW optimizado para 768 dimensiones
 -- Parámetros HNSW: m=16 (número de conexiones), ef_construction=64 (calidad del índice)
@@ -28,9 +28,9 @@ CREATE INDEX idx_products_embedding_hnsw
 
 -- 6. Agregar comentarios descriptivos
 COMMENT ON COLUMN products.embedding IS
-  'Vector embedding (768-dim) for semantic search using nomic-embed-text:v1.5';
+  'Vector embedding (768-dim) for semantic search using nomic-embed-text';
 COMMENT ON COLUMN products.embedding_model IS
-  'Embedding model name (e.g., nomic-embed-text:v1.5, mxbai-embed-large)';
+  'Embedding model name (e.g., nomic-embed-text, mxbai-embed-large)';
 COMMENT ON COLUMN products.last_embedding_update IS
   'Timestamp of last embedding generation/update';
 

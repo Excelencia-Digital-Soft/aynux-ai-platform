@@ -15,18 +15,18 @@ from typing import TYPE_CHECKING, Any, Dict, Hashable, Optional, cast
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.langsmith_config import ConversationTracer, get_tracer
-
 from app.core.graph.execution.node_executor import NodeExecutor
 from app.core.graph.factories.agent_factory import AgentFactory
-from app.integrations.llm import OllamaLLM
-from app.integrations.databases import PostgreSQLIntegration
 from app.core.graph.routing.graph_router import GraphRouter
-from app.core.schemas import AgentType, get_non_supervisor_agents
 from app.core.graph.state_schema import LangGraphState
+from app.core.schemas import AgentType, get_non_supervisor_agents
 from app.core.utils.tracing import trace_async_method, trace_context
 from app.domains.shared.agents.history_agent import HistoryAgent
+from app.integrations.databases import PostgreSQLIntegration
+from app.integrations.llm import OllamaLLM
 from app.models.conversation_context import ConversationContextModel
 
 if TYPE_CHECKING:
@@ -196,7 +196,13 @@ class AynuxGraph:
         metadata={"component": "langgraph", "operation": "conversation_processing"},
         extract_state=False,
     )
-    async def invoke(self, message: str, conversation_id: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+    async def invoke(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        db_session: AsyncSession | None = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Process a message through the graph with conversation history middleware.
 
@@ -232,6 +238,12 @@ class AynuxGraph:
                 conv_tracker.add_message("user", message, {"timestamp": datetime.now().isoformat()})
 
             # ================================================================
+            # MIDDLEWARE: Inject DB session for message persistence
+            # ================================================================
+            if db_session:
+                self.history_agent.set_db_session(db_session)
+
+            # ================================================================
             # MIDDLEWARE: Load conversation context
             # ================================================================
             context: ConversationContextModel | None = None
@@ -252,10 +264,15 @@ class AynuxGraph:
                 "conversation_id": conv_id,
                 "timestamp": datetime.now().isoformat(),
                 "user_id": user_id,
+                # Identification fields for flow continuity (pending tickets, etc.)
+                "user_phone": kwargs.get("user_phone"),
+                "sender": kwargs.get("user_phone"),  # Alias for WhatsApp compatibility
                 # MIDDLEWARE: Inject conversation context
                 "conversation_context": context.model_dump() if context else {},
                 "conversation_summary": context.to_prompt_context() if context else "",
                 "history_loaded": context is not None,
+                # FLOW CONTINUITY: Inject last_agent as current_agent for follow-up detection
+                "current_agent": context.last_agent if context else None,
                 **kwargs,
             }
 
@@ -294,12 +311,20 @@ class AynuxGraph:
                 bot_response = self._extract_bot_response(result)
                 if bot_response:
                     try:
+                        # Get the specialized agent from history (not orchestrator/supervisor)
+                        agent_history = result.get("agent_history", [])
+                        specialized_agent = None
+                        for agent in reversed(agent_history):
+                            if agent not in ("orchestrator", "supervisor"):
+                                specialized_agent = agent
+                                break
+
                         await self.history_agent.update_context(
                             conversation_id=conv_id,
                             user_message=message,
                             bot_response=bot_response,
                             current_context=context,
-                            agent_name=result.get("current_agent"),
+                            agent_name=specialized_agent or result.get("current_agent"),
                         )
                     except Exception as e:
                         logger.warning(f"Error updating conversation context: {e}")
@@ -310,7 +335,13 @@ class AynuxGraph:
             logger.error(f"Error invoking graph: {e}")
             raise
 
-    async def astream(self, message: str, conversation_id: Optional[str] = None, **kwargs):
+    async def astream(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        db_session: AsyncSession | None = None,
+        **kwargs,
+    ):
         """
         Process a message through the graph with streaming support and history middleware.
 
@@ -346,6 +377,12 @@ class AynuxGraph:
                 conv_tracker.add_message("user", message, {"timestamp": datetime.now().isoformat()})
 
             # ================================================================
+            # MIDDLEWARE: Inject DB session for message persistence
+            # ================================================================
+            if db_session:
+                self.history_agent.set_db_session(db_session)
+
+            # ================================================================
             # MIDDLEWARE: Load conversation context
             # ================================================================
             context: ConversationContextModel | None = None
@@ -365,10 +402,15 @@ class AynuxGraph:
                 "conversation_id": conv_id,
                 "timestamp": datetime.now().isoformat(),
                 "user_id": user_id,
+                # Identification fields for flow continuity (pending tickets, etc.)
+                "user_phone": kwargs.get("user_phone"),
+                "sender": kwargs.get("user_phone"),  # Alias for WhatsApp compatibility
                 # MIDDLEWARE: Inject conversation context
                 "conversation_context": context.model_dump() if context else {},
                 "conversation_summary": context.to_prompt_context() if context else "",
                 "history_loaded": context is not None,
+                # FLOW CONTINUITY: Inject last_agent as current_agent for follow-up detection
+                "current_agent": context.last_agent if context else None,
                 **kwargs,
             }
 
@@ -426,12 +468,20 @@ class AynuxGraph:
                     bot_response = self._extract_bot_response(final_result)
                     if bot_response:
                         try:
+                            # Get the specialized agent from history (not orchestrator/supervisor)
+                            agent_history = final_result.get("agent_history", [])
+                            specialized_agent = None
+                            for agent in reversed(agent_history):
+                                if agent not in ("orchestrator", "supervisor"):
+                                    specialized_agent = agent
+                                    break
+
                             await self.history_agent.update_context(
                                 conversation_id=conv_id,
                                 user_message=message,
                                 bot_response=bot_response,
                                 current_context=context,
-                                agent_name=final_result.get("current_agent"),
+                                agent_name=specialized_agent or final_result.get("current_agent"),
                             )
                         except Exception as e:
                             logger.warning(f"Error updating conversation context: {e}")

@@ -115,7 +115,7 @@ class AIResponseGenerator(BaseResponseGenerator):
             AI-generated response text
         """
         # Build AI prompt
-        prompt = self._build_prompt(context, formatted_products)
+        prompt = await self._build_prompt(context, formatted_products)
 
         # Get LLM and generate response
         llm = self.ollama.get_llm(
@@ -133,7 +133,7 @@ class AIResponseGenerator(BaseResponseGenerator):
         else:
             return str(content).strip()
 
-    def _build_prompt(self, context: ResponseContext, formatted_products: str) -> str:
+    async def _build_prompt(self, context: ResponseContext, formatted_products: str) -> str:
         """
         Build prompt for AI generation.
 
@@ -151,7 +151,7 @@ class AIResponseGenerator(BaseResponseGenerator):
         products_without_stock = context.product_count - products_with_stock
 
         # Use external prompt builder (SRP: prompts separated from logic)
-        return build_product_response_prompt(
+        return await build_product_response_prompt(
             user_query=context.user_query,
             intent=intent,
             product_count=context.product_count,
@@ -171,7 +171,7 @@ class AIResponseGenerator(BaseResponseGenerator):
             Generated response
         """
         # Use external prompt builder (SRP: prompts separated from logic)
-        prompt = build_no_results_prompt(context.user_query)
+        prompt = await build_no_results_prompt(context.user_query)
 
         try:
             # Get LLM and generate response

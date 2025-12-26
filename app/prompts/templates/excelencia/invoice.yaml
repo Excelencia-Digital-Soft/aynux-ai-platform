@@ -11,16 +11,17 @@ prompts:
 
       "{message}"
 
-      Responde en JSON con esta estructura:
-      {
-        "query_type": "invoice|statement|collection|payment|history|general",
-        "client_name": "nombre del cliente si se menciona o null",
-        "action_requested": "consultar|generar|enviar|imprimir|otro",
-        "period": "mes/ano si se menciona o null",
-        "urgency": "low|medium|high"
-      }
+      Responde SOLO con un objeto JSON válido. Los valores posibles son:
+      - query_type: elegir UNO de estos valores exactos: "invoice", "statement", "collection", "payment", "history", "general"
+      - client_name: nombre del cliente si se menciona, o null si no se menciona
+      - action_requested: elegir UNO de estos valores exactos: "consultar", "generar", "enviar", "imprimir", "otro"
+      - period: mes/año si se menciona, o null si no se menciona
+      - urgency: "low", "medium" o "high"
 
-      Responde solo con el JSON, sin texto adicional.
+      Ejemplo de respuesta válida:
+      {"query_type": "invoice", "client_name": null, "action_requested": "consultar", "period": null, "urgency": "medium"}
+
+      Responde SOLO con el JSON, sin explicaciones ni texto adicional.
     metadata:
       temperature: 0.3
       max_tokens: 150

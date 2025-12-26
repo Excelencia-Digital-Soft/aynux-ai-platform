@@ -41,6 +41,11 @@ def extract_json_from_text(
         # Step 1: Remove thinking tags if present
         clean_text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
+        # Step 1.5: Normalize Python booleans/None to JSON
+        clean_text = re.sub(r"\bTrue\b", "true", clean_text)
+        clean_text = re.sub(r"\bFalse\b", "false", clean_text)
+        clean_text = re.sub(r"\bNone\b", "null", clean_text)
+
         # Step 2: Try to find JSON in various formats
         json_patterns = [
             # Markdown code blocks with json language

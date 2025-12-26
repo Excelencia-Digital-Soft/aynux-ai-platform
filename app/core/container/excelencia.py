@@ -35,7 +35,7 @@ class ExcelenciaContainer:
 
     def create_support_ticket_use_case(self, db: AsyncSession):
         """
-        Create a use case for creating support tickets.
+        Create a use case for creating support tickets (legacy).
 
         Args:
             db: Async database session
@@ -48,3 +48,51 @@ class ExcelenciaContainer:
         )
 
         return CreateSupportTicketUseCase(db)
+
+    def create_incident_use_case(self, db: AsyncSession):
+        """
+        Create a use case for creating incidents (new soporte schema).
+
+        Args:
+            db: Async database session
+
+        Returns:
+            CreateIncidentUseCase instance
+        """
+        from app.domains.excelencia.application.use_cases.support import (
+            CreateIncidentUseCase,
+        )
+
+        return CreateIncidentUseCase(db)
+
+    def get_pending_ticket_use_case(self, db: AsyncSession):
+        """
+        Create a use case for getting pending tickets.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            GetPendingTicketUseCase instance
+        """
+        from app.domains.excelencia.application.use_cases.support import (
+            GetPendingTicketUseCase,
+        )
+
+        return GetPendingTicketUseCase(db)
+
+    def save_pending_ticket_use_case(self, db: AsyncSession):
+        """
+        Create a use case for saving pending tickets.
+
+        Args:
+            db: Async database session
+
+        Returns:
+            SavePendingTicketUseCase instance
+        """
+        from app.domains.excelencia.application.use_cases.support import (
+            SavePendingTicketUseCase,
+        )
+
+        return SavePendingTicketUseCase(db)

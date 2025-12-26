@@ -167,6 +167,10 @@ class HistoryAgent(BaseAgent):
         # Update basic fields
         current_context.update_from_exchange(user_message, bot_response)
 
+        # Save the agent that processed this message for flow continuity
+        if agent_name:
+            current_context.last_agent = agent_name
+
         # Check if we should regenerate summary
         should_summarize = (
             current_context.total_turns % self.summary_interval == 0
@@ -189,7 +193,10 @@ class HistoryAgent(BaseAgent):
                 logger.error(f"Error generating summary: {e}")
                 # Continue without summary update (graceful degradation)
 
-        # Save messages to database
+        # Save context first to ensure parent record exists (FK requirement)
+        await self.context_service.save_context(conversation_id, current_context)
+
+        # Save messages to database (after context exists)
         try:
             await self.context_service.save_message(
                 conversation_id=conversation_id,
@@ -204,9 +211,6 @@ class HistoryAgent(BaseAgent):
             )
         except Exception as e:
             logger.warning(f"Error saving messages: {e}")
-
-        # Save updated context
-        await self.context_service.save_context(conversation_id, current_context)
 
         return current_context
 

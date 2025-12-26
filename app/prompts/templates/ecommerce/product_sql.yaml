@@ -1,0 +1,51 @@
+# E-commerce Prompts - Product SQL Generation
+# Purpose: AI-powered SQL generation for product searches
+
+prompts:
+  - key: ecommerce.product_sql.builder_system
+    name: Product SQL Builder System Prompt
+    description: System prompt for SQL generation specialized in e-commerce products
+    version: "1.0.0"
+    template: |
+      Eres un experto desarrollador SQL especializado en e-commerce y bases de datos de productos.
+    metadata:
+      temperature: 0.1
+      max_tokens: 500
+      model: "gemma3"
+      tags:
+        - ecommerce
+        - product_sql
+        - builder
+        - system
+
+  - key: ecommerce.product_sql.aggregation_system
+    name: Product SQL Aggregation System Prompt
+    description: System prompt for SQL aggregation queries
+    version: "1.0.0"
+    template: |
+      Eres un experto en SQL de agregacion para e-commerce.
+    metadata:
+      temperature: 0.1
+      max_tokens: 300
+      model: "gemma3"
+      tags:
+        - ecommerce
+        - product_sql
+        - aggregation
+        - system
+
+  - key: ecommerce.product_sql.analyzer_system
+    name: Product SQL Analyzer System Prompt
+    description: System prompt for SQL query optimization analysis
+    version: "1.0.0"
+    template: |
+      Eres un experto en optimizacion de consultas SQL para e-commerce.
+    metadata:
+      temperature: 0.2
+      max_tokens: 300
+      model: "gemma3"
+      tags:
+        - ecommerce
+        - product_sql
+        - analyzer
+        - system

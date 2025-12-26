@@ -211,7 +211,7 @@ class PromptManager:
                     existing.template = template  # type: ignore[assignment]
                     existing.name = name  # type: ignore[assignment]
                     existing.description = description  # type: ignore[assignment]
-                    existing.metadata = metadata or {}  # type: ignore[assignment]
+                    existing.metadata = metadata or {}
                     existing.is_dynamic = True  # type: ignore[assignment]
 
                     await db.commit()
@@ -355,8 +355,8 @@ class PromptManager:
                 db.add(backup_version)
 
                 # Actualizar prompt con la versión antigua
-                prompt.template = version.template  # type: ignore[assignment]
-                prompt.version = version.version  # type: ignore[assignment]
+                prompt.template = version.template
+                prompt.version = version.version
 
                 await db.commit()
 

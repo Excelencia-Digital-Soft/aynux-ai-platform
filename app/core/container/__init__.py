@@ -202,6 +202,18 @@ class DependencyContainer:
         """Create use case for support ticket creation."""
         return self._excelencia.create_support_ticket_use_case(db)
 
+    def create_incident_use_case(self, db):
+        """Create use case for incident creation (new soporte schema)."""
+        return self._excelencia.create_incident_use_case(db)
+
+    def get_pending_ticket_use_case(self, db):
+        """Create use case for getting pending tickets."""
+        return self._excelencia.get_pending_ticket_use_case(db)
+
+    def save_pending_ticket_use_case(self, db):
+        """Create use case for saving pending tickets."""
+        return self._excelencia.save_pending_ticket_use_case(db)
+
     # ============================================================
     # SHARED (delegated to SharedContainer)
     # ============================================================

@@ -518,3 +518,184 @@ async def sync_all_embeddings(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to sync embeddings",
         ) from e
+
+
+# ============================================================================
+# Batch Operations Endpoints
+# ============================================================================
+
+
+from pydantic import BaseModel, Field
+from app.domains.shared.application.use_cases.batch_knowledge_use_cases import (
+    BatchUpdateDocumentsUseCase,
+    BatchDeleteDocumentsUseCase,
+    BatchRegenerateEmbeddingsUseCase,
+)
+
+
+class BatchUpdateRequest(BaseModel):
+    """Request schema for batch update operations."""
+
+    doc_ids: list[str] = Field(..., description="List of document UUIDs to update")
+    update_data: dict = Field(
+        ...,
+        description="Fields to update: document_type, category, active, add_tags, remove_tags",
+    )
+
+
+class BatchDeleteRequest(BaseModel):
+    """Request schema for batch delete operations."""
+
+    doc_ids: list[str] = Field(..., description="List of document UUIDs to delete")
+    hard_delete: bool = Field(
+        False, description="Permanently delete (true) or soft delete (false)"
+    )
+
+
+class BatchEmbeddingRequest(BaseModel):
+    """Request schema for batch embedding regeneration."""
+
+    doc_ids: list[str] = Field(
+        ..., description="List of document UUIDs to regenerate embeddings"
+    )
+
+
+class BatchOperationResponse(BaseModel):
+    """Response schema for batch operations."""
+
+    success: bool = Field(..., description="Whether operation completed successfully")
+    success_count: int = Field(..., description="Number of successful operations")
+    error_count: int = Field(..., description="Number of failed operations")
+    errors: list[dict] = Field(
+        default_factory=list, description="List of errors with doc_id and message"
+    )
+    message: str = Field(..., description="Summary message")
+
+
+@router.put(
+    "/batch-update",
+    response_model=BatchOperationResponse,
+    summary="Batch update documents",
+    description="Update multiple knowledge documents at once",
+)
+async def batch_update_documents(
+    request: BatchUpdateRequest,
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+):
+    """
+    Batch update multiple knowledge documents.
+
+    Supports updating:
+    - **document_type**: Change document type
+    - **category**: Change category
+    - **active**: Activate or deactivate
+    - **add_tags**: Add tags to documents
+    - **remove_tags**: Remove tags from documents
+
+    Returns count of successful and failed operations.
+    """
+    try:
+        use_case = BatchUpdateDocumentsUseCase(db)
+        result = await use_case.execute(
+            doc_ids=request.doc_ids,
+            update_data=request.update_data,
+            table="company_knowledge",
+        )
+
+        return BatchOperationResponse(
+            success=result.error_count == 0,
+            success_count=result.success_count,
+            error_count=result.error_count,
+            errors=[{"doc_id": e[0], "error": e[1]} for e in result.errors],
+            message=f"Updated {result.success_count} documents, {result.error_count} errors",
+        )
+    except Exception as e:
+        logger.error(f"Error in batch update: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to batch update documents",
+        ) from e
+
+
+@router.delete(
+    "/batch-delete",
+    response_model=BatchOperationResponse,
+    summary="Batch delete documents",
+    description="Delete multiple knowledge documents at once",
+)
+async def batch_delete_documents(
+    request: BatchDeleteRequest,
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+):
+    """
+    Batch delete multiple knowledge documents.
+
+    - **hard_delete=false** (default): Soft delete (set active=false)
+    - **hard_delete=true**: Permanently delete from database
+
+    Returns count of successful and failed operations.
+    """
+    try:
+        use_case = BatchDeleteDocumentsUseCase(db)
+        result = await use_case.execute(
+            doc_ids=request.doc_ids,
+            hard_delete=request.hard_delete,
+            table="company_knowledge",
+        )
+
+        delete_type = "deleted" if request.hard_delete else "deactivated"
+        return BatchOperationResponse(
+            success=result.error_count == 0,
+            success_count=result.success_count,
+            error_count=result.error_count,
+            errors=[{"doc_id": e[0], "error": e[1]} for e in result.errors],
+            message=f"{result.success_count} documents {delete_type}, {result.error_count} errors",
+        )
+    except Exception as e:
+        logger.error(f"Error in batch delete: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to batch delete documents",
+        ) from e
+
+
+@router.post(
+    "/batch-regenerate-embeddings",
+    response_model=BatchOperationResponse,
+    summary="Batch regenerate embeddings",
+    description="Regenerate embeddings for multiple documents at once",
+)
+async def batch_regenerate_embeddings(
+    request: BatchEmbeddingRequest,
+    db: AsyncSession = Depends(get_async_db),  # noqa: B008
+):
+    """
+    Batch regenerate embeddings for multiple documents.
+
+    Useful when:
+    - Content was manually edited
+    - Embedding model changed
+    - Fixing corrupted embeddings
+
+    Returns count of successful and failed operations.
+    """
+    try:
+        use_case = BatchRegenerateEmbeddingsUseCase(db)
+        result = await use_case.execute(
+            doc_ids=request.doc_ids,
+            table="company_knowledge",
+        )
+
+        return BatchOperationResponse(
+            success=result.error_count == 0,
+            success_count=result.success_count,
+            error_count=result.error_count,
+            errors=[{"doc_id": e[0], "error": e[1]} for e in result.errors],
+            message=f"Regenerated embeddings for {result.success_count} documents, {result.error_count} errors",
+        )
+    except Exception as e:
+        logger.error(f"Error in batch embedding regeneration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to batch regenerate embeddings",
+        ) from e

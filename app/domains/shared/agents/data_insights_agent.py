@@ -128,8 +128,13 @@ class DataInsightsAgent(BaseAgent):
                 variables={"message": message},
             )
 
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_DATA_INSIGHTS_SYSTEM_CLASSIFIER,
+            )
+
             response = await self.ollama.generate_response(
-                system_prompt="Eres un clasificador de consultas que determina si requieren analisis de datos.",
+                system_prompt=system_prompt,
                 user_prompt=analysis_prompt,
                 complexity=ModelComplexity.SIMPLE,
                 temperature=0.1,
@@ -254,9 +259,13 @@ class DataInsightsAgent(BaseAgent):
                 },
             )
 
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_DATA_INSIGHTS_SYSTEM_ANALYST,
+            )
+
             response = await self.ollama.generate_response(
-                system_prompt="Eres un analista de datos experto que proporciona insights claros "
-                "basados en consultas de base de datos.",
+                system_prompt=system_prompt,
                 user_prompt=response_prompt,
                 complexity=ModelComplexity.COMPLEX,
                 temperature=0.6,
@@ -279,8 +288,13 @@ class DataInsightsAgent(BaseAgent):
                 variables={"user_query": user_query},
             )
 
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_DATA_INSIGHTS_SYSTEM_NO_RESULTS,
+            )
+
             response = await self.ollama.generate_response(
-                system_prompt="Eres un asistente util que maneja consultas sin resultados de manera empatica.",
+                system_prompt=system_prompt,
                 user_prompt=no_results_prompt,
                 complexity=ModelComplexity.SIMPLE,
                 temperature=0.7,
@@ -304,8 +318,13 @@ class DataInsightsAgent(BaseAgent):
                 },
             )
 
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.AGENTS_DATA_INSIGHTS_SYSTEM_ERROR_HANDLER,
+            )
+
             response = await self.ollama.generate_response(
-                system_prompt="Eres un asistente que maneja errores tecnicos de manera amigable y util.",
+                system_prompt=system_prompt,
                 user_prompt=error_prompt,
                 complexity=ModelComplexity.SIMPLE,
                 temperature=0.5,

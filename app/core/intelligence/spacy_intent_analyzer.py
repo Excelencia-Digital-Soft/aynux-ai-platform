@@ -141,9 +141,25 @@ class SpacyIntentAnalyzer:
             },
             # Excelencia Software Support/Incidents
             "excelencia_soporte": {
-                "high": ["incidencia", "ticket", "reportar", "bug", "falla"],
-                "medium": ["problema módulo", "error sistema", "levantar ticket"],
-                "low": ["soporte técnico", "ayuda software"],
+                "high": ["incidencia", "ticket", "reportar", "bug", "falla", "error interno"],
+                "medium": [
+                    "problema módulo",
+                    "error sistema",
+                    "levantar ticket",
+                    # Productos Excelencia (routing de errores)
+                    "zismed",
+                    "turmedica",
+                    "mediflow",
+                    "medicpay",
+                    "finflow",
+                    "validtek",
+                    "farmatek",
+                    "inroom",
+                    "lumenai",
+                    "gremiocash",
+                    "ai medassist",
+                ],
+                "low": ["soporte técnico", "ayuda software", "turno", "turnos"],
             },
             # Excelencia-specific intents
             "excelencia_facturacion": {

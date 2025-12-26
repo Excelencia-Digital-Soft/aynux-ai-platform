@@ -43,7 +43,7 @@ class ProductEmbeddingManager:
         """
         self.ollama = ollama or OllamaLLM()
         self.metrics = metrics_service or get_metrics_service()
-        self.embedding_model = "nomic-embed-text:v1.5"
+        self.embedding_model = "nomic-embed-text"
         self.embedding_dimensions = 768
         self._text_builder = EmbeddingTextBuilder()
 
@@ -65,9 +65,7 @@ class ProductEmbeddingManager:
             embedding_result = await asyncio.to_thread(embeddings.embed_query, text)
 
             if len(embedding_result) != self.embedding_dimensions:
-                logger.warning(
-                    f"Embedding dimension mismatch: {len(embedding_result)} vs {self.embedding_dimensions}"
-                )
+                logger.warning(f"Embedding dimension mismatch: {len(embedding_result)} vs {self.embedding_dimensions}")
 
             return embedding_result
 
@@ -206,9 +204,7 @@ class ProductEmbeddingManager:
                         else:
                             stats["errors"] += 1
 
-                    logger.info(
-                        f"Batch {i // batch_size + 1}: {stats['updated']} updated, {stats['errors']} errors"
-                    )
+                    logger.info(f"Batch {i // batch_size + 1}: {stats['updated']} updated, {stats['errors']} errors")
 
                 stats["skipped"] = stats["total"] - stats["updated"] - stats["errors"]
                 logger.info(f"Batch update complete: {stats}")
@@ -248,13 +244,9 @@ class ProductEmbeddingManager:
                     pass
 
                 # Direct query fallback
-                total = await db.scalar(
-                    select(func.count(Product.id)).where(Product.active.is_(True))
-                )
+                total = await db.scalar(select(func.count(Product.id)).where(Product.active.is_(True)))
                 with_embeddings = await db.scalar(
-                    select(func.count(Product.id)).where(
-                        and_(Product.active.is_(True), Product.embedding.isnot(None))
-                    )
+                    select(func.count(Product.id)).where(and_(Product.active.is_(True), Product.embedding.isnot(None)))
                 )
 
                 total_count = total or 0
@@ -264,9 +256,7 @@ class ProductEmbeddingManager:
                     "total_products": total_count,
                     "products_with_embeddings": with_embeddings_count,
                     "missing_embeddings": total_count - with_embeddings_count,
-                    "coverage_percentage": (
-                        with_embeddings_count / total_count * 100 if total_count > 0 else 0
-                    ),
+                    "coverage_percentage": (with_embeddings_count / total_count * 100 if total_count > 0 else 0),
                 }
 
         except Exception as e:

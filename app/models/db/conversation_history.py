@@ -7,7 +7,7 @@ Tables in schema 'core':
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -101,10 +101,10 @@ class ConversationContext(Base, TimestampMixin):
 
     # Activity tracking
     last_activity_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.now,
-        onupdate=datetime.now,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         index=True,
         comment="Last activity timestamp for cleanup queries",
     )
@@ -172,9 +172,9 @@ class ConversationMessage(Base):
 
     # Timestamps
     created_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.now,
+        default=lambda: datetime.now(UTC),
         index=True,
     )
 

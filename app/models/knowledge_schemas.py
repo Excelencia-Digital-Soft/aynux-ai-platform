@@ -29,7 +29,7 @@ class KnowledgeCreate(BaseModel):
         min_length=1,
         max_length=500,
         description="Document title",
-        examples=["Misión y Visión de Excelencia ERP"],
+        examples=["Misión y Visión de Excelencia Software"],
     )
 
     content: str = Field(
@@ -103,7 +103,7 @@ class KnowledgeCreate(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "title": "Misión y Visión de Excelencia ERP",
+                "title": "Misión y Visión de Excelencia Software",
                 "content": "# Misión\nProveer soluciones tecnológicas...\n\n# Visión\nSer líderes...",
                 "document_type": "mission_vision",
                 "category": "valores_corporativos",

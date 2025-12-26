@@ -15,11 +15,11 @@ import time
 from collections import OrderedDict
 from typing import Any, Dict, Optional
 
-from app.utils import extract_json_from_text
-from app.prompts.intent_analyzer_prompt import get_build_llm_prompt, get_system_prompt
-from app.core.schemas import get_intent_to_agent_mapping, get_valid_intents
 from app.core.intelligence.spacy_intent_analyzer import SpacyIntentAnalyzer
+from app.core.schemas import get_intent_to_agent_mapping, get_valid_intents
 from app.integrations.llm.model_provider import ModelComplexity
+from app.prompts.intent_analyzer_prompt import get_build_llm_prompt, get_system_prompt
+from app.utils import extract_json_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +36,12 @@ def _get_cache_key(message: str, context: Dict[str, Any] | None = None) -> str:
     # Include relevant context in the key
     context_str = ""
     if context:
-        # Only include relevant context to avoid unnecessary cache misses
+        # Include previous_agent for conversation continuity
+        conversation_data = context.get("conversation_data", {})
         relevant_context = {
             "language": context.get("language", "es"),
             "user_tier": context.get("customer_data", {}).get("tier", "basic"),
+            "previous_agent": conversation_data.get("previous_agent"),
         }
         context_str = json.dumps(relevant_context, sort_keys=True)
 
@@ -105,6 +107,42 @@ class IntentRouter:
             f"spacy_available={self.spacy_analyzer.is_available()}"
         )
 
+    def _check_active_flow_agent(self, conversation_data: Dict[str, Any] | None) -> Dict[str, Any] | None:
+        """Check if previous agent has an active flow that should continue.
+
+        This prevents routing away from agents during multi-step flows like:
+        - excelencia_support_agent: incident creation (description → priority → confirm)
+        - excelencia_invoice_agent: invoice lookup flow
+        - pharmacy_operations_agent: pharmacy operations
+        """
+        if not conversation_data:
+            return None
+
+        previous_agent = conversation_data.get("previous_agent")
+
+        # Skip if no previous agent or if it was orchestrator/supervisor
+        if not previous_agent or previous_agent in ("orchestrator", "supervisor"):
+            return None
+
+        # Agents with multi-turn conversational flows
+        flow_agents = {
+            "excelencia_support_agent",  # 3-step incident creation
+            "excelencia_invoice_agent",  # Invoice lookup flow
+            "pharmacy_operations_agent",  # Pharmacy operations
+        }
+
+        if previous_agent in flow_agents:
+            self.logger.info(f"Active flow detected, continuing with {previous_agent}")
+            return {
+                "primary_intent": "follow_up",
+                "confidence": 0.95,
+                "target_agent": previous_agent,
+                "requires_handoff": False,
+                "entities": {},
+            }
+
+        return None
+
     async def determine_intent(
         self,
         message: str,
@@ -124,6 +162,12 @@ class IntentRouter:
         """
         start_time = time.time()
         self._stats["total_requests"] += 1
+
+        # 0. Check for active multi-turn flows BEFORE LLM analysis
+        active_flow_result = self._check_active_flow_agent(conversation_data)
+        if active_flow_result:
+            self._update_response_time_stats(time.time() - start_time)
+            return active_flow_result
 
         # 1. Intentar con Ollama (IA) primero
         try:
@@ -328,6 +372,7 @@ class IntentRouter:
             ],
             # Excelencia Software Support/Incidents (NEW)
             "excelencia_soporte": [
+                # Acciones de soporte
                 "incidencia",
                 "reportar",
                 "ticket",
@@ -336,6 +381,22 @@ class IntentRouter:
                 "levantar ticket",
                 "problema módulo",
                 "error sistema",
+                "error interno",
+                # Productos Excelencia (para routing correcto de errores)
+                "zismed",
+                "turmedica",
+                "mediflow",
+                "medicpay",
+                "finflow",
+                "validtek",
+                "farmatek",
+                "inroom",
+                "lumenai",
+                "gremiocash",
+                "ai medassist",
+                # Contexto de uso
+                "turno",
+                "turnos",
             ],
             # Support and conversational intents (ecommerce only)
             "soporte": ["problema producto", "error envío", "ayuda pedido", "reclamo compra", "defectuoso"],
@@ -441,12 +502,28 @@ class IntentRouter:
 
             # Validar que la intención sea válida
             valid_intents = get_valid_intents()
+            # Also accept "follow_up" which is handled specially (not in schema intents)
+            valid_intents_with_follow_up = set(valid_intents) | {"follow_up"}
 
-            if result["intent"] not in valid_intents:
+            if result["intent"] not in valid_intents_with_follow_up:
                 logger.warning(f"Invalid intent detected: {result['intent']}. Using fallback intent.")
                 result["intent"] = "fallback"
                 result["confidence"] = 0.4
                 result["reasoning"] = "LLM returned an invalid intent."
+
+            # Handle follow_up intent specially - route to previous agent
+            if result["intent"] == "follow_up":
+                conversation_data = state_dict.get("conversation_data", {})
+                previous_agent = conversation_data.get("previous_agent")
+                if previous_agent and previous_agent not in ("orchestrator", None):
+                    target_agent = previous_agent
+                    logger.info(f"Follow-up detected, routing to previous agent: {target_agent}")
+                else:
+                    # No previous agent, fallback to fallback_agent
+                    target_agent = "fallback_agent"
+                    logger.warning("Follow-up detected but no previous agent, using fallback")
+            else:
+                target_agent = _map_intent_to_agent(result["intent"])
 
             # Crear resultado final
             final_result = {
@@ -454,7 +531,7 @@ class IntentRouter:
                 "confidence": result["confidence"],
                 "entities": result.get("entities", {}),
                 "requires_handoff": False,
-                "target_agent": _map_intent_to_agent(result["intent"]),
+                "target_agent": target_agent,
             }
 
             # Almacenar en caché

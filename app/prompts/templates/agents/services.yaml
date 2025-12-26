@@ -51,13 +51,13 @@ prompts:
           keywords: ["erp", "excelencia", "sistema", "modulo", "demo", "mision", "vision"]
           i18n:
             es:
-              service_name: "ERP Excelencia"
+              service_name: "Software Excelencia"
               description: "Informacion del sistema ERP, modulos y demos"
             en:
-              service_name: "Excelencia ERP"
-              description: "ERP system information, modules and demos"
+              service_name: "Excelencia Software"
+              description: "Software system information, modules and demos"
             pt:
-              service_name: "ERP Excelencia"
+              service_name: "Software Excelencia"
               description: "Informacoes do sistema ERP, modulos e demos"
 
         # Excelencia domain - Client Invoicing

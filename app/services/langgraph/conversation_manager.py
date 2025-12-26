@@ -86,10 +86,25 @@ class ConversationManager:
     async def log_conversation_safely(
         self, user_number: str, user_message: str, bot_response: str, agent_used: Optional[str]
     ):
-        """Registra la conversación en la base de datos (placeholder)"""
+        """
+        Log conversation for debugging and auditing purposes.
+
+        Note: Messages are cached in Redis (see cache_conversation method).
+        Full database persistence requires implementing Customer/Conversation
+        relationship flow in the ecommerce schema.
+
+        TODO: Implement PostgreSQL persistence when customer flow is established.
+        """
         try:
-            self.logger.info(f"Conversation log - User ({user_number}): {user_message[:100]}...")
-            self.logger.info(f"Conversation log - Bot (agent: {agent_used}): {bot_response[:100]}...")
+            # Enhanced logging with structured format for easier parsing
+            self.logger.info(
+                f"CHAT_LOG | phone={user_number} | agent={agent_used or 'unknown'} | "
+                f"user_msg={user_message[:150]}{'...' if len(user_message) > 150 else ''}"
+            )
+            self.logger.info(
+                f"CHAT_LOG | phone={user_number} | agent={agent_used or 'unknown'} | "
+                f"bot_response={bot_response[:150]}{'...' if len(bot_response) > 150 else ''}"
+            )
         except Exception as e:
             self.logger.error(f"Error logging conversation: {e}")
 

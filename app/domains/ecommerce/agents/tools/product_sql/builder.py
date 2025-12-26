@@ -10,6 +10,8 @@ import re
 from typing import Any
 
 from app.integrations.llm import OllamaLLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 from .schemas import PRODUCT_SCHEMA
 
@@ -22,6 +24,7 @@ class ProductSQLBuilder:
     def __init__(self, ollama: OllamaLLM):
         self.ollama = ollama
         self.product_schema = PRODUCT_SCHEMA
+        self.prompt_manager = PromptManager()
 
     async def build(
         self,
@@ -93,9 +96,9 @@ Responde SOLO con el SQL, sin explicaciones.
 """
 
         try:
-            system_prompt = (
-                "Eres un experto desarrollador SQL especializado "
-                "en e-commerce y bases de datos de productos."
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.ECOMMERCE_PRODUCT_SQL_BUILDER_SYSTEM,
             )
             response = await self.ollama.generate_response(
                 system_prompt=system_prompt,
@@ -137,8 +140,12 @@ EJEMPLOS:
 Incluye JOINs necesarios y responde SOLO con el SQL:"""
 
         try:
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.ECOMMERCE_PRODUCT_SQL_AGGREGATION_SYSTEM,
+            )
             response = await self.ollama.generate_response(
-                system_prompt="Eres un experto en SQL de agregación para e-commerce.",
+                system_prompt=system_prompt,
                 user_prompt=aggregation_prompt,
                 temperature=0.1,
             )

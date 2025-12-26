@@ -29,7 +29,7 @@ class SupportTicket(Base, TimestampMixin):
     Support tickets created by users via chat.
 
     Stores incidents, feedback, questions, and suggestions from users
-    interacting with the Excelencia ERP support agent.
+    interacting with the Excelencia Software support agent.
 
     Attributes:
         id: Unique ticket identifier (UUID)

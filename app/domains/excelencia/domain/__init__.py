@@ -1,7 +1,7 @@
 """
 Excelencia Domain Layer
 
-Core domain for the Excelencia ERP system information and support.
+Core domain for the Excelencia Software system information and support.
 """
 
 from app.domains.excelencia.domain.entities import Demo, DemoRequest, ERPModule

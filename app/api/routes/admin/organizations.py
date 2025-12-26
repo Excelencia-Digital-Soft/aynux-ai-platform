@@ -14,7 +14,7 @@ import re
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +23,6 @@ from sqlalchemy.orm import selectinload
 from app.api.dependencies import (
     get_current_user_db,
     get_organization_by_id,
-    oauth2_scheme,
     require_admin,
     require_owner,
     token_service,

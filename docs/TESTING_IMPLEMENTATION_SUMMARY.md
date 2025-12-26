@@ -25,15 +25,6 @@ Se ha implementado un sistema completo de testing y monitoreo para Aynux Bot con
 - ✅ Metadatos de cada respuesta
 - **Uso**: `python tests/test_chat_interactive.py`
 
-#### `tests/monitoring_dashboard.py`
-- ✅ Dashboard web con Streamlit
-- ✅ 4 tabs: Dashboard, Graph Viz, Test Chat, Docs
-- ✅ Métricas en tiempo real (success rate, latency, errors)
-- ✅ Gráficos interactivos con Plotly
-- ✅ Visualización del grafo de agentes
-- ✅ Chat integrado en el navegador
-- **Uso**: `streamlit run tests/monitoring_dashboard.py`
-
 #### `tests/test_scenarios.py`
 - ✅ 16 escenarios predefinidos
 - ✅ Validación automática de agentes
@@ -79,7 +70,6 @@ Se ha implementado un sistema completo de testing y monitoreo para Aynux Bot con
 
 ### Testing Interfaces
 - ✅ **Terminal Interactive**: Chat en consola con Rich UI
-- ✅ **Web Dashboard**: Streamlit con 4 tabs de funcionalidad
 - ✅ **Automated Tests**: Suite de 16 escenarios con validación
 
 ### Visualization
@@ -156,7 +146,7 @@ LANGSMITH_PROJECT=aynux-production
 LANGSMITH_TRACING_ENABLED=true
 
 # 2. Instala dependencias
-uv add rich streamlit plotly pandas
+uv add rich plotly pandas
 
 # 3. Verifica
 python tests/test_langsmith_verification.py
@@ -168,10 +158,7 @@ python tests/test_langsmith_verification.py
 # Opción 1: Chat Interactivo
 python tests/test_chat_interactive.py
 
-# Opción 2: Dashboard Visual
-streamlit run tests/monitoring_dashboard.py
-
-# Opción 3: Tests Automatizados
+# Opción 2: Tests Automatizados
 python tests/test_scenarios.py all
 ```
 
@@ -228,12 +215,6 @@ python tests/test_scenarios.py all
 - ✅ Dashboard web profesional incluido
 - ✅ API para métricas programáticas
 
-### Por Qué Streamlit
-- ✅ Desarrollo rápido de dashboards
-- ✅ Componentes interactivos built-in
-- ✅ Fácil integración con Plotly
-- ✅ Hot reload durante desarrollo
-
 ### Por Qué Rich
 - ✅ UI hermosa en terminal
 - ✅ Tablas, colores, markdown support
@@ -263,7 +244,6 @@ Guía incluye soluciones para:
 
 ### Links Externos
 - LangSmith: https://docs.smith.langchain.com
-- Streamlit: https://docs.streamlit.io
 - Plotly: https://plotly.com/python/
 
 ---
@@ -298,11 +278,10 @@ Guía incluye soluciones para:
 
 Se ha implementado un **sistema completo de testing y monitoreo** para Aynux Bot que incluye:
 
-- ✅ **4 herramientas de testing** funcionalmente completas
+- ✅ **3 herramientas de testing** funcionalmente completas
 - ✅ **3 documentos de guía** exhaustivos
 - ✅ **16 escenarios de prueba** predefinidos
 - ✅ **Integración completa con LangSmith** para tracing automático
-- ✅ **Dashboard visual interactivo** con métricas en tiempo real
 - ✅ **Mismo backend** para WhatsApp y testing web
 
 **Todo listo para probar el comportamiento del bot, analizar decisiones de agentes, y monitorear el sistema en producción.**

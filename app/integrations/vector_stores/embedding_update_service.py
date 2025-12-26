@@ -125,10 +125,11 @@ class EmbeddingUpdateService:
                         embedding_str = f"[{','.join(str(v) for v in embedding)}]"
 
                         # Update pgvector (PostgreSQL) - using raw SQL for vector type
+                        # Note: Use CAST() instead of :: to avoid asyncpg parameter confusion
                         update_stmt = text(
                             """
                             UPDATE products
-                            SET embedding = :embedding::vector,
+                            SET embedding = CAST(:embedding AS vector),
                                 updated_at = NOW()
                             WHERE id = :product_id
                         """
@@ -201,10 +202,11 @@ class EmbeddingUpdateService:
                 embedding = await self.generate_embedding(content)
                 embedding_str = f"[{','.join(str(v) for v in embedding)}]"
 
+                # Note: Use CAST() instead of :: to avoid asyncpg parameter confusion
                 update_stmt = text(
                     """
                     UPDATE products
-                    SET embedding = :embedding::vector,
+                    SET embedding = CAST(:embedding AS vector),
                         updated_at = NOW()
                     WHERE id = :product_id
                 """

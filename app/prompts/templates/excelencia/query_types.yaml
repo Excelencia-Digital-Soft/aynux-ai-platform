@@ -1,0 +1,207 @@
+# Query Types Configuration - Excelencia Support
+# ================================================
+# Extensible sin modificar código (Open/Closed Principle)
+#
+# Para agregar nuevos tipos de consulta o keywords:
+# 1. Agregar el tipo a priority_order (en posición deseada)
+# 2. Definir keywords bajo types.<nombre_tipo>.keywords
+#
+# El fuzzy matching detecta automáticamente typos comunes
+# (ej: "incendencia" -> "incidencia" con 80% similitud)
+
+query_types:
+  # Orden de prioridad para matching (primero = mayor prioridad)
+  priority_order:
+    - incident
+    - feedback
+    - error
+    - module
+    - performance
+    - configuration
+    - data
+    - training
+    - general
+
+  types:
+    # =========================================================================
+    # INCIDENT - Incidencias técnicas y reportes de bugs
+    # =========================================================================
+    incident:
+      description: "Incidencias técnicas y reportes de bugs"
+      keywords:
+        # Keywords principales
+        - incidencia
+        - reportar
+        - registrar incidencia
+        - crear ticket
+        - levantar ticket
+        - abrir ticket
+        - quiero reportar
+        - necesito reportar
+        # Problemas técnicos
+        - falla grave
+        - bug
+        - no funciona
+        - se cayó
+        - se cayo
+        - problema técnico
+        - problema tecnico
+        - sistema caído
+        - sistema caido
+        # Frases coloquiales adicionales
+        - tengo un problema
+        - algo no funciona
+        - me esta fallando
+        - me está fallando
+        - hay un error
+        - me sale error
+        - se trabo
+        - se trabó
+        - esta trabado
+        - está trabado
+        - no me deja
+        - no puedo
+        - se congela
+        - se cuelga
+        - error grave
+
+    # =========================================================================
+    # FEEDBACK - Sugerencias y comentarios
+    # =========================================================================
+    feedback:
+      description: "Sugerencias y comentarios del usuario"
+      keywords:
+        - sugerencia
+        - comentario
+        - opinión
+        - opinion
+        - feedback
+        - mejorar
+        - propuesta
+        - recomendación
+        - recomendacion
+
+    # =========================================================================
+    # ERROR - Mensajes de error específicos
+    # =========================================================================
+    error:
+      description: "Consultas sobre mensajes de error"
+      keywords:
+        - error
+        - fallo
+        - crash
+        - pantalla
+        - mensaje de error
+        - excepción
+        - excepcion
+        - warning
+        - alerta
+
+    # =========================================================================
+    # MODULE - Consultas sobre módulos específicos
+    # =========================================================================
+    module:
+      description: "Consultas sobre módulos del sistema"
+      keywords:
+        - módulo
+        - modulo
+        - funcionalidad
+        - feature
+        - característica
+        - caracteristica
+        - componente
+        - sección
+        - seccion
+
+    # =========================================================================
+    # PERFORMANCE - Problemas de rendimiento
+    # =========================================================================
+    performance:
+      description: "Problemas de rendimiento y velocidad"
+      keywords:
+        - lento
+        - slow
+        - timeout
+        - demora
+        - tarda
+        - rendimiento
+        - performance
+        - carga
+        - respuesta lenta
+
+    # =========================================================================
+    # CONFIGURATION - Configuración del sistema
+    # =========================================================================
+    configuration:
+      description: "Configuración y parámetros del sistema"
+      keywords:
+        - configurar
+        - configuración
+        - configuracion
+        - setup
+        - configure
+        - parámetro
+        - parametro
+        - ajuste
+        - preferencias
+
+    # =========================================================================
+    # DATA - Datos y sincronización
+    # =========================================================================
+    data:
+      description: "Datos, respaldos y sincronización"
+      keywords:
+        - datos
+        - sincronización
+        - sincronizacion
+        - sync
+        - respaldo
+        - backup
+        - exportar
+        - importar
+        - migración
+        - migracion
+
+    # =========================================================================
+    # TRAINING - Capacitación y entrenamiento
+    # =========================================================================
+    training:
+      description: "Capacitación y cursos"
+      keywords:
+        - capacitación
+        - capacitacion
+        - curso
+        - entrenamiento
+        - aprender
+        - tutorial
+        - guía
+        - guia
+        - manual
+
+    # =========================================================================
+    # GENERAL - Consultas generales de soporte
+    # =========================================================================
+    general:
+      description: "Consultas generales de soporte"
+      keywords:
+        - ayuda
+        - help
+        - soporte
+        - support
+        - consulta
+        - pregunta
+        - duda
+        - información
+        - informacion
+
+# =========================================================================
+# FUZZY MATCHING CONFIGURATION
+# =========================================================================
+# El fuzzy matching permite detectar typos automáticamente
+# Ejemplo: "incendencia" matchea con "incidencia" (87% similitud)
+fuzzy_matching:
+  enabled: true
+  # Umbral de similitud (0.0-1.0). Mayor = más estricto
+  similarity_threshold: 0.8
+  # Longitud mínima de palabra para considerar fuzzy match
+  min_word_length: 4

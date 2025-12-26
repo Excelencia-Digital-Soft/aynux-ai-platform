@@ -90,7 +90,7 @@ class CompanyKnowledge(Base, TimestampMixin):
         comment="Whether this document is active and searchable",
     )
 
-    # Vector embeddings for semantic search (768 dimensions for nomic-embed-text:v1.5)
+    # Vector embeddings for semantic search (768 dimensions for nomic-embed-text)
     embedding = Column(
         Vector(768),
         nullable=True,

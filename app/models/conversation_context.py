@@ -47,6 +47,7 @@ class ConversationContextModel(BaseModel):
     total_turns: int = 0
     last_user_message: str | None = None
     last_bot_response: str | None = None
+    last_agent: str | None = None  # Agent that processed last message (for flow continuity)
 
     # Metadata
     metadata: dict[str, Any] = Field(default_factory=dict)

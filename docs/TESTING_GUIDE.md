@@ -35,10 +35,10 @@ LANGSMITH_METRICS_ENABLED=true
 
 ```bash
 # Instalar dependencias de testing
-uv add rich streamlit plotly pandas
+uv add rich plotly pandas
 
 # O con pip
-pip install rich streamlit plotly pandas
+pip install rich plotly pandas
 ```
 
 ### Verificación de Configuración
@@ -134,78 +134,7 @@ Bot (product_agent): Tenemos las siguientes laptops disponibles:
 
 ---
 
-### 3. **Dashboard de Monitoreo** (`monitoring_dashboard.py`)
-
-**Propósito**: Dashboard web interactivo con visualizaciones en tiempo real, métricas de rendimiento y chat de prueba.
-
-**Ejecución**:
-```bash
-streamlit run tests/monitoring_dashboard.py
-```
-
-**Características Principales**:
-
-#### 📊 **Tab 1: Dashboard**
-- **Métricas Generales**:
-  - Total de ejecuciones
-  - Tasa de éxito
-  - Latencia promedio y P95
-  - Tasa de error
-
-- **Gráficos de Uso**:
-  - Distribución de uso por agente (pie chart)
-  - Ejecuciones por hora (timeline)
-  - Análisis de errores por tipo
-
-- **Tabla de Ejecuciones Recientes**:
-  - Últimas 20 ejecuciones
-  - Estado, latencia, timestamp
-  - Link directo a LangSmith
-
-#### 🔀 **Tab 2: Graph Visualization**
-- **Visualización del Grafo de Agentes**:
-  - Arquitectura del sistema multi-agente
-  - Flujo de decisiones y routing
-  - Conexiones entre Orchestrator, agentes y Supervisor
-
-- **Explicación del Flujo**:
-  - Punto de entrada: Orchestrator
-  - Agentes especializados por tipo de consulta
-  - Supervisor valida y decide si continuar
-
-#### 💬 **Tab 3: Test Chat**
-- **Chat Interactivo en el Dashboard**:
-  - Mismo backend que WhatsApp
-  - Interfaz visual moderna
-  - Metadatos expandibles
-  - Trazas automáticas en LangSmith
-
-#### 📖 **Tab 4: Documentación**
-- Guía completa del dashboard
-- Explicación de métricas
-- Instrucciones de uso
-
-**Navegación del Dashboard**:
-
-1. **Sidebar Izquierdo**:
-   - Estado de LangSmith (activo/inactivo)
-   - Selector de rango temporal
-   - Botón de refresh
-
-2. **Contenido Principal**:
-   - Métricas en tarjetas
-   - Gráficos interactivos (Plotly)
-   - Tablas con datos detallados
-
-**Interpretación de Gráficos**:
-
-- **Agent Usage (Pie Chart)**: Muestra qué agentes se usan más frecuentemente
-- **Performance Timeline**: Identifica picos de tráfico y patrones de uso
-- **Error Analysis**: Ayuda a identificar problemas recurrentes
-
----
-
-### 4. **Escenarios de Prueba** (`test_scenarios.py`)
+### 3. **Escenarios de Prueba** (`test_scenarios.py`)
 
 **Propósito**: Suite de pruebas automatizadas con escenarios predefinidos para validar comportamiento de agentes.
 
@@ -403,33 +332,7 @@ Si algún escenario falla:
 
 ---
 
-#### **Fase 4: Monitoreo con Dashboard** (Tiempo variable)
-
-```bash
-# Iniciar dashboard
-streamlit run tests/monitoring_dashboard.py
-```
-
-**Análisis en Dashboard**:
-
-1. **Tab Dashboard**:
-   - Revisar métricas generales
-   - Identificar agentes más usados
-   - Detectar errores recurrentes
-
-2. **Tab Graph Viz**:
-   - Entender arquitectura del sistema
-   - Verificar flujo de agentes
-
-3. **Tab Test Chat**:
-   - Probar casos edge directamente
-   - Ver respuestas en tiempo real
-
-4. **Refrescar periódicamente** para ver tendencias
-
----
-
-#### **Fase 5: Testing de WhatsApp** (Opcional)
+#### **Fase 4: Testing de WhatsApp** (Opcional)
 
 Para probar el comportamiento real en WhatsApp:
 
@@ -687,40 +590,12 @@ cat tests/test_results.json | jq '.[] | select(.success == false)'
 
 ---
 
-### Problema: Dashboard de Streamlit no carga
-
-**Síntomas**:
-- Error al ejecutar `streamlit run monitoring_dashboard.py`
-- Dashboard se bloquea
-
-**Soluciones**:
-
-1. **Dependencias Faltantes**:
-   ```bash
-   uv add streamlit plotly pandas rich
-   ```
-
-2. **Puerto en Uso**:
-   ```bash
-   # Streamlit usa puerto 8501 por defecto
-   # Si está en uso, especificar otro
-   streamlit run tests/monitoring_dashboard.py --server.port 8502
-   ```
-
-3. **Error de Inicialización del Servicio**:
-   - Verificar que PostgreSQL está corriendo
-   - Verificar que Ollama está activo
-   - Revisar logs en consola
-
----
-
 ## 📚 Recursos Adicionales
 
 ### Documentación de Referencia
 
 - **LangSmith Docs**: https://docs.smith.langchain.com
 - **LangGraph Docs**: https://langchain-ai.github.io/langgraph/
-- **Streamlit Docs**: https://docs.streamlit.io
 
 ### Configuración Avanzada
 
@@ -758,7 +633,6 @@ Comparar versiones de prompts o modelos:
 1. **Daily**: Ejecutar `test_langsmith_verification.py`
 2. **Weekly**: Suite completa de escenarios automatizados
 3. **Monthly**: Revisión profunda de métricas en LangSmith
-4. **Continuous**: Dashboard de Streamlit abierto durante desarrollo
 
 ### Organización de Tests
 

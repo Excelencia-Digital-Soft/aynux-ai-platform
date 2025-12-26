@@ -23,7 +23,7 @@
 
 ### 🏢 Supported Business Domains
 
-#### 🏢 Excelencia (ERP Software) - Primary
+#### 🏢 Excelencia (Software) - Primary
 - Software module information and pricing
 - Client invoicing and account statements
 - Technical support and ticket creation
@@ -73,7 +73,7 @@ Aynux supports **two operational modes** designed for different deployment scena
 
 ### 1. Global Mode (Default) - Excelencia-specific
 
-**Use case**: Single-tenant deployment optimized for Excelencia Digital (ERP software company)
+**Use case**: Single-tenant deployment optimized for Excelencia Digital (Software company)
 
 | Aspect | Description |
 |--------|-------------|
@@ -588,7 +588,7 @@ app/
 | `farewell_agent` | [Global] | - | Goodbye messages, session closure |
 | `support_agent` | [Global] | - | General support, FAQ |
 | `fallback_agent` | [Global] | - | Catch-all for unhandled queries |
-| `excelencia_agent` | [Domain] | excelencia | Main ERP orchestrator |
+| `excelencia_agent` | [Domain] | excelencia | Main Software orchestrator |
 | `excelencia_invoice_agent` | [Domain] | excelencia | Client invoicing, account statements |
 | `excelencia_support_agent` | [Domain] | excelencia | Software support, tickets |
 | `excelencia_promotions_agent` | [Domain] | excelencia | Software promotions, pricing |
@@ -615,47 +615,6 @@ Agents use different model tiers based on task complexity:
 
 ---
 
-## 📊 Streamlit Admin Pages
-
-The admin dashboard (`streamlit_admin/`) has pages organized by scope.
-
-### Running the Admin Dashboard
-
-```bash
-# Start the Streamlit admin dashboard
-uv run streamlit run streamlit_admin/app.py
-
-# Or with custom port
-uv run streamlit run streamlit_admin/app.py --server.port 8501
-```
-
-The dashboard will be available at: http://localhost:8501
-
-### [Global] Pages - System-wide
-
-| # | Page | Purpose |
-|---|------|---------|
-| 1 | Chat Visualizer | Real-time conversation viewer |
-| 2 | Knowledge Base | RAG document management |
-| 3 | Upload Documents | File upload, document indexing |
-| 4 | Embeddings | Vector embeddings management |
-| 5 | Excelencia | Excelencia-specific features |
-| 6 | Agent Config | System agent configuration |
-| 7 | Statistics | System metrics, usage stats |
-
-### [Multi] Pages - Per-tenant (requires auth)
-
-| # | Page | Purpose |
-|---|------|---------|
-| 8 | Organizations | Create/manage organizations |
-| 9 | Users | User management per tenant |
-| 10 | Tenant Config | Per-org agent/domain config |
-| 11 | Tenant Documents | Org-specific knowledge base |
-
-**Naming Convention**: `{order}_{emoji}_{name}_[{Scope}].py`
-
----
-
 ## 🧪 Testing
 
 ### Run the Test Suite
@@ -670,9 +629,6 @@ uv run pytest tests/test_scenarios.py -v
 
 # Interactive chat testing
 python tests/test_chat_interactive.py
-
-# Monitoring dashboard
-streamlit run tests/monitoring_dashboard.py
 ```
 
 ### LangSmith Integration

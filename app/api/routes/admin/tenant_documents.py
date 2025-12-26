@@ -187,7 +187,7 @@ async def _check_document_quota(db: AsyncSession, org: Organization) -> None:
     result = await db.execute(stmt)
     current_count = result.scalar() or 0
 
-    if current_count >= org.max_documents:
+    if current_count >= int(org.max_documents):  # type: ignore[arg-type]
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Document quota reached ({org.max_documents} max). Upgrade plan to add more.",

@@ -6,6 +6,8 @@ import logging
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.graph import AynuxGraph
 from app.core.schemas import ConversationContext, CustomerContext
 from app.models.chat import ChatStreamEvent, StreamEventType
@@ -65,6 +67,7 @@ class MessageProcessor:
         conversation_context: ConversationContext,
         session_id: str,
         business_domain: str = "ecommerce",
+        db_session: AsyncSession | None = None,
     ) -> Dict[str, Any]:
         """
         Procesa el mensaje usando el sistema LangGraph multi-agente.
@@ -88,6 +91,7 @@ class MessageProcessor:
                 customer_data=customer_context.model_dump(),
                 conversation_data=conversation_context.model_dump(),
                 business_domain=business_domain,
+                db_session=db_session,
             )
 
             # Extraer la respuesta del último mensaje AI

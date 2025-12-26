@@ -1,7 +1,7 @@
 """
 Excelencia API Routes
 
-FastAPI router for Excelencia ERP domain endpoints.
+FastAPI router for Excelencia Software domain endpoints.
 """
 
 from datetime import date
@@ -29,7 +29,7 @@ from app.domains.excelencia.application.use_cases.schedule_demo import (
     ScheduleDemoRequest,
 )
 
-router = APIRouter(prefix="/excelencia", tags=["Excelencia ERP"])
+router = APIRouter(prefix="/excelencia", tags=["Excelencia Software"])
 
 
 @router.get("/modules", response_model=ModulesListResponse)

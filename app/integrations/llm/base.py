@@ -125,7 +125,9 @@ def create_llm(provider: LLMProvider = LLMProvider.OLLAMA, model_name: str | Non
         raise ValueError(f"Unknown LLM provider: {provider}")
 
 
-def create_embedder(provider: LLMProvider = LLMProvider.OLLAMA, model_name: str | None = None, **kwargs) -> IEmbeddingModel:
+def create_embedder(
+    provider: LLMProvider = LLMProvider.OLLAMA, model_name: str | None = None, **kwargs
+) -> IEmbeddingModel:
     """
     Factory function to create embedding model based on provider.
 
@@ -144,7 +146,7 @@ def create_embedder(provider: LLMProvider = LLMProvider.OLLAMA, model_name: str 
         # Create Ollama embedder
         embedder = create_embedder(
             provider=LLMProvider.OLLAMA,
-            model_name="nomic-embed-text:v1.5"
+            model_name="nomic-embed-text"
         )
 
         # Use it

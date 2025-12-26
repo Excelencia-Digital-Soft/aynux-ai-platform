@@ -9,10 +9,12 @@ Includes:
 - tenant_agents: Agent configuration per tenant
 - tenant_prompts: Prompt overrides per tenant
 - tenant_documents: Per-tenant knowledge base documents
+- agent_knowledge: Global per-agent knowledge bases
 - prompts: System-wide prompt management
 """
 
 from . import (
+    agent_knowledge,
     org_users,
     organizations,
     prompts,
@@ -31,5 +33,6 @@ __all__ = [
     "tenant_agents",
     "tenant_prompts",
     "tenant_documents",
+    "agent_knowledge",
     "prompts",
 ]

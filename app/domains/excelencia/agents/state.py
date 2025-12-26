@@ -30,7 +30,7 @@ class ExcelenciaState(TypedDict):
     """
     Excelencia domain state for LangGraph.
 
-    Specialized state schema for handling ERP Excelencia queries:
+    Specialized state schema for handling Software Excelencia queries:
     - Module information
     - Demo requests
     - Training and support

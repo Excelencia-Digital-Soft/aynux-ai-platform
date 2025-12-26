@@ -337,7 +337,7 @@ class ConversationContextService:
             total_turns=context.total_turns,
             last_user_message=context.last_user_message,
             last_bot_response=context.last_bot_response,
-            metadata=context.metadata,
+            extra_data=context.metadata,
             last_activity_at=context.last_activity_at,
         )
 
@@ -350,7 +350,7 @@ class ConversationContextService:
                 "total_turns": context.total_turns,
                 "last_user_message": context.last_user_message,
                 "last_bot_response": context.last_bot_response,
-                "metadata": context.metadata,
+                "extra_data": context.metadata,
                 "last_activity_at": context.last_activity_at,
                 "updated_at": datetime.now(UTC),
             },
@@ -359,8 +359,21 @@ class ConversationContextService:
         await self.db.execute(stmt)
         await self.db.commit()
 
+    @staticmethod
+    def _ensure_utc(dt: datetime | None) -> datetime:
+        """Normalize datetime to UTC-aware.
+
+        Handles both naive datetimes (from legacy DB) and aware datetimes.
+        """
+        if dt is None:
+            return datetime.now(UTC)
+        if dt.tzinfo is None:
+            # Naive datetime from DB - assume UTC and make aware
+            return dt.replace(tzinfo=UTC)
+        return dt
+
     def _row_to_model(self, row: ConversationContext) -> ConversationContextModel:
-        """Convert SQLAlchemy row to Pydantic model."""
+        """Convert SQLAlchemy row to Pydantic model with timezone normalization."""
         return ConversationContextModel(
             conversation_id=row.conversation_id,
             organization_id=str(row.organization_id) if row.organization_id else None,
@@ -371,8 +384,8 @@ class ConversationContextService:
             total_turns=row.total_turns,
             last_user_message=row.last_user_message,
             last_bot_response=row.last_bot_response,
-            metadata=row.metadata or {},
-            created_at=row.created_at,
-            updated_at=row.updated_at,
-            last_activity_at=row.last_activity_at,
+            metadata=row.extra_data or {},
+            created_at=self._ensure_utc(row.created_at),
+            updated_at=self._ensure_utc(row.updated_at),
+            last_activity_at=self._ensure_utc(row.last_activity_at),
         )

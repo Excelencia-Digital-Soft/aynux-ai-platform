@@ -7,7 +7,7 @@ Create Date: 2025-12-19
 Adds pharmacy merchant configuration table for multi-tenant support:
 - Per-organization pharmacy info for PDF receipts
 - Per-organization Mercado Pago credentials
-- Seeds test organization for Streamlit testing
+- Seeds test organization for testing
 """
 
 from typing import Sequence, Union
@@ -173,8 +173,8 @@ def upgrade() -> None:
         postgresql_where=sa.text("whatsapp_phone_number IS NOT NULL"),
     )
 
-    # Seed test organization for Streamlit testing
-    # This org has a well-known UUID that Streamlit will use
+    # Seed test organization for testing
+    # This org has a well-known UUID used for testing purposes
     op.execute(f"""
         INSERT INTO core.organizations (
             id, slug, name, display_name, mode, llm_model,
@@ -185,7 +185,7 @@ def upgrade() -> None:
             '{TEST_PHARMACY_ORG_ID}',
             'test-pharmacy',
             'Test Pharmacy',
-            'Farmacia de Prueba (Streamlit)',
+            'Farmacia de Prueba',
             'multi_tenant',
             'llama3.2:1b',
             0.7,

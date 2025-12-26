@@ -77,7 +77,6 @@ Thumbs.db
 *~
 
 # Development/analysis scripts (not needed in container)
-streamlit_*.py
 analyze_*.py
 test_*.py
 !app/**/test_*.py

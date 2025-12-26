@@ -130,9 +130,10 @@ class PgVectorStore(IVectorStore, IHybridSearch):
                             product_id = int(doc.id)
                             embedding_str = format_vector_for_query(embedding)
 
+                            # Note: Use CAST() instead of :: to avoid asyncpg parameter confusion
                             stmt = text("""
                                 UPDATE products
-                                SET embedding = :embedding::vector,
+                                SET embedding = CAST(:embedding AS vector),
                                     updated_at = NOW()
                                 WHERE id = :product_id
                             """)
@@ -271,9 +272,10 @@ class PgVectorStore(IVectorStore, IHybridSearch):
 
                 async with get_async_db_context() as db:
                     product_id = int(document_id)
+                    # Note: Use CAST() instead of :: to avoid asyncpg parameter confusion
                     stmt = text("""
                         UPDATE products
-                        SET embedding = :embedding::vector, updated_at = NOW()
+                        SET embedding = CAST(:embedding AS vector), updated_at = NOW()
                         WHERE id = :product_id
                     """)
 

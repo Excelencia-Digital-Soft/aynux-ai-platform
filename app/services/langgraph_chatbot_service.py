@@ -11,11 +11,13 @@ The set_tenant_registry_for_request() method configures agents per-request.
 import logging
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict
 
-from app.core.graph import AynuxGraph
-from app.core.schemas import CustomerContext
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config.langgraph_config import get_langgraph_config
 from app.config.settings import get_settings
 from app.core.container import DependencyContainer
+from app.core.graph import AynuxGraph
+from app.core.schemas import CustomerContext
 from app.models.chat import ChatStreamEvent
 from app.models.message import BotResponse, Contact, WhatsAppMessage
 from app.services.langgraph import (
@@ -88,7 +90,11 @@ class LangGraphChatbotService:
             raise
 
     async def process_webhook_message(
-        self, message: WhatsAppMessage, contact: Contact, business_domain: str = "ecommerce"
+        self,
+        message: WhatsAppMessage,
+        contact: Contact,
+        business_domain: str = "ecommerce",
+        db_session: AsyncSession | None = None,
     ) -> BotResponse:
         """
         Procesa un mensaje de WhatsApp usando el sistema multi-agente refactorizado.
@@ -138,6 +144,7 @@ class LangGraphChatbotService:
                 conversation_context=conversation_context,
                 session_id=session_id,
                 business_domain=business_domain,
+                db_session=db_session,
             )
 
             # Operaciones post-procesamiento
@@ -163,7 +170,12 @@ class LangGraphChatbotService:
             return await self.conversation_manager.handle_processing_error(e, user_number)
 
     async def process_chat_message(
-        self, message: str, user_id: str, session_id: str, metadata: Dict[str, Any] = None
+        self,
+        message: str,
+        user_id: str,
+        session_id: str,
+        metadata: Dict[str, Any] = None,
+        db_session: AsyncSession | None = None,
     ) -> Dict[str, Any]:
         """
         Procesa un mensaje de chat genérico (no WhatsApp) usando el sistema multi-agente.
@@ -198,6 +210,7 @@ class LangGraphChatbotService:
                 customer_context=customer_context,
                 conversation_context=conversation_context,
                 session_id=session_id,
+                db_session=db_session,
             )
 
             # Post-procesamiento simplificado (sin WhatsApp)

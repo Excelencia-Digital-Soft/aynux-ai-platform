@@ -11,6 +11,8 @@ from typing import Any, Dict
 from app.core.tools.dynamic_sql.models import SQLGenerationContext
 from app.core.tools.dynamic_sql.schema_inspector import SchemaInspector
 from app.integrations.llm import OllamaLLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ class SQLQueryGenerator:
         """
         self.ollama = ollama or OllamaLLM()
         self._schema_inspector = SchemaInspector()
+        self.prompt_manager = PromptManager()
 
     async def generate(self, context: SQLGenerationContext) -> str:
         """
@@ -92,9 +95,12 @@ FORMATO: SELECT ... FROM ... WHERE ... LIMIT N;
 SQL:"""
 
         try:
+            # Load system prompt from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.TOOLS_DYNAMIC_SQL_QUERY_GENERATOR_SYSTEM,
+            )
             response = await self.ollama.generate_response(
-                system_prompt="Eres un experto en SQL que genera consultas precisas y seguras "
-                "basadas en esquemas de base de datos.",
+                system_prompt=system_prompt,
                 user_prompt=sql_prompt,
                 temperature=0.1,
             )

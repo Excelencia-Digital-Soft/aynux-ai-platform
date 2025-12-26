@@ -53,14 +53,60 @@ class OrchestratorAgent(BaseAgent):
             Diccionario con la decisión de routing y análisis de intención
         """
         try:
+            # ================================================================
+            # CHECK FOR ACTIVE CONVERSATIONAL FLOWS FIRST
+            # Before intent analysis, check if there's an active flow that
+            # should continue with its designated agent.
+            # ================================================================
+            active_flow_agent = await self._check_active_flows(state_dict)
+            if active_flow_agent:
+                logger.info(f"Active flow detected, routing to: {active_flow_agent}")
+                return {
+                    "next_agent": active_flow_agent,
+                    "routing_decision": {
+                        "intent": "active_flow_continuation",
+                        "confidence": 1.0,
+                        "target_agent": active_flow_agent,
+                        "reason": "Continuing active conversational flow",
+                        "routing_strategy": "flow_continuation",
+                    },
+                    "orchestrator_analysis": {
+                        "message": message,
+                        "detected_intent": "flow_continuation",
+                        "confidence_score": 1.0,
+                        "routing_path": [self.name, active_flow_agent],
+                        "analysis_timestamp": self.get_current_timestamp(),
+                        "active_flow": True,
+                    },
+                    "needs_processing": True,
+                    "routing_attempts": state_dict.get("routing_attempts", 0) + 1,
+                }
+
             # Obtener contexto de la conversación
             conversation_history = state_dict.get("messages", [])
             customer_data = state_dict.get("customer_data", {})
+
+            # Get previous_agent with fallback to agent_history
+            previous_agent = state_dict.get("current_agent")
+            if not previous_agent:
+                # Fallback: get last non-orchestrator/supervisor agent from history
+                agent_history = state_dict.get("agent_history", [])
+                for agent in reversed(agent_history):
+                    if agent not in ("orchestrator", "supervisor"):
+                        previous_agent = agent
+                        break
+
             conversation_data = {
                 "message_count": len(conversation_history),
-                "current_agent": state_dict.get("current_agent"),
+                "current_agent": previous_agent,
                 "agent_history": state_dict.get("agent_history", []),
                 "routing_attempts": state_dict.get("routing_attempts", 0),
+                # Context for follow-up detection
+                "recent_messages": conversation_history[-6:] if conversation_history else [],
+                "previous_agent": previous_agent,
+                "last_bot_message": self._get_last_bot_message(conversation_history),
+                # Conversation summary for LLM context
+                "conversation_summary": state_dict.get("conversation_summary", ""),
             }
 
             # Analizar el intent del mensaje
@@ -90,7 +136,7 @@ class OrchestratorAgent(BaseAgent):
                     "analysis_timestamp": self.get_current_timestamp(),
                 },
                 "needs_processing": True,  # Indica que el mensaje necesita ser procesado
-                "routing_attempts": (conversation_data["routing_attempts"] or 0) + 1,
+                "routing_attempts": int(conversation_data["routing_attempts"] or 0) + 1,
             }
 
         except Exception as e:
@@ -167,6 +213,69 @@ class OrchestratorAgent(BaseAgent):
             "routing_strategy": routing_strategy,
             "routing_attempts": routing_attempts + 1,
         }
+
+    async def _check_active_flows(self, state_dict: Dict[str, Any]) -> Optional[str]:
+        """
+        Check if there's an active conversational flow that should continue.
+
+        Checks for:
+        - Pending incident tickets (excelencia_support_agent)
+        - Other multi-step flows that need continuation
+
+        Args:
+            state_dict: Current conversation state
+
+        Returns:
+            Agent name if active flow found, None otherwise
+        """
+        try:
+            from app.core.container import DependencyContainer
+            from app.database.async_db import get_async_db_context
+
+            conversation_id = state_dict.get("conversation_id")
+            user_phone = state_dict.get("user_phone", state_dict.get("sender"))
+
+            if not conversation_id and not user_phone:
+                return None
+
+            # Check for pending incident ticket
+            async with get_async_db_context() as db:
+                container = DependencyContainer()
+                use_case = container.get_pending_ticket_use_case(db)
+
+                pending_ticket = None
+                if conversation_id:
+                    pending_ticket = await use_case.execute(str(conversation_id))
+                elif user_phone:
+                    pending_ticket = await use_case.execute_by_phone(user_phone)
+
+                if pending_ticket:
+                    logger.info(
+                        f"Found active incident flow for conversation {conversation_id}, "
+                        f"step: {pending_ticket.current_step}"
+                    )
+                    return "excelencia_support_agent"
+
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error checking active flows: {e}")
+            return None
+
+    def _get_last_bot_message(self, messages: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        Get the last bot message from the conversation history.
+
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+
+        Returns:
+            The content of the last assistant message, or None if not found
+        """
+        for msg in reversed(messages):
+            if msg.get("role") == "assistant":
+                return msg.get("content", "")
+        return None
 
     async def analyze_conversation_context(self, state_dict: Dict[str, Any]) -> Dict[str, Any]:
         """

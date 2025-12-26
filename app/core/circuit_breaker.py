@@ -9,6 +9,9 @@ from enum import Enum
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
+
 logger = logging.getLogger(__name__)
 
 
@@ -312,6 +315,9 @@ class ResilientOllamaService:
             name="ollama_service",
         )
 
+        # Prompt manager for health check prompts
+        self.prompt_manager = PromptManager()
+
         logger.info(f"ResilientOllamaService initialized - max_retries: {max_retries}, base_delay: {base_delay}s")
 
     async def generate_response(
@@ -397,10 +403,18 @@ class ResilientOllamaService:
     async def health_check(self) -> bool:
         """Realizar health check básico"""
         try:
+            # Load prompts from YAML
+            system_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.CORE_CIRCUIT_BREAKER_HEALTH_CHECK_SYSTEM,
+            )
+            user_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.CORE_CIRCUIT_BREAKER_HEALTH_CHECK_USER,
+            )
+
             # Intentar una llamada simple para verificar conectividad
             await self.generate_response(
-                system_prompt="You are a health check assistant.",
-                user_prompt="Respond with 'OK' only.",
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 temperature=0.0,
             )
             return True

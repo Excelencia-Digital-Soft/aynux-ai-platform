@@ -170,7 +170,7 @@ async def _resolve_organization_for_webhook(
     # Fallback to default organization
     default_org = await _get_default_organization(db)
     if default_org:
-        return default_org.id
+        return UUID(str(default_org.id))
 
     raise HTTPException(
         status_code=404,
@@ -319,7 +319,7 @@ async def process_webhook(
     try:
         # LangGraphChatbotService ya usa Clean Architecture internamente
         result: BotResponse = await service.process_webhook_message(
-            message=message, contact=contact, business_domain=domain
+            message=message, contact=contact, business_domain=domain, db_session=db_session
         )
 
         logger.info(f"Message processed successfully: {result.status}")
@@ -337,7 +337,7 @@ async def process_webhook(
         try:
             logger.info("Attempting fallback to default domain (ecommerce)")
             result: BotResponse = await service.process_webhook_message(
-                message=message, contact=contact, business_domain="ecommerce"
+                message=message, contact=contact, business_domain="ecommerce", db_session=db_session
             )
 
             # Reset tenant config after processing

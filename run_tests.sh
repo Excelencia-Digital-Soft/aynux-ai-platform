@@ -47,11 +47,6 @@ check_dependencies() {
         pip install rich
     }
 
-    python -c "import streamlit" 2>/dev/null || {
-        print_error "Streamlit no instalado. Instalando..."
-        pip install streamlit
-    }
-
     python -c "import plotly" 2>/dev/null || {
         print_error "Plotly no instalado. Instalando..."
         pip install plotly pandas
@@ -69,13 +64,12 @@ show_menu() {
     echo ""
     echo "  1) 🔍 Verificar Configuración de LangSmith"
     echo "  2) 💬 Chat Interactivo (Terminal)"
-    echo "  3) 📊 Dashboard de Monitoreo (Web)"
-    echo "  4) 🤖 Ejecutar Todos los Escenarios"
-    echo "  5) 🎯 Ejecutar Escenario Específico"
-    echo "  6) 🏷️  Ejecutar Escenarios por Tag"
-    echo "  7) 📋 Listar Escenarios Disponibles"
-    echo "  8) 📚 Ver Documentación"
-    echo "  9) 🔧 Instalar/Actualizar Dependencias"
+    echo "  3) 🤖 Ejecutar Todos los Escenarios"
+    echo "  4) 🎯 Ejecutar Escenario Específico"
+    echo "  5) 🏷️  Ejecutar Escenarios por Tag"
+    echo "  6) 📋 Listar Escenarios Disponibles"
+    echo "  7) 📚 Ver Documentación"
+    echo "  8) 🔧 Instalar/Actualizar Dependencias"
     echo "  0) 🚪 Salir"
     echo ""
     echo -n "Opción: "
@@ -100,17 +94,10 @@ main() {
                 python tests/test_chat_interactive.py
                 ;;
             3)
-                print_header "Dashboard de Monitoreo"
-                print_info "El dashboard se abrirá en http://localhost:8501"
-                print_info "Presiona Ctrl+C para detener el servidor"
-                echo ""
-                streamlit run tests/monitoring_dashboard.py
-                ;;
-            4)
                 print_header "Ejecutando Todos los Escenarios"
                 python tests/test_scenarios.py all
                 ;;
-            5)
+            4)
                 print_header "Escenarios Disponibles"
                 python tests/test_scenarios.py list
                 echo ""
@@ -120,7 +107,7 @@ main() {
                 print_header "Ejecutando Escenario: $scenario_id"
                 python tests/test_scenarios.py run "$scenario_id"
                 ;;
-            6)
+            5)
                 print_header "Tags Disponibles"
                 echo "  • products"
                 echo "  • categories"
@@ -136,11 +123,11 @@ main() {
                 print_header "Ejecutando Escenarios con Tag: $tag"
                 python tests/test_scenarios.py tag "$tag"
                 ;;
-            7)
+            6)
                 print_header "Listado de Escenarios"
                 python tests/test_scenarios.py list
                 ;;
-            8)
+            7)
                 print_header "Documentación"
                 echo "📖 Guías disponibles:"
                 echo ""
@@ -170,7 +157,7 @@ main() {
                         ;;
                 esac
                 ;;
-            9)
+            8)
                 check_dependencies
                 ;;
             0)

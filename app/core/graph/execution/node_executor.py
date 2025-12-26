@@ -7,8 +7,8 @@ from typing import Any, Dict, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.core.schemas import AgentType
 from app.core.graph.state_schema import LangGraphState
+from app.core.schemas import AgentType
 from app.core.utils.tracing import trace_async_method
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ class NodeExecutor:
                 "routing_decision": result.get("routing_decision", {}),
                 "orchestrator_analysis": result.get("orchestrator_analysis", {}),
                 "routing_attempts": result.get("routing_attempts", 0),
+                "agent_history": ["orchestrator"],  # Reducer will concatenate
             }
 
         except Exception as e:
@@ -106,6 +107,7 @@ class NodeExecutor:
                 "needs_re_routing": result.get("needs_re_routing", False),
                 "human_handoff_requested": result.get("human_handoff_requested", False),
                 "supervisor_retry_count": state.get("supervisor_retry_count", 0) + 1,
+                "agent_history": ["supervisor"],  # Reducer will concatenate
             }
 
             # Handle enhanced response if provided
@@ -175,7 +177,7 @@ class NodeExecutor:
             # Prepare updates
             updates: Dict[str, Any] = {
                 "current_agent": agent_name,
-                "agent_history": state.get("agent_history", []) + [agent_name],
+                "agent_history": [agent_name],  # Reducer will concatenate
             }
 
             # Add response messages if present
@@ -240,6 +242,9 @@ class NodeExecutor:
             # Conversation history context for all agents
             "conversation_context": state.get("conversation_context", {}),
             "conversation_summary": state.get("conversation_summary", ""),
+            # Conversation identification - critical for multi-turn flows
+            "conversation_id": state.get("conversation_id"),
+            "session_id": state.get("conversation_id"),  # Alias for compatibility
         }
 
     def _prepare_supervisor_state(self, state: LangGraphState, messages: list) -> Dict[str, Any]:

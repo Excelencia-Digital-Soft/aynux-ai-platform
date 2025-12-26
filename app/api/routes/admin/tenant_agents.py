@@ -127,7 +127,7 @@ async def list_tenant_agents(
     agents = result.scalars().all()
 
     agents_list = [TenantAgentResponse(**a.to_dict()) for a in agents]
-    enabled_count = sum(1 for a in agents if a.enabled)
+    enabled_count = sum(1 for a in agents if bool(a.enabled))
 
     return TenantAgentListResponse(
         agents=agents_list,
@@ -155,7 +155,7 @@ async def create_tenant_agent(
     result = await db.execute(stmt)
     current_count = len(result.scalars().all())
 
-    if current_count >= org.max_agents:
+    if current_count >= int(org.max_agents):  # type: ignore[arg-type]
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Límite de agentes alcanzado ({org.max_agents})",
@@ -299,7 +299,7 @@ async def toggle_tenant_agent(
             detail="Agente no encontrado",
         )
 
-    agent.enabled = not agent.enabled
+    agent.enabled = not bool(agent.enabled)
     agent.updated_at = datetime.now(UTC)
 
     await db.commit()

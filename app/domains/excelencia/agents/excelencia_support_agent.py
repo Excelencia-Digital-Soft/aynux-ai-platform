@@ -1,5 +1,5 @@
 """
-Excelencia Support Agent - Handles Excelencia ERP software support.
+Excelencia Support Agent - Handles Excelencia Software software support.
 
 This agent manages support queries for Excelencia software:
 - Technical incidents and bug reports
@@ -7,29 +7,32 @@ This agent manages support queries for Excelencia software:
 - Ticket creation and tracking
 - Error resolution
 
-Uses RAG from company_knowledge for support-related information.
+Delegates to specialized services for:
+- Incident flow management
+- Response generation with RAG
+- Query analysis
 """
 
-import json
 import logging
-import uuid
 from typing import Any
 
-from app.config.settings import get_settings
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
-from app.database.async_db import get_async_db_context
+from app.domains.excelencia.application.services.incident_flow import IncidentFlowManager
+from app.domains.excelencia.application.services.query_type_detector import (
+    CompositeQueryTypeDetector,
+)
+from app.domains.excelencia.application.services.query_type_loader import (
+    create_query_type_detector,
+)
+from app.domains.excelencia.application.services.support_config import SupportConfig
+from app.domains.excelencia.application.services.support_response import (
+    SupportResponseGenerator,
+)
 from app.integrations.llm import OllamaLLM
-from app.integrations.llm.model_provider import ModelComplexity
 from app.prompts.manager import PromptManager
-from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
-
-# Temperature settings
-INTENT_ANALYSIS_TEMPERATURE = 0.3
-RESPONSE_GENERATION_TEMPERATURE = 0.6
 
 
 class ExcelenciaSupportAgent(BaseAgent):
@@ -41,76 +44,47 @@ class ExcelenciaSupportAgent(BaseAgent):
     - Module-specific troubleshooting
     - Ticket creation and tracking
     - Error resolution guidance
+
+    Delegates to:
+    - IncidentFlowManager: Multi-step incident creation
+    - SupportResponseGenerator: RAG-based response generation
+    - SupportConfig: Centralized configuration
     """
 
-    # Support query type keywords
-    QUERY_TYPES = {
-        "incident": [
-            "incidencia",
-            "reportar",
-            "levantar ticket",
-            "falla grave",
-            "bug",
-            "no funciona",
-            "se cayó",
-        ],
-        "feedback": [
-            "sugerencia",
-            "comentario",
-            "opinión",
-            "feedback",
-            "mejorar",
-            "propuesta",
-        ],
-        "error": ["error", "fallo", "crash", "pantalla", "mensaje de error"],
-        "module": ["módulo", "funcionalidad", "feature", "característica"],
-        "performance": ["lento", "slow", "timeout", "demora", "tarda"],
-        "configuration": ["configurar", "setup", "configure", "parámetro"],
-        "data": ["datos", "sincronización", "sync", "respaldo", "backup"],
-        "training": ["capacitación", "curso", "entrenamiento", "aprender"],
-        "general": ["ayuda", "help", "soporte", "support", "consulta"],
-    }
+    def __init__(
+        self,
+        ollama: OllamaLLM | None = None,
+        config: dict[str, Any] | None = None,
+        query_type_detector: CompositeQueryTypeDetector | None = None,
+    ):
+        """Initialize ExcelenciaSupportAgent.
 
-    # Document types to search for support queries
-    SUPPORT_DOCUMENT_TYPES = [
-        "support_faq",
-        "support_guide",
-        "support_contact",
-        "support_training",
-        "support_module",
-        "faq",
-    ]
-
-    # Excelencia modules for context
-    EXCELENCIA_MODULES = {
-        "inventario": "Módulo de Inventario y Control de Stock",
-        "facturacion": "Módulo de Facturación Electrónica (CFDI)",
-        "contabilidad": "Módulo de Contabilidad",
-        "nomina": "Módulo de Nómina",
-        "compras": "Módulo de Compras",
-        "ventas": "Módulo de Ventas (POS)",
-        "crm": "Módulo CRM",
-        "produccion": "Módulo de Producción",
-        "bancos": "Módulo de Bancos y Conciliación",
-        "reportes": "Módulo de Reportes y BI",
-    }
-
-    def __init__(self, ollama=None, config: dict[str, Any] | None = None):
+        Args:
+            ollama: OllamaLLM instance for language model calls
+            config: Optional configuration dictionary
+            query_type_detector: Optional detector for DIP (Dependency Injection)
+        """
         super().__init__("excelencia_support_agent", config or {}, ollama=ollama)
 
-        self.ollama = ollama or OllamaLLM()
-        self.model = self.config.get("model", "llama3.1")
-        self.temperature = self.config.get("temperature", 0.6)
-        self.max_response_length = self.config.get("max_response_length", 500)
+        self._ollama = ollama or OllamaLLM()
+        self._prompt_manager = PromptManager()
 
-        # RAG configuration
-        self.use_rag = getattr(settings, "KNOWLEDGE_BASE_ENABLED", True)
-        self.rag_max_results = 3
+        # Query type detector (DIP)
+        self._query_detector = query_type_detector or create_query_type_detector()
 
-        # Initialize PromptManager for YAML-based prompts
-        self.prompt_manager = PromptManager()
+        # Incident flow manager (handles multi-step flow)
+        self._flow_manager = IncidentFlowManager(
+            ollama=self._ollama,
+            prompt_manager=self._prompt_manager,
+        )
 
-        logger.info(f"ExcelenciaSupportAgent initialized (RAG enabled: {self.use_rag})")
+        # Response generator (RAG + LLM)
+        self._response_generator = SupportResponseGenerator(
+            ollama=self._ollama,
+            prompt_manager=self._prompt_manager,
+        )
+
+        logger.info("ExcelenciaSupportAgent initialized (services injected)")
 
     @trace_async_method(
         name="excelencia_support_agent_process",
@@ -123,298 +97,99 @@ class ExcelenciaSupportAgent(BaseAgent):
     ) -> dict[str, Any]:
         """Process Excelencia support queries."""
         try:
-            logger.info(f"ExcelenciaSupportAgent._process_internal START: {message[:50]}...")
+            logger.info(f"ExcelenciaSupportAgent processing: {message[:50]}...")
+
+            # Check for active incident flow
+            pending_ticket = await self._flow_manager.get_active_flow(state_dict)
+            if pending_ticket:
+                logger.info(f"Active incident flow, step: {pending_ticket.current_step}")
+                response = await self._flow_manager.handle_step(
+                    message, pending_ticket, state_dict
+                )
+                return self._build_response(response, "incident_flow", state_dict)
 
             # Analyze query intent
-            query_analysis = await self._analyze_query_intent(message)
+            query_analysis = self._analyze_query(message)
             query_type = query_analysis.get("query_type", "general")
-            logger.info(f"ExcelenciaSupportAgent query_analysis done: {query_type}")
+            logger.info(f"Query type: {query_type}")
 
-            # Handle incident/feedback ticket creation
+            # Start incident flow if needed
             if query_type in ["incident", "feedback"]:
-                response_text = await self._handle_ticket_creation(
-                    message, query_type, query_analysis, state_dict
-                )
-            else:
-                # Generate support response with RAG
-                response_text = await self._generate_response(
-                    message, query_analysis, state_dict
-                )
+                response = await self._flow_manager.start_flow(state_dict)
+                return self._build_response(response, query_type, state_dict)
 
-            logger.info(f"ExcelenciaSupportAgent response generated: {len(response_text)} chars")
+            # Generate support response with RAG
+            response = await self._response_generator.generate(
+                message, query_analysis, state_dict
+            )
 
-            result = {
-                "messages": [{"role": "assistant", "content": response_text}],
-                "current_agent": self.name,
-                "agent_history": [self.name],
-                "retrieved_data": {
-                    "query_type": query_type,
-                    "module_mentioned": query_analysis.get("module"),
-                    "intent": query_analysis,
-                },
-                "query_type": query_type,
-                "is_complete": True,
-            }
-            logger.info("ExcelenciaSupportAgent._process_internal DONE")
-            return result
+            return self._build_full_response(response, query_type, query_analysis, state_dict)
 
         except Exception as e:
             logger.error(f"Error in excelencia support agent: {e!s}")
-            error_response = self._generate_error_response()
+            return self._build_error_response(state_dict)
 
-            return {
-                "messages": [{"role": "assistant", "content": error_response}],
-                "error_count": state_dict.get("error_count", 0) + 1,
-                "current_agent": self.name,
-            }
+    def _analyze_query(self, message: str) -> dict[str, Any]:
+        """Analyze query intent using detector and config."""
+        match = self._query_detector.detect(message)
 
-    async def _analyze_query_intent(self, message: str) -> dict[str, Any]:
-        """Analyze query intent for support operations."""
-        message_lower = message.lower()
-
-        # Detect query type
-        query_type = "general"
-        for qtype, keywords in self.QUERY_TYPES.items():
-            if any(keyword in message_lower for keyword in keywords):
-                query_type = qtype
-                break
-
-        # Detect mentioned module
-        module = None
-        for mod_key, mod_name in self.EXCELENCIA_MODULES.items():
-            if mod_key in message_lower:
-                module = mod_key
-                break
+        logger.info(
+            f"Query detected: {match.query_type} "
+            f"(confidence: {match.confidence:.2f}, matched: {match.matched_keyword})"
+        )
 
         return {
-            "query_type": query_type,
-            "module": module,
-            "urgency": self._detect_urgency(message_lower),
+            "query_type": match.query_type,
+            "query_type_confidence": match.confidence,
+            "matched_keyword": match.matched_keyword,
+            "module": SupportConfig.detect_module(message),
+            "urgency": SupportConfig.detect_urgency(message),
         }
 
-    def _detect_urgency(self, message: str) -> str:
-        """Detect urgency level from message."""
-        high_urgency = ["urgente", "crítico", "no funciona", "se cayó", "bloqueado"]
-        if any(word in message for word in high_urgency):
-            return "high"
-        return "medium"
+    def _build_response(
+        self, response_text: str, query_type: str, state_dict: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build standard response dict."""
+        return {
+            "messages": [{"role": "assistant", "content": response_text}],
+            "current_agent": self.name,
+            "agent_history": [self.name],
+            "query_type": query_type,
+            "is_complete": True,
+        }
 
-    async def _handle_ticket_creation(
+    def _build_full_response(
         self,
-        message: str,
-        ticket_type: str,
+        response_text: str,
+        query_type: str,
         query_analysis: dict[str, Any],
         state_dict: dict[str, Any],
-    ) -> str:
-        """Handle ticket creation for incidents and feedback."""
-        try:
-            from app.core.container import DependencyContainer
+    ) -> dict[str, Any]:
+        """Build full response with retrieved data."""
+        return {
+            "messages": [{"role": "assistant", "content": response_text}],
+            "current_agent": self.name,
+            "agent_history": [self.name],
+            "retrieved_data": {
+                "query_type": query_type,
+                "module_mentioned": query_analysis.get("module"),
+                "intent": query_analysis,
+            },
+            "query_type": query_type,
+            "is_complete": True,
+        }
 
-            async with get_async_db_context() as db:
-                container = DependencyContainer()
-                use_case = container.create_support_ticket_use_case(db)
-
-                ticket = await use_case.execute(
-                    user_phone=state_dict.get("user_phone", "unknown"),
-                    ticket_type=ticket_type,
-                    description=message,
-                    category=self._infer_category(message, ticket_type),
-                    module=query_analysis.get("module"),
-                    conversation_id=state_dict.get("conversation_id"),
-                )
-
-                return self._generate_ticket_confirmation(ticket, ticket_type)
-
-        except Exception as e:
-            logger.error(f"Error creating support ticket: {e}")
-            return self._generate_ticket_error_response()
-
-    def _infer_category(self, description: str, ticket_type: str) -> str:
-        """Infer ticket category from description."""
-        description_lower = description.lower()
-
-        if ticket_type == "feedback":
-            return "sugerencias"
-
-        # Technical keywords
-        if any(w in description_lower for w in ["error", "fallo", "bug", "crash", "no funciona"]):
-            return "tecnico"
-
-        # Billing keywords
-        if any(w in description_lower for w in ["factura", "cfdi", "timbrado", "sat"]):
-            return "facturacion"
-
-        # Training keywords
-        if any(w in description_lower for w in ["capacitación", "curso", "entrenamiento"]):
-            return "capacitacion"
-
-        return "general"
-
-    def _generate_ticket_confirmation(self, ticket: dict, ticket_type: str) -> str:
-        """Generate confirmation message for created ticket."""
-        ticket_id = ticket.get("ticket_id_short", ticket.get("id", "")[:8].upper())
-        status = ticket.get("status", "open")
-        category = ticket.get("category", "general")
-
-        if ticket_type == "incident":
-            status_text = "Abierto" if status == "open" else status.capitalize()
-            return (
-                f"🎫 **Incidencia Registrada**\n\n"
-                f"Tu reporte ha sido creado con el folio: **{ticket_id}**\n\n"
-                f"**Resumen:**\n"
-                f"- Categoría: {category}\n"
-                f"- Estado: {status_text}\n\n"
-                f"Nuestro equipo de soporte lo revisará y te contactará pronto.\n\n"
-                f"¿Hay algo más en lo que pueda ayudarte?"
-            )
-        else:  # feedback
-            return (
-                f"💬 **Gracias por tu Feedback**\n\n"
-                f"Tu comentario ha sido registrado (Ref: {ticket_id}).\n\n"
-                f"Tu opinión es muy valiosa para nosotros y nos ayuda a mejorar "
-                f"continuamente nuestros servicios y productos.\n\n"
-                f"¿Hay algo más que quieras compartir?"
-            )
-
-    def _generate_ticket_error_response(self) -> str:
-        """Generate error response when ticket creation fails."""
-        return (
-            "🛠️ Disculpa, hubo un problema al registrar tu incidencia.\n\n"
-            "Por favor, contacta directamente a soporte técnico:\n"
-            "- Teléfono: 800-XXX-XXXX\n"
-            "- Email: soporte@excelencia.com\n\n"
-            "¿Puedo ayudarte con algo más?"
-        )
-
-    async def _search_knowledge_base(self, query: str, query_type: str) -> str:
-        """Search knowledge base for support-related information."""
-        if not self.use_rag:
-            return ""
-
-        try:
-            from app.core.container import DependencyContainer
-
-            async with get_async_db_context() as db:
-                container = DependencyContainer()
-                use_case = container.create_search_knowledge_use_case(db)
-                results = await use_case.execute(
-                    query=query,
-                    max_results=self.rag_max_results,
-                    search_strategy="pgvector_primary",
-                )
-
-                if not results:
-                    return ""
-
-                context_parts = ["\n## INFORMACIÓN DE SOPORTE (Knowledge Base):"]
-                for i, result in enumerate(results, 1):
-                    context_parts.append(f"\n### {i}. {result.get('title', 'Sin título')}")
-                    content = result.get("content", "")
-                    content_preview = content[:300] + "..." if len(content) > 300 else content
-                    context_parts.append(f"{content_preview}")
-                    doc_type = result.get("document_type", "")
-                    if doc_type:
-                        context_parts.append(f"*Tipo: {doc_type}*")
-
-                return "\n".join(context_parts)
-
-        except Exception as e:
-            logger.error(f"Error searching knowledge base: {e}")
-            return ""
-
-    async def _generate_response(
-        self, user_message: str, query_analysis: dict[str, Any], _state_dict: dict[str, Any]
-    ) -> str:
-        """Generate response based on query analysis."""
-        query_type = query_analysis.get("query_type", "general")
-        module = query_analysis.get("module")
-        urgency = query_analysis.get("urgency", "medium")
-
-        # Search knowledge base
-        rag_context = await self._search_knowledge_base(user_message, query_type)
-
-        # Build response prompt from YAML
-        try:
-            response_prompt = await self.prompt_manager.get_prompt(
-                PromptRegistry.EXCELENCIA_SUPPORT_RESPONSE,
-                variables={
-                    "user_message": user_message,
-                    "query_type": query_type,
-                    "modules": module or "No especificado",
-                    "urgency": urgency,
-                    "rag_context": rag_context,
-                },
-            )
-        except Exception as e:
-            logger.warning(f"Failed to load YAML prompt: {e}")
-            return await self._generate_fallback_response(query_type, module)
-
-        try:
-            logger.info("ExcelenciaSupportAgent: Getting LLM for response generation...")
-            llm = self.ollama.get_llm(
-                complexity=ModelComplexity.COMPLEX,
-                temperature=RESPONSE_GENERATION_TEMPERATURE,
-            )
-            response = await llm.ainvoke(response_prompt)
-
-            if hasattr(response, "content"):
-                content = response.content
-                if isinstance(content, str):
-                    result = content.strip()
-                elif isinstance(content, list):
-                    result = " ".join(str(item) for item in content).strip()
-                else:
-                    result = str(content).strip()
-
-                result = OllamaLLM.clean_deepseek_response(result)
-                return result
-            else:
-                result = str(response).strip()
-                result = OllamaLLM.clean_deepseek_response(result)
-                return result
-
-        except Exception as e:
-            logger.error(f"Error generating AI response: {e}")
-            return await self._generate_fallback_response(query_type, module)
-
-    async def _generate_fallback_response(
-        self, query_type: str, module: str | None = None
-    ) -> str:
-        """Generate fallback response using YAML prompts or hardcoded fallback."""
-        module_text = f" del módulo {module}" if module else ""
-
-        # Try to load YAML fallback
-        try:
-            if query_type == "training":
-                response = await self.prompt_manager.get_prompt(
-                    PromptRegistry.EXCELENCIA_SUPPORT_TRAINING_FALLBACK,
-                )
-                return response
-            else:
-                response = await self.prompt_manager.get_prompt(
-                    PromptRegistry.EXCELENCIA_SUPPORT_FALLBACK,
-                )
-                return response
-        except Exception as e:
-            logger.warning(f"Failed to load YAML fallback prompt: {e}")
-
-        # Hardcoded fallback
-        return (
-            f"🛠️ **Soporte Técnico Excelencia**\n\n"
-            f"Disculpa, no encontré información específica{module_text} en este momento.\n\n"
-            f"Puedes:\n"
-            f"- Reformular tu pregunta con más detalles\n"
-            f"- Contactar a nuestro equipo de soporte directamente\n"
-            f"- Decirme \"quiero reportar una incidencia\" para crear un ticket\n\n"
-            f"¿En qué más puedo ayudarte?"
-        )
-
-    def _generate_error_response(self) -> str:
-        """Generate friendly error response."""
-        return (
+    def _build_error_response(self, state_dict: dict[str, Any]) -> dict[str, Any]:
+        """Build error response."""
+        error_message = (
             "Disculpa, tuve un inconveniente procesando tu consulta de soporte. "
-            "¿Podrías reformular tu pregunta? Puedo ayudarte con:\n"
-            "- Incidencias y problemas técnicos\n"
-            "- Información de módulos\n"
-            "- Capacitación y guías"
+            "Podrias reformular tu pregunta? Puedo ayudarte con:\n"
+            "- Incidencias y problemas tecnicos\n"
+            "- Informacion de modulos\n"
+            "- Capacitacion y guias"
         )
+        return {
+            "messages": [{"role": "assistant", "content": error_message}],
+            "error_count": state_dict.get("error_count", 0) + 1,
+            "current_agent": self.name,
+        }

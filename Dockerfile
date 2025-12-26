@@ -82,9 +82,6 @@ RUN uv sync --frozen --no-install-project
 # Copy application code (will be overwritten by volume mount in docker-compose)
 COPY app/ ./app/
 
-# Copy streamlit admin (will be overwritten by volume mount in docker-compose)
-COPY streamlit_admin/ ./streamlit_admin/
-
 # Install the project
 RUN uv sync --frozen
 

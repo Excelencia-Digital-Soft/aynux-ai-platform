@@ -1,7 +1,7 @@
 """
 Excelencia Domain Services
 
-Business logic services for the Excelencia ERP domain.
+Business logic services for the Excelencia Software domain.
 """
 
 from app.domains.excelencia.domain.services.demo_scheduling_service import (

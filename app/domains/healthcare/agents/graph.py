@@ -16,6 +16,8 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
 from app.integrations.llm import OllamaLLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 from .state import HealthcareState
 
@@ -79,6 +81,7 @@ class HealthcareGraph:
     def _init_integrations(self):
         """Initialize integrations (Ollama)."""
         self.ollama = OllamaLLM()
+        self.prompt_manager = PromptManager()
 
     def _init_nodes(self):
         """Initialize healthcare domain nodes."""
@@ -239,10 +242,11 @@ class HealthcareGraph:
                 last_message.content if hasattr(last_message, "content") else str(last_message)
             )
 
-            prompt = f"""You are a healthcare appointment assistant.
-            The patient asked: {message_content}
-            Provide a helpful response about appointment booking, availability, or scheduling.
-            Respond in Spanish. Be professional and empathetic."""
+            # Load prompt from YAML
+            prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.HEALTHCARE_AGENTS_APPOINTMENT_SYSTEM,
+                variables={"message": message_content},
+            )
 
             response = await self.ollama.generate(prompt, temperature=0.7)
 
@@ -278,11 +282,11 @@ class HealthcareGraph:
                 last_message.content if hasattr(last_message, "content") else str(last_message)
             )
 
-            prompt = f"""You are a healthcare records assistant.
-            The patient asked: {message_content}
-            Provide helpful information about accessing medical records.
-            Remind them about privacy and verification requirements.
-            Respond in Spanish. Be professional."""
+            # Load prompt from YAML
+            prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.HEALTHCARE_AGENTS_PATIENT_RECORDS_SYSTEM,
+                variables={"message": message_content},
+            )
 
             response = await self.ollama.generate(prompt, temperature=0.7)
 
@@ -314,20 +318,16 @@ class HealthcareGraph:
             is_emergency = state.get("is_emergency", False)
 
             if is_emergency:
-                response = """ATENCION: Esto parece una emergencia medica.
-
-Por favor, sigue estos pasos inmediatamente:
-1. Llama al numero de emergencias (107 o 911)
-2. No te muevas si es una lesion fisica
-3. Permanece en linea con los servicios de emergencia
-4. Si estas con alguien, pideles que llamen mientras tu recibes atencion
-
-Tu salud es lo primero. Busca atencion medica de inmediato."""
+                # Load emergency response from YAML
+                response = await self.prompt_manager.get_prompt(
+                    PromptRegistry.HEALTHCARE_AGENTS_EMERGENCY_RESPONSE,
+                )
             else:
-                prompt = f"""You are a medical triage assistant.
-                The patient described: {message_content}
-                Provide: 1. Initial assessment 2. Recommended urgency 3. Next steps
-                Always recommend seeing a doctor. Respond in Spanish."""
+                # Load triage prompt from YAML
+                prompt = await self.prompt_manager.get_prompt(
+                    PromptRegistry.HEALTHCARE_AGENTS_TRIAGE_SYSTEM,
+                    variables={"message": message_content},
+                )
 
                 response = await self.ollama.generate(prompt, temperature=0.5)
 
@@ -364,10 +364,11 @@ Tu salud es lo primero. Busca atencion medica de inmediato."""
                 last_message.content if hasattr(last_message, "content") else str(last_message)
             )
 
-            prompt = f"""You are a healthcare staff assistant.
-            The patient asked: {message_content}
-            Provide helpful information about finding doctors or specialists.
-            Respond in Spanish. Be helpful."""
+            # Load prompt from YAML
+            prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.HEALTHCARE_AGENTS_DOCTOR_SEARCH_SYSTEM,
+                variables={"message": message_content},
+            )
 
             response = await self.ollama.generate(prompt, temperature=0.7)
 

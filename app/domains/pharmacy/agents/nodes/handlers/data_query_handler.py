@@ -7,6 +7,7 @@ about their debt items. Auto-fetches debt data from Plex if needed.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.integrations.llm import ModelComplexity, get_llm_for_task
@@ -193,36 +194,25 @@ class DataQueryHandler(BasePharmacyHandler):
         highest_item_text = "N/A"
         if highest_item:
             if isinstance(highest_item, dict):
-                highest_item_text = f"{highest_item.get('description', 'Item')}: ${float(highest_item.get('amount', 0)):,.2f}"
+                desc = highest_item.get("description", "Item")
+                amt = float(highest_item.get("amount", 0))
+                highest_item_text = f"{desc}: ${amt:,.2f}"
             else:
                 highest_item_text = f"{highest_item.description}: ${float(highest_item.amount):,.2f}"
 
-        prompt = f"""Eres un asistente de farmacia analizando los datos de deuda de un cliente.
-
-**Datos de deuda del cliente {customer_name}:**
-Total pendiente: ${float(total_debt):,.2f}
-Cantidad de productos: {len(items)}
-Cantidad de facturas/comprobantes: {invoice_count}
-
-**Mayor producto individual:** {highest_item_text}
-
-**Detalle agrupado por factura:**
-{grouped_items_text}
-
-**Pregunta del cliente:** {user_question}
-
-**Instrucciones IMPORTANTES:**
-1. Analiza los datos y responde la pregunta del cliente
-2. CONTEXTO INTELIGENTE:
-   - Si pregunta por "medicamento", "producto" o "remedio" más caro → responde con el PRODUCTO individual de mayor valor
-   - Si pregunta por "factura", "comprobante" o "mayor deuda" → responde con la FACTURA con mayor deuda total (suma de productos)
-   - Si solo dice "qué debo más" sin especificar → responde con la FACTURA de mayor deuda total
-3. Si la pregunta es sobre "cuántos productos", cuenta los items totales
-4. Si la pregunta requiere información que NO tenemos, explícalo amablemente
-5. Sé conciso y directo
-6. Usa formato amigable con emojis
-
-Responde SOLO basándote en los datos proporcionados:"""
+        # Build prompt from YAML template
+        prompt = await self.prompt_manager.get_prompt(
+            "pharmacy.data_query.analyze",
+            variables={
+                "customer_name": customer_name,
+                "total_debt": f"${float(total_debt):,.2f}",
+                "item_count": str(len(items)),
+                "invoice_count": str(invoice_count),
+                "highest_item_text": highest_item_text,
+                "grouped_items_text": grouped_items_text,
+                "user_question": user_question,
+            },
+        )
 
         llm = get_llm_for_task(
             complexity=ModelComplexity.COMPLEX,
@@ -257,6 +247,51 @@ Responde SOLO basándote en los datos proporcionados:"""
         items = debt_data.get("items", [])
         total_debt = debt_data.get("total_debt", 0)
         question_lower = question.lower()
+
+        # Priority: Detect price/cost queries for specific products
+        asks_for_price = any(
+            word in question_lower
+            for word in ["precio", "costo", "cuanto cuesta", "cuánto cuesta", "vale", "valor de"]
+        )
+
+        if asks_for_price:
+            # Extract product name from question
+            product_name = self._extract_product_name(question_lower)
+
+            if product_name:
+                # Search for product in debt items
+                matching_item = self._find_product_in_debt(product_name, items)
+
+                if matching_item:
+                    # Found in debt - show price from their account
+                    desc = matching_item.get("description", "Producto")
+                    amount = float(matching_item.get("amount", 0))
+                    invoice_num = matching_item.get("invoice_number", "")
+                    invoice_date = matching_item.get("invoice_date", "")
+
+                    invoice_info = ""
+                    if invoice_num:
+                        invoice_info = f"\n📄 Factura: {invoice_num}"
+                        if invoice_date:
+                            invoice_info += f" | Fecha: {invoice_date}"
+
+                    return (
+                        f"**{customer_name}**, encontré ese producto en tu cuenta:\n\n"
+                        f"💊 **{desc}**\n"
+                        f"💰 Precio: ${amount:,.2f}{invoice_info}\n\n"
+                        "Este es el precio registrado en tu última compra a cuenta."
+                    )
+                else:
+                    # Not found - explain limitations clearly
+                    return (
+                        f"**{customer_name}**, no tengo información del precio de ese producto.\n\n"
+                        "📋 **¿Qué puedo hacer por ti?**\n"
+                        "Solo tengo acceso a información de productos que ya compraste "
+                        "a cuenta en la farmacia.\n\n"
+                        "💡 **Para consultar precios:**\n"
+                        "Te recomiendo visitar la farmacia o comunicarte directamente con ellos.\n\n"
+                        "📊 Si deseas ver los productos que tienes en tu cuenta, escribe *deuda*."
+                    )
 
         # Get grouped data
         invoice_groups = DebtGroupingService.group_by_invoice(items)
@@ -363,3 +398,63 @@ Responde SOLO basándote en los datos proporcionados:"""
             f"💊 **Mayor producto:** {highest_item_text}{highest_invoice_text}\n\n"
             "¿Necesitas más detalles? Escribe *deuda* para ver el listado completo."
         )
+
+    def _extract_product_name(self, question: str) -> str | None:
+        """
+        Extract product name from price query.
+
+        Patterns:
+        - "precio del paracetamol" → "paracetamol"
+        - "cuánto cuesta el ibuprofeno" → "ibuprofeno"
+        - "valor de la aspirina" → "aspirina"
+
+        Args:
+            question: User question (lowercase)
+
+        Returns:
+            Extracted product name or None
+        """
+        patterns = [
+            r"precio\s+(?:del?|de\s+la?)\s+(.+?)(?:\?|$)",
+            r"cuanto\s+cuesta\s+(?:el|la|un|una)?\s*(.+?)(?:\?|$)",
+            r"cuánto\s+cuesta\s+(?:el|la|un|una)?\s*(.+?)(?:\?|$)",
+            r"valor\s+(?:del?|de\s+la?)\s+(.+?)(?:\?|$)",
+            r"costo\s+(?:del?|de\s+la?)\s+(.+?)(?:\?|$)",
+            r"que\s+(?:precio|costo)\s+tiene\s+(?:el|la)?\s*(.+?)(?:\?|$)",
+            r"qué\s+(?:precio|costo)\s+tiene\s+(?:el|la)?\s*(.+?)(?:\?|$)",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, question, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return None
+
+    def _find_product_in_debt(
+        self,
+        product_name: str,
+        items: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """
+        Find a product in debt items by name similarity.
+
+        Uses simple substring matching to find products.
+
+        Args:
+            product_name: Product name to search for
+            items: List of debt items
+
+        Returns:
+            Matching item dict or None
+        """
+        if not product_name:
+            return None
+
+        product_lower = product_name.lower().strip()
+
+        for item in items:
+            desc = item.get("description", "").lower()
+            # Substring matching in both directions
+            if product_lower in desc or desc in product_lower:
+                return item
+
+        return None

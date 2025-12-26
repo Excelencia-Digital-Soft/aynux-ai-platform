@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.interfaces.llm import ILLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -129,22 +131,6 @@ class AIBasedRoutingStrategy:
         ),
     ]
 
-    SYSTEM_PROMPT = """You are a domain classifier for a multi-service chatbot.
-Your task is to determine which domain should handle a user's message.
-
-Available domains:
-{domains_info}
-
-Instructions:
-1. Analyze the user's message intent
-2. Match it to the most appropriate domain
-3. Return ONLY the domain name in lowercase
-4. If unsure, return "{default_domain}"
-
-User message: {message}
-
-Domain:"""
-
     def __init__(
         self,
         llm: ILLM,
@@ -166,6 +152,7 @@ Domain:"""
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.domains: dict[str, DomainDescription] = {}
+        self.prompt_manager = PromptManager()
 
         # Load default domains
         for domain in self.DEFAULT_DOMAINS:
@@ -211,11 +198,14 @@ Domain:"""
             # Build domains info for prompt
             domains_info = self._build_domains_info()
 
-            # Generate classification prompt
-            prompt = self.SYSTEM_PROMPT.format(
-                domains_info=domains_info,
-                default_domain=self.default_domain,
-                message=message,
+            # Generate classification prompt from YAML template
+            prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.ORCHESTRATOR_ROUTING_DOMAIN_CLASSIFIER,
+                variables={
+                    "domains_info": domains_info,
+                    "default_domain": self.default_domain,
+                    "message": message,
+                },
             )
 
             # Get LLM classification
@@ -267,18 +257,14 @@ Domain:"""
         try:
             domains_info = self._build_domains_info()
 
-            prompt = f"""Analyze this message and determine the appropriate domain.
-
-Available domains:
-{domains_info}
-
-Message: "{message}"
-
-Respond in this format:
-DOMAIN: <domain_name>
-CONFIDENCE: <high/medium/low>
-REASONING: <brief explanation>
-"""
+            # Generate prompt from YAML template
+            prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.ORCHESTRATOR_ROUTING_DOMAIN_CLASSIFIER_WITH_REASONING,
+                variables={
+                    "domains_info": domains_info,
+                    "message": message,
+                },
+            )
 
             response = await self.llm.generate(
                 prompt,

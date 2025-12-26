@@ -145,16 +145,22 @@ class AppFactory:
         """
         Get allowed CORS origins based on environment.
 
-        Production should use specific origins.
+        In production, reads from CORS_ORIGINS environment variable.
+        In development (DEBUG=true), allows all origins.
         """
         if self._settings.DEBUG:
             return ["*"]
 
-        # In production, specify allowed origins
-        # This could be configured via settings
+        import os
+
+        cors_origins = os.getenv("CORS_ORIGINS", "")
+        if cors_origins:
+            return [origin.strip() for origin in cors_origins.split(",")]
+
+        # Fallback defaults for production
         return [
-            "https://yourdomain.com",
-            "https://app.yourdomain.com",
+            "http://localhost",
+            "http://localhost:8000",
         ]
 
 

@@ -11,14 +11,19 @@ prompts:
       Consider conversation history. A message like "what about this one?" depends completely on previous messages.
       Use customer data to better understand their query.
 
+      ## CRITICAL: Follow-up Response Detection
+      If the user's message appears to be a DIRECT RESPONSE to a previous question from the assistant:
+      - Short answers like "computer", "yes", "no", numbers (1, 2, 3), priority levels ("critical", "high")
+      - Answers that make sense only in context of the previous bot question
+      - When the last bot message asked a specific question
+
+      Return intent: "follow_up" with high confidence (0.85+).
+      The system will automatically route to the previous agent to continue the flow.
+
       ALWAYS return a valid JSON object in a single line, without explanations, intros, or markdown.
 
-      JSON structure:
-      {{
-      "intent": "one_of_the_valid_intents",
-      "confidence": 0.0,
-      "reasoning": "Brief explanation of why you chose this intent."
-      }}
+      JSON structure (single line):
+      {{"intent": "one_of_the_valid_intents", "confidence": 0.0, "reasoning": "Brief explanation"}}
 
       {intent_text}
 
@@ -31,18 +36,26 @@ prompts:
   - key: intent.analyzer.user
     name: Intent Analyzer User Prompt
     description: User prompt for the intent analyzer agent.
-    version: "1.1.0"
+    version: "1.2.0"
     template: |
       ### Conversation Summary (if available)
       {conversation_summary}
 
       {context_string}
 
+      ### Last Bot Message (for follow-up detection)
+      {last_bot_message}
+
+      ### Previous Agent
+      {previous_agent}
+
       ### Current User Message
       "{message}"
 
-      Based on ALL the information above (conversation summary, customer data, history and current message),
+      Based on ALL the information above (conversation summary, customer data, history, last bot message, and current message),
       respond only with the intent JSON.
+
+      IMPORTANT: If the current message seems to be a response to the last bot message (like answering a question), use intent "follow_up".
     metadata:
       temperature: 0.2
       max_tokens: 400
@@ -50,3 +63,5 @@ prompts:
       variables:
         optional:
           - conversation_summary
+          - last_bot_message
+          - previous_agent

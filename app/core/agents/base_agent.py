@@ -2,6 +2,7 @@
 # SCOPE: GLOBAL
 # Description: Clase base abstracta para todos los agentes especializados.
 #              Soporta modo dual: global (defaults) y multi-tenant (config de DB).
+#              Incluye RAG automático: busca knowledge del agente e inyecta en prompt.
 # Tenant-Aware: Yes - via apply_tenant_config() puede recibir config por tenant.
 # ============================================================================
 """
@@ -10,6 +11,11 @@ Agente base para todos los agentes especializados
 Supports dual-mode operation:
 - Global mode (no tenant): Uses hardcoded Python defaults
 - Multi-tenant mode (with token): Loads configuration from database
+
+Includes automatic RAG:
+- Searches agent-specific knowledge base before processing
+- Injects relevant context into state_dict['agent_knowledge_context']
+- Agents can use this context in their prompts
 
 The apply_tenant_config() method allows runtime configuration updates
 when processing requests in multi-tenant mode.
@@ -75,6 +81,13 @@ class BaseAgent(ABC):
         self._tenant_config_applied: bool = False
         self._applied_config_keys: list[str] = []
 
+        # Agent Knowledge (RAG) configuration
+        self._knowledge_enabled: bool = config.get("knowledge_enabled", True)
+        self._knowledge_max_results: int = config.get("knowledge_max_results", 3)
+        self._knowledge_min_similarity: float = config.get("knowledge_min_similarity", 0.5)
+        self._knowledge_max_content_length: int = config.get("knowledge_max_content_length", 800)
+        self._knowledge_cache: dict[str, int] = {}  # Cache document count per session
+
         # Metricas del agente
         self.metrics = {"total_requests": 0, "successful_requests": 0, "average_response_time": 0.0}
 
@@ -101,6 +114,7 @@ class BaseAgent(ABC):
         Public interface for processing messages.
 
         Template Method pattern: wraps _process_internal with metrics and error handling.
+        Includes automatic RAG: retrieves agent-specific knowledge and injects into state.
 
         Args:
             message: User message
@@ -118,6 +132,12 @@ class BaseAgent(ABC):
                     "messages": [{"role": "assistant", "content": self._get_error_message()}],
                     "error_count": state_dict.get("error_count", 0) + 1,
                 }
+
+            # RAG: Retrieve agent-specific knowledge context
+            knowledge_context = await self._retrieve_agent_knowledge(message)
+            if knowledge_context:
+                state_dict["agent_knowledge_context"] = knowledge_context
+                self.logger.debug(f"Injected RAG context ({len(knowledge_context)} chars) for {self.name}")
 
             result = await self._process_internal(message, state_dict)
             success = True
@@ -256,6 +276,104 @@ class BaseAgent(ABC):
             Current timestamp as ISO formatted string
         """
         return datetime.now(UTC).isoformat()
+
+    # =========================================================================
+    # Agent Knowledge RAG Methods
+    # =========================================================================
+
+    async def _retrieve_agent_knowledge(self, query: str) -> str:
+        """
+        Retrieve knowledge specific to this agent for RAG.
+
+        Searches the agent_knowledge table for documents matching the query
+        and returns formatted context for prompt injection.
+
+        Args:
+            query: User query to search for relevant documents
+
+        Returns:
+            Formatted knowledge context string, or empty string if none found
+        """
+        if not self._knowledge_enabled:
+            return ""
+
+        try:
+            # Lazy import to avoid circular dependencies
+            from app.database.async_db import get_async_db_context
+            from app.domains.shared.application.use_cases.agent_knowledge_use_cases import (
+                SearchAgentKnowledgeUseCase,
+            )
+
+            # Check cache: skip search if agent has no documents
+            cache_key = f"{self.name}_doc_count"
+            if cache_key in self._knowledge_cache and self._knowledge_cache[cache_key] == 0:
+                return ""
+
+            async with get_async_db_context() as db:
+                use_case = SearchAgentKnowledgeUseCase(db)
+
+                # Search for relevant documents
+                results = await use_case.execute(
+                    agent_key=self.name,
+                    query=query,
+                    max_results=self._knowledge_max_results,
+                    min_similarity=self._knowledge_min_similarity,
+                )
+
+                # Update cache
+                if not results:
+                    # Check if it's because there are no documents at all
+                    from app.domains.shared.infrastructure.repositories.agent_knowledge_repository import (
+                        AgentKnowledgeRepository,
+                    )
+
+                    repo = AgentKnowledgeRepository(db)
+                    count = await repo.count_by_agent(self.name)
+                    self._knowledge_cache[cache_key] = count
+
+                    if count == 0:
+                        self.logger.debug(f"No knowledge documents for agent {self.name}")
+                        return ""
+
+                # Format results as context
+                return self._format_knowledge_context(results)
+
+        except Exception as e:
+            self.logger.warning(f"Error retrieving agent knowledge: {e}")
+            return ""
+
+    def _format_knowledge_context(self, results: list[dict[str, Any]]) -> str:
+        """
+        Format search results as context for agent prompt.
+
+        Args:
+            results: List of search results with title, content, similarity_score
+
+        Returns:
+            Formatted context string for prompt injection
+        """
+        if not results:
+            return ""
+
+        parts = ["## Contexto Relevante (Knowledge Base):"]
+
+        for i, result in enumerate(results, 1):
+            title = result.get("title", "Documento")
+            content = result.get("content", "")
+            score = result.get("similarity_score", 0)
+
+            # Truncate content to max length
+            if len(content) > self._knowledge_max_content_length:
+                content = content[: self._knowledge_max_content_length] + "..."
+
+            parts.append(f"\n### {i}. {title} (relevancia: {score:.0%})")
+            parts.append(content)
+
+        return "\n".join(parts)
+
+    def clear_knowledge_cache(self) -> None:
+        """Clear the knowledge document count cache."""
+        self._knowledge_cache.clear()
 
     # =========================================================================
     # Dual-Mode Configuration Methods (Global vs Multi-Tenant)

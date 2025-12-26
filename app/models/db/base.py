@@ -2,7 +2,7 @@
 Base models and mixins for the database
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime
 from sqlalchemy.ext.declarative import declarative_base
@@ -13,11 +13,15 @@ Base = declarative_base()
 class TimestampMixin:
     """Mixin para agregar timestamps automáticos."""
 
-    # Using naive datetimes for PostgreSQL TIMESTAMP WITHOUT TIME ZONE compatibility
-    created_at = Column(DateTime, default=lambda: datetime.now(), nullable=False)
+    # Using timezone-aware UTC datetimes for consistency with Pydantic models
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
     updated_at = Column(
-        DateTime,
-        default=lambda: datetime.now(),
-        onupdate=lambda: datetime.now(),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )

@@ -49,9 +49,9 @@ dependencies = [
     "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
     "es_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.8.0/es_core_news_sm-3.8.0-py3-none-any.whl",
     "pgvector>=0.4.1",
-    "streamlit>=1.39.0",
     "graphviz>=0.20.3",
     "pypdf>=5.1.0",
+    "python-docx>=1.1.0",  # DOCX document extraction
     "alembic>=1.13.0",
     "nest-asyncio>=1.6.0",
     "fpdf2>=2.8.0", # PDF receipt generation
@@ -125,7 +125,6 @@ omit = [
     "*/conftest.py",
     "*/dev-*.sh",
     "*/run_*.sh",
-    "*/streamlit_*.py",
     "app/main.py",
 ]
 branch = true

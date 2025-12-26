@@ -1,0 +1,51 @@
+# Tools Prompts - Dynamic SQL Generation
+# Purpose: AI-powered SQL generation for dynamic data queries
+
+prompts:
+  - key: tools.dynamic_sql.query_generator_system
+    name: SQL Query Generator System Prompt
+    description: System prompt for generating SQL queries from natural language
+    version: "1.0.0"
+    template: |
+      Eres un experto en SQL que genera consultas precisas y seguras basadas en esquemas de base de datos.
+    metadata:
+      temperature: 0.1
+      max_tokens: 500
+      model: "gemma3"
+      tags:
+        - tools
+        - dynamic_sql
+        - query_generator
+        - system
+
+  - key: tools.dynamic_sql.intent_analyzer_system
+    name: SQL Intent Analyzer System Prompt
+    description: System prompt for analyzing query intent and extracting components
+    version: "1.0.0"
+    template: |
+      Eres un experto en analisis de consultas SQL. Extrae informacion estructurada de consultas en lenguaje natural.
+    metadata:
+      temperature: 0.1
+      max_tokens: 400
+      model: "gemma3"
+      tags:
+        - tools
+        - dynamic_sql
+        - intent_analyzer
+        - system
+
+  - key: tools.dynamic_sql.context_generator_system
+    name: SQL Context Generator System Prompt
+    description: System prompt for generating AI-consumable context from SQL results
+    version: "1.0.0"
+    template: |
+      Eres un analista de datos experto que resume informacion de manera clara y util para agentes AI.
+    metadata:
+      temperature: 0.3
+      max_tokens: 400
+      model: "gemma2"
+      tags:
+        - tools
+        - dynamic_sql
+        - context_generator
+        - system

@@ -1,5 +1,5 @@
 """
-Excelencia Node - Main node for ERP Excelencia queries.
+Excelencia Node - Main node for Software Excelencia queries.
 
 Migrated from app/agents/subagent/excelencia_agent.py
 Handles information about demos, modules, support, training and corporate queries via RAG.
@@ -12,11 +12,12 @@ Optimizations:
 - Automatic cleaning of deepseek-r1 <think> tags
 """
 
-import json
 import logging
+import time
 from typing import Any
 
 from app.config.settings import get_settings
+from app.utils.json_extractor import extract_json_from_text
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
 from app.database.async_db import get_async_db_context
@@ -56,7 +57,7 @@ _FALLBACK_MODULES: dict[str, dict[str, Any]] = {
 
 class ExcelenciaNode(BaseAgent):
     """
-    Node for ERP Excelencia queries.
+    Node for Software Excelencia queries.
 
     Handles:
     - Demo and presentation requests
@@ -104,6 +105,9 @@ class ExcelenciaNode(BaseAgent):
 
         # Module cache (loaded on first use from DB)
         self._modules_cache: dict[str, dict[str, Any]] | None = None
+
+        # RAG metrics for last search (exposed to frontend)
+        self._last_rag_metrics: dict[str, Any] | None = None
 
         logger.info(f"ExcelenciaNode initialized (RAG enabled: {self.use_rag})")
 
@@ -158,7 +162,7 @@ class ExcelenciaNode(BaseAgent):
         extract_state=True,
     )
     async def _process_internal(self, message: str, state_dict: dict[str, Any]) -> dict[str, Any]:
-        """Process Excelencia ERP queries."""
+        """Process Excelencia Software queries."""
         try:
             logger.info(f"ExcelenciaNode._process_internal START: {message[:50]}...")
 
@@ -183,8 +187,10 @@ class ExcelenciaNode(BaseAgent):
                 "mentioned_modules": query_analysis.get("modules", []),
                 "requires_demo": query_analysis.get("requires_demo", False),
                 "is_complete": True,
+                # RAG metrics for frontend visualization
+                "rag_metrics": self._last_rag_metrics,
             }
-            logger.info(f"ExcelenciaNode._process_internal DONE, returning result")
+            logger.info(f"ExcelenciaNode._process_internal DONE, returning result (RAG: {self._last_rag_metrics})")
             return result
 
         except Exception as e:
@@ -225,20 +231,21 @@ class ExcelenciaNode(BaseAgent):
 
         # Try AI analysis for deeper understanding
         try:
-            prompt = f"""Analiza la siguiente consulta sobre el ERP Excelencia:
+            prompt = f"""Analiza la siguiente consulta sobre el Software Excelencia:
 
 "{message}"
 
-Responde en JSON con esta estructura:
-{{
-  "query_type": "demo|modules|training|support|products|general",
-  "user_intent": "breve descripción de lo que busca el usuario",
-  "specific_modules": ["módulo1", "módulo2"],
-  "requires_demo": true|false,
-  "urgency": "low|medium|high"
-}}
+Responde SOLO con un objeto JSON válido. Los valores posibles son:
+- query_type: elegir UNO de estos valores exactos: "demo", "modules", "training", "support", "products", "general"
+- user_intent: texto breve describiendo lo que busca el usuario
+- specific_modules: lista de módulos mencionados (puede estar vacía)
+- requires_demo: true o false (booleano, no texto)
+- urgency: "low", "medium" o "high"
 
-Responde solo con el JSON, sin texto adicional."""
+Ejemplo de respuesta válida:
+{{"query_type": "support", "user_intent": "consulta sobre facturación", "specific_modules": [], "requires_demo": false, "urgency": "medium"}}
+
+Responde SOLO con el JSON, sin explicaciones ni texto adicional."""
 
             logger.info("ExcelenciaNode: Getting SIMPLE LLM for intent analysis...")
             llm = self.ollama.get_llm(
@@ -249,23 +256,28 @@ Responde solo con el JSON, sin texto adicional."""
             response = await llm.ainvoke(prompt)
             logger.info(f"ExcelenciaNode: LLM response received, type: {type(response)}")
 
-            try:
-                response_text = response.content if isinstance(response.content, str) else str(response.content)
-                # Clean deepseek-r1 <think> tags before parsing JSON
-                response_text = OllamaLLM.clean_deepseek_response(response_text)
-                logger.info(f"ExcelenciaNode: Parsing JSON response: {response_text[:100]}...")
-                ai_analysis = json.loads(response_text)
-                logger.info(f"ExcelenciaNode: Intent analysis complete: {ai_analysis.get('query_type')}")
-                return {
-                    "query_type": ai_analysis.get("query_type", query_type),
-                    "user_intent": ai_analysis.get("user_intent", ""),
-                    "modules": list(set(mentioned_modules + ai_analysis.get("specific_modules", []))),
-                    "requires_demo": ai_analysis.get("requires_demo", False),
-                    "urgency": ai_analysis.get("urgency", "medium"),
-                }
-            except json.JSONDecodeError as je:
-                logger.warning(f"ExcelenciaNode: JSON decode failed: {je}, using fallback")
+            response_text = response.content if isinstance(response.content, str) else str(response.content)
+            logger.info(f"ExcelenciaNode: Parsing JSON response: {response_text[:100]}...")
+
+            # Use robust JSON extractor that handles <think> tags, markdown, and Python booleans
+            ai_analysis = extract_json_from_text(
+                response_text,
+                required_keys=["query_type"],
+                default=None,
+            )
+
+            if not ai_analysis:
+                logger.warning("ExcelenciaNode: JSON extraction failed, using fallback")
                 return self._create_fallback_analysis(message, query_type, mentioned_modules)
+
+            logger.info(f"ExcelenciaNode: Intent analysis complete: {ai_analysis.get('query_type')}")
+            return {
+                "query_type": ai_analysis.get("query_type", query_type),
+                "user_intent": ai_analysis.get("user_intent", ""),
+                "modules": list(set(mentioned_modules + ai_analysis.get("specific_modules", []))),
+                "requires_demo": ai_analysis.get("requires_demo", False),
+                "urgency": ai_analysis.get("urgency", "medium"),
+            }
 
         except Exception as e:
             logger.error(f"Error in AI analysis: {e}")
@@ -275,7 +287,7 @@ Responde solo con el JSON, sin texto adicional."""
         """Create fallback analysis without AI."""
         return {
             "query_type": query_type,
-            "user_intent": "Consulta sobre Excelencia ERP",
+            "user_intent": "Consulta sobre Excelencia Software",
             "modules": modules,
             "requires_demo": "demo" in message.lower(),
             "urgency": "medium",
@@ -283,12 +295,17 @@ Responde solo con el JSON, sin texto adicional."""
 
     async def _search_knowledge_base(self, query: str) -> str:
         """Search knowledge base for relevant corporate information."""
+        # Reset RAG metrics
+        self._last_rag_metrics = {"used": False, "query": query}
+
         if not self.use_rag:
             return ""
 
         try:
             # Lazy import to avoid circular dependency
             from app.core.container import DependencyContainer
+
+            start_time = time.time()
 
             async with get_async_db_context() as db:
                 container = DependencyContainer()
@@ -298,6 +315,18 @@ Responde solo con el JSON, sin texto adicional."""
                     max_results=self.rag_max_results,
                     search_strategy="pgvector_primary",
                 )
+
+                duration_ms = int((time.time() - start_time) * 1000)
+
+                # Capture RAG metrics
+                self._last_rag_metrics = {
+                    "used": True,
+                    "query": query,
+                    "results_count": len(results) if results else 0,
+                    "duration_ms": duration_ms,
+                    "sources": [r.get("title", "")[:50] for r in results[:5]] if results else [],
+                }
+                logger.info(f"RAG search completed: {len(results) if results else 0} results in {duration_ms}ms")
 
                 if not results:
                     return ""
@@ -316,6 +345,7 @@ Responde solo con el JSON, sin texto adicional."""
 
         except Exception as e:
             logger.error(f"Error searching knowledge base: {e}")
+            self._last_rag_metrics["error"] = str(e)
             return ""
 
     async def _search_support_knowledge(
@@ -337,11 +367,16 @@ Responde solo con el JSON, sin texto adicional."""
         Returns:
             Formatted RAG context string or empty string
         """
+        # Reset RAG metrics
+        self._last_rag_metrics = {"used": False, "query": query}
+
         if not self.use_rag:
             return ""
 
         try:
             from app.core.container import DependencyContainer
+
+            start_time = time.time()
 
             # Determine which document types to search based on query type
             doc_types_to_search = []
@@ -379,18 +414,32 @@ Responde solo con el JSON, sin texto adicional."""
                         search_strategy="pgvector_primary",
                     )
 
+                duration_ms = int((time.time() - start_time) * 1000)
+
+                # Capture RAG metrics
+                unique_results = []
+                seen_ids = set()
+                for r in all_results:
+                    rid = r.get("id", "")
+                    if rid not in seen_ids:
+                        seen_ids.add(rid)
+                        unique_results.append(r)
+
+                self._last_rag_metrics = {
+                    "used": True,
+                    "query": query,
+                    "results_count": len(unique_results),
+                    "duration_ms": duration_ms,
+                    "sources": [r.get("title", "")[:50] for r in unique_results[:5]],
+                }
+                logger.info(f"Support RAG search completed: {len(unique_results)} results in {duration_ms}ms")
+
                 if not all_results:
                     return ""
 
                 # Format results
                 context_parts = ["\n## INFORMACION DE SOPORTE (Knowledge Base):"]
-                seen_ids = set()
-                for result in all_results[:self.rag_max_results]:
-                    result_id = result.get("id", "")
-                    if result_id in seen_ids:
-                        continue
-                    seen_ids.add(result_id)
-
+                for result in unique_results[:self.rag_max_results]:
                     title = result.get("title", "Sin titulo")
                     content = result.get("content", "")
                     content_preview = content[:300] + "..." if len(content) > 300 else content
@@ -405,6 +454,7 @@ Responde solo con el JSON, sin texto adicional."""
 
         except Exception as e:
             logger.error(f"Error searching support knowledge: {e}")
+            self._last_rag_metrics["error"] = str(e)
             return ""
 
     async def _create_support_ticket(
@@ -550,7 +600,7 @@ Responde solo con el JSON, sin texto adicional."""
         )
 
         # Generate response with AI
-        response_prompt = f"""Eres un asistente especializado en el ERP Excelencia.
+        response_prompt = f"""Eres un asistente especializado en el Software Excelencia.
 
 ## CONSULTA DEL USUARIO:
 "{user_message}"
@@ -622,7 +672,7 @@ Genera tu respuesta ahora:"""
                 f"- {info['name']}" for _, info in list(all_modules.items())[:4]
             )
             return (
-                f"¡Hola! 👋 Con gusto te puedo mostrar una demo de Excelencia ERP.\n\n"
+                f"¡Hola! 👋 Con gusto te puedo mostrar una demo de Excelencia Software.\n\n"
                 f"Ofrecemos demostraciones personalizadas de nuestros sistemas:\n"
                 f"{demo_list}\n\n"
                 f"¿Sobre qué módulo te gustaría ver la demo?"
@@ -673,7 +723,7 @@ Genera tu respuesta ahora:"""
         modules_text = "\n".join(module_lines) if module_lines else "Múltiples soluciones disponibles"
 
         return (
-            f"¡Hola! 👋 **Excelencia ERP** es un sistema modular especializado.\n\n"
+            f"¡Hola! 👋 **Excelencia Software** es un sistema modular especializado.\n\n"
             f"**Principales soluciones:**\n"
             f"{modules_text}\n\n"
             f"¿Sobre qué módulo te gustaría saber más?"

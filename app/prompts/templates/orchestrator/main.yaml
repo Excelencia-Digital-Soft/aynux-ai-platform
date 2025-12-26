@@ -16,7 +16,7 @@ prompts:
       4. Handle service switching gracefully
 
       Available services:
-      - Excelencia ERP: Sistema ERP modular, módulos de software, demos, información corporativa
+      - Excelencia Software: Sistema ERP modular, módulos de software, demos, información corporativa
       - Facturación Excelencia: Facturas de clientes, estados de cuenta, cobranzas
       - Promociones Software: Descuentos en módulos, ofertas de implementación, capacitación
       - Reportes: Análisis de datos, métricas, dashboards

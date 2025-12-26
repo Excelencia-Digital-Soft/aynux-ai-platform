@@ -364,7 +364,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
 
     Example:
         ```python
-        embedder = OllamaEmbeddingModel(model_name="nomic-embed-text:v1.5")
+        embedder = OllamaEmbeddingModel(model_name="nomic-embed-text")
 
         # Single embedding
         embedding = await embedder.embed_text("laptop gaming")
@@ -385,7 +385,7 @@ class OllamaEmbeddingModel(IEmbeddingModel):
         Initialize Ollama embedding model.
 
         Args:
-            model_name: Embedding model name (e.g., "nomic-embed-text:v1.5")
+            model_name: Embedding model name (e.g., "nomic-embed-text")
             base_url: Ollama API URL
             embedding_dimension: Expected dimension of embeddings
         """

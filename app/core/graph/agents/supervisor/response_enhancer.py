@@ -138,14 +138,26 @@ class ResponseEnhancer:
             )
         except Exception as e:
             logger.warning(f"Failed to load YAML prompt: {e}")
-            # Fallback to hardcoded prompt
-            return (
-                "You are a customer service assistant. Transform this response:\n"
-                f'Original: "{original_response}"\n'
-                f'For question: "{user_message}"\n'
-                f"{language_instruction}\n"
-                "Make it warm and professional."
-            )
+            # Try fallback YAML prompt
+            try:
+                return await self.prompt_manager.get_prompt(
+                    PromptRegistry.AGENTS_SUPERVISOR_ENHANCEMENT_FALLBACK,
+                    variables={
+                        "original_response": original_response,
+                        "user_message": user_message,
+                        "language_instruction": language_instruction,
+                    },
+                )
+            except Exception as fallback_e:
+                logger.warning(f"Failed to load fallback YAML prompt: {fallback_e}")
+                # Ultimate hardcoded fallback
+                return (
+                    "You are a customer service assistant. Transform this response:\n"
+                    f'Original: "{original_response}"\n'
+                    f'For question: "{user_message}"\n'
+                    f"{language_instruction}\n"
+                    "Make it warm and professional."
+                )
 
     def _build_conversation_summary(self, context: dict[str, Any]) -> str:
         """Build a summary of recent conversation."""

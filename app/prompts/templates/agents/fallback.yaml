@@ -42,7 +42,7 @@ prompts:
       No entendí tu consulta, pero estoy aquí para ayudarte 😊
 
       Puedo asistirte con:
-      • 💼 Excelencia ERP (módulos, demos, capacitación, información corporativa)
+      • 💼 Excelencia Software (módulos, demos, capacitación, información corporativa)
       • 🧾 Facturación de clientes (estados de cuenta, cobranzas)
       • 🏷️ Promociones de software (descuentos, ofertas)
       • 📊 Reportes y análisis de datos
@@ -64,7 +64,7 @@ prompts:
     version: "2.0.0"
     template: |
       No entendí tu consulta, pero puedo ayudarte con:
-      • 💼 Excelencia ERP: módulos, demos, información del sistema
+      • 💼 Excelencia Software: módulos, demos, información del sistema
       • 🧾 Facturación: clientes, cobranzas, estados de cuenta
       • 🏷️ Promociones: descuentos de software, ofertas
       • 📊 Reportes: análisis de datos, métricas
