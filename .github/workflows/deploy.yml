@@ -53,7 +53,7 @@ jobs:
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
 
           # Deploy ONLY backend services (postgres, redis, app)
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --no-deps postgres redis app
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --no-deps --remove-orphans postgres redis app
 
           # Cleanup unused images
           docker image prune -f
