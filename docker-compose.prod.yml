@@ -46,6 +46,12 @@ services:
       --save 300 10
       --save 60 10000
       --requirepass ${REDIS_PASSWORD}
+    # Override healthcheck to use password
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:
