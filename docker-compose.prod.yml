@@ -151,33 +151,25 @@ services:
     extra_hosts: []
 
   # ---------------------------------------------------------------------------
-  # Streamlit Admin Dashboard - Enabled in production
+  # Frontend - Nginx serving Vue.js SPA (Production)
   # ---------------------------------------------------------------------------
-  admin:
+  frontend:
+    build:
+      context: ../vuejs
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_API_V1_STR: "/api/v1"
+    container_name: aynux-prod-frontend
     restart: always
-    profiles: !reset []  # Enable by default in production (removes 'tools' profile restriction)
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - OLLAMA_API_URL=http://192.168.0.140:11434
-      - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
-      - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
-      - ENVIRONMENT=production
-      - API_BASE_URL=http://app:8001
+    ports:
+      - "8000:80"
     deploy:
       resources:
         limits:
-          memory: 1G
-        reservations:
           memory: 256M
-    # Don't expose port externally - use reverse proxy
-    ports: !reset []
+        reservations:
+          memory: 64M
 
 # =============================================================================
 # Networks - Production settings

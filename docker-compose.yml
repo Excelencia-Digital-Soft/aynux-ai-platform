@@ -10,7 +10,6 @@
 #
 # Profiles:
 #   --profile ollama                  # Include Ollama in Docker (CPU mode)
-#   --profile tools                   # Include Streamlit Admin Dashboard
 # =============================================================================
 
 name: aynux
@@ -179,48 +178,27 @@ services:
       - aynux-network
 
   # ---------------------------------------------------------------------------
-  # Streamlit Admin Dashboard (Unified admin tools - optional profile)
-  # Includes: Chat Visualizer, Knowledge Base, Excelencia Management
+  # Frontend - Nginx serving Vue.js SPA (Development)
   # ---------------------------------------------------------------------------
-  admin:
-    image: aynux-app:dev
-    pull_policy: never
-    container_name: aynux-admin
+  frontend:
+    build:
+      context: ../vuejs
+      dockerfile: Dockerfile
+    container_name: aynux-frontend
     restart: unless-stopped
     ports:
-      - "8501:8501"
-    volumes:
-      - ./app:/app/app:cached
-      - ./streamlit_admin:/app/streamlit_admin:cached
-    command: >
-      uv run streamlit run streamlit_admin/app.py
-      --server.port=8501
-      --server.address=0.0.0.0
-      --server.headless=true
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME:-aynux}
-      - DB_USER=${DB_USER:-aynux}
-      - DB_PASSWORD=${DB_PASSWORD:-aynux_dev}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://localhost:11434}
-      - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
-      - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
-      - ENVIRONMENT=development
-      # API URL inside Docker network
-      - API_BASE_URL=http://app:8001
-    env_file:
-      - path: .env
-        required: false
+      - "8000:80"
     depends_on:
       app:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - aynux-network
-    profiles:
-      - tools  # Only starts with: docker compose --profile tools up
 
 # =============================================================================
 # Networks
