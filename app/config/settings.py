@@ -1,8 +1,8 @@
 import json
 from typing import Annotated, Any
 
-from pydantic import BeforeValidator, Field, computed_field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, computed_field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 def parse_str_list(value: Any) -> list[str]:
@@ -11,6 +11,8 @@ def parse_str_list(value: Any) -> list[str]:
         return [str(v).strip() for v in value if v]
     if isinstance(value, str):
         value = value.strip()
+        if not value:
+            return []
         if value.startswith("["):
             try:
                 parsed = json.loads(value)
@@ -24,16 +26,14 @@ def parse_str_list(value: Any) -> list[str]:
     return []
 
 
-# Custom type that parses before pydantic-settings tries JSON decoding
-StrList = Annotated[list[str], BeforeValidator(parse_str_list)]
-
-
 def parse_int_list(value: Any) -> list[int]:
     """Parse a list of integers from JSON array or comma-separated string."""
     if isinstance(value, list):
         return [int(v) for v in value]
     if isinstance(value, str):
         value = value.strip()
+        if not value:
+            return []
         if value.startswith("["):
             try:
                 parsed = json.loads(value)
@@ -44,9 +44,6 @@ def parse_int_list(value: Any) -> list[int]:
                 return [int(v.strip()) for v in inner.split(",") if v.strip()]
         return [int(v.strip()) for v in value.split(",") if v.strip()]
     return []
-
-
-IntList = Annotated[list[int], BeforeValidator(parse_int_list)]
 
 
 class Settings(BaseSettings):
@@ -93,8 +90,10 @@ class Settings(BaseSettings):
 
     # File Upload Settings
     MAX_FILE_SIZE: int = Field(10 * 1024 * 1024, description="Tamaño máximo de archivo en bytes (10MB)")
-    ALLOWED_EXTENSIONS: StrList = Field(
-        default=["jpg", "jpeg", "png", "pdf", "doc", "docx"], description="Extensiones de archivo permitidas"
+    # NoDecode prevents pydantic-settings from trying json.loads() - we parse manually
+    ALLOWED_EXTENSIONS: Annotated[list[str], NoDecode] = Field(
+        default=["jpg", "jpeg", "png", "pdf", "doc", "docx"],
+        description="Extensiones de archivo permitidas",
     )
 
     # AI Service Settings - Model Tiers
@@ -195,7 +194,11 @@ class Settings(BaseSettings):
     # DUX Synchronization Configuration (controls both background sync and ProductAgent)
     # When disabled: background sync does NOT start and ProductAgent is automatically excluded
     DUX_SYNC_ENABLED: bool = Field(False, description="Habilitar integración DUX (sync + ProductAgent)")
-    DUX_SYNC_HOURS: IntList = Field([2, 14], description="Horas del día para sincronización automática (0-23)")
+    # NoDecode prevents pydantic-settings from trying json.loads() - we parse manually
+    DUX_SYNC_HOURS: Annotated[list[int], NoDecode] = Field(
+        default=[2, 14],
+        description="Horas del día para sincronización automática (0-23)",
+    )
     DUX_FORCE_SYNC_THRESHOLD_HOURS: int = Field(24, description="Forzar sync si datos > X horas antiguos")
 
     # External Service - Plex ERP Integration (Pharmacy)
@@ -226,16 +229,13 @@ class Settings(BaseSettings):
     # Agent Enablement Configuration
     # Note: product_agent, tracking_agent, promotions_agent, invoice_agent are now
     # internal nodes of ecommerce_agent (subgraph) - they should NOT be listed here
-    ENABLED_AGENTS: StrList = Field(
+    # NoDecode prevents pydantic-settings from trying json.loads() - we parse manually
+    ENABLED_AGENTS: Annotated[list[str], NoDecode] = Field(
         default=[
-            # Always available (domain_key=None)
             "greeting_agent",
             "support_agent",
             "fallback_agent",
             "farewell_agent",
-            # E-commerce domain - DISABLED by default
-            # "ecommerce_agent",
-            # Excelencia domain
             "excelencia_agent",
             "excelencia_invoice_agent",
             "excelencia_promotions_agent",
@@ -278,14 +278,30 @@ class Settings(BaseSettings):
             raise ValueError("PRODUCT_AGENT_DATA_SOURCE must be 'database' (always uses PostgreSQL)")
         return v
 
-    @field_validator("DUX_SYNC_HOURS", mode="after")
+    # Validators for NoDecode fields - parse from string (env var) to list
+    # mode='before' runs before pydantic-settings tries any parsing
+
+    @field_validator("ALLOWED_EXTENSIONS", mode="before")
     @classmethod
-    def validate_dux_sync_hours(cls, value: list[int]) -> list[int]:
-        """Validate that DUX sync hours are in valid range (0-23)."""
-        for hour in value:
+    def parse_allowed_extensions(cls, v: Any) -> list[str]:
+        """Parse ALLOWED_EXTENSIONS from JSON array or comma-separated string."""
+        return parse_str_list(v)
+
+    @field_validator("ENABLED_AGENTS", mode="before")
+    @classmethod
+    def parse_enabled_agents(cls, v: Any) -> list[str]:
+        """Parse ENABLED_AGENTS from JSON array or comma-separated string."""
+        return parse_str_list(v)
+
+    @field_validator("DUX_SYNC_HOURS", mode="before")
+    @classmethod
+    def parse_dux_sync_hours(cls, v: Any) -> list[int]:
+        """Parse DUX_SYNC_HOURS from JSON array or comma-separated string."""
+        hours = parse_int_list(v)
+        for hour in hours:
             if not 0 <= hour <= 23:
-                raise ValueError("DUX sync hours must be between 0 and 23")
-        return value
+                raise ValueError(f"DUX sync hour {hour} must be between 0 and 23")
+        return hours
 
     @field_validator("DB_POOL_SIZE")
     @classmethod
