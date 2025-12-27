@@ -52,8 +52,12 @@ jobs:
           # Write environment file
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
 
-          # Deploy ONLY backend services (postgres, redis, app)
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --no-deps --remove-orphans postgres redis app
+          # Stop and remove existing app containers to free port 8001
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml stop app 2>/dev/null || true
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml rm -f app 2>/dev/null || true
+
+          # Deploy backend services (removed --no-deps for proper ordering)
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans postgres redis app
 
           # Cleanup unused images
           docker image prune -f
