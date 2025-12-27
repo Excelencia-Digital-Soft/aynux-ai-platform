@@ -89,11 +89,11 @@ RUN uv sync --frozen
 RUN mkdir -p /app/logs /app/data
 
 # Expose application port
-EXPOSE 8001
+EXPOSE 8080
 
 # Development command with hot-reload
 # Using uv run ensures we use the correct virtual environment
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload", "--reload-dir", "/app/app"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload", "--reload-dir", "/app/app"]
 
 # -----------------------------------------------------------------------------
 # Stage 4: Production image (minimal, secure)
@@ -140,15 +140,15 @@ RUN mkdir -p /app/logs /app/data \
 USER appuser
 
 # Expose application port
-EXPOSE 8001
+EXPOSE 8080
 
 # Health check - verifies the application is responding
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8001/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Entrypoint handles service checks and database initialization
 ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Production command with multiple workers for better performance
 # Workers = 2 * CPU cores + 1 is a common formula, but 4 is a safe default
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "4"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4"]
