@@ -130,6 +130,8 @@ services:
       - SENTRY_DSN=${SENTRY_DSN}
       # JWT
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      # File Upload
+      - ALLOWED_EXTENSIONS=["jpg","jpeg","png","pdf","doc","docx"]
     deploy:
       resources:
         limits:
