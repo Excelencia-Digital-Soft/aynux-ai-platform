@@ -79,6 +79,9 @@ services:
     restart: always
     # No volume mounts in production - use built image
     volumes: []
+    # No port exposure in production - nginx proxies to container network
+    # This allows replicas to run without port conflicts
+    ports: []
     environment:
       # Database Configuration (from secrets/env)
       - DB_HOST=postgres
