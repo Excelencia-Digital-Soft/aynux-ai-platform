@@ -52,7 +52,7 @@ jobs:
           # Write environment file
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
 
-          # Stop and remove existing app containers to free port 8001
+          # Stop and remove existing app containers to free port
           docker compose -f docker-compose.yml -f docker-compose.prod.yml stop app 2>/dev/null || true
           docker compose -f docker-compose.yml -f docker-compose.prod.yml rm -f app 2>/dev/null || true
 

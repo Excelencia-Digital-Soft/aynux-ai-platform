@@ -79,8 +79,7 @@ services:
     restart: always
     # No volume mounts in production - use built image
     volumes: []
-    # No port exposure in production - nginx proxies to container network
-    # This allows replicas to run without port conflicts
+    # No external port - nginx proxies internally to app:8080
     ports: []
     environment:
       # Database Configuration (from secrets/env)
@@ -153,7 +152,7 @@ services:
         parallelism: 1
         delay: 10s
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -174,7 +173,7 @@ services:
     container_name: aynux-prod-frontend
     restart: always
     ports:
-      - "8000:80"
+      - "3002:80"
     deploy:
       resources:
         limits:
