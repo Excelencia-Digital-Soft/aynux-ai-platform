@@ -26,53 +26,89 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema - convert timestamp columns to timezone-aware."""
-    # Convert core.conversation_contexts timestamps
+    # Convert core.conversation_contexts timestamps (if table exists)
     op.execute("""
-        ALTER TABLE core.conversation_contexts
-            ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE
-                USING created_at AT TIME ZONE 'UTC',
-            ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE
-                USING updated_at AT TIME ZONE 'UTC',
-            ALTER COLUMN last_activity_at TYPE TIMESTAMP WITH TIME ZONE
-                USING last_activity_at AT TIME ZONE 'UTC'
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables
+                       WHERE table_schema = 'core' AND table_name = 'conversation_contexts') THEN
+                ALTER TABLE core.conversation_contexts
+                    ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE
+                        USING created_at AT TIME ZONE 'UTC',
+                    ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE
+                        USING updated_at AT TIME ZONE 'UTC',
+                    ALTER COLUMN last_activity_at TYPE TIMESTAMP WITH TIME ZONE
+                        USING last_activity_at AT TIME ZONE 'UTC';
+            END IF;
+        END $$;
     """)
 
-    # Convert core.conversation_messages timestamps
+    # Convert core.conversation_messages timestamps (if table exists)
     op.execute("""
-        ALTER TABLE core.conversation_messages
-            ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE
-                USING created_at AT TIME ZONE 'UTC'
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables
+                       WHERE table_schema = 'core' AND table_name = 'conversation_messages') THEN
+                ALTER TABLE core.conversation_messages
+                    ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE
+                        USING created_at AT TIME ZONE 'UTC';
+            END IF;
+        END $$;
     """)
 
-    # Convert soporte.pending_tickets timestamps
+    # Convert soporte.pending_tickets timestamps (if table exists)
     op.execute("""
-        ALTER TABLE soporte.pending_tickets
-            ALTER COLUMN started_at TYPE TIMESTAMP WITH TIME ZONE
-                USING started_at AT TIME ZONE 'UTC',
-            ALTER COLUMN expires_at TYPE TIMESTAMP WITH TIME ZONE
-                USING expires_at AT TIME ZONE 'UTC'
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables
+                       WHERE table_schema = 'soporte' AND table_name = 'pending_tickets') THEN
+                ALTER TABLE soporte.pending_tickets
+                    ALTER COLUMN started_at TYPE TIMESTAMP WITH TIME ZONE
+                        USING started_at AT TIME ZONE 'UTC',
+                    ALTER COLUMN expires_at TYPE TIMESTAMP WITH TIME ZONE
+                        USING expires_at AT TIME ZONE 'UTC';
+            END IF;
+        END $$;
     """)
 
 
 def downgrade() -> None:
     """Downgrade schema - revert to naive timestamps."""
-    # Revert core.conversation_contexts timestamps
+    # Revert core.conversation_contexts timestamps (if table exists)
     op.execute("""
-        ALTER TABLE core.conversation_contexts
-            ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE,
-            ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE,
-            ALTER COLUMN last_activity_at TYPE TIMESTAMP WITHOUT TIME ZONE
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables
+                       WHERE table_schema = 'core' AND table_name = 'conversation_contexts') THEN
+                ALTER TABLE core.conversation_contexts
+                    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE,
+                    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE,
+                    ALTER COLUMN last_activity_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+            END IF;
+        END $$;
     """)
 
-    # Revert core.conversation_messages timestamps
+    # Revert core.conversation_messages timestamps (if table exists)
     op.execute("""
-        ALTER TABLE core.conversation_messages
-            ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables
+                       WHERE table_schema = 'core' AND table_name = 'conversation_messages') THEN
+                ALTER TABLE core.conversation_messages
+                    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+            END IF;
+        END $$;
     """)
 
-    # Revert soporte.pending_tickets timestamps
+    # Revert soporte.pending_tickets timestamps (if table exists)
     op.execute("""
-        ALTER TABLE soporte.pending_tickets
-            ALTER COLUMN started_at TYPE TIMESTAMP WITHOUT TIME ZONE,
-            ALTER COLUMN expires_at TYPE TIMESTAMP WITHOUT TIME ZONE
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables
+                       WHERE table_schema = 'soporte' AND table_name = 'pending_tickets') THEN
+                ALTER TABLE soporte.pending_tickets
+                    ALTER COLUMN started_at TYPE TIMESTAMP WITHOUT TIME ZONE,
+                    ALTER COLUMN expires_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+            END IF;
+        END $$;
     """)
