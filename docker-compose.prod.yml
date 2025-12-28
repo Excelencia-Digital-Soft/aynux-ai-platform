@@ -80,7 +80,8 @@ services:
     # No volume mounts in production - use built image
     volumes: !reset []
     # No external port - nginx proxies internally to app:8080
-    ports: !reset []
+    ports:
+      - "8080:8080"
     environment:
       # Database Configuration (from secrets/env)
       - DB_HOST=postgres
