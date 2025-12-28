@@ -200,7 +200,7 @@ class KeywordRoutingStrategy:
         ),
     ]
 
-    def __init__(self, default_domain: str = "ecommerce"):
+    def __init__(self, default_domain: str = "excelencia"):
         """
         Initialize keyword routing strategy.
 

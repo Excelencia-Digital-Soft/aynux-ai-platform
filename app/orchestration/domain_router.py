@@ -59,14 +59,14 @@ class DomainRouter:
         router = DomainRouter(
             llm=ollama_llm,
             strategy="hybrid",
-            default_domain="ecommerce",
+            default_domain="excelencia",
         )
 
         decision = await router.route(
-            message="Quiero saber el precio de un producto",
+            message="¿Cómo configuro el módulo de inventario?",
             context={"customer_id": 123}
         )
-        print(decision.domain)  # "ecommerce"
+        print(decision.domain)  # "excelencia"
         ```
     """
 

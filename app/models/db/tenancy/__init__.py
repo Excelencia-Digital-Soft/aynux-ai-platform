@@ -16,6 +16,7 @@ This package contains all models related to multi-tenancy support:
 - TenantDocument: Per-tenant knowledge base documents with vector embeddings
 """
 
+from .bypass_rule import BypassRule
 from .organization import Organization
 from .organization_user import OrganizationUser
 from .pharmacy_merchant_config import PharmacyMerchantConfig
@@ -26,6 +27,7 @@ from .tenant_document import TenantDocument
 from .tenant_prompt import TenantPrompt
 
 __all__ = [
+    "BypassRule",
     "Organization",
     "OrganizationUser",
     "PharmacyMerchantConfig",

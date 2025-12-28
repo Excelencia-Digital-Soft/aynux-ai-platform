@@ -24,10 +24,13 @@ from app.api.routes.admin import (
 from app.api.routes.admin import (
     agent_knowledge,
     analytics as analytics_admin,
+    bypass_rules,
     chat_admin,
     org_users,
     organizations,
     pharmacy as pharmacy_admin,
+    pharmacy_config,
+    pharmacy_conversations,
     tenant_agents,
     tenant_config,
     tenant_credentials,
@@ -87,6 +90,11 @@ api_router.include_router(
     tags=["Tenant Agents"],
 )
 api_router.include_router(
+    bypass_rules.router,
+    prefix="/admin/organizations",
+    tags=["Bypass Rules"],
+)
+api_router.include_router(
     tenant_prompts.router,
     prefix="/admin/organizations",
     tags=["Tenant Prompts"],
@@ -129,4 +137,18 @@ api_router.include_router(
     chat_admin.router,
     prefix="/admin/chat",
     tags=["Chat Admin"],
+)
+
+# Admin routes - Pharmacy Config CRUD (per-organization pharmacy settings)
+api_router.include_router(
+    pharmacy_config.router,
+    prefix="/admin/pharmacy-config",
+    tags=["Pharmacy Config"],
+)
+
+# Admin routes - Pharmacy Conversations (message history endpoints)
+api_router.include_router(
+    pharmacy_conversations.router,
+    prefix="/admin/pharmacy-config",
+    tags=["Pharmacy Conversations"],
 )

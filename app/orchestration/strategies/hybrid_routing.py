@@ -62,7 +62,7 @@ class HybridRoutingStrategy:
     def __init__(
         self,
         llm: ILLM,
-        default_domain: str = "ecommerce",
+        default_domain: str = "excelencia",
         keyword_confidence_threshold: float = 0.5,
         use_ai_confirmation: bool = False,
         ai_confirmation_threshold: float = 0.3,

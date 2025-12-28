@@ -56,7 +56,7 @@ class SuperOrchestrator:
         self._prompt_manager = PromptManager()
 
         # Default domain if detection fails
-        self.default_domain = self.config.get("default_domain", "ecommerce")
+        self.default_domain = self.config.get("default_domain", "excelencia")
 
         logger.info(
             f"SuperOrchestrator initialized with {len(domain_agents)} domains: "

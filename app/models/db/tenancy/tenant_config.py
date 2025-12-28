@@ -139,6 +139,14 @@ class TenantConfig(Base, TimestampMixin):
         comment="Webhook verification token (overrides global)",
     )
 
+    # Fallback agent configuration
+    fallback_agent = Column(
+        String(100),
+        default="fallback_agent",
+        nullable=False,
+        comment="Agent to use when no specific routing matches",
+    )
+
     # Advanced configuration
     advanced_config = Column(
         JSONB,
@@ -177,6 +185,7 @@ class TenantConfig(Base, TimestampMixin):
             "prompt_scope": self.prompt_scope,
             "whatsapp_phone_number_id": self.whatsapp_phone_number_id,
             "whatsapp_verify_token": "***" if self.whatsapp_verify_token else None,
+            "fallback_agent": self.fallback_agent,
             "advanced_config": self.advanced_config,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

@@ -25,6 +25,14 @@ from .agent_schema import (
     get_valid_agents,
     get_valid_intents,
 )
+from .bypass_rule import (
+    BypassRuleCreate,
+    BypassRuleListResponse,
+    BypassRuleResponse,
+    BypassRuleTestRequest,
+    BypassRuleTestResponse,
+    BypassRuleUpdate,
+)
 from .conversation import ConversationContext
 from .customer import CustomerContext
 from .intent import IntentInfo, IntentPattern
@@ -57,4 +65,11 @@ __all__ = [
     # Intent
     "IntentInfo",
     "IntentPattern",
+    # Bypass Rules
+    "BypassRuleCreate",
+    "BypassRuleUpdate",
+    "BypassRuleResponse",
+    "BypassRuleListResponse",
+    "BypassRuleTestRequest",
+    "BypassRuleTestResponse",
 ]

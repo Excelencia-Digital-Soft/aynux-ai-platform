@@ -35,8 +35,10 @@ from app.models.db.analytics import Analytics, PriceHistory, StockMovement  # no
 from app.models.db.tenancy import (  # noqa: F401
     Organization,
     OrganizationUser,
+    PharmacyMerchantConfig,
     TenantAgent,
     TenantConfig,
+    TenantCredentials,
     TenantDocument,
     TenantPrompt,
 )

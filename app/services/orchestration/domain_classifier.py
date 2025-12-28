@@ -185,7 +185,7 @@ class DomainClassifier:
         if not domain_scores:
             # No matches - return default
             return ClassificationResult(
-                domain="ecommerce",  # Default domain
+                domain="excelencia",  # Default domain
                 confidence=0.3,
                 method="keyword_default",
                 metadata={"reason": "no_keyword_matches"},
@@ -272,11 +272,11 @@ class DomainClassifier:
 
             result_dict = extract_json_from_text(
                 response.content,
-                default={"domain": "ecommerce", "confidence": 0.4},
+                default={"domain": "excelencia", "confidence": 0.4},
                 required_keys=["domain"],
             )
 
-            domain = result_dict.get("domain", "ecommerce")
+            domain = result_dict.get("domain", "excelencia")
             confidence = float(result_dict.get("confidence", 0.5))
             reasoning = result_dict.get("reasoning", "")
 
@@ -291,7 +291,7 @@ class DomainClassifier:
             logger.error(f"AI classification error: {e}")
             # Return low-confidence default
             return ClassificationResult(
-                domain="ecommerce",
+                domain="excelencia",
                 confidence=0.4,
                 method="ai_error",
                 metadata={"error": str(e)},

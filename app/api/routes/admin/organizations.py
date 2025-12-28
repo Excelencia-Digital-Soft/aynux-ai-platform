@@ -225,8 +225,8 @@ async def create_organization(
     config = TenantConfig(
         id=uuid.uuid4(),
         organization_id=org.id,
-        enabled_domains=["ecommerce"],
-        default_domain="ecommerce",
+        enabled_domains=["excelencia"],
+        default_domain="excelencia",
         enabled_agent_types=[
             "greeting_agent",
             "product_agent",

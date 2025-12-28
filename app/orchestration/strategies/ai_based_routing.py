@@ -134,7 +134,7 @@ class AIBasedRoutingStrategy:
     def __init__(
         self,
         llm: ILLM,
-        default_domain: str = "ecommerce",
+        default_domain: str = "excelencia",
         temperature: float = 0.1,
         max_tokens: int = 20,
     ):

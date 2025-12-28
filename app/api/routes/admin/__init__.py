@@ -15,6 +15,7 @@ Includes:
 
 from . import (
     agent_knowledge,
+    bypass_rules,
     org_users,
     organizations,
     prompts,
@@ -35,4 +36,5 @@ __all__ = [
     "tenant_documents",
     "agent_knowledge",
     "prompts",
+    "bypass_rules",
 ]
