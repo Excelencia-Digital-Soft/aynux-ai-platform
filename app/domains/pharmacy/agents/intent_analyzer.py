@@ -10,106 +10,33 @@ Hybrid intent detection for pharmacy domain using:
 from __future__ import annotations
 
 import logging
-import re
-from dataclasses import dataclass, field
 from typing import Any
 
 import spacy
 from spacy.language import Language
 
+from app.domains.pharmacy.agents.entity_extractor import PharmacyEntityExtractor
+from app.domains.pharmacy.agents.intent_patterns import (
+    CONFIDENCE_EXACT_MATCH,
+    CONFIDENCE_MAX_SPACY,
+    CONFIDENCE_OUT_OF_SCOPE,
+    CONFIDENCE_THRESHOLD,
+    INTENT_PATTERNS,
+    KEYWORD_PATTERNS,
+    PHARMACY_CAPABILITIES,
+    VALID_INTENTS,
+)
+from app.domains.pharmacy.agents.intent_result import PharmacyIntentResult
+from app.domains.pharmacy.agents.pattern_matchers import (
+    is_payment_intent,
+    match_confirmation,
+    match_greeting,
+)
 from app.integrations.llm import ModelComplexity, get_llm_for_task
 from app.prompts.manager import PromptManager
 from app.utils import extract_json_from_text
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class PharmacyIntentResult:
-    """Result of pharmacy intent analysis."""
-
-    intent: str
-    confidence: float
-    is_out_of_scope: bool = False
-    suggested_response: str | None = None
-    entities: dict[str, Any] = field(default_factory=dict)
-    method: str = "hybrid"
-    analysis: dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> PharmacyIntentResult:
-        """Create instance from dictionary."""
-        return cls(
-            intent=data.get("intent", "unknown"),
-            confidence=float(data.get("confidence", 0.0)),
-            is_out_of_scope=bool(data.get("is_out_of_scope", False)),
-            suggested_response=data.get("suggested_response"),
-            entities=data.get("entities", {}),
-            method=data.get("method", "hybrid"),
-            analysis=data.get("analysis", {}),
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "intent": self.intent,
-            "confidence": self.confidence,
-            "is_out_of_scope": self.is_out_of_scope,
-            "suggested_response": self.suggested_response,
-            "entities": self.entities,
-            "method": self.method,
-            "analysis": self.analysis,
-        }
-
-
-# Confidence thresholds (single source of truth)
-CONFIDENCE_THRESHOLD = 0.6  # LLM fallback threshold
-CONFIDENCE_OUT_OF_SCOPE = 0.3
-CONFIDENCE_MAX_SPACY = 0.95
-CONFIDENCE_EXACT_MATCH = 0.95
-CONFIDENCE_CONTAINS = 0.85
-
-# Confirmation/rejection patterns (single source of truth - replaces 3 duplicated definitions)
-CONFIRMATION_PATTERNS: dict[str, dict[str, set[str]]] = {
-    "confirm": {
-        "exact": {"si", "sí", "ok", "dale", "bueno", "listo", "claro", "perfecto", "bien"},
-        "contains": {"confirmo", "acepto", "de acuerdo", "correcto", "afirmativo"},
-    },
-    "reject": {
-        "exact": {"no"},
-        "contains": {"cancelar", "rechazar", "incorrecto", "salir", "anular", "no quiero", "negar"},
-    },
-}
-
-# Keyword patterns for fallback (when spaCy unavailable)
-KEYWORD_PATTERNS: dict[str, list[str]] = {
-    "debt_query": ["deuda", "saldo", "debo", "cuenta", "pendiente"],
-    "invoice": ["factura", "recibo", "pagar", "pago", "comprobante"],
-    "greeting": ["hola", "buenos días", "buenas tardes", "buenas noches", "buenas"],
-}
-
-# Greeting patterns for priority detection (exact match or prefix)
-GREETING_EXACT: frozenset[str] = frozenset(
-    {
-        "hola",
-        "hey",
-        "buenas",
-        "buenos dias",
-        "buen dia",
-        "buen día",
-        "buenos días",
-        "buenas tardes",
-        "buenas noches",
-        "saludos",
-        "que tal",
-        "qué tal",
-        "como estas",
-        "cómo estás",
-        "hi",
-        "hello",
-    }
-)
-GREETING_PREFIXES: tuple[str, ...] = ("hola ", "buenas ", "buenos ", "hey ", "saludos ")
 
 
 class PharmacyIntentAnalyzer:
@@ -124,126 +51,6 @@ class PharmacyIntentAnalyzer:
 
     _nlp_model: Language | None = None
     _instance: PharmacyIntentAnalyzer | None = None
-
-    VALID_INTENTS = frozenset(
-        {"debt_query", "confirm", "reject", "invoice", "register", "greeting", "summary", "data_query", "unknown"}
-    )
-
-    PHARMACY_CAPABILITIES = [
-        "consultar deuda/saldo pendiente",
-        "confirmar deuda para pago",
-        "generar recibo/factura",
-        "registrarse como cliente nuevo",
-    ]
-
-    # Intent patterns for spaCy analysis
-    INTENT_PATTERNS = {
-        "debt_query": {
-            "lemmas": {"deuda", "deber", "saldo", "cuenta", "pendiente", "consultar", "estado"},
-            "phrases": ["cuánto debo", "cuanto debo", "mi deuda", "mi saldo", "estado de cuenta"],
-            "weight": 1.0,
-        },
-        "confirm": {
-            "lemmas": {"confirmar", "aceptar", "acordar"},
-            "phrases": [],
-            "weight": 1.0,
-            "exact_match": True,
-        },  # Use CONFIRMATION_PATTERNS
-        "reject": {
-            "lemmas": {"cancelar", "rechazar", "anular", "salir"},
-            "phrases": [],
-            "weight": 1.0,
-            "exact_match": True,
-        },  # Use CONFIRMATION_PATTERNS
-        "invoice": {
-            "lemmas": {"factura", "recibo", "comprobante", "pagar", "pago", "facturar", "abonar"},
-            "phrases": [
-                "generar factura",
-                "quiero pagar",
-                "mi factura",
-                "generar recibo",
-                "pagar mi deuda",
-                "pagar la deuda",
-                "pagar todo",
-                "hacer un pago",
-                "realizar pago",
-                "abonar deuda",
-            ],
-            "weight": 1.0,
-        },
-        "register": {
-            "lemmas": {"registrar", "inscribir", "nuevo"},
-            "phrases": ["soy nuevo", "registrarme", "nuevo cliente", "crear cuenta"],
-            "weight": 0.9,
-        },
-        "greeting": {
-            "lemmas": {"hola", "saludar", "saludo", "buenas", "buenos"},
-            "phrases": ["hola", "buenos días", "buenas tardes", "buenas noches", "buen día", "hey", "buenas"],
-            "weight": 1.0,  # Same priority as other intents
-        },
-        "summary": {
-            "lemmas": {"resumen", "resumir", "detalle", "detallar"},
-            "phrases": ["resumen de", "detalle de", "dame un resumen"],
-            "weight": 0.9,
-        },
-        "data_query": {
-            "lemmas": {
-                "medicamento",
-                "producto",
-                "consumir",
-                "gastar",
-                "comprar",
-                "caro",
-                "barato",
-                "mayor",
-                "menor",
-                "más",
-                "menos",
-                "compra",
-                "valor",
-                "importe",
-                # "factura" removed - conflicts with invoice/payment intent
-                "análisis",
-            },
-            "phrases": [
-                # Preguntas sobre medicamentos/productos
-                "que medicamento",
-                "cual medicamento",
-                "cuál medicamento",
-                "que producto",
-                "cual producto",
-                "cuál producto",
-                "mis medicamentos",
-                "mis productos",
-                # Preguntas sobre gastos/compras
-                "cuanto gaste",
-                "cuánto gasté",
-                "que compre",
-                "qué compré",
-                "que he comprado",
-                "que he gastado",
-                "analizar mis",
-                # Preguntas sobre valores/importes
-                "el más caro",
-                "el mas caro",
-                "el más barato",
-                "debo más",
-                "debo mas",
-                "mayor deuda",
-                "mayor importe",
-                "compras de mayor valor",
-                "producto de mayor",
-                "medicamento que más",
-                "mayor valor",
-                # Preguntas sobre cantidades
-                "cuantos productos",
-                "cuántos productos",
-                "cuantos medicamentos",
-                "cuántos medicamentos",
-            ],
-            "weight": 1.2,  # Prioridad sobre debt_query cuando hay overlap
-        },
-    }
 
     LLM_TEMPERATURE = 0.2
 
@@ -266,6 +73,7 @@ class PharmacyIntentAnalyzer:
         self._prompt_manager = prompt_manager
         self.use_llm_fallback = use_llm_fallback
         self.model_name = model_name
+        self._entity_extractor = PharmacyEntityExtractor()
         self._load_spacy_model()
         self._initialized = True
         logger.info("PharmacyIntentAnalyzer initialized")
@@ -324,31 +132,32 @@ class PharmacyIntentAnalyzer:
 
         # Priority 1: Check confirmation context first
         if context.get("awaiting_confirmation"):
-            if result := self._match_confirmation(text_lower):
+            if result := match_confirmation(text_lower):
                 return result
 
-        # Priority 2: Detect greeting with high confidence (before general scoring)
-        if result := self._match_greeting_priority(text_lower):
+        # Priority 2: Detect greeting with high confidence
+        if result := match_greeting(text_lower):
             return result
 
         # Extract entities early for payment detection
-        entities = self._extract_entities(doc, text_lower)
+        entities = self._entity_extractor.extract(doc, text_lower)
 
         # Priority 3: Detect payment intent (pagar + cantidad)
-        if self._is_payment_intent(text_lower, entities):
+        if is_payment_intent(text_lower, entities):
             return PharmacyIntentResult(
                 intent="invoice",
-                confidence=CONFIDENCE_EXACT_MATCH,  # 0.95
+                confidence=CONFIDENCE_EXACT_MATCH,
                 is_out_of_scope=False,
                 entities=entities,
                 method="payment_detection",
                 analysis={"detected": "payment_with_amount"},
             )
 
+        # Score all intents
         lemmas = {token.lemma_.lower() for token in doc if not token.is_stop and not token.is_punct}
         scores = {
             intent: self._calculate_intent_score(text_lower, lemmas, patterns, doc)
-            for intent, patterns in self.INTENT_PATTERNS.items()
+            for intent, patterns in INTENT_PATTERNS.items()
         }
 
         best_intent, best_score = max(scores.items(), key=lambda x: x[1])
@@ -358,91 +167,9 @@ class PharmacyIntentAnalyzer:
             intent=best_intent if not is_out_of_scope else "unknown",
             confidence=min(best_score, CONFIDENCE_MAX_SPACY),
             is_out_of_scope=is_out_of_scope,
-            entities=entities,  # Reuse already extracted entities
+            entities=entities,
             method="spacy",
             analysis={"lemmas": list(lemmas), "scores": scores, "token_count": len(doc)},
-        )
-
-    def _match_confirmation(self, text_lower: str) -> PharmacyIntentResult | None:
-        """Match confirmation/rejection patterns using unified logic."""
-        for intent, patterns in CONFIRMATION_PATTERNS.items():
-            if text_lower in patterns["exact"]:
-                return self._create_match_result(intent, CONFIDENCE_EXACT_MATCH, "exact", text_lower)
-            for pattern in patterns["contains"]:
-                if pattern in text_lower:
-                    return self._create_match_result(intent, CONFIDENCE_CONTAINS, "contains", pattern)
-        return None
-
-    def _match_greeting_priority(self, text_lower: str) -> PharmacyIntentResult | None:
-        """
-        Match greeting patterns with high priority.
-
-        This runs BEFORE general intent scoring to ensure greetings are
-        always detected reliably, even for short messages like "hola".
-        """
-        # Exact match (highest confidence)
-        if text_lower in GREETING_EXACT:
-            return PharmacyIntentResult(
-                intent="greeting",
-                confidence=CONFIDENCE_EXACT_MATCH,
-                is_out_of_scope=False,
-                entities={},
-                method="greeting_priority",
-                analysis={"matched_pattern": text_lower, "match_type": "exact"},
-            )
-
-        # Prefix match (high confidence)
-        for prefix in GREETING_PREFIXES:
-            if text_lower.startswith(prefix):
-                return PharmacyIntentResult(
-                    intent="greeting",
-                    confidence=CONFIDENCE_CONTAINS,
-                    is_out_of_scope=False,
-                    entities={},
-                    method="greeting_priority",
-                    analysis={"matched_pattern": prefix, "match_type": "prefix"},
-                )
-
-        return None
-
-    def _is_payment_intent(self, text_lower: str, entities: dict[str, Any]) -> bool:
-        """
-        Detect if the message is clearly a payment intent.
-
-        This runs with high priority to catch patterns like "pagar 50 mil"
-        that would otherwise be misclassified as data_query.
-        """
-        payment_verbs = {"pagar", "pago", "abonar", "abono", "depositar"}
-        has_payment_verb = any(verb in text_lower for verb in payment_verbs)
-        has_amount = entities.get("amount") is not None
-
-        # "pagar X" with amount = definitely payment
-        if has_payment_verb and has_amount:
-            return True
-
-        # Explicit payment phrases (with and without amount)
-        payment_phrases = [
-            "quiero pagar",
-            "voy a pagar",
-            "necesito pagar",
-            "hacer pago",
-            "pagar mi deuda",
-            "pagar la deuda",
-            "pagar todo",
-        ]
-        return any(phrase in text_lower for phrase in payment_phrases)
-
-    def _create_match_result(
-        self, intent: str, confidence: float, match_type: str, pattern: str
-    ) -> PharmacyIntentResult:
-        """Factory for pattern match results."""
-        return PharmacyIntentResult(
-            intent=intent,
-            confidence=confidence,
-            is_out_of_scope=False,
-            entities={},
-            method="pattern_match",
-            analysis={"matched_pattern": pattern, "match_type": match_type},
         )
 
     def _calculate_intent_score(self, text_lower: str, lemmas: set[str], patterns: dict[str, Any], doc: Any) -> float:
@@ -467,72 +194,12 @@ class PharmacyIntentAnalyzer:
 
         return min(score * weight, 1.0)
 
-    def _extract_entities(self, doc: Any, text_lower: str) -> dict[str, Any]:
-        """Extract pharmacy-relevant entities from message."""
-        entities: dict[str, Any] = {"amount": None, "date": None, "document_number": None}
-
-        # Amount extraction with Spanish multipliers (mil, millón, millones)
-        # Pattern: "50 mil", "2 millones", "$50.000", "50000"
-        mil_pattern = r"(\d+(?:[.,]\d+)?)\s*mil(?:es)?\b"
-        millon_pattern = r"(\d+(?:[.,]\d+)?)\s*millon(?:es)?\b"
-
-        if mil_matches := re.findall(mil_pattern, text_lower):
-            try:
-                base_num = float(mil_matches[0].replace(".", "").replace(",", "."))
-                entities["amount"] = base_num * 1000
-            except ValueError:
-                pass
-        elif millon_matches := re.findall(millon_pattern, text_lower):
-            try:
-                base_num = float(millon_matches[0].replace(".", "").replace(",", "."))
-                entities["amount"] = base_num * 1000000
-            except ValueError:
-                pass
-        else:
-            # Standard amount pattern: $50.000 or 50000
-            # First try pattern with thousand separators, then plain numbers
-            formatted_pattern = r"\$?\s*(\d{1,3}(?:[.,]\d{3})+)"  # 50.000 or 1.234.567
-            plain_pattern = r"\$?\s*(\d{4,})"  # 50000 (4+ digits without separators)
-            simple_pattern = r"\$?\s*(\d+)"  # Any remaining number
-
-            amount_str = None
-            if formatted_matches := re.findall(formatted_pattern, text_lower):
-                amount_str = formatted_matches[0]
-            elif plain_matches := re.findall(plain_pattern, text_lower):
-                amount_str = plain_matches[0]
-            elif simple_matches := re.findall(simple_pattern, text_lower):
-                amount_str = simple_matches[0]
-
-            if amount_str:
-                try:
-                    # Remove thousand separators (. or ,) and convert decimal separator
-                    cleaned = amount_str.replace(".", "").replace(",", ".")
-                    entities["amount"] = float(cleaned)
-                except ValueError:
-                    pass
-
-        # DNI extraction
-        if dni_matches := re.findall(r"\b(\d{7,8})\b", text_lower):
-            entities["document_number"] = dni_matches[0]
-
-        # spaCy NER
-        for ent in doc.ents:
-            if ent.label_ == "MONEY" and entities["amount"] is None:
-                try:
-                    entities["amount"] = float(re.sub(r"[^\d.]", "", ent.text))
-                except ValueError:
-                    pass
-            elif ent.label_ in ("DATE", "TIME"):
-                entities["date"] = ent.text
-
-        return entities
-
     def _keyword_fallback(self, message: str, context: dict[str, Any]) -> PharmacyIntentResult:
         """Keyword fallback when spaCy unavailable."""
         text_lower = message.lower().strip()
 
         if context.get("awaiting_confirmation"):
-            if result := self._match_confirmation(text_lower):
+            if result := match_confirmation(text_lower):
                 return result
 
         for intent, keywords in KEYWORD_PATTERNS.items():
@@ -558,7 +225,6 @@ class PharmacyIntentAnalyzer:
 
     async def _build_llm_prompt(self, message: str, context: dict[str, Any]) -> str:
         """Build prompt using PromptManager."""
-        # Format conversation history or indicate none
         conversation_history = context.get("conversation_history", "")
         if not conversation_history:
             conversation_history = "(Sin historial previo - primer mensaje)"
@@ -570,7 +236,7 @@ class PharmacyIntentAnalyzer:
                 "customer_identified": context.get("customer_identified", False),
                 "awaiting_confirmation": context.get("awaiting_confirmation", False),
                 "debt_status": context.get("debt_status", "none"),
-                "capabilities": "\n".join(f"- {cap}" for cap in self.PHARMACY_CAPABILITIES),
+                "capabilities": "\n".join(f"- {cap}" for cap in PHARMACY_CAPABILITIES),
                 "conversation_history": conversation_history,
             },
         )
@@ -591,10 +257,14 @@ class PharmacyIntentAnalyzer:
                 return spacy_result
 
             intent = extracted.get("intent", "unknown")
-            if intent not in self.VALID_INTENTS:
+            if intent not in VALID_INTENTS:
                 intent = "unknown"
 
-            merged_entities = {**extracted.get("entities", {}), **spacy_result.entities}
+            # Ensure entities is a dict before merging (LLM may return malformed response)
+            llm_entities = extracted.get("entities", {})
+            if not isinstance(llm_entities, dict):
+                llm_entities = {}
+            merged_entities = {**llm_entities, **spacy_result.entities}
 
             return PharmacyIntentResult(
                 intent=intent,
@@ -620,5 +290,5 @@ class PharmacyIntentAnalyzer:
             "spacy_model": self.model_name,
             "llm_fallback_enabled": self.use_llm_fallback,
             "confidence_threshold": CONFIDENCE_THRESHOLD,
-            "valid_intents": list(self.VALID_INTENTS),
+            "valid_intents": list(VALID_INTENTS),
         }

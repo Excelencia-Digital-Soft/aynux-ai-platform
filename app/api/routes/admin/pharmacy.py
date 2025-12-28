@@ -67,6 +67,7 @@ class PharmacySessionState(BaseModel):
     total_debt: float | None = None
     debt_data: dict[str, Any] | None = None
     debt_status: str | None = None
+    debt_id: str | None = None  # CRITICAL: Required for confirmation flow
     awaiting_confirmation: bool = False
     confirmation_received: bool = False
     workflow_step: str | None = None
@@ -386,6 +387,7 @@ async def send_test_message(
             "total_debt": session.total_debt,
             "debt_data": session.debt_data,
             "debt_status": session.debt_status,
+            "debt_id": session.debt_id,
             "confirmation_received": session.confirmation_received,
             "workflow_step": session.workflow_step,
             "mp_preference_id": session.mp_preference_id,
@@ -415,6 +417,7 @@ async def send_test_message(
         session.total_debt = result.get("total_debt")
         session.debt_data = result.get("debt_data")
         session.debt_status = result.get("debt_status")
+        session.debt_id = result.get("debt_id")
         session.awaiting_confirmation = result.get("awaiting_confirmation", False)
         session.confirmation_received = result.get("confirmation_received", False)
         session.workflow_step = result.get("workflow_step")
