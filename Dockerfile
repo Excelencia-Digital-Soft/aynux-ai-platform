@@ -128,6 +128,10 @@ COPY --from=builder --chown=appuser:appgroup /app/.venv /app/.venv
 # Copy application code
 COPY --chown=appuser:appgroup app/ ./app/
 
+# Copy Alembic migration files for database schema management
+COPY --chown=appuser:appgroup alembic.ini ./
+COPY --chown=appuser:appgroup alembic/ ./alembic/
+
 # Copy entrypoint script
 COPY --chown=appuser:appgroup docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

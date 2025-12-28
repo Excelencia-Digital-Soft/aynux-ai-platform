@@ -110,19 +110,17 @@ conn.close()
 " && log_info "pgvector extension verified" || log_warn "Could not verify pgvector extension"
 }
 
-# Initialize database tables using SQLAlchemy
-init_database() {
-    log_step "Initializing database tables..."
-    python -c "
-import asyncio
-from app.database import init_db
+# Run Alembic database migrations
+run_migrations() {
+    log_step "Running database migrations..."
 
-async def main():
-    await init_db()
-    print('Database tables initialized successfully')
-
-asyncio.run(main())
-" && log_info "Database initialization complete" || log_warn "Database initialization skipped (tables may already exist)"
+    # Run Alembic migrations (idempotent - safe to run multiple times)
+    if alembic upgrade head; then
+        log_info "Database migrations completed successfully"
+    else
+        log_error "Database migrations failed!"
+        return 1
+    fi
 }
 
 # Check Ollama connectivity (optional)
@@ -152,12 +150,12 @@ main() {
     wait_for_postgres || exit 1
     wait_for_redis || exit 1
 
-    # Database initialization (can be skipped)
+    # Database migrations (can be skipped with SKIP_DB_INIT=true)
     if [ "${SKIP_DB_INIT:-false}" != "true" ]; then
         verify_pgvector
-        init_database
+        run_migrations
     else
-        log_warn "Skipping database initialization (SKIP_DB_INIT=true)"
+        log_warn "Skipping database migrations (SKIP_DB_INIT=true)"
     fi
 
     # Optional: Check Ollama
