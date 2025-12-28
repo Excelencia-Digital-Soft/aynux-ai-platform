@@ -381,7 +381,11 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def database_config(self) -> dict:
-        """Configuración optimizada para la base de datos según el entorno"""
+        """Configuración optimizada para la base de datos según el entorno.
+
+        Note: No especificamos poolclass para async engines - SQLAlchemy
+        automáticamente usa AsyncAdaptedQueuePool para producción.
+        """
         base_config = {
             "echo": self.DB_ECHO,
             "future": True,
@@ -389,16 +393,12 @@ class Settings(BaseSettings):
         }
 
         if self.is_development:
-            # Configuración para desarrollo
-            return {
-                **base_config,
-                "poolclass": "NullPool",
-            }
+            # Desarrollo: sin pool (NullPool se importa donde se use)
+            return base_config
         else:
-            # Configuración para producción
+            # Producción: pool completo (SQLAlchemy elige AsyncAdaptedQueuePool)
             return {
                 **base_config,
-                "poolclass": "QueuePool",
                 "pool_size": self.DB_POOL_SIZE,
                 "max_overflow": self.DB_MAX_OVERFLOW,
                 "pool_recycle": self.DB_POOL_RECYCLE,

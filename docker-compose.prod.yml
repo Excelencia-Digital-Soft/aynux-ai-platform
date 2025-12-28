@@ -78,9 +78,9 @@ services:
       target: production
     restart: always
     # No volume mounts in production - use built image
-    volumes: []
+    volumes: !reset []
     # No external port - nginx proxies internally to app:8080
-    ports: []
+    ports: !reset []
     environment:
       # Database Configuration (from secrets/env)
       - DB_HOST=postgres
@@ -142,7 +142,6 @@ services:
         reservations:
           memory: 512M
           cpus: '0.5'
-      replicas: 2
       update_config:
         parallelism: 1
         delay: 10s
@@ -158,7 +157,7 @@ services:
       retries: 3
       start_period: 60s
     # Remove extra_hosts in production - use internal network
-    extra_hosts: []
+    extra_hosts: !reset []
 
   # ---------------------------------------------------------------------------
   # Frontend - Nginx serving Vue.js SPA (Production)

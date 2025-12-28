@@ -5,7 +5,7 @@ from urllib.parse import quote_plus
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker  # type: ignore[attr-defined]
-from sqlalchemy.pool import NullPool, QueuePool
+from sqlalchemy.pool import NullPool
 
 from app.config.settings import get_settings
 from app.models.db.schemas import DEFAULT_SEARCH_PATH
@@ -71,10 +71,10 @@ def create_async_database_engine():
             }
         else:
             # Para producción: usar pool completo
-            logger.info("Creating async database engine for PRODUCTION (QueuePool)")
+            # No especificar poolclass - SQLAlchemy usa AsyncAdaptedQueuePool automáticamente
+            logger.info("Creating async database engine for PRODUCTION (AsyncAdaptedQueuePool)")
             engine_config = {
                 **base_config,
-                "poolclass": QueuePool,
                 "pool_size": settings.DB_POOL_SIZE,
                 "max_overflow": settings.DB_MAX_OVERFLOW,
                 "pool_recycle": settings.DB_POOL_RECYCLE,

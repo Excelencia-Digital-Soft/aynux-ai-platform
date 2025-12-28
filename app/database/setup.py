@@ -11,6 +11,7 @@ import logging
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker  # type: ignore[attr-defined]
+from sqlalchemy.pool import NullPool
 
 from app.config.settings import get_settings
 from app.database.async_db import get_async_database_url
@@ -53,7 +54,25 @@ class DatabaseSetup:
 
     def __init__(self):
         self.settings = get_settings()
-        self.engine = create_async_engine(get_async_database_url(), **self.settings.database_config)
+
+        # Configurar engine async correctamente (sin poolclass para async)
+        engine_config = {
+            "echo": self.settings.DB_ECHO,
+            "future": True,
+            "pool_pre_ping": True,
+        }
+
+        if self.settings.is_development:
+            # Desarrollo: NullPool para evitar problemas con hot-reload
+            engine_config["poolclass"] = NullPool
+        else:
+            # Producción: pool completo (SQLAlchemy usa AsyncAdaptedQueuePool)
+            engine_config["pool_size"] = self.settings.DB_POOL_SIZE
+            engine_config["max_overflow"] = self.settings.DB_MAX_OVERFLOW
+            engine_config["pool_recycle"] = self.settings.DB_POOL_RECYCLE
+            engine_config["pool_timeout"] = self.settings.DB_POOL_TIMEOUT
+
+        self.engine = create_async_engine(get_async_database_url(), **engine_config)
         self.async_session = async_sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
     async def create_tables(self) -> None:
