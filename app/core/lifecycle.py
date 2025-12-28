@@ -44,6 +44,10 @@ class LifecycleManager:
 
         logger.info("Starting application lifecycle...")
 
+        # Ensure database schemas exist before any other operations
+        # This is self-healing and creates missing schemas on startup
+        await self._ensure_schemas_exist()
+
         # Initialize LangSmith tracing
         await self._initialize_langsmith()
 
@@ -133,9 +137,7 @@ class LifecycleManager:
         try:
             from langchain_ollama import OllamaEmbeddings
 
-            embeddings = OllamaEmbeddings(
-                model=settings.OLLAMA_API_MODEL_EMBEDDING, base_url=settings.OLLAMA_API_URL
-            )
+            embeddings = OllamaEmbeddings(model=settings.OLLAMA_API_MODEL_EMBEDDING, base_url=settings.OLLAMA_API_URL)
             # Simple test embedding
             test_result = embeddings.embed_query("test")
             if test_result and len(test_result) > 0:
@@ -172,6 +174,31 @@ class LifecycleManager:
 
         except Exception as e:
             logger.warning(f"LLM warmup failed (non-critical): {e}")
+
+    async def _ensure_schemas_exist(self) -> None:
+        """
+        Ensure all required database schemas exist.
+
+        This is a self-healing mechanism that creates missing schemas
+        on application startup, preventing "schema does not exist" errors.
+        All operations are idempotent (CREATE SCHEMA IF NOT EXISTS).
+        """
+        from sqlalchemy import text
+
+        from app.database.async_db import get_async_db_context
+        from app.models.db.schemas import MANAGED_SCHEMAS
+
+        logger.info("Verifying database schemas...")
+        try:
+            async with get_async_db_context() as session:
+                for schema in MANAGED_SCHEMAS:
+                    if schema != "public":
+                        await session.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+                # Note: get_async_db_context commits automatically on exit
+            logger.info("Database schemas verified")
+        except Exception as e:
+            logger.error(f"Failed to verify/create database schemas: {e}")
+            raise  # Schema creation is critical, fail fast
 
 
 # Global lifecycle manager instance
