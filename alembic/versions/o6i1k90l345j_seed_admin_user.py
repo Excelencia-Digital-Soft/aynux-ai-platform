@@ -75,7 +75,7 @@ def upgrade() -> None:
             created_at,
             updated_at
         ) VALUES (
-            :user_id::uuid,
+            CAST(:user_id AS uuid),
             :username,
             :email,
             :password_hash,

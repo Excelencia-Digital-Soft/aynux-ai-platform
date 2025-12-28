@@ -144,7 +144,7 @@ def upgrade() -> None:
             created_at,
             updated_at
         ) VALUES (
-            :org_id::uuid,
+            CAST(:org_id AS uuid),
             CASE WHEN :wa_token != '' THEN encode(pgp_sym_encrypt(:wa_token, :key), 'base64') ELSE NULL END,
             CASE WHEN :wa_phone != '' THEN :wa_phone ELSE NULL END,
             CASE WHEN :wa_verify != '' THEN encode(pgp_sym_encrypt(:wa_verify, :key), 'base64') ELSE NULL END,
