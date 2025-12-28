@@ -95,7 +95,7 @@ class TestDomainClassifier:
         """Test keyword classification with no clear match."""
         result = classifier._classify_by_keywords("hola cómo estás")
 
-        assert result.domain == "ecommerce"  # Default domain
+        assert result.domain == "excelencia"  # Default domain
         assert result.confidence < 0.5
         assert result.method == "keyword_default"
 
@@ -144,7 +144,7 @@ class TestDomainClassifierEdgeCases:
         """Test classification with empty message."""
         result = classifier._classify_by_keywords("")
 
-        assert result.domain == "ecommerce"  # Default
+        assert result.domain == "excelencia"  # Default
         assert result.confidence < 0.5
 
     def test_very_long_message(self, classifier):
@@ -166,4 +166,4 @@ class TestDomainClassifierEdgeCases:
 
         # Should still return a result (keyword fallback)
         assert result is not None
-        assert result.domain in ["ecommerce", "hospital", "credit"]
+        assert result.domain in ["ecommerce", "hospital", "credit", "excelencia"]

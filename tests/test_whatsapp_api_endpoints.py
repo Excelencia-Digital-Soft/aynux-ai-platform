@@ -168,11 +168,6 @@ class TestWhatsAppCatalogEndpoints:
         assert data["pagination"]["limit"] == 5
         assert data["pagination"]["after"] == "cursor_abc"
 
-    @pytest.mark.skip(reason="Endpoint /whatsapp/config/validate may not exist in current API")
-    def test_validate_whatsapp_config(self, client):
-        """Test validating WhatsApp configuration"""
-        # This test is skipped because the endpoint may not exist or have different signature
-        pass
 
 
 class TestWhatsAppFlowsEndpoints:

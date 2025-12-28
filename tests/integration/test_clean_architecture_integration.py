@@ -108,42 +108,6 @@ async def test_container_creates_super_orchestrator(test_container):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="SuperOrchestrator requires full integration setup with LLM injection")
-async def test_orchestrator_routes_to_ecommerce(test_container, mock_llm):
-    """
-    Test 2: SuperOrchestrator routes e-commerce queries correctly
-
-    NOTE: This test is skipped because the SuperOrchestrator creates its own
-    LLM instance and doesn't use the mocked LLM from the fixture. To properly
-    test this, the container needs to support mock injection.
-
-    Verifies that:
-    - SuperOrchestrator detects e-commerce domain
-    - Routes to ProductAgent
-    - Returns expected response structure
-    """
-    pass
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="SuperOrchestrator requires full integration setup with LLM injection")
-async def test_orchestrator_routes_to_credit(test_container, mock_llm):
-    """
-    Test 3: SuperOrchestrator routes credit queries correctly
-
-    NOTE: This test is skipped because the SuperOrchestrator creates its own
-    LLM instance and doesn't use the mocked LLM from the fixture. To properly
-    test this, the container needs to support mock injection.
-
-    Verifies that:
-    - SuperOrchestrator detects credit domain
-    - Routes to CreditAgent
-    - Returns expected response structure
-    """
-    pass
-
-
-@pytest.mark.asyncio
 async def test_product_agent_with_use_cases(test_container, mock_vector_store, mock_product_repository):
     """
     Test 4: ProductAgent executes use cases correctly
@@ -273,9 +237,9 @@ async def test_error_handling_invalid_domain(test_container, mock_llm):
     result = await orchestrator.route_message(state)
 
     # Assert
-    # Should fall back to default domain (ecommerce)
+    # Should fall back to default domain (excelencia)
     assert "routing" in result
-    assert result["routing"]["detected_domain"] == "ecommerce"  # Default fallback
+    assert result["routing"]["detected_domain"] == "excelencia"  # Default fallback
 
 
 @pytest.mark.asyncio
