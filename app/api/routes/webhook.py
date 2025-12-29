@@ -1,14 +1,14 @@
 # ============================================================================
 # SCOPE: GLOBAL (Chattigo mode)
 # Description: Webhook endpoint for Chattigo WhatsApp integration.
-#              Chattigo handles Meta verification, we only receive messages.
+#              Supports both WhatsApp standard format and Chattigo ISV format.
 # ============================================================================
 """
 WhatsApp Webhook Endpoints (via Chattigo).
 
 Chattigo is a WhatsApp Business API intermediary that:
 - Handles Meta webhook verification
-- Forwards messages to this application
+- Forwards messages to this application (in WhatsApp standard format)
 - Provides API for sending messages
 
 ENDPOINTS:
@@ -17,6 +17,7 @@ ENDPOINTS:
   - GET /webhook/conversation/{user_number} → Conversation history
 """
 
+import json
 import logging
 import time
 
@@ -29,7 +30,11 @@ from app.domains.shared.application.use_cases.process_webhook_use_case import (
     ProcessWebhookUseCase,
 )
 from app.integrations.chattigo import ChattigoWebhookPayload
-from app.models.message import ChattigoToWhatsAppAdapter
+from app.models.message import ChattigoToWhatsAppAdapter, WhatsAppWebhookRequest
+from app.models.parsers.whatsapp_webhook_parser import (
+    extract_phone_number_id,
+    is_status_update,
+)
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
 
 router = APIRouter(tags=["webhook"])
@@ -68,8 +73,9 @@ async def process_webhook(
     """
     Process incoming messages from Chattigo.
 
-    Chattigo forwards WhatsApp messages to this endpoint.
-    No verification needed - Chattigo handles that with Meta.
+    Supports two payload formats:
+    1. WhatsApp Standard Format (object: "whatsapp_business_account")
+    2. Chattigo ISV Format (msisdn, content, etc.)
 
     Args:
         request: FastAPI request object
@@ -77,7 +83,7 @@ async def process_webhook(
         settings: Application settings
 
     Returns:
-        Processing result...
+        Processing result
     """
     # Validate Chattigo is enabled
     if not settings.CHATTIGO_ENABLED:
@@ -87,31 +93,99 @@ async def process_webhook(
             detail="Chattigo integration is disabled.",
         )
 
-    # 1. Capture raw body BEFORE Pydantic parsing for debugging
-    import json
-
+    # 1. Parse raw body
     raw_body = await request.body()
-    logger.info(f"Raw webhook body: {raw_body.decode('utf-8')}")
-
-    # 2. Parse to dict for analysis
     try:
         raw_json = json.loads(raw_body)
-        logger.info(f"Parsed JSON keys: {list(raw_json.keys())}")
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in webhook: {e}")
         return {"status": "error", "message": "Invalid JSON"}
 
-    # 3. Create Pydantic model
+    # 2. Detect payload format and process accordingly
+    if raw_json.get("object") == "whatsapp_business_account":
+        # WhatsApp Standard Format (from Meta via Chattigo)
+        return await _process_whatsapp_format(raw_json, db_session, settings)
+    else:
+        # Chattigo ISV Format
+        return await _process_chattigo_format(raw_json, db_session, settings)
+
+
+async def _process_whatsapp_format(
+    raw_json: dict,
+    db_session: AsyncSession,
+    settings: Settings,
+) -> dict:
+    """Process WhatsApp standard webhook format."""
+    try:
+        wa_request = WhatsAppWebhookRequest.model_validate(raw_json)
+    except Exception as e:
+        logger.error(f"Failed to parse WhatsApp format: {e}")
+        return {"status": "error", "message": "Invalid WhatsApp format"}
+
+    # Skip status updates (delivery receipts, read receipts, etc.)
+    if is_status_update(wa_request):
+        logger.debug("Ignoring WhatsApp status update")
+        return {"status": "ok", "type": "status_update"}
+
+    # Extract message and contact
+    message = wa_request.get_message()
+    contact = wa_request.get_contact()
+
+    if not message:
+        logger.debug("No message in WhatsApp webhook")
+        return {"status": "ok", "type": "no_message"}
+
+    if not contact:
+        logger.warning("No contact in WhatsApp webhook")
+        return {"status": "error", "message": "Missing contact"}
+
+    # Extract phone number ID for routing
+    phone_number_id = extract_phone_number_id(wa_request)
+
+    logger.info(
+        f"Received WhatsApp webhook: from={message.from_}, "
+        f"type={message.type}, content={_get_message_preview(message)}"
+    )
+
+    # Process via Use Case
+    try:
+        service = await _get_langgraph_service()
+        use_case = ProcessWebhookUseCase(
+            db=db_session,
+            settings=settings,
+            langgraph_service=service,
+        )
+
+        result = await use_case.execute(
+            message=message,
+            contact=contact,
+            whatsapp_phone_number_id=phone_number_id,
+            chattigo_context=None,  # No Chattigo context in standard format
+        )
+
+        return result.to_dict()
+
+    except Exception as e:
+        logger.error(f"Error processing WhatsApp webhook: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+
+async def _process_chattigo_format(
+    raw_json: dict,
+    db_session: AsyncSession,
+    settings: Settings,
+) -> dict:
+    """Process Chattigo ISV webhook format."""
     payload = ChattigoWebhookPayload(**raw_json)
 
     logger.info(
-        f"Received webhook: msisdn={payload.msisdn}, "
+        f"Received Chattigo webhook: msisdn={payload.msisdn}, "
         f"type={payload.type}, content={payload.content[:50] if payload.content else 'empty'}..."
     )
 
     # Skip status updates (no content)
     if not payload.content and not payload.is_attachment():
-        logger.info("Received status update, ignoring")
+        logger.info("Received Chattigo status update, ignoring")
         return {"status": "ok", "type": "status_update"}
 
     # Skip OUTBOUND (message sent by bot, not user)
@@ -121,7 +195,7 @@ async def process_webhook(
 
     # Validate required fields
     if not payload.msisdn:
-        logger.warning("Missing msisdn in payload")
+        logger.warning("Missing msisdn in Chattigo payload")
         return {"status": "error", "message": "Missing msisdn"}
 
     # Store Chattigo context
@@ -165,8 +239,16 @@ async def process_webhook(
         return result.to_dict()
 
     except Exception as e:
-        logger.error(f"Error processing webhook: {e}", exc_info=True)
+        logger.error(f"Error processing Chattigo webhook: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
+
+
+def _get_message_preview(message) -> str:
+    """Get a preview of message content for logging."""
+    if message.text and message.text.body:
+        body = message.text.body
+        return f"{body[:50]}..." if len(body) > 50 else body
+    return f"[{message.type}]"
 
 
 # ============================================================
