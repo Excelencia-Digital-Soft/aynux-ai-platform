@@ -55,6 +55,16 @@ from app.domains.credit.infrastructure.persistence.sqlalchemy.models import (  #
     PaymentScheduleItemModel,
 )
 
+# Import soporte/incidents models
+from app.models.db.soporte import (  # noqa: F401
+    Incident,
+    IncidentCategory,
+    IncidentComment,
+    IncidentHistory,
+    JiraConfig,
+    PendingTicket,
+)
+
 # Import schema definitions for multi-schema support
 from app.models.db.schemas import DEFAULT_SEARCH_PATH, MANAGED_SCHEMAS
 

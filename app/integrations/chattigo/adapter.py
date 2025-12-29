@@ -17,6 +17,7 @@ Usage:
     await adapter.close()
 """
 
+import json
 import logging
 import time
 from typing import Any
@@ -108,6 +109,28 @@ class ChattigoAdapter:
         """Async context manager exit."""
         await self.close()
 
+    def _safe_parse_json(self, response: httpx.Response) -> dict[str, Any]:
+        """
+        Safely parse JSON response, returning empty dict for empty body.
+
+        Chattigo API may return HTTP 200 with empty body on success.
+
+        Args:
+            response: httpx Response object
+
+        Returns:
+            Parsed JSON dict or empty dict for empty responses
+        """
+        # Handle HTTP 204 No Content or empty response
+        if response.status_code == 204 or not response.text.strip():
+            return {}
+
+        try:
+            return response.json()
+        except (ValueError, json.JSONDecodeError) as e:
+            logger.warning(f"Failed to parse JSON response: {e}, body: {response.text[:100]}")
+            return {}
+
     # =========================================================================
     # Authentication
     # =========================================================================
@@ -138,7 +161,12 @@ class ChattigoAdapter:
             )
             response.raise_for_status()
 
-            data = ChattigoLoginResponse(**response.json())
+            # Parse JSON response safely
+            json_data = self._safe_parse_json(response)
+            if not json_data:
+                raise ChattigoAuthError("Login returned empty response")
+
+            data = ChattigoLoginResponse(**json_data)
             self._token = data.access_token
             # Default to 1 hour if expires_in not provided
             self._token_expiry = time.time() + (data.expires_in or 3600)
@@ -148,6 +176,9 @@ class ChattigoAdapter:
         except httpx.HTTPError as e:
             logger.error(f"Chattigo authentication failed: {e}")
             raise ChattigoAuthError(f"Authentication failed: {e}") from e
+        except ValueError as e:
+            logger.error(f"Chattigo login response parsing failed: {e}")
+            raise ChattigoAuthError(f"Login response parsing failed: {e}") from e
 
     def _get_headers(self) -> dict[str, str]:
         """Get headers with authorization token."""
@@ -216,7 +247,7 @@ class ChattigoAdapter:
             )
             response.raise_for_status()
 
-            result = response.json()
+            result = self._safe_parse_json(response)
             logger.info(f"Message sent to {msisdn}: {result}")
             return {"status": "ok", "data": result}
 
@@ -285,7 +316,7 @@ class ChattigoAdapter:
             )
             response.raise_for_status()
 
-            result = response.json()
+            result = self._safe_parse_json(response)
             logger.info(f"Document sent to {msisdn}: {result}")
             return {"status": "ok", "data": result}
 
@@ -351,7 +382,7 @@ class ChattigoAdapter:
             )
             response.raise_for_status()
 
-            result = response.json()
+            result = self._safe_parse_json(response)
             logger.info(f"Image sent to {msisdn}: {result}")
             return {"status": "ok", "data": result}
 

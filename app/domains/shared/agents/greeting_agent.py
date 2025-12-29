@@ -12,6 +12,7 @@ con soporte multilenguaje (es, en, pt).
 """
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from app.config.agent_capabilities import (
@@ -28,6 +29,17 @@ from app.prompts.registry import PromptRegistry
 from app.utils.language_detector import LanguageDetector
 
 logger = logging.getLogger(__name__)
+
+
+def _get_time_of_day() -> str:
+    """Get time of day for greeting personalization (morning/afternoon/evening)."""
+    hour = datetime.now().hour
+    if 5 <= hour < 12:
+        return "morning"
+    elif 12 <= hour < 18:
+        return "afternoon"
+    else:
+        return "evening"
 
 
 # Mapeo de dominios a contextos (sin servicios hardcodeados)
@@ -189,6 +201,14 @@ class GreetingAgent(BaseAgent):
 
         # Cargar prompt desde YAML usando PromptManager
         try:
+            # Get user_name from customer_context if available
+            customer_context = state_dict.get("customer_context", {})
+            user_name = ""
+            if isinstance(customer_context, dict):
+                user_name = customer_context.get("name", "")
+            elif hasattr(customer_context, "name"):
+                user_name = customer_context.name or ""
+
             # Preparar variables para el prompt con servicios dinamicos
             prompt_variables = {
                 "domain_type": business_domain,
@@ -199,6 +219,10 @@ class GreetingAgent(BaseAgent):
                 "domain_hint": domain_context["hint"],
                 "domain_context": domain_context["context"],
                 "message": message,
+                # Add missing variables for template compatibility
+                "user_name": user_name,
+                "time_of_day": _get_time_of_day(),
+                "context": domain_context["context"],
             }
 
             # Cargar y renderizar prompt via PromptManager
