@@ -131,7 +131,7 @@ class LangGraphChatbotService:
             profile_name = (
                 contact.profile.get("name") if contact.profile and isinstance(contact.profile, dict) else "Usuario"
             )
-            customer_context = await self._get_or_create_customer_context(user_number, profile_name)
+            customer_context = await self._get_or_create_customer_context(user_number, profile_name, db_session)
             conversation_context = self.message_processor.create_conversation_context(
                 session_id, message_text, {"channel": "whatsapp"}
             )
@@ -326,20 +326,35 @@ class LangGraphChatbotService:
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
 
-    async def _get_or_create_customer_context(self, user_number: str, user_name: str) -> CustomerContext:
+    async def _get_or_create_customer_context(
+        self, user_number: str, user_name: str, db_session: AsyncSession | None = None
+    ) -> CustomerContext:
         """
         Get or create customer context using new Clean Architecture Use Case.
 
         Args:
             user_number: WhatsApp number
             user_name: User's profile name
+            db_session: Optional database session for customer lookup
 
         Returns:
             CustomerContext instance
         """
         try:
+            # If no db_session, return default context
+            if db_session is None:
+                return CustomerContext(
+                    customer_id=f"whatsapp_{user_number}",
+                    name=user_name or "Usuario",
+                    email=None,
+                    phone=user_number,
+                    tier="basic",
+                    purchase_history=[],
+                    preferences={},
+                )
+
             # Use GetOrCreateCustomerUseCase from DependencyContainer
-            use_case = self.container.create_get_or_create_customer_use_case()
+            use_case = self.container.create_get_or_create_customer_use_case(db_session)
             customer = await use_case.execute(phone_number=user_number, profile_name=user_name)
 
             if not customer:
