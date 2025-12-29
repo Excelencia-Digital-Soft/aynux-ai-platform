@@ -149,8 +149,8 @@ async def sync_health_check():
             "hours_since_update": sync_status.get("hours_since_update"),
         }
 
-        # Verificar conectividad API DUX
-        if settings.DUX_API_KEY:
+        # Verificar conectividad API DUX solo si sync está habilitado
+        if settings.DUX_SYNC_ENABLED and settings.DUX_API_KEY:
             try:
                 from app.clients.dux_api_client import DuxApiClientFactory
 
@@ -166,8 +166,10 @@ async def sync_health_check():
                 health_status["components"]["dux_api"] = {"status": "error", "error": str(e)}
                 health_status["issues"].append(f"DUX API error: {e}")
         else:
-            health_status["components"]["dux_api"] = {"status": "disabled", "reason": "DUX_API_KEY not configured"}
-            health_status["issues"].append("DUX API key not configured")
+            reason = "DUX sync disabled" if not settings.DUX_SYNC_ENABLED else "DUX_API_KEY not configured"
+            health_status["components"]["dux_api"] = {"status": "disabled", "reason": reason}
+            if settings.DUX_SYNC_ENABLED:
+                health_status["issues"].append("DUX API key not configured")
 
         # Verificar RAG/embeddings si está habilitado
         if sync_service.use_rag_sync:

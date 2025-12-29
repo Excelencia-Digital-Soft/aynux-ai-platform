@@ -256,7 +256,7 @@ class PromptManager:
         is_active: Optional[bool] = True,
     ) -> List[Dict[str, Any]]:
         """
-        Lista prompts disponibles.
+        Lista prompts disponibles desde base de datos y archivos YAML.
 
         Args:
             domain: Filtrar por dominio (ej: "product")
@@ -266,9 +266,12 @@ class PromptManager:
         Returns:
             Lista de diccionarios con información de prompts
         """
+        results: List[Dict[str, Any]] = []
+        seen_keys: set[str] = set()
+
         try:
+            # 1. Get prompts from database
             async with get_async_db_context() as db:
-                # Construir query
                 stmt = select(Prompt)
 
                 if is_dynamic is not None:
@@ -279,13 +282,57 @@ class PromptManager:
                     stmt = stmt.where(Prompt.key.startswith(f"{domain}."))
 
                 result = await db.execute(stmt)
-                prompts = result.scalars().all()
+                db_prompts = result.scalars().all()
 
-                return [prompt.to_dict() for prompt in prompts]
+                for prompt in db_prompts:
+                    prompt_dict = prompt.to_dict()
+                    prompt_dict["source"] = "database"
+                    prompt_dict["is_dynamic"] = True
+                    results.append(prompt_dict)
+                    seen_keys.add(prompt.key)
 
         except Exception as e:
-            logger.error(f"Error listing prompts: {e}")
-            return []
+            logger.error(f"Error listing prompts from database: {e}")
+
+        # 2. Get prompts from YAML files (if not filtering for dynamic only)
+        if is_dynamic is not True:  # Include file prompts unless specifically asking for dynamic
+            try:
+                file_keys = await self.loader.list_available_prompts(source="file")
+
+                for key in file_keys:
+                    # Skip if already loaded from DB (DB takes precedence)
+                    if key in seen_keys:
+                        continue
+
+                    # Apply domain filter
+                    if domain and not key.startswith(f"{domain}."):
+                        continue
+
+                    # Load the template to get full details
+                    template = await self.loader.load_from_file(key)
+                    if template:
+                        prompt_dict = {
+                            "id": key,  # Use key as ID for file-based prompts
+                            "key": template.key,
+                            "name": template.name,
+                            "description": template.description,
+                            "template": template.template,
+                            "version": template.version,
+                            "is_active": True,
+                            "is_dynamic": False,
+                            "metadata": template.metadata,
+                            "source": "file",
+                            "created_at": None,
+                            "updated_at": None,
+                            "created_by": None,
+                        }
+                        results.append(prompt_dict)
+                        seen_keys.add(key)
+
+            except Exception as e:
+                logger.error(f"Error listing prompts from files: {e}")
+
+        return results
 
     async def get_versions(self, prompt_key: str) -> List[Dict[str, Any]]:
         """

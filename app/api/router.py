@@ -19,16 +19,14 @@ from app.api.routes import (
     whatsapp_catalog,
 )
 from app.api.routes.admin import (
-    ollama as ollama_admin,
-)
-from app.api.routes.admin import (
+    agent_flow,
     agent_knowledge,
-    analytics as analytics_admin,
+    ai_models,
     bypass_rules,
     chat_admin,
+    modules as modules_admin,
     org_users,
     organizations,
-    pharmacy as pharmacy_admin,
     pharmacy_config,
     pharmacy_conversations,
     tenant_agents,
@@ -36,6 +34,15 @@ from app.api.routes.admin import (
     tenant_credentials,
     tenant_documents,
     tenant_prompts,
+)
+from app.api.routes.admin import (
+    analytics as analytics_admin,
+)
+from app.api.routes.admin import (
+    ollama as ollama_admin,
+)
+from app.api.routes.admin import (
+    pharmacy as pharmacy_admin,
 )
 from app.api.routes.admin import prompts as admin_prompts
 
@@ -59,6 +66,9 @@ api_router.include_router(agent_config.router, tags=["Agent Configuration"])
 api_router.include_router(whatsapp_catalog.router, tags=["WhatsApp Catalog & Flows"])
 api_router.include_router(conversation_history.router)
 # Note: excelencia_admin router removed - software catalog now uses company_knowledge
+
+# Admin routes - Software Modules Catalog (Excelencia frontend-compatible API)
+api_router.include_router(modules_admin.router, tags=["Software Modules"])
 
 # Admin routes - Prompt Management
 api_router.include_router(admin_prompts.router)
@@ -94,6 +104,18 @@ api_router.include_router(
     prefix="/admin/organizations",
     tags=["Bypass Rules"],
 )
+# Agent Flow Visualization - Global Mode (no org_id)
+api_router.include_router(
+    agent_flow.router,
+    prefix="/admin",
+    tags=["Agent Flow Visualization"],
+)
+# Agent Flow Visualization - Multi-tenant Mode (with org_id)
+api_router.include_router(
+    agent_flow.router,
+    prefix="/admin/organizations",
+    tags=["Agent Flow Visualization"],
+)
 api_router.include_router(
     tenant_prompts.router,
     prefix="/admin/organizations",
@@ -124,6 +146,13 @@ api_router.include_router(
     ollama_admin.router,
     prefix="/admin/ollama",
     tags=["Ollama Admin"],
+)
+
+# Admin routes - AI Model Management (dynamic model registry)
+api_router.include_router(
+    ai_models.router,
+    prefix="/admin/ai-models",
+    tags=["AI Models"],
 )
 
 # Admin routes - Pharmacy Testing (public - for Vue.js testing interface)

@@ -14,8 +14,8 @@ from app.models.db.contact_domains import ContactDomain, DomainConfig
 
 logger = logging.getLogger(__name__)
 
-# Available domains (TODO: Replace with DomainRegistry)
-AVAILABLE_DOMAINS = ["ecommerce", "healthcare", "credit"]
+# Available domains (TODO: Replace with DomainRegistry to load from DB)
+AVAILABLE_DOMAINS = ["excelencia", "pharmacy", "ecommerce", "healthcare", "credit"]
 
 
 class ListDomainsUseCase:

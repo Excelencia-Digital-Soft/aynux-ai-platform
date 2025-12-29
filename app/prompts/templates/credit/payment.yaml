@@ -1,0 +1,76 @@
+# Credit Domain - Payment Prompts
+# Purpose: Handle credit payment interactions
+
+prompts:
+  - key: credit.payment.confirmation
+    name: Credit Payment Confirmation
+    description: Confirm credit payment details
+    version: "1.0.0"
+    template: |
+      Confirm payment details:
+
+      Amount: ${amount}
+      Payment Method: {method}
+      Account: {account}
+
+      Por favor confirma que deseas proceder con este pago.
+      Responde SI para confirmar o NO para cancelar.
+    metadata:
+      temperature: 0
+      max_tokens: 80
+      tags:
+        - credit
+        - payment
+        - confirmation
+      variables:
+        required:
+          - amount
+          - method
+          - account
+
+  - key: credit.payment.success
+    name: Payment Success Message
+    description: Success message after payment
+    version: "1.0.0"
+    template: |
+      Pago procesado exitosamente!
+
+      Monto: ${amount}
+      Referencia: {reference}
+      Nuevo Saldo: ${new_balance}
+
+      Gracias por tu pago.
+    metadata:
+      temperature: 0
+      max_tokens: 80
+      tags:
+        - credit
+        - payment
+        - success
+      variables:
+        required:
+          - amount
+          - reference
+          - new_balance
+
+  - key: credit.payment.failed
+    name: Payment Failed Message
+    description: Message when payment fails
+    version: "1.0.0"
+    template: |
+      No pudimos procesar tu pago.
+
+      Error: {error_message}
+
+      Por favor verifica tus datos e intenta de nuevo,
+      o contacta a nuestro equipo de soporte.
+    metadata:
+      temperature: 0
+      max_tokens: 80
+      tags:
+        - credit
+        - payment
+        - failed
+      variables:
+        required:
+          - error_message

@@ -8,6 +8,7 @@ Single Responsibility: Phone number pattern matching and organization routing.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -105,7 +106,7 @@ class BypassRoutingService:
 
     async def _load_active_rules(
         self,
-    ) -> list[tuple[BypassRule, Organization, TenantConfig | None]]:
+    ) -> Sequence[tuple[BypassRule, Organization, TenantConfig | None]]:
         """
         Load all active bypass rules with their organizations.
 
@@ -123,7 +124,7 @@ class BypassRoutingService:
             .order_by(BypassRule.priority.desc(), BypassRule.rule_name)
         )
         result = await self._db.execute(query)
-        return list(result.all())
+        return [tuple(row) for row in result.all()]
 
     async def evaluate_bypass_rules_for_org(
         self,
@@ -170,7 +171,7 @@ class BypassRoutingService:
     async def _load_rules_for_org(
         self,
         organization_id: UUID,
-    ) -> list[tuple[BypassRule, TenantConfig | None]]:
+    ) -> Sequence[tuple[BypassRule, TenantConfig | None]]:
         """
         Load bypass rules for a specific organization.
 
@@ -188,7 +189,7 @@ class BypassRoutingService:
             .order_by(BypassRule.priority.desc(), BypassRule.rule_name)
         )
         result = await self._db.execute(query)
-        return list(result.all())
+        return [tuple(row) for row in result.all()]
 
 
 def get_bypass_routing_service(db: AsyncSession) -> BypassRoutingService:

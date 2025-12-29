@@ -56,13 +56,13 @@ services:
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
       --save 60 1000
-      --requirepass ${REDIS_PASSWORD}
+      --requirepass ${REDIS_PASSWORD:-Excelenci@5948}
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=${REDIS_PASSWORD:-Excelenci@5948} redis-cli ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -153,6 +153,14 @@ services:
       # API Configuration
       - API_V1_STR=/api/v1
       - PROJECT_NAME=Aynux WhatsApp Bot
+      # Chattigo Integration (WhatsApp via ISV)
+      - CHATTIGO_ENABLED=${CHATTIGO_ENABLED:-true}
+      - CHATTIGO_BASE_URL=${CHATTIGO_BASE_URL:-https://channels.chattigo.com/bsp-cloud-chattigo-isv}
+      - CHATTIGO_USERNAME=${CHATTIGO_USERNAME}
+      - CHATTIGO_PASSWORD=${CHATTIGO_PASSWORD}
+      - CHATTIGO_CHANNEL_ID=${CHATTIGO_CHANNEL_ID:-12676}
+      - CHATTIGO_CAMPAIGN_ID=${CHATTIGO_CAMPAIGN_ID}
+      - CHATTIGO_BOT_NAME=${CHATTIGO_BOT_NAME:-Aynux}
       # DUX Sync - controlled via .env file only (not host environment)
       # Set DUX_SYNC_ENABLED=true in .env to enable
       # LangSmith (optional - for tracing)

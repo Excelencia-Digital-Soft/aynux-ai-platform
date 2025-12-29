@@ -1,0 +1,108 @@
+{
+  "models": [
+    {
+      "model_id": "gpt-4o",
+      "provider": "openai",
+      "model_type": "llm",
+      "display_name": "GPT-4o",
+      "description": "OpenAI's most capable model for complex tasks",
+      "family": "gpt",
+      "context_window": 128000,
+      "max_output_tokens": 4096,
+      "supports_functions": true,
+      "supports_vision": true,
+      "sort_order": 10
+    },
+    {
+      "model_id": "gpt-4o-mini",
+      "provider": "openai",
+      "model_type": "llm",
+      "display_name": "GPT-4o Mini",
+      "description": "Fast and cost-effective for simpler tasks",
+      "family": "gpt",
+      "context_window": 128000,
+      "max_output_tokens": 16384,
+      "supports_functions": true,
+      "supports_vision": true,
+      "sort_order": 20
+    },
+    {
+      "model_id": "gpt-4-turbo",
+      "provider": "openai",
+      "model_type": "llm",
+      "display_name": "GPT-4 Turbo",
+      "description": "High performance model with vision capabilities",
+      "family": "gpt",
+      "context_window": 128000,
+      "max_output_tokens": 4096,
+      "supports_functions": true,
+      "supports_vision": true,
+      "sort_order": 25
+    },
+    {
+      "model_id": "claude-sonnet-4-20250514",
+      "provider": "anthropic",
+      "model_type": "llm",
+      "display_name": "Claude Sonnet 4",
+      "description": "Anthropic's balanced model for most tasks",
+      "family": "claude",
+      "context_window": 200000,
+      "max_output_tokens": 8192,
+      "supports_functions": true,
+      "supports_vision": true,
+      "sort_order": 30
+    },
+    {
+      "model_id": "claude-opus-4-20250514",
+      "provider": "anthropic",
+      "model_type": "llm",
+      "display_name": "Claude Opus 4",
+      "description": "Anthropic's most powerful model for complex reasoning",
+      "family": "claude",
+      "context_window": 200000,
+      "max_output_tokens": 8192,
+      "supports_functions": true,
+      "supports_vision": true,
+      "sort_order": 35
+    },
+    {
+      "model_id": "claude-3-5-haiku-20241022",
+      "provider": "anthropic",
+      "model_type": "llm",
+      "display_name": "Claude 3.5 Haiku",
+      "description": "Fast and efficient for quick tasks",
+      "family": "claude",
+      "context_window": 200000,
+      "max_output_tokens": 8192,
+      "supports_functions": true,
+      "supports_vision": true,
+      "sort_order": 40
+    },
+    {
+      "model_id": "deepseek-chat",
+      "provider": "deepseek",
+      "model_type": "llm",
+      "display_name": "DeepSeek Chat",
+      "description": "Cost-effective model for general tasks",
+      "family": "deepseek",
+      "context_window": 128000,
+      "max_output_tokens": 8192,
+      "supports_functions": true,
+      "supports_vision": false,
+      "sort_order": 50
+    },
+    {
+      "model_id": "deepseek-reasoner",
+      "provider": "deepseek",
+      "model_type": "llm",
+      "display_name": "DeepSeek Reasoner",
+      "description": "Optimized for complex multi-step reasoning",
+      "family": "deepseek",
+      "context_window": 128000,
+      "max_output_tokens": 8192,
+      "supports_functions": false,
+      "supports_vision": false,
+      "sort_order": 55
+    }
+  ]
+}

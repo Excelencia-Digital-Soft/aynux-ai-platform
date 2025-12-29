@@ -115,12 +115,14 @@ services:
       # API Configuration
       - API_V1_STR=/api/v1
       - PROJECT_NAME=Aynux WhatsApp Bot
-      # WhatsApp Configuration
-      - WHATSAPP_API_BASE=${WHATSAPP_API_BASE}
-      - WHATSAPP_API_VERSION=${WHATSAPP_API_VERSION}
-      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
-      - WHATSAPP_VERIFY_TOKEN=${WHATSAPP_VERIFY_TOKEN}
-      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+      # Chattigo Integration (WhatsApp via ISV)
+      - CHATTIGO_ENABLED=${CHATTIGO_ENABLED:-true}
+      - CHATTIGO_BASE_URL=${CHATTIGO_BASE_URL:-https://channels.chattigo.com/bsp-cloud-chattigo-isv}
+      - CHATTIGO_USERNAME=${CHATTIGO_USERNAME}
+      - CHATTIGO_PASSWORD=${CHATTIGO_PASSWORD}
+      - CHATTIGO_CHANNEL_ID=${CHATTIGO_CHANNEL_ID:-12676}
+      - CHATTIGO_CAMPAIGN_ID=${CHATTIGO_CAMPAIGN_ID}
+      - CHATTIGO_BOT_NAME=${CHATTIGO_BOT_NAME:-Aynux}
       # DUX Sync (controlled by environment variable, default false)
       - DUX_SYNC_ENABLED=${DUX_SYNC_ENABLED:-false}
       - DUX_API_BASE_URL=${DUX_API_BASE_URL}

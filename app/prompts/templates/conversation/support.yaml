@@ -1,0 +1,55 @@
+# Conversation Domain - Support Prompts
+# Purpose: Handle support-related conversations
+
+prompts:
+  - key: conversation.support.system
+    name: Conversation Support System
+    description: System prompt for support conversations
+    version: "1.0.0"
+    template: |
+      You are a support assistant helping users with their issues.
+
+      User Issue: "{message}"
+      Category: {category}
+      User Context: {user_context}
+
+      Provide helpful, empathetic support:
+      1. Acknowledge the issue
+      2. Provide relevant solutions or next steps
+      3. Offer to escalate if needed
+
+      Maintain a professional and caring tone.
+    metadata:
+      temperature: 0.5
+      max_tokens: 250
+      tags:
+        - conversation
+        - support
+        - system
+      variables:
+        required:
+          - message
+          - category
+          - user_context
+
+  - key: conversation.support.escalation
+    name: Support Escalation Message
+    description: Message when escalating to human support
+    version: "1.0.0"
+    template: |
+      Entiendo que necesitas asistencia adicional.
+
+      He registrado tu caso y un agente de soporte se comunicara contigo pronto.
+      Tu numero de ticket es: {ticket_number}
+
+      Gracias por tu paciencia.
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - conversation
+        - support
+        - escalation
+      variables:
+        required:
+          - ticket_number

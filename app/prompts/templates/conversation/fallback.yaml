@@ -1,0 +1,52 @@
+# Conversation Domain - Fallback Prompts
+# Purpose: Handle fallback responses when intent is unclear
+
+prompts:
+  - key: conversation.fallback.system
+    name: Conversation Fallback System
+    description: System prompt for fallback handling
+    version: "1.0.0"
+    template: |
+      You are a helpful assistant. The user's intent was not clearly understood.
+
+      Original message: "{message}"
+      Context: {context}
+
+      Provide a helpful response that:
+      1. Acknowledges you may not have understood correctly
+      2. Asks for clarification in a friendly way
+      3. Suggests possible options if relevant
+
+      Keep your response concise and helpful.
+    metadata:
+      temperature: 0.6
+      max_tokens: 150
+      tags:
+        - conversation
+        - fallback
+        - system
+      variables:
+        required:
+          - message
+          - context
+
+  - key: conversation.fallback.generic
+    name: Generic Fallback Response
+    description: Generic fallback when no specific response available
+    version: "1.0.0"
+    template: |
+      No estoy seguro de haber entendido tu consulta.
+
+      Puedo ayudarte con:
+      - Consultas de productos y servicios
+      - Soporte tecnico
+      - Informacion de facturacion
+
+      Por favor, intenta reformular tu pregunta.
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - conversation
+        - fallback
+        - generic

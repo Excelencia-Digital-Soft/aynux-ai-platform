@@ -1,162 +1,130 @@
 """
 WhatsApp Service.
 
-Single Responsibility: Facade for WhatsApp Business API operations.
-Uses composition with HttpClient, Messenger for messaging operations.
+Single Responsibility: Facade for WhatsApp messaging operations.
 
-Multi-Tenant Support:
-  - Use WhatsAppService.from_credentials() for database-driven credentials
-  - Default constructor still works for global mode (env vars)
+Chattigo Mode (Default):
+  - All messaging goes through Chattigo API
+  - Chattigo handles Meta/WhatsApp verification
+  - No direct WhatsApp Graph API calls needed
 """
 
 import logging
 from typing import Any
-from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.config.settings import get_settings
-from app.integrations.whatsapp.http_client import WhatsAppHttpClient
-from app.integrations.whatsapp.messenger import WhatsAppMessenger
-from app.models.whatsapp_advanced import (
-    CatalogConfiguration,
-    FlowConfiguration,
-    WhatsAppApiResponse,
-)
+from app.config.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
 
-class WhatsAppService:
+# ============================================================================
+# Chattigo Messaging Service
+# ============================================================================
+
+
+class ChattigoMessagingService:
     """
-    WhatsApp Business API service.
+    Messaging service that uses Chattigo as the WhatsApp API intermediary.
 
-    Uses composition:
-    - WhatsAppHttpClient for HTTP communication
-    - WhatsAppMessenger for message sending
+    This is the primary implementation for sending messages via Chattigo API.
     """
 
-    def __init__(self):
-        self.settings = get_settings()
-        self.base_url = self.settings.WHATSAPP_API_BASE
-        self.version = self.settings.WHATSAPP_API_VERSION
-        self.phone_number_id = self.settings.WHATSAPP_PHONE_NUMBER_ID
-        self.access_token = self.settings.WHATSAPP_ACCESS_TOKEN
-        self.catalog_id = self.settings.WHATSAPP_CATALOG_ID
+    def __init__(self, settings: Settings, chattigo_context: dict | None = None):
+        """
+        Initialize Chattigo messaging service.
 
-        # Compose dependencies
-        self._http_client = WhatsAppHttpClient(
-            base_url=self.base_url,
-            version=self.version,
-            phone_number_id=self.phone_number_id,
-            access_token=self.access_token,
-        )
+        Args:
+            settings: Application settings with Chattigo configuration
+            chattigo_context: Context from incoming webhook (did, idChat, channelId, idCampaign)
+        """
+        self._settings = settings
+        self._chattigo_context = chattigo_context or {}
+        self._adapter = None
 
-        self._messenger = WhatsAppMessenger(
-            http_client=self._http_client,
-            catalog_id=self.catalog_id,
-            is_development=self.settings.is_development,
-        )
+    async def _get_adapter(self):
+        """Get or create ChattigoAdapter instance."""
+        if self._adapter is None:
+            from app.integrations.chattigo import ChattigoAdapter
 
-        logger.info("WhatsApp Service initialized:")
-        logger.info(f"  Base URL: {self.base_url}")
-        logger.info(f"  Version: {self.version}")
-        logger.info(f"  Phone ID: {self.phone_number_id}")
-        logger.info(f"  Catalog ID: {self.catalog_id}")
+            self._adapter = ChattigoAdapter(self._settings)
+            await self._adapter.initialize()
+        return self._adapter
 
-    # HTTP methods (for backwards compatibility and direct access)
-    def _get_headers(self) -> dict[str, str]:
-        """Get standard headers."""
-        return self._http_client.headers
+    async def send_message(self, numero: str, mensaje: str) -> dict[str, Any]:
+        """Send text message via Chattigo."""
+        adapter = await self._get_adapter()
 
-    def _get_message_url(self) -> str:
-        """Get message URL."""
-        return self._http_client.message_url
+        # Use context from incoming webhook or defaults
+        did = self._chattigo_context.get("did", self._settings.CHATTIGO_BOT_NAME)
+        id_chat = self._chattigo_context.get("idChat", 0)
 
-    async def _make_request(
-        self,
-        payload: dict[str, Any],
-        endpoint: str = "messages",
-    ) -> dict[str, Any]:
-        """Make HTTP request (delegated to client)."""
-        return await self._http_client.post(payload, endpoint)
+        try:
+            result = await adapter.send_message(
+                msisdn=numero,
+                did=did,
+                id_chat=id_chat,
+                message=mensaje,
+            )
+            return {"success": True, "data": result}
+        except Exception as e:
+            logger.error(f"Chattigo send_message failed: {e}")
+            return {"success": False, "error": str(e)}
 
-    # Messaging methods (delegated to messenger)
-    async def enviar_mensaje_texto(
-        self,
-        numero: str,
-        mensaje: str,
-    ) -> dict[str, Any]:
-        """Send text message."""
-        return await self._messenger.send_text(numero, mensaje)
-
-    async def enviar_documento(
+    async def send_document(
         self,
         numero: str,
         nombre: str,
         document_url: str,
         caption: str | None = None,
     ) -> dict[str, Any]:
-        """Send document."""
-        return await self._messenger.send_document(numero, nombre, document_url, caption)
+        """Send document via Chattigo."""
+        adapter = await self._get_adapter()
 
-    async def enviar_ubicacion(
+        did = self._chattigo_context.get("did", self._settings.CHATTIGO_BOT_NAME)
+        id_chat = self._chattigo_context.get("idChat", 0)
+
+        try:
+            result = await adapter.send_document(
+                msisdn=numero,
+                did=did,
+                id_chat=id_chat,
+                document_url=document_url,
+                filename=nombre,
+                caption=caption,
+            )
+            return {"success": True, "data": result}
+        except Exception as e:
+            logger.error(f"Chattigo send_document failed: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def send_image(
         self,
         numero: str,
-        latitud: float,
-        longitud: float,
-        nombre: str | None = None,
+        image_url: str,
+        caption: str | None = None,
     ) -> dict[str, Any]:
-        """Send location."""
-        return await self._messenger.send_location(numero, latitud, longitud, nombre)
+        """Send image via Chattigo."""
+        adapter = await self._get_adapter()
 
-    async def enviar_lista_opciones(
-        self,
-        numero: str,
-        titulo: str,
-        cuerpo: str,
-        opciones: list[dict[str, str]],
-    ) -> dict[str, Any]:
-        """Send interactive list."""
-        return await self._messenger.send_list(numero, titulo, cuerpo, opciones)
+        did = self._chattigo_context.get("did", self._settings.CHATTIGO_BOT_NAME)
+        id_chat = self._chattigo_context.get("idChat", 0)
 
-    async def enviar_botones(
-        self,
-        numero: str,
-        titulo: str,
-        cuerpo: str,
-        botones: list[dict[str, str]],
-    ) -> dict[str, Any]:
-        """Send interactive buttons."""
-        return await self._messenger.send_buttons(numero, titulo, cuerpo, botones)
+        try:
+            result = await adapter.send_image(
+                msisdn=numero,
+                did=did,
+                id_chat=id_chat,
+                image_url=image_url,
+                caption=caption,
+            )
+            return {"success": True, "data": result}
+        except Exception as e:
+            logger.error(f"Chattigo send_image failed: {e}")
+            return {"success": False, "error": str(e)}
 
-    async def send_product_list(
-        self,
-        numero: str,
-        body_text: str,
-        header_text: str | None = None,
-        product_retailer_id: str | None = None,
-        catalog_id: str | None = None,
-    ) -> WhatsAppApiResponse:
-        """Send product catalog list."""
-        return await self._messenger.send_product_list(
-            numero, body_text, header_text, product_retailer_id, catalog_id
-        )
-
-    async def send_flow_message(
-        self,
-        numero: str,
-        flow_id: str,
-        flow_cta: str,
-        body_text: str | None = None,
-        header_text: str | None = None,
-        flow_token: str | None = None,
-        flow_data: dict[str, Any] | None = None,
-    ) -> WhatsAppApiResponse:
-        """Send WhatsApp Flow message."""
-        return await self._messenger.send_flow(
-            numero, flow_id, flow_cta, body_text, header_text, flow_token, flow_data
-        )
+    # Aliases for compatibility
+    enviar_mensaje_texto = send_message
+    enviar_documento = send_document
 
     async def enviar_template(
         self,
@@ -166,18 +134,121 @@ class WhatsAppService:
         components: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """
-        Send a WhatsApp template message (HSM).
+        Send template message via Chattigo.
+
+        Note: Chattigo may handle templates differently than direct WhatsApp API.
+        For now, this sends a regular message with template content.
+        """
+        # Extract body text from components if available
+        body_text = ""
+        if components:
+            for comp in components:
+                if comp.get("type") == "body" and comp.get("parameters"):
+                    params = comp["parameters"]
+                    body_text = " ".join(
+                        str(p.get("text", "")) for p in params if p.get("type") == "text"
+                    )
+
+        if not body_text:
+            body_text = f"[Template: {template_name}]"
+
+        return await self.send_message(numero, body_text)
+
+    async def enviar_template_con_documento(
+        self,
+        numero: str,
+        template_name: str,
+        document_url: str,
+        document_filename: str,
+        body_params: list[str] | None = None,
+        language_code: str = "es",
+    ) -> dict[str, Any]:
+        """
+        Send template message with document via Chattigo.
+
+        Sends the document with a caption containing the template params.
+        """
+        caption = " ".join(body_params) if body_params else f"[Template: {template_name}]"
+        return await self.send_document(
+            numero=numero,
+            nombre=document_filename,
+            document_url=document_url,
+            caption=caption,
+        )
+
+    # English aliases
+    send_template = enviar_template
+    send_template_with_document = enviar_template_con_documento
+
+    async def close(self):
+        """Close adapter."""
+        if self._adapter:
+            await self._adapter.close()
+            self._adapter = None
+
+
+# ============================================================================
+# WhatsAppService (Compatibility Wrapper)
+# ============================================================================
+
+
+class WhatsAppService:
+    """
+    WhatsApp messaging service.
+
+    When CHATTIGO_ENABLED=true (default), this class acts as a wrapper
+    that delegates all messaging operations to ChattigoMessagingService.
+    """
+
+    def __init__(self, chattigo_context: dict | None = None):
+        """
+        Initialize WhatsApp service.
 
         Args:
-            numero: Recipient phone number
-            template_name: Name of the pre-approved template
-            language_code: Template language code (default: "es")
-            components: Template components (header, body, button parameters)
-
-        Returns:
-            API response dict
+            chattigo_context: Context from Chattigo webhook (did, idChat, etc.)
         """
-        return await self._messenger.send_template(
+        self.settings = get_settings()
+        self._chattigo_context = chattigo_context or {}
+
+        if not self.settings.CHATTIGO_ENABLED:
+            raise RuntimeError(
+                "Direct WhatsApp API is not available. "
+                "Chattigo integration is required (CHATTIGO_ENABLED=true)."
+            )
+
+        # Use Chattigo internally
+        self._chattigo_service = ChattigoMessagingService(
+            self.settings, self._chattigo_context
+        )
+
+        logger.info("WhatsApp Service initialized (using Chattigo)")
+
+    # Messaging methods - delegate to Chattigo
+    async def enviar_mensaje_texto(self, numero: str, mensaje: str) -> dict[str, Any]:
+        """Send text message."""
+        return await self._chattigo_service.send_message(numero, mensaje)
+
+    async def enviar_documento(
+        self,
+        numero: str,
+        nombre: str,
+        document_url: str,
+        caption: str | None = None,
+    ) -> dict[str, Any]:
+        """Send document."""
+        return await self._chattigo_service.send_document(
+            numero, nombre, document_url, caption
+        )
+
+    async def enviar_template(
+        self,
+        numero: str,
+        template_name: str,
+        language_code: str = "es",
+        components: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Send template message."""
+        return await self._chattigo_service.enviar_template(
             numero, template_name, language_code, components
         )
 
@@ -190,257 +261,55 @@ class WhatsAppService:
         body_params: list[str] | None = None,
         language_code: str = "es",
     ) -> dict[str, Any]:
-        """
-        Send a template message with a document header.
-
-        Convenience method for payment receipts and invoices.
-
-        Args:
-            numero: Recipient phone number
-            template_name: Name of the pre-approved template
-            document_url: Public URL of the document (PDF)
-            document_filename: Filename to show to recipient
-            body_params: List of body parameter values ({{1}}, {{2}}, etc.)
-            language_code: Template language code (default: "es")
-
-        Returns:
-            API response dict
-        """
-        return await self._messenger.send_template_with_document(
+        """Send template with document."""
+        return await self._chattigo_service.enviar_template_con_documento(
             numero, template_name, document_url, document_filename, body_params, language_code
         )
 
-    # Aliases in English
+    # English aliases
     send_message = enviar_mensaje_texto
     send_template = enviar_template
     send_template_with_document = enviar_template_con_documento
 
-    # Catalog methods
-    async def get_catalog_products(
-        self,
-        limit: int = 10,
-        after: str | None = None,
-        catalog_id: str | None = None,
-    ) -> WhatsAppApiResponse:
-        """Get catalog products."""
-        used_catalog_id = catalog_id or self.catalog_id
-
-        try:
-            response = await self._http_client.get(
-                f"{used_catalog_id}/products",
-                params={"limit": limit, **({"after": after} if after else {})},
-            )
-
-            if response.get("success"):
-                data = response.get("data", {})
-                logger.info(f"Catalog products: {len(data.get('data', []))}")
-                return WhatsAppApiResponse(success=True, data=data)
-            else:
-                return WhatsAppApiResponse(
-                    success=False,
-                    error=response.get("error"),
-                    status_code=response.get("status_code"),
-                )
-
-        except Exception as e:
-            logger.error(f"Error getting catalog products: {e}")
-            return WhatsAppApiResponse(success=False, error=str(e))
-
-    async def get_business_catalogs(
-        self,
-        business_account_id: str,
-    ) -> WhatsAppApiResponse:
-        """Get business catalogs."""
-        try:
-            response = await self._http_client.get(
-                f"{business_account_id}/owned_product_catalogs"
-            )
-
-            if response.get("success"):
-                data = response.get("data", {})
-                logger.info(f"Catalogs: {len(data.get('data', []))}")
-                return WhatsAppApiResponse(success=True, data=data)
-            else:
-                return WhatsAppApiResponse(
-                    success=False,
-                    error=response.get("error"),
-                    status_code=response.get("status_code"),
-                )
-
-        except Exception as e:
-            logger.error(f"Error getting catalogs: {e}")
-            return WhatsAppApiResponse(success=False, error=str(e))
-
-    # Configuration methods
-    def get_catalog_configuration(self) -> CatalogConfiguration:
-        """Get catalog configuration."""
-        return CatalogConfiguration(
-            catalog_id=self.catalog_id,
-            phone_number_id=self.phone_number_id,
-            access_token=self.access_token,
-        )
-
-    def create_flow_configuration(
-        self,
-        flow_id: str,
-        flow_name: str,
-    ) -> FlowConfiguration:
-        """Create flow configuration."""
-        return FlowConfiguration(
-            flow_id=flow_id,
-            flow_name=flow_name,
-            phone_number_id=self.phone_number_id,
-            access_token=self.access_token,
-        )
-
     async def verificar_configuracion(self) -> dict[str, Any]:
-        """Verify WhatsApp API configuration."""
-        issues = []
-
-        if not self.access_token:
-            issues.append("Access token not configured")
-        elif len(self.access_token) < 50:
-            issues.append("Access token seems invalid (too short)")
-
-        if not self.phone_number_id:
-            issues.append("Phone Number ID not configured")
-        elif not self.phone_number_id.isdigit():
-            issues.append("Phone Number ID must be numeric")
-
-        if not self.base_url.startswith("https://"):
-            issues.append("Base URL must use HTTPS")
-
-        if not self.catalog_id:
-            issues.append("Catalog ID not configured")
-        elif not self.catalog_id.isdigit():
-            issues.append("Catalog ID must be numeric")
-
+        """Verify Chattigo configuration."""
         return {
-            "valid": len(issues) == 0,
-            "issues": issues,
+            "valid": self.settings.CHATTIGO_ENABLED,
+            "issues": [] if self.settings.CHATTIGO_ENABLED else ["Chattigo not enabled"],
             "config": {
-                "base_url": self.base_url,
-                "version": self.version,
-                "phone_id": self.phone_number_id,
-                "catalog_id": self.catalog_id,
-                "token_length": len(self.access_token) if self.access_token else 0,
-            },
-            "catalog_configuration": {
-                "catalog_id": self.catalog_id,
-                "catalog_url": f"{self.base_url}/{self.version}/{self.catalog_id}",
-                "products_url": f"{self.base_url}/{self.version}/{self.catalog_id}/products",
+                "chattigo_enabled": self.settings.CHATTIGO_ENABLED,
+                "chattigo_base_url": self.settings.CHATTIGO_BASE_URL,
+                "chattigo_username": self.settings.CHATTIGO_USERNAME,
+                "chattigo_channel_id": self.settings.CHATTIGO_CHANNEL_ID,
             },
         }
 
-    # =========================================================================
-    # Multi-Tenant Factory Methods
-    # =========================================================================
 
-    @classmethod
-    async def from_organization(
-        cls,
-        db: AsyncSession,
-        organization_id: UUID,
-        catalog_id: str | None = None,
-    ) -> "WhatsAppService":
-        """
-        Create WhatsAppService instance with credentials from database.
+# ============================================================================
+# Factory Functions
+# ============================================================================
 
-        This factory method loads WhatsApp credentials from the tenant_credentials
-        table and creates a properly configured service instance.
 
-        Args:
-            db: Database session
-            organization_id: Organization UUID to load credentials for
-            catalog_id: Optional catalog ID override (uses settings default if not provided)
+def get_messaging_service(
+    chattigo_context: dict | None = None,
+) -> ChattigoMessagingService:
+    """
+    Get the messaging service.
 
-        Returns:
-            WhatsAppService configured with organization's credentials
+    Returns ChattigoMessagingService since Chattigo is the only
+    supported messaging integration.
 
-        Raises:
-            CredentialNotFoundError: If no credentials found for organization
-            ValueError: If credentials are incomplete
+    Args:
+        chattigo_context: Context from Chattigo webhook (did, idChat, etc.)
+                         Required for proper message routing.
 
-        Example:
-            async with get_async_db() as db:
-                service = await WhatsAppService.from_organization(db, org_id)
-                await service.send_message("5491234567890", "Hello!")
-        """
-        from app.core.tenancy.credential_service import get_credential_service
+    Returns:
+        ChattigoMessagingService instance
 
-        credential_service = get_credential_service()
-        creds = await credential_service.get_whatsapp_credentials(db, organization_id)
-
-        # Create instance with database credentials
-        instance = cls.__new__(cls)
-        instance.settings = get_settings()
-        instance.base_url = instance.settings.WHATSAPP_API_BASE
-        instance.version = instance.settings.WHATSAPP_API_VERSION
-        instance.phone_number_id = creds.phone_number_id
-        instance.access_token = creds.access_token
-        instance.catalog_id = catalog_id or instance.settings.WHATSAPP_CATALOG_ID
-
-        # Initialize composed dependencies
-        instance._http_client = WhatsAppHttpClient(
-            base_url=instance.base_url,
-            version=instance.version,
-            phone_number_id=instance.phone_number_id,
-            access_token=instance.access_token,
-        )
-
-        instance._messenger = WhatsAppMessenger(
-            http_client=instance._http_client,
-            catalog_id=instance.catalog_id,
-            is_development=instance.settings.is_development,
-        )
-
-        logger.info(f"WhatsApp Service initialized for org {organization_id}:")
-        logger.info(f"  Phone ID: {instance.phone_number_id}")
-        logger.info(f"  Catalog ID: {instance.catalog_id}")
-
-        return instance
-
-    @classmethod
-    def from_credentials(
-        cls,
-        access_token: str,
-        phone_number_id: str,
-        catalog_id: str | None = None,
-    ) -> "WhatsAppService":
-        """
-        Create WhatsAppService with explicit credentials.
-
-        Useful when credentials are already decrypted or for testing.
-
-        Args:
-            access_token: WhatsApp Graph API access token
-            phone_number_id: WhatsApp Business phone number ID
-            catalog_id: Optional catalog ID (uses settings default if not provided)
-
-        Returns:
-            WhatsAppService configured with provided credentials
-        """
-        instance = cls.__new__(cls)
-        instance.settings = get_settings()
-        instance.base_url = instance.settings.WHATSAPP_API_BASE
-        instance.version = instance.settings.WHATSAPP_API_VERSION
-        instance.phone_number_id = phone_number_id
-        instance.access_token = access_token
-        instance.catalog_id = catalog_id or instance.settings.WHATSAPP_CATALOG_ID
-
-        # Initialize composed dependencies
-        instance._http_client = WhatsAppHttpClient(
-            base_url=instance.base_url,
-            version=instance.version,
-            phone_number_id=instance.phone_number_id,
-            access_token=instance.access_token,
-        )
-
-        instance._messenger = WhatsAppMessenger(
-            http_client=instance._http_client,
-            catalog_id=instance.catalog_id,
-            is_development=instance.settings.is_development,
-        )
-
-        logger.info("WhatsApp Service initialized with explicit credentials")
-        return instance
+    Example:
+        service = get_messaging_service(chattigo_context=request.state.chattigo_context)
+        await service.send_message("5491234567890", "Hello!")
+    """
+    settings = get_settings()
+    logger.info("Creating Chattigo messaging service")
+    return ChattigoMessagingService(settings, chattigo_context)

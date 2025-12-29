@@ -50,6 +50,7 @@ class PharmacyConfig:
     stored in the pharmacy_merchant_configs table.
 
     Attributes:
+        pharmacy_id: Unique pharmacy configuration ID
         pharmacy_name: Name displayed on PDF receipts
         pharmacy_address: Address on PDF receipts
         pharmacy_phone: Phone on PDF receipts
@@ -65,7 +66,8 @@ class PharmacyConfig:
         organization_id: Organization ID from database
     """
 
-    # Pharmacy info
+    # Pharmacy identification
+    pharmacy_id: UUID
     pharmacy_name: str
     pharmacy_address: str | None
     pharmacy_phone: str | None
@@ -128,6 +130,36 @@ class PharmacyConfigService:
             f"No pharmacy config found for organization {org_id}. "
             f"Please configure pharmacy settings in the database."
         )
+
+    async def get_config_by_id(self, pharmacy_id: UUID) -> PharmacyConfig:
+        """
+        Get pharmacy configuration by pharmacy ID.
+
+        Use this method when you need to load a specific pharmacy configuration
+        (e.g., when organization has multiple pharmacies).
+
+        Args:
+            pharmacy_id: The pharmacy configuration ID
+
+        Returns:
+            PharmacyConfig with settings from database
+
+        Raises:
+            ValueError: If no config found for the given pharmacy_id
+        """
+        from app.models.db.tenancy.pharmacy_merchant_config import PharmacyMerchantConfig
+
+        stmt = select(PharmacyMerchantConfig).where(
+            PharmacyMerchantConfig.id == pharmacy_id
+        )
+        result = await self._db.execute(stmt)
+        db_config = result.scalar_one_or_none()
+
+        if not db_config:
+            raise ValueError(f"No pharmacy config found with ID {pharmacy_id}")
+
+        logger.debug(f"Loaded pharmacy config by ID: {pharmacy_id}")
+        return self._db_to_config(db_config, db_config.organization_id)
 
     async def get_config_by_external_reference(
         self,
@@ -283,6 +315,7 @@ class PharmacyConfigService:
     ) -> PharmacyConfig:
         """Convert DB model to PharmacyConfig dataclass."""
         return PharmacyConfig(
+            pharmacy_id=db_config.id,
             pharmacy_name=db_config.pharmacy_name,
             pharmacy_address=db_config.pharmacy_address,
             pharmacy_phone=db_config.pharmacy_phone,

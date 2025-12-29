@@ -1,14 +1,94 @@
-# app/prompts/templates/orchestrator/domain.yaml
-key: "orchestrator.domain.detection"
-name: "Orchestrator Service Detection"
-description: "Detects the Excelencia service from a user query."
-version: "2.0"
-template: |
-  # SERVICE DETECTION
-  User query: "{message}"
-  Available services: {domains}
+# Orchestrator Domain - Domain Detection and Routing Prompts
+# Purpose: Handle domain detection, classification, and routing
 
-  Analyze the user query and determine the correct Excelencia service.
-  Respond ONLY with the detected service name (e.g., "excelencia", "excelencia_invoice", "support").
-  If unsure, return "{default_domain}".
-  Do not include any other text or JSON formatting.
+prompts:
+  - key: orchestrator.domain.detection
+    name: Orchestrator Service Detection
+    description: Detects the Excelencia service from a user query.
+    version: "2.0"
+    template: |
+      # SERVICE DETECTION
+      User query: "{message}"
+      Available services: {domains}
+
+      Analyze the user query and determine the correct Excelencia service.
+      Respond ONLY with the detected service name (e.g., "excelencia", "excelencia_invoice", "support").
+      If unsure, return "{default_domain}".
+      Do not include any other text or JSON formatting.
+    metadata:
+      temperature: 0.2
+      max_tokens: 50
+      tags:
+        - orchestrator
+        - domain
+        - detection
+      variables:
+        required:
+          - message
+          - domains
+          - default_domain
+
+  - key: orchestrator.domain.classification
+    name: Domain Classification
+    description: Classifies user message to appropriate domain
+    version: "1.0.0"
+    template: |
+      Classify this message to the appropriate domain:
+
+      Message: "{message}"
+      Available Domains: {domains}
+      Context: {context}
+
+      Consider:
+      - Keywords and phrases
+      - User intent
+      - Previous conversation context
+
+      Return ONLY the domain name, nothing else.
+    metadata:
+      temperature: 0.2
+      max_tokens: 30
+      tags:
+        - orchestrator
+        - domain
+        - classification
+      variables:
+        required:
+          - message
+          - domains
+        optional:
+          - context
+
+  - key: orchestrator.domain.router
+    name: Domain Router
+    description: Routes messages to the correct domain handler
+    version: "1.0.0"
+    template: |
+      Route this message to the appropriate domain:
+
+      Message: "{message}"
+      Detected Intent: {intent}
+      Available Routes: {routes}
+      User Context: {user_context}
+
+      Return JSON with routing decision:
+      {
+        "domain": "target_domain",
+        "confidence": 0.0-1.0,
+        "fallback": "fallback_domain"
+      }
+    metadata:
+      temperature: 0.2
+      max_tokens: 80
+      output_format: json
+      tags:
+        - orchestrator
+        - domain
+        - router
+      variables:
+        required:
+          - message
+          - intent
+          - routes
+        optional:
+          - user_context

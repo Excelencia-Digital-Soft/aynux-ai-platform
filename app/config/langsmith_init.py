@@ -41,7 +41,8 @@ def initialize_langsmith(force: bool = False) -> bool:
         # Only set API key if available
         if settings.LANGSMITH_API_KEY:
             env_vars["LANGSMITH_API_KEY"] = settings.LANGSMITH_API_KEY
-        else:
+        elif settings.LANGSMITH_TRACING:
+            # Only warn if tracing was enabled but no API key
             logger.warning("LANGSMITH_API_KEY not configured - tracing will be disabled")
             env_vars["LANGSMITH_TRACING"] = "false"
             env_vars["LANGSMITH_TRACING_V2"] = "false"
@@ -157,4 +158,4 @@ _initialized = initialize_langsmith()
 if _initialized:
     logger.info("LangSmith auto-initialized on module import")
 else:
-    logger.warning("LangSmith auto-initialization failed or disabled")
+    logger.debug("LangSmith auto-initialization skipped (disabled or not configured)")

@@ -119,7 +119,7 @@ modules = ["Inventario", "Facturación"]  # Never hardcode!
 
 ```bash
 # Server
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8080
 
 # Quality
 uv run black app && uv run isort app && uv run ruff check app --fix
@@ -333,7 +333,7 @@ See `docs/MULTI_TENANCY.md` for complete documentation.
 
 **APIs**: `/api/v1/admin/organizations/*`
 
-## DUX-RAG Integration (E-commerce)
+## DUX-RAG Integration (E-commerce) - DISABLED
 
 **Pipeline**: `DUX API → PostgreSQL → Embeddings → pgvector`
 

@@ -577,6 +577,30 @@ def get_config_cache() -> TenantConfigCache:
     return get_tenant_config_cache()
 
 
+# ============================================================
+# PROMPT MANAGER DEPENDENCY (GLOBAL)
+# [GLOBAL] - PromptManager singleton for admin endpoints
+# ============================================================
+
+_prompt_manager_instance: PromptManager | None = None
+
+
+def get_prompt_manager() -> PromptManager:
+    """
+    Get global PromptManager singleton for dependency injection.
+
+    This is used by admin prompt endpoints that manage system-wide prompts.
+    For tenant-aware prompt access, use get_prompt_manager_dual() instead.
+
+    Returns:
+        PromptManager singleton instance.
+    """
+    global _prompt_manager_instance
+    if _prompt_manager_instance is None:
+        _prompt_manager_instance = PromptManager()
+    return _prompt_manager_instance
+
+
 def get_di_container_dual(
     tenant: TenantDependencyContainer | None = Depends(get_tenant_container),  # noqa: B008
 ) -> DependencyContainer:

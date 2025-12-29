@@ -1,0 +1,61 @@
+# Credit Domain - Intent Analysis Prompts
+# Purpose: Handle credit-related intent analysis
+
+prompts:
+  - key: credit.intent.analysis
+    name: Credit Intent Analysis
+    description: Analyze credit-related user intent
+    version: "1.0.0"
+    template: |
+      Analyze this credit-related query:
+
+      Query: "{message}"
+
+      Intent types:
+      - balance: Checking credit balance or available credit
+      - payment: Making a payment or payment inquiry
+      - schedule: Viewing payment schedule or due dates
+      - history: Viewing transaction or payment history
+      - limit: Inquiring about credit limit changes
+      - dispute: Disputing a charge or transaction
+
+      Return ONLY one word: balance, payment, schedule, history, limit, or dispute
+    metadata:
+      temperature: 0.2
+      max_tokens: 15
+      tags:
+        - credit
+        - intent
+        - analysis
+      variables:
+        required:
+          - message
+
+  - key: credit.intent.classification
+    name: Credit Intent Classification
+    description: Detailed credit intent classification
+    version: "1.0.0"
+    template: |
+      Classify the credit inquiry:
+
+      Message: "{message}"
+      Context: {context}
+
+      Return JSON:
+      {
+        "intent": "intent_type",
+        "urgency": "high|medium|low",
+        "requires_auth": true|false
+      }
+    metadata:
+      temperature: 0.3
+      max_tokens: 80
+      output_format: json
+      tags:
+        - credit
+        - intent
+        - classification
+      variables:
+        required:
+          - message
+          - context

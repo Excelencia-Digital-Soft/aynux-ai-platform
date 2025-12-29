@@ -1,0 +1,54 @@
+# Orchestrator Domain - Intent Detection Prompts
+# Purpose: Handle intent detection for message routing
+
+prompts:
+  - key: orchestrator.intent.detection
+    name: Orchestrator Intent Detection
+    description: Detects the primary intent from user messages
+    version: "1.0.0"
+    template: |
+      Analyze this user message and detect the primary intent:
+
+      Message: "{message}"
+      Available intents: {available_intents}
+
+      Consider the context and available services to determine the most appropriate intent.
+      Return ONLY the intent name without explanation.
+    metadata:
+      temperature: 0.2
+      max_tokens: 50
+      tags:
+        - orchestrator
+        - intent
+        - detection
+      variables:
+        required:
+          - message
+          - available_intents
+
+  - key: orchestrator.intent.analysis
+    name: Orchestrator Intent Analysis
+    description: Detailed intent analysis with confidence scores
+    version: "1.0.0"
+    template: |
+      Perform detailed intent analysis:
+
+      Message: "{message}"
+      Context: {context}
+
+      Return JSON with:
+      - primary_intent: string
+      - confidence: float (0-1)
+      - secondary_intents: array
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      output_format: json
+      tags:
+        - orchestrator
+        - intent
+        - analysis
+      variables:
+        required:
+          - message
+          - context

@@ -1,5 +1,40 @@
-# Conversation Greeting Prompts for Excelencia
+# Conversation Greeting Prompts
+# Purpose: Handle greeting and welcome messages
+
 prompts:
+  - key: conversation.greeting.system
+    name: Conversation Greeting System
+    description: System prompt for greeting messages
+    version: "1.0.0"
+    template: |
+      You are a friendly assistant greeting users.
+
+      User: {user_name}
+      Time of Day: {time_of_day}
+      Language: {language}
+      Context: {context}
+
+      Generate an appropriate greeting that:
+      1. Is warm and welcoming
+      2. Matches the time of day
+      3. Introduces available services briefly
+      4. Invites them to ask questions
+
+      Keep it natural and friendly.
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      tags:
+        - conversation
+        - greeting
+        - system
+      variables:
+        optional:
+          - user_name
+          - time_of_day
+          - language
+          - context
+
   - key: conversation.greeting.excelencia
     name: Excelencia Greeting Prompt
     description: Generates a welcome message for Excelencia, the software company.

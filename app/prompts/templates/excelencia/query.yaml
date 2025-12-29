@@ -1,0 +1,59 @@
+# Excelencia Domain - Query Handling Prompts
+# Purpose: Handle general queries about Excelencia software
+
+prompts:
+  - key: excelencia.query.intent
+    name: Excelencia Query Intent Analysis
+    description: Analyze intent of Excelencia-related queries
+    version: "1.0.0"
+    template: |
+      Analyze this Excelencia software query:
+
+      Query: "{message}"
+
+      Intent types:
+      - module_info: Asking about specific modules
+      - pricing: Asking about costs or pricing
+      - demo: Requesting a demonstration
+      - support: Technical support inquiry
+      - training: Training or learning resources
+      - integration: Integration with other systems
+      - comparison: Comparing with other software
+
+      Return ONLY one word from the list above.
+    metadata:
+      temperature: 0.2
+      max_tokens: 20
+      tags:
+        - excelencia
+        - query
+        - intent
+      variables:
+        required:
+          - message
+
+  - key: excelencia.query.response
+    name: Excelencia Query Response
+    description: Generate response to Excelencia queries
+    version: "1.0.0"
+    template: |
+      Respond to this Excelencia query:
+
+      Query: "{message}"
+      Query Type: {query_type}
+      Relevant Info: {context}
+
+      Provide a helpful, informative response about Excelencia software.
+      Be professional and knowledgeable.
+    metadata:
+      temperature: 0.6
+      max_tokens: 250
+      tags:
+        - excelencia
+        - query
+        - response
+      variables:
+        required:
+          - message
+          - query_type
+          - context

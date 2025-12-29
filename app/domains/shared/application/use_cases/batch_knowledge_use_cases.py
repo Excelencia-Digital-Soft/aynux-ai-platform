@@ -9,7 +9,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.document_processing import DocumentExtractor
@@ -122,10 +122,7 @@ class BatchUpdateDocumentsUseCase:
         # Commit all changes
         try:
             await self.db.commit()
-            logger.info(
-                f"Batch update completed: {result.success_count} success, "
-                f"{result.error_count} errors"
-            )
+            logger.info(f"Batch update completed: {result.success_count} success, {result.error_count} errors")
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Batch update commit failed: {e}")
@@ -205,8 +202,7 @@ class BatchDeleteDocumentsUseCase:
             await self.db.commit()
             delete_type = "hard" if hard_delete else "soft"
             logger.info(
-                f"Batch {delete_type} delete completed: {result.success_count} success, "
-                f"{result.error_count} errors"
+                f"Batch {delete_type} delete completed: {result.success_count} success, {result.error_count} errors"
             )
         except Exception as e:
             await self.db.rollback()
@@ -301,8 +297,7 @@ class BatchRegenerateEmbeddingsUseCase:
         try:
             await self.db.commit()
             logger.info(
-                f"Batch embedding regeneration completed: {result.success_count} success, "
-                f"{result.error_count} errors"
+                f"Batch embedding regeneration completed: {result.success_count} success, {result.error_count} errors"
             )
         except Exception as e:
             await self.db.rollback()
@@ -378,9 +373,7 @@ class BatchUploadDocumentsUseCase:
 
                 if len(content.strip()) < 50:
                     result.error_count += 1
-                    result.errors.append(
-                        (filename, f"Content too short ({len(content)} chars)")
-                    )
+                    result.errors.append((filename, f"Content too short ({len(content)} chars)"))
                     continue
 
                 # Generate embedding
@@ -422,10 +415,7 @@ class BatchUploadDocumentsUseCase:
 
         try:
             await self.db.commit()
-            logger.info(
-                f"Batch upload completed: {result.success_count} success, "
-                f"{result.error_count} errors"
-            )
+            logger.info(f"Batch upload completed: {result.success_count} success, {result.error_count} errors")
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Batch upload commit failed: {e}")

@@ -30,12 +30,12 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
     """
     Per-tenant pharmacy and Mercado Pago configuration.
 
-    One-to-one relationship with Organization.
-    Stores all payment-related configuration for the tenant.
+    Many-to-one relationship with Organization (one org can have multiple pharmacies).
+    Stores all payment-related configuration for each pharmacy.
 
     Attributes:
         id: Unique identifier
-        organization_id: FK to organizations (unique - 1:1 relationship)
+        organization_id: FK to organizations (multiple pharmacies allowed per org)
         pharmacy_name: Name displayed on PDF receipts
         pharmacy_address: Address on PDF receipts
         pharmacy_phone: Phone on PDF receipts
@@ -61,13 +61,12 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
         comment="Unique configuration identifier",
     )
 
-    # Foreign key (one-to-one with organization)
+    # Foreign key (many-to-one with organization - multiple pharmacies allowed)
     organization_id = Column(
         UUID(as_uuid=True),
         ForeignKey(f"{CORE_SCHEMA}.organizations.id", ondelete="CASCADE"),
-        unique=True,
         nullable=False,
-        comment="Organization this config belongs to",
+        comment="Organization this config belongs to (multiple pharmacies per org allowed)",
     )
 
     # Pharmacy receipt info
@@ -160,7 +159,14 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
     # Relationships
     organization = relationship(
         "Organization",
-        back_populates="pharmacy_config",
+        back_populates="pharmacy_configs",
+    )
+
+    bypass_rule = relationship(
+        "BypassRule",
+        back_populates="pharmacy",
+        uselist=False,
+        passive_deletes=True,
     )
 
     # Table configuration

@@ -58,15 +58,19 @@ class Settings(BaseSettings):
     PROJECT_DESCRIPTION: str = "API para integración con WhatsApp Business API"
     VERSION: str = "0.1.0"
 
-    # WhatsApp API settings
-    WHATSAPP_API_BASE: str = Field("https://graph.facebook.com", description="URL base para la API de WhatsApp")
-    WHATSAPP_API_VERSION: str = Field("v22.0", description="Versión de la API de WhatsApp")
-    WHATSAPP_PHONE_NUMBER_ID: str = Field(..., description="ID del número de teléfono de WhatsApp")
-    WHATSAPP_VERIFY_TOKEN: str = Field(..., description="Token de verificación para el webhook de WhatsApp")
-    WHATSAPP_ACCESS_TOKEN: str = Field(..., description="Token de acceso permanente para la API de WhatsApp")
-    WHATSAPP_CATALOG_ID: str = Field(..., description="ID del catálogo de productos de WhatsApp Business")
-    META_APP_ID: str = Field(..., description="ID de la aplicación de Facebook")
-    META_APP_SECRET: str = Field(..., description="Secreto de la aplicación de Facebook")
+    # Chattigo Integration Settings (ISV mode)
+    # Chattigo is a WhatsApp Business API intermediary that handles Meta verification
+    # ISV mode: Chattigo manages credentials, we only need endpoint configuration
+    CHATTIGO_ENABLED: bool = Field(True, description="Enable Chattigo integration")
+    CHATTIGO_BASE_URL: str = Field(
+        "https://channels.chattigo.com/bsp-cloud-chattigo-isv",
+        description="Chattigo API base URL",
+    )
+    CHATTIGO_USERNAME: str = Field("apimasive@munitintina", description="Chattigo API username")
+    CHATTIGO_PASSWORD: str = Field("api@2025", description="Chattigo API password")
+    CHATTIGO_CHANNEL_ID: int = Field(12676, description="Chattigo channel ID")
+    CHATTIGO_CAMPAIGN_ID: str = Field("7883", description="Chattigo campaign ID")
+    CHATTIGO_BOT_NAME: str = Field("Aynux", description="Bot name shown in messages")
 
     # PostgreSQL Database Settings
     DB_HOST: str = Field("localhost", description="Host de PostgreSQL")
@@ -250,7 +254,7 @@ class Settings(BaseSettings):
     )
 
     # LangSmith Configuration
-    LANGSMITH_TRACING: bool = Field(True, description="Enable LangSmith tracing")
+    LANGSMITH_TRACING: bool = Field(False, description="Enable LangSmith tracing")
     LANGSMITH_ENDPOINT: str = Field("https://api.smith.langchain.com", description="LangSmith API endpoint")
     LANGSMITH_API_KEY: str | None = Field(None, description="LangSmith API key")
     LANGSMITH_PROJECT: str = Field("aynux-production", description="LangSmith project name")

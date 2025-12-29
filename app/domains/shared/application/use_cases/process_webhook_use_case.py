@@ -8,7 +8,7 @@ Single Responsibility: Coordinate domain detection, bypass routing, and message 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -126,6 +126,7 @@ class ProcessWebhookUseCase:
         message: WhatsAppMessage,
         contact: Contact,
         whatsapp_phone_number_id: str | None = None,
+        chattigo_context: dict | None = None,
     ) -> WebhookProcessingResult:
         """
         Execute webhook message processing.
@@ -134,32 +135,31 @@ class ProcessWebhookUseCase:
             message: WhatsApp message
             contact: WhatsApp contact
             whatsapp_phone_number_id: WhatsApp Business phone ID
+            chattigo_context: Chattigo-specific context (did, idChat, channelId, idCampaign)
+                            Used when message comes from Chattigo webhook.
 
         Returns:
             WebhookProcessingResult with status and response
         """
+        # Store Chattigo context for use in message sending
+        self._chattigo_context = chattigo_context
         wa_id = contact.wa_id
         logger.info(f"Processing message from WhatsApp ID: {wa_id}")
 
         # Step 1: Evaluate bypass routing and detect domain
-        bypass_result = await self._evaluate_bypass_routing(
-            wa_id, whatsapp_phone_number_id
-        )
+        bypass_result = await self._evaluate_bypass_routing(wa_id, whatsapp_phone_number_id)
 
         if bypass_result.matched:
             domain = bypass_result.domain
             logger.info(
-                f"[BYPASS] Using bypass routing: {wa_id} -> "
-                f"org={bypass_result.organization_id}, domain={domain}"
+                f"[BYPASS] Using bypass routing: {wa_id} -> org={bypass_result.organization_id}, domain={domain}"
             )
         else:
             domain = await self._detect_contact_domain(wa_id)
             logger.info(f"Contact domain detected: {wa_id} -> {domain}")
 
         # Step 2: Load tenant registry if multi-tenant mode
-        tenant_registry, mode = await self._load_tenant_registry(
-            bypass_result.organization_id, bypass_result.target_agent
-        )
+        _, mode = await self._load_tenant_registry(bypass_result.organization_id, bypass_result.target_agent)
 
         # Step 3: Process message
         try:
@@ -215,9 +215,7 @@ class ProcessWebhookUseCase:
         from app.services.bypass_routing_service import BypassRoutingService
 
         bypass_service = BypassRoutingService(self._db)
-        match = await bypass_service.evaluate_bypass_rules(
-            wa_id, whatsapp_phone_number_id
-        )
+        match = await bypass_service.evaluate_bypass_rules(wa_id, whatsapp_phone_number_id)
 
         if match:
             return BypassResult(
@@ -247,9 +245,7 @@ class ProcessWebhookUseCase:
                 logger.info(f"Found existing domain assignment: {wa_id} -> {domain}")
                 return domain
 
-            logger.info(
-                f"No domain assignment for {wa_id}, using default: {self.DEFAULT_DOMAIN}"
-            )
+            logger.info(f"No domain assignment for {wa_id}, using default: {self.DEFAULT_DOMAIN}")
             return self.DEFAULT_DOMAIN
 
         except Exception as e:
@@ -287,9 +283,7 @@ class ProcessWebhookUseCase:
             if bypass_target_agent:
                 registry.bypass_target_agent = bypass_target_agent
             self._service.set_tenant_registry_for_request(registry)
-            logger.info(
-                f"Processing in multi-tenant mode for org: {registry.organization_id}"
-            )
+            logger.info(f"Processing in multi-tenant mode for org: {registry.organization_id}")
             return registry, "multi_tenant"
 
         logger.info("No tenant context found, processing in global mode")

@@ -1,0 +1,82 @@
+# Pharmacy Domain - Data Query Prompts
+# Purpose: Handle pharmacy data queries and lookups
+
+prompts:
+  - key: pharmacy.data_query.intent
+    name: Pharmacy Data Query Intent
+    description: Analyzes pharmacy data query intent
+    version: "1.0.0"
+    template: |
+      Analyze this pharmacy query and determine the data type needed:
+
+      Query: "{message}"
+
+      Data types:
+      - inventory: Stock levels, product availability
+      - customer: Customer information, purchase history
+      - prescription: Prescription records
+      - sales: Sales data, transactions
+
+      Return ONLY one word: inventory, customer, prescription, or sales
+    metadata:
+      temperature: 0.2
+      max_tokens: 15
+      tags:
+        - pharmacy
+        - data_query
+        - intent
+      variables:
+        required:
+          - message
+
+  - key: pharmacy.data_query.response
+    name: Pharmacy Data Query Response
+    description: Generates response for pharmacy data queries
+    version: "1.0.0"
+    template: |
+      Generate a response for the pharmacy data query:
+
+      Query Type: {query_type}
+      Data: {data}
+
+      Provide a clear, professional response with the requested information.
+    metadata:
+      temperature: 0.5
+      max_tokens: 300
+      tags:
+        - pharmacy
+        - data_query
+        - response
+      variables:
+        required:
+          - query_type
+          - data
+
+  - key: pharmacy.data_query.analyze
+    name: Pharmacy Data Query Analysis
+    description: Analyzes pharmacy data queries for detailed insights
+    version: "1.0.0"
+    template: |
+      Analyze this pharmacy data query:
+
+      Query: "{message}"
+      Available Data: {available_data}
+      Context: {context}
+
+      Provide detailed analysis including:
+      1. Query interpretation
+      2. Relevant data points
+      3. Recommended actions
+    metadata:
+      temperature: 0.4
+      max_tokens: 250
+      tags:
+        - pharmacy
+        - data_query
+        - analyze
+      variables:
+        required:
+          - message
+          - available_data
+        optional:
+          - context

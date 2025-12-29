@@ -1,0 +1,73 @@
+# Legacy Domain - Sales Assistant Prompts
+# Purpose: Legacy sales assistant prompts for backwards compatibility
+
+prompts:
+  - key: legacy.sales_assistant.system
+    name: Legacy Sales Assistant System
+    description: Legacy system prompt for sales assistant
+    version: "1.0.0"
+    template: |
+      [LEGACY] You are a sales assistant helping customers.
+
+      Customer query: "{message}"
+      Products available: {products}
+      Customer history: {history}
+
+      Provide helpful sales assistance.
+      This is a legacy prompt - consider migrating to the new sales system.
+    metadata:
+      temperature: 0.6
+      max_tokens: 250
+      tags:
+        - legacy
+        - sales_assistant
+        - system
+      variables:
+        required:
+          - message
+          - products
+        optional:
+          - history
+
+  - key: legacy.sales_assistant.response
+    name: Legacy Sales Response
+    description: Legacy sales response format
+    version: "1.0.0"
+    template: |
+      [LEGACY] Generate sales response:
+
+      Query: "{query}"
+      Recommendations: {recommendations}
+
+      Create a helpful response for the customer.
+    metadata:
+      temperature: 0.5
+      max_tokens: 200
+      tags:
+        - legacy
+        - sales_assistant
+        - response
+      variables:
+        required:
+          - query
+          - recommendations
+
+  - key: legacy.sales_assistant
+    name: Legacy Sales Assistant Default
+    description: Default legacy sales assistant prompt
+    version: "1.0.0"
+    template: |
+      [LEGACY] Sales assistant processing.
+
+      Query: "{message}"
+
+      This prompt exists for backwards compatibility.
+    metadata:
+      temperature: 0.5
+      max_tokens: 150
+      tags:
+        - legacy
+        - sales_assistant
+      variables:
+        required:
+          - message

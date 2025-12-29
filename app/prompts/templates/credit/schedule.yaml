@@ -1,0 +1,79 @@
+# Credit Domain - Schedule Prompts
+# Purpose: Handle credit payment schedule queries
+
+prompts:
+  - key: credit.schedule.response
+    name: Credit Schedule Response
+    description: Generate payment schedule information
+    version: "1.0.0"
+    template: |
+      Generate payment schedule summary:
+
+      Customer: {customer_name}
+      Upcoming Payments:
+      {schedule}
+
+      Total Pending: ${total_pending}
+      Next Due Date: {next_due_date}
+
+      Provide a clear, organized schedule summary.
+    metadata:
+      temperature: 0.5
+      max_tokens: 250
+      tags:
+        - credit
+        - schedule
+        - response
+      variables:
+        required:
+          - customer_name
+          - schedule
+          - total_pending
+          - next_due_date
+
+  - key: credit.schedule.reminder
+    name: Payment Reminder
+    description: Payment due date reminder
+    version: "1.0.0"
+    template: |
+      Recordatorio de pago:
+
+      Tu proximo pago de ${amount} vence el {due_date}.
+
+      Puedes realizar tu pago ahora para evitar cargos por mora.
+    metadata:
+      temperature: 0
+      max_tokens: 60
+      tags:
+        - credit
+        - schedule
+        - reminder
+      variables:
+        required:
+          - amount
+          - due_date
+
+  - key: credit.schedule.overdue
+    name: Overdue Notice
+    description: Notice for overdue payments
+    version: "1.0.0"
+    template: |
+      Aviso: Tienes un pago vencido.
+
+      Monto: ${amount}
+      Dias de mora: {days_overdue}
+      Cargo por mora: ${late_fee}
+
+      Por favor realiza tu pago lo antes posible.
+    metadata:
+      temperature: 0
+      max_tokens: 80
+      tags:
+        - credit
+        - schedule
+        - overdue
+      variables:
+        required:
+          - amount
+          - days_overdue
+          - late_fee

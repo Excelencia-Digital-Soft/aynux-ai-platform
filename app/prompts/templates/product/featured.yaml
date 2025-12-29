@@ -1,0 +1,64 @@
+# Product Domain - Featured Products Prompts
+# Purpose: Handle featured product displays and recommendations
+
+prompts:
+  - key: product.featured.response
+    name: Featured Products Response
+    description: Generate featured products presentation
+    version: "1.0.0"
+    template: |
+      Present our featured products:
+
+      Products:
+      {featured_products}
+
+      Category: {category}
+      Season: {season}
+
+      Create an engaging presentation highlighting:
+      1. Key features and benefits
+      2. Special offers or discounts
+      3. Why these products are featured
+
+      Keep it concise and appealing.
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags:
+        - product
+        - featured
+        - response
+      variables:
+        required:
+          - featured_products
+        optional:
+          - category
+          - season
+
+  - key: product.featured.highlight
+    name: Product Highlight
+    description: Highlight a specific featured product
+    version: "1.0.0"
+    template: |
+      Highlight this product:
+
+      Name: {product_name}
+      Description: {description}
+      Price: ${price}
+      Special: {special_offer}
+
+      Create a compelling product highlight.
+    metadata:
+      temperature: 0.6
+      max_tokens: 150
+      tags:
+        - product
+        - featured
+        - highlight
+      variables:
+        required:
+          - product_name
+          - description
+          - price
+        optional:
+          - special_offer

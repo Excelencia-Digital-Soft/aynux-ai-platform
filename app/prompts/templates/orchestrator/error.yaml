@@ -1,0 +1,49 @@
+# Orchestrator Domain - Error Response Prompts
+# Purpose: Handle error responses and fallback messages
+
+prompts:
+  - key: orchestrator.error.response
+    name: Orchestrator Error Response
+    description: Generates user-friendly error messages
+    version: "1.0.0"
+    template: |
+      Generate a friendly error message for the user:
+
+      Error Type: {error_type}
+      Original Request: {original_request}
+      Language: {language}
+
+      Provide a helpful message that:
+      1. Acknowledges the issue briefly
+      2. Suggests what the user can try instead
+      3. Offers to connect with support if needed
+
+      Keep the tone friendly and professional.
+    metadata:
+      temperature: 0.6
+      max_tokens: 150
+      tags:
+        - orchestrator
+        - error
+        - response
+      variables:
+        required:
+          - error_type
+          - original_request
+        optional:
+          - language
+
+  - key: orchestrator.error.fallback
+    name: Orchestrator Error Fallback
+    description: Generic fallback for unhandled errors
+    version: "1.0.0"
+    template: |
+      Lo siento, no pude procesar tu solicitud en este momento.
+      Por favor intenta de nuevo o contacta a nuestro equipo de soporte.
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - orchestrator
+        - error
+        - fallback

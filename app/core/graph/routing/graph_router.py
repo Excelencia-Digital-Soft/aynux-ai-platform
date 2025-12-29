@@ -175,9 +175,19 @@ class GraphRouter:
         1. Phone number patterns/lists
         2. WhatsApp phone_number_id
 
+        Also checks if bypass_target_agent was set in the registry
+        (by webhook.py when a bypass rule matched pre-routing).
+
         Returns:
             Target agent name if bypass applies, None otherwise
         """
+        # FIRST: Check if bypass_target_agent was set in registry (from webhook pre-routing)
+        if self._tenant_registry and self._tenant_registry.bypass_target_agent:
+            logger.info(
+                f"[BYPASS] Using pre-routed bypass agent: {self._tenant_registry.bypass_target_agent}"
+            )
+            return self._tenant_registry.bypass_target_agent
+
         # Get tenant context
         ctx = get_tenant_context()
         if not ctx or not ctx.config:

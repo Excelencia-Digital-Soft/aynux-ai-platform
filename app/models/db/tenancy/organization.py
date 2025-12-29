@@ -188,10 +188,9 @@ class Organization(Base, TimestampMixin):
         cascade="all, delete-orphan",
     )
 
-    pharmacy_config = relationship(
+    pharmacy_configs = relationship(
         "PharmacyMerchantConfig",
         back_populates="organization",
-        uselist=False,
         cascade="all, delete-orphan",
     )
 

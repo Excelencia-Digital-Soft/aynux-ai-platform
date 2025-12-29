@@ -18,6 +18,7 @@ from .reviews import ProductReview
 from .support_ticket import SupportTicket
 from .user import UserDB
 from .conversation_history import ConversationContext, ConversationMessage
+from .ai_model import AIModel, ModelProvider, ModelType
 
 # Soporte schema models
 from .soporte import (
@@ -81,4 +82,8 @@ __all__ = [
     "IncidentHistory",
     "JiraConfig",
     "PendingTicket",
+    # AI Models
+    "AIModel",
+    "ModelProvider",
+    "ModelType",
 ]

@@ -1,0 +1,64 @@
+# Excelencia Domain - Demo Request Prompts
+# Purpose: Handle demo requests for Excelencia software
+
+prompts:
+  - key: excelencia.demo.request
+    name: Demo Request Handler
+    description: Handle demo request for Excelencia software
+    version: "1.0.0"
+    template: |
+      Process demo request:
+
+      Customer: {customer_name}
+      Company: {company_name}
+      Interest Areas: {interest_areas}
+      Message: "{message}"
+
+      Generate a professional response that:
+      1. Thanks them for their interest
+      2. Confirms demo scheduling process
+      3. Asks for preferred date/time if not provided
+      4. Mentions what they'll see in the demo
+
+      Be professional and enthusiastic.
+    metadata:
+      temperature: 0.6
+      max_tokens: 200
+      tags:
+        - excelencia
+        - demo
+        - request
+      variables:
+        required:
+          - customer_name
+          - message
+        optional:
+          - company_name
+          - interest_areas
+
+  - key: excelencia.demo.scheduled
+    name: Demo Scheduled Confirmation
+    description: Confirmation when demo is scheduled
+    version: "1.0.0"
+    template: |
+      Demo confirmado!
+
+      Fecha: {date}
+      Hora: {time}
+      Duracion: {duration}
+      Enlace: {meeting_link}
+
+      Nos vemos pronto para mostrarle las capacidades de Excelencia.
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - excelencia
+        - demo
+        - confirmation
+      variables:
+        required:
+          - date
+          - time
+          - duration
+          - meeting_link

@@ -91,6 +91,12 @@ class TenantAgentRegistry(BaseModel):
     intent_to_agent: dict[str, str] = Field(default_factory=dict)
     keyword_index: dict[str, list[str]] = Field(default_factory=dict)
 
+    # Bypass routing (set when a bypass rule matches before normal routing)
+    bypass_target_agent: str | None = Field(
+        default=None,
+        description="Agent to route to directly when bypass rule matches"
+    )
+
     @model_validator(mode="after")
     def _build_indexes(self) -> "TenantAgentRegistry":
         """Build indexes after model creation."""

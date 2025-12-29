@@ -1,0 +1,72 @@
+# Legacy Domain - Orchestrator Prompts
+# Purpose: Legacy orchestrator prompts for backwards compatibility
+
+prompts:
+  - key: legacy.orchestrator.system
+    name: Legacy Orchestrator System
+    description: Legacy system prompt for orchestrator
+    version: "1.0.0"
+    template: |
+      [LEGACY] You are the main orchestrator for the conversation system.
+
+      Available services: {services}
+      User message: "{message}"
+      Context: {context}
+
+      Route the message to the appropriate service.
+      This is a legacy prompt - consider migrating to the new orchestrator system.
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags:
+        - legacy
+        - orchestrator
+        - system
+      variables:
+        required:
+          - services
+          - message
+          - context
+
+  - key: legacy.orchestrator.routing
+    name: Legacy Routing Decision
+    description: Legacy routing logic
+    version: "1.0.0"
+    template: |
+      [LEGACY] Route this message:
+
+      Message: "{message}"
+      Available Routes: {routes}
+
+      Return the target route name only.
+    metadata:
+      temperature: 0.2
+      max_tokens: 30
+      tags:
+        - legacy
+        - orchestrator
+        - routing
+      variables:
+        required:
+          - message
+          - routes
+
+  - key: legacy.orchestrator
+    name: Legacy Orchestrator Default
+    description: Default legacy orchestrator prompt
+    version: "1.0.0"
+    template: |
+      [LEGACY] Process this request through the legacy orchestrator.
+
+      Message: "{message}"
+
+      This prompt exists for backwards compatibility.
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - legacy
+        - orchestrator
+      variables:
+        required:
+          - message

@@ -1,0 +1,61 @@
+# Product Domain - Category Prompts
+# Purpose: Handle product category browsing and navigation
+
+prompts:
+  - key: product.category.response
+    name: Category Products Response
+    description: Generate category browsing response
+    version: "1.0.0"
+    template: |
+      Present products in this category:
+
+      Category: {category_name}
+      Products:
+      {products}
+
+      Subcategories: {subcategories}
+
+      Create a helpful category overview with:
+      1. Brief category description
+      2. Highlight popular items
+      3. Guide to subcategories if relevant
+
+      Help the customer navigate effectively.
+    metadata:
+      temperature: 0.6
+      max_tokens: 250
+      tags:
+        - product
+        - category
+        - response
+      variables:
+        required:
+          - category_name
+          - products
+        optional:
+          - subcategories
+
+  - key: product.category.navigation
+    name: Category Navigation
+    description: Help navigate product categories
+    version: "1.0.0"
+    template: |
+      Help navigate categories:
+
+      Current Category: {current}
+      Available Categories: {categories}
+      User Query: "{query}"
+
+      Suggest the most relevant category based on their query.
+    metadata:
+      temperature: 0.4
+      max_tokens: 100
+      tags:
+        - product
+        - category
+        - navigation
+      variables:
+        required:
+          - current
+          - categories
+          - query

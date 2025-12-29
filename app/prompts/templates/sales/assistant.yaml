@@ -1,0 +1,60 @@
+# Sales Domain - Assistant Prompts
+# Purpose: Handle sales assistant interactions
+
+prompts:
+  - key: sales.assistant.system
+    name: Sales Assistant System
+    description: System prompt for sales assistant
+    version: "1.0.0"
+    template: |
+      You are a professional sales assistant helping customers find the right products and services.
+
+      Customer Query: "{message}"
+      Available Products: {products}
+      Customer History: {history}
+
+      Your approach:
+      1. Understand customer needs
+      2. Recommend appropriate products
+      3. Highlight value propositions
+      4. Address concerns professionally
+
+      Be helpful without being pushy.
+    metadata:
+      temperature: 0.6
+      max_tokens: 300
+      tags:
+        - sales
+        - assistant
+        - system
+      variables:
+        required:
+          - message
+          - products
+        optional:
+          - history
+
+  - key: sales.assistant.improved
+    name: Improved Sales Response
+    description: Enhanced sales response with context
+    version: "1.0.0"
+    template: |
+      Generate an improved sales response:
+
+      Original Response: {original}
+      Customer Sentiment: {sentiment}
+      Products Available: {products}
+
+      Enhance the response to be more helpful and sales-effective.
+    metadata:
+      temperature: 0.7
+      max_tokens: 250
+      tags:
+        - sales
+        - assistant
+        - improved
+      variables:
+        required:
+          - original
+          - sentiment
+          - products

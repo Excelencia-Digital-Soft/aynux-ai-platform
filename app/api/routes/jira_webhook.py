@@ -9,13 +9,11 @@ Endpoints:
 - POST /api/v1/webhooks/jira/{organization_id} - Receive Jira webhooks
 """
 
-import hashlib
-import hmac
 import logging
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Header, Request
 
 logger = logging.getLogger(__name__)
 
@@ -54,17 +52,14 @@ async def handle_jira_webhook(
     """
     try:
         # Get request body
-        body = await request.body()
+        _ = await request.body()
         payload = await request.json()
 
         # Log webhook receipt
         webhook_event = payload.get("webhookEvent", "unknown")
         issue_key = payload.get("issue", {}).get("key", "unknown")
 
-        logger.info(
-            f"[JIRA WEBHOOK] Received event '{webhook_event}' "
-            f"for org {organization_id}, issue {issue_key}"
-        )
+        logger.info(f"[JIRA WEBHOOK] Received event '{webhook_event}' for org {organization_id}, issue {issue_key}")
 
         # TODO: Implement webhook signature verification
         # The webhook_secret should be stored in soporte.jira_configs

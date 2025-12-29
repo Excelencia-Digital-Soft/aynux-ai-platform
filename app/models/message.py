@@ -111,3 +111,79 @@ class WhatsAppWebhookRequest(BaseModel):
             return None
         except (IndexError, KeyError):
             return None
+
+
+# ============================================================================
+# Chattigo Adapter - Converts Chattigo payloads to internal models
+# ============================================================================
+
+
+class ChattigoToWhatsAppAdapter:
+    """
+    Adapts Chattigo webhook payloads to internal WhatsApp models.
+
+    This adapter allows the application to use the same internal models
+    regardless of whether messages come from WhatsApp directly or via Chattigo.
+    """
+
+    @staticmethod
+    def to_whatsapp_message(
+        msisdn: str,
+        content: str,
+        message_id: str,
+        timestamp: str,
+        message_type: str = "text",
+    ) -> WhatsAppMessage:
+        """
+        Convert Chattigo payload data to WhatsAppMessage.
+
+        Args:
+            msisdn: User's phone number (sender)
+            content: Message content
+            message_id: Unique message ID
+            timestamp: Message timestamp
+            message_type: Type of message (text, image, document, etc.)
+
+        Returns:
+            WhatsAppMessage instance
+        """
+        # Map Chattigo type to WhatsApp type
+        type_mapping = {
+            "Text": "text",
+            "Image": "image",
+            "Document": "document",
+            "Audio": "text",  # Handle audio as text (transcribed)
+            "Video": "text",
+            "Location": "location",
+        }
+        wa_type = type_mapping.get(message_type, "text")
+
+        return WhatsAppMessage(
+            **{
+                "from": msisdn,
+                "id": message_id,
+                "timestamp": timestamp,
+                "type": wa_type,
+                "text": TextMessage(body=content) if wa_type == "text" else None,
+            }
+        )
+
+    @staticmethod
+    def to_contact(
+        msisdn: str,
+        name: str | None = None,
+    ) -> Contact:
+        """
+        Convert Chattigo payload data to Contact.
+
+        Args:
+            msisdn: User's phone number
+            name: User's name (optional)
+
+        Returns:
+            Contact instance
+        """
+        return Contact(
+            wa_id=msisdn,
+            profile={"name": name or "Usuario"},
+        )

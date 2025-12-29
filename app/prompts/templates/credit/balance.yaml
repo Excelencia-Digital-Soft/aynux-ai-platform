@@ -1,0 +1,50 @@
+# Credit Domain - Balance Prompts
+# Purpose: Handle credit balance queries
+
+prompts:
+  - key: credit.balance.response
+    name: Credit Balance Response
+    description: Generate credit balance information
+    version: "1.0.0"
+    template: |
+      Generate a credit balance response:
+
+      Customer: {customer_name}
+      Current Balance: {balance}
+      Credit Limit: {credit_limit}
+      Available Credit: {available}
+      Due Date: {due_date}
+
+      Provide a clear, professional summary of their credit status.
+    metadata:
+      temperature: 0.5
+      max_tokens: 200
+      tags:
+        - credit
+        - balance
+        - response
+      variables:
+        required:
+          - customer_name
+          - balance
+          - credit_limit
+          - available
+          - due_date
+
+  - key: credit.balance.low_warning
+    name: Low Balance Warning
+    description: Warning when balance is low
+    version: "1.0.0"
+    template: |
+      Tu saldo disponible es bajo ({available}).
+      Considera realizar un pago para mantener tu credito disponible.
+    metadata:
+      temperature: 0
+      max_tokens: 50
+      tags:
+        - credit
+        - balance
+        - warning
+      variables:
+        required:
+          - available

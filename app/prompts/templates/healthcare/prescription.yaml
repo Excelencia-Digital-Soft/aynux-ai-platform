@@ -1,0 +1,58 @@
+# Healthcare Domain - Prescription Management Prompts
+# Purpose: Handle prescription information and medication queries
+
+prompts:
+  - key: healthcare.prescription.response
+    name: Prescription Information Response
+    description: Generates response with current prescription information
+    version: "1.0.0"
+    template: |
+      Generate prescription information:
+
+      Patient: {patient_name}
+
+      Current Prescriptions:
+      {prescriptions_list}
+
+      Important Notes:
+      - Follow dosage instructions carefully
+      - Contact doctor if any side effects occur
+
+      Generate brief, caring message (max 5 lines)
+    metadata:
+      temperature: 0.7
+      max_tokens: 250
+      model: "deepseek-r1:7b"
+      tags:
+        - healthcare
+        - prescription
+        - medication
+      variables:
+        required:
+          - patient_name
+          - prescriptions_list
+
+  - key: healthcare.prescription.refill
+    name: Prescription Refill Request
+    description: Handles prescription refill requests
+    version: "1.0.0"
+    template: |
+      Process prescription refill request:
+
+      Patient: {patient_name}
+      Medication: {medication_name}
+      Last Refill: {last_refill_date}
+
+      Check refill eligibility and provide appropriate response.
+    metadata:
+      temperature: 0.5
+      max_tokens: 200
+      tags:
+        - healthcare
+        - prescription
+        - refill
+      variables:
+        required:
+          - patient_name
+          - medication_name
+          - last_refill_date

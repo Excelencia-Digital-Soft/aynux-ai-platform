@@ -13,7 +13,7 @@ without embeddings, and tracking embedding statistics across knowledge bases.
 
 import logging
 from enum import Enum
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
@@ -58,15 +58,15 @@ class SourceFilter(str, Enum):
     description="Retrieve statistics about embedding coverage across knowledge bases",
 )
 async def get_embedding_stats(
-    source: SourceFilter = Query(
-        SourceFilter.ALL,
-        description="Filter by knowledge source: all, company, or agent",
-    ),
-    agent_key: Optional[str] = Query(
-        None,
-        description="Filter by specific agent key (only for source=agent)",
-    ),
-    db: AsyncSession = Depends(get_async_db),
+    db: Annotated[AsyncSession, Depends(get_async_db)],
+    source: Annotated[
+        SourceFilter,
+        Query(description="Filter by knowledge source: all, company, or agent"),
+    ] = SourceFilter.ALL,
+    agent_key: Annotated[
+        Optional[str],
+        Query(description="Filter by specific agent key (only for source=agent)"),
+    ] = None,
 ) -> EmbeddingStatsResponse:
     """
     Get comprehensive embedding statistics.
@@ -139,6 +139,9 @@ async def _get_company_knowledge_stats(db: AsyncSession) -> SourceStats:
 
     result = await db.execute(query)
     row = result.fetchone()
+
+    if row is None:
+        return SourceStats(total=0, with_embedding=0, without_embedding=0)
 
     return SourceStats(
         total=row.total or 0,
@@ -217,17 +220,19 @@ async def _get_agent_knowledge_stats(
     description="Retrieve paginated list of documents that are missing embeddings",
 )
 async def get_documents_without_embedding(
-    source: SourceFilter = Query(
-        SourceFilter.ALL,
-        description="Filter by knowledge source: all, company, or agent",
-    ),
-    agent_key: Optional[str] = Query(
-        None,
-        description="Filter by specific agent key (only for source=agent)",
-    ),
-    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
-    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
-    db: AsyncSession = Depends(get_async_db),
+    db: Annotated[AsyncSession, Depends(get_async_db)],
+    source: Annotated[
+        SourceFilter,
+        Query(description="Filter by knowledge source: all, company, or agent"),
+    ] = SourceFilter.ALL,
+    agent_key: Annotated[
+        Optional[str],
+        Query(description="Filter by specific agent key (only for source=agent)"),
+    ] = None,
+    page: Annotated[int, Query(ge=1, description="Page number (1-indexed)")] = 1,
+    page_size: Annotated[
+        int, Query(ge=1, le=100, description="Items per page")
+    ] = 25,
 ) -> MissingEmbeddingsResponse:
     """
     Get documents that are missing embeddings.

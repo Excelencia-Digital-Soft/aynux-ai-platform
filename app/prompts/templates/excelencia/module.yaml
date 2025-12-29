@@ -1,0 +1,83 @@
+# Excelencia Domain - Module Information Prompts
+# Purpose: Handle queries about Excelencia software modules
+
+prompts:
+  - key: excelencia.module.info
+    name: Module Information Response
+    description: Provide information about Excelencia modules
+    version: "1.0.0"
+    template: |
+      Provide information about this Excelencia module:
+
+      Module: {module_name}
+      Features: {features}
+      Benefits: {benefits}
+      Integration: {integrations}
+
+      Customer Query: "{query}"
+
+      Create a helpful, informative response that addresses their specific question
+      while highlighting the module's capabilities.
+    metadata:
+      temperature: 0.6
+      max_tokens: 300
+      tags:
+        - excelencia
+        - module
+        - info
+      variables:
+        required:
+          - module_name
+          - features
+          - query
+        optional:
+          - benefits
+          - integrations
+
+  - key: excelencia.module.comparison
+    name: Module Comparison
+    description: Compare Excelencia modules
+    version: "1.0.0"
+    template: |
+      Compare these Excelencia modules:
+
+      Module 1: {module1}
+      Module 2: {module2}
+
+      Create a clear comparison highlighting:
+      - Key differences
+      - Use cases for each
+      - Recommendation based on needs
+    metadata:
+      temperature: 0.5
+      max_tokens: 250
+      tags:
+        - excelencia
+        - module
+        - comparison
+      variables:
+        required:
+          - module1
+          - module2
+
+  - key: excelencia.module.list
+    name: Module List
+    description: List available Excelencia modules
+    version: "1.0.0"
+    template: |
+      Nuestros modulos disponibles:
+
+      {modules_list}
+
+      Cada modulo esta disenado para optimizar diferentes areas de tu negocio.
+      Puedo darte mas informacion sobre cualquiera de ellos.
+    metadata:
+      temperature: 0
+      max_tokens: 200
+      tags:
+        - excelencia
+        - module
+        - list
+      variables:
+        required:
+          - modules_list

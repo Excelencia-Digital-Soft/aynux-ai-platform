@@ -87,6 +87,10 @@ class LifecycleManager:
     async def _initialize_langsmith(self) -> None:
         """Initialize LangSmith tracing if configured."""
         try:
+            if not settings.LANGSMITH_TRACING:
+                logger.info("LangSmith tracing is disabled via LANGSMITH_TRACING=False")
+                return
+
             langsmith_initialized = initialize_langsmith(force=True)
             if langsmith_initialized:
                 logger.info("LangSmith tracing initialized successfully")
@@ -94,23 +98,22 @@ class LifecycleManager:
                 logger.info(f"  Project: {status.get('project')}")
                 logger.info(f"  Tracing enabled: {status.get('tracing_enabled')}")
             else:
-                logger.warning("LangSmith tracing not initialized (may be disabled or misconfigured)")
+                logger.warning("LangSmith tracing enabled but initialization failed (check LANGSMITH_API_KEY)")
         except Exception as e:
             logger.error(f"Error initializing LangSmith: {e}")
 
     def _verify_configurations(self) -> None:
         """Verify critical application configurations."""
-        if not settings.DUX_API_KEY:
-            logger.warning("DUX_API_KEY not configured - DUX sync will be disabled")
-
         if not settings.DUX_SYNC_ENABLED:
             logger.info("DUX sync is disabled via DUX_SYNC_ENABLED=False")
+        elif not settings.DUX_API_KEY:
+            logger.warning("DUX_API_KEY not configured - DUX sync will be disabled")
 
     async def _verify_external_services(self) -> None:
         """Verify connectivity with external services."""
         try:
-            # Verify DUX API connectivity
-            if settings.DUX_API_KEY:
+            # Verify DUX API connectivity only if sync is enabled
+            if settings.DUX_SYNC_ENABLED and settings.DUX_API_KEY:
                 await self._verify_dux_connectivity()
 
             # Verify Ollama connectivity (embeddings)

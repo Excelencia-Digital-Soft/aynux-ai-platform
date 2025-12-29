@@ -14,8 +14,11 @@ Includes:
 """
 
 from . import (
+    agent_flow,
     agent_knowledge,
+    ai_models,
     bypass_rules,
+    modules,
     org_users,
     organizations,
     prompts,
@@ -37,4 +40,7 @@ __all__ = [
     "agent_knowledge",
     "prompts",
     "bypass_rules",
+    "ai_models",
+    "agent_flow",
+    "modules",
 ]

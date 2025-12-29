@@ -13,9 +13,10 @@ direct routing to agents based on phone number patterns or WhatsApp IDs.
 
 import uuid
 from datetime import UTC, datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
-from sqlalchemy import func, select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_organization_by_id, require_admin
@@ -32,6 +33,13 @@ from app.models.db.tenancy import BypassRule, Organization, OrganizationUser, Te
 
 router = APIRouter(tags=["Bypass Rules"])
 
+# Type aliases for common dependencies
+OrgIdPath = Annotated[uuid.UUID, Path(description="Organization ID")]
+RuleIdPath = Annotated[uuid.UUID, Path(description="Rule ID")]
+AdminMembership = Annotated[OrganizationUser, Depends(require_admin)]
+OrgDep = Annotated[Organization, Depends(get_organization_by_id)]
+DbSession = Annotated[AsyncSession, Depends(get_async_db)]
+
 
 # ============================================================
 # ENDPOINTS
@@ -40,9 +48,9 @@ router = APIRouter(tags=["Bypass Rules"])
 
 @router.get("/{org_id}/bypass-rules", response_model=BypassRuleListResponse)
 async def list_bypass_rules(
-    org_id: uuid.UUID = Path(..., description="Organization ID"),
-    membership: OrganizationUser = Depends(require_admin),
-    db: AsyncSession = Depends(get_async_db),
+    org_id: OrgIdPath,
+    membership: AdminMembership,
+    db: DbSession,
 ):
     """
     List all bypass routing rules for the organization.
@@ -53,7 +61,7 @@ async def list_bypass_rules(
     stmt = (
         select(BypassRule)
         .where(BypassRule.organization_id == org_id)
-        .order_by(BypassRule.priority.desc(), BypassRule.rule_name)
+        .order_by(desc(BypassRule.priority), BypassRule.rule_name)
     )
     result = await db.execute(stmt)
     rules = result.scalars().all()
@@ -72,10 +80,10 @@ async def list_bypass_rules(
 @router.post("/{org_id}/bypass-rules", response_model=BypassRuleResponse, status_code=status.HTTP_201_CREATED)
 async def create_bypass_rule(
     data: BypassRuleCreate,
-    org_id: uuid.UUID = Path(..., description="Organization ID"),
-    membership: OrganizationUser = Depends(require_admin),
-    org: Organization = Depends(get_organization_by_id),
-    db: AsyncSession = Depends(get_async_db),
+    org_id: OrgIdPath,
+    membership: AdminMembership,
+    org: OrgDep,
+    db: DbSession,
 ):
     """
     Create a new bypass routing rule.
@@ -125,10 +133,10 @@ async def create_bypass_rule(
 
 @router.get("/{org_id}/bypass-rules/{rule_id}", response_model=BypassRuleResponse)
 async def get_bypass_rule(
-    org_id: uuid.UUID = Path(..., description="Organization ID"),
-    rule_id: uuid.UUID = Path(..., description="Rule ID"),
-    membership: OrganizationUser = Depends(require_admin),
-    db: AsyncSession = Depends(get_async_db),
+    org_id: OrgIdPath,
+    rule_id: RuleIdPath,
+    membership: AdminMembership,
+    db: DbSession,
 ):
     """
     Get a specific bypass routing rule.
@@ -154,10 +162,10 @@ async def get_bypass_rule(
 @router.put("/{org_id}/bypass-rules/{rule_id}", response_model=BypassRuleResponse)
 async def update_bypass_rule(
     data: BypassRuleUpdate,
-    org_id: uuid.UUID = Path(..., description="Organization ID"),
-    rule_id: uuid.UUID = Path(..., description="Rule ID"),
-    membership: OrganizationUser = Depends(require_admin),
-    db: AsyncSession = Depends(get_async_db),
+    org_id: OrgIdPath,
+    rule_id: RuleIdPath,
+    membership: AdminMembership,
+    db: DbSession,
 ):
     """
     Update a bypass routing rule.
@@ -222,10 +230,10 @@ async def update_bypass_rule(
 
 @router.post("/{org_id}/bypass-rules/{rule_id}/toggle", response_model=BypassRuleResponse)
 async def toggle_bypass_rule(
-    org_id: uuid.UUID = Path(..., description="Organization ID"),
-    rule_id: uuid.UUID = Path(..., description="Rule ID"),
-    membership: OrganizationUser = Depends(require_admin),
-    db: AsyncSession = Depends(get_async_db),
+    org_id: OrgIdPath,
+    rule_id: RuleIdPath,
+    membership: AdminMembership,
+    db: DbSession,
 ):
     """
     Toggle a bypass rule's enabled status.
@@ -256,10 +264,10 @@ async def toggle_bypass_rule(
 
 @router.delete("/{org_id}/bypass-rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_bypass_rule(
-    org_id: uuid.UUID = Path(..., description="Organization ID"),
-    rule_id: uuid.UUID = Path(..., description="Rule ID"),
-    membership: OrganizationUser = Depends(require_admin),
-    db: AsyncSession = Depends(get_async_db),
+    org_id: OrgIdPath,
+    rule_id: RuleIdPath,
+    membership: AdminMembership,
+    db: DbSession,
 ):
     """
     Delete a bypass routing rule.
@@ -286,9 +294,9 @@ async def delete_bypass_rule(
 @router.post("/{org_id}/bypass-rules/test", response_model=BypassRuleTestResponse)
 async def test_bypass_routing(
     data: BypassRuleTestRequest,
-    org_id: uuid.UUID = Path(..., description="Organization ID"),
-    membership: OrganizationUser = Depends(require_admin),
-    db: AsyncSession = Depends(get_async_db),
+    org_id: OrgIdPath,
+    membership: AdminMembership,
+    db: DbSession,
 ):
     """
     Test bypass routing for a given phone number.
@@ -302,12 +310,12 @@ async def test_bypass_routing(
     stmt = (
         select(BypassRule)
         .where(BypassRule.organization_id == org_id)
-        .order_by(BypassRule.priority.desc(), BypassRule.rule_name)
+        .order_by(desc(BypassRule.priority), BypassRule.rule_name)
     )
     result = await db.execute(stmt)
     rules = result.scalars().all()
 
-    evaluation_order = [r.rule_name for r in rules]
+    evaluation_order: list[str] = [str(r.rule_name) for r in rules]
 
     # Get tenant config for default domain
     config_stmt = select(TenantConfig).where(TenantConfig.organization_id == org_id)
@@ -318,11 +326,11 @@ async def test_bypass_routing(
     # Evaluate rules
     for rule in rules:
         if rule.matches(data.wa_id, data.whatsapp_phone_number_id):
-            target_domain = rule.target_domain or default_domain
+            target_domain = str(rule.target_domain) if rule.target_domain else default_domain
             return BypassRuleTestResponse(
                 matched=True,
                 matched_rule=BypassRuleResponse(**rule.to_dict()),
-                target_agent=rule.target_agent,
+                target_agent=str(rule.target_agent),
                 target_domain=target_domain,
                 evaluation_order=evaluation_order,
             )
@@ -340,9 +348,9 @@ async def test_bypass_routing(
 @router.post("/{org_id}/bypass-rules/reorder", response_model=BypassRuleListResponse)
 async def reorder_bypass_rules(
     rule_priorities: dict[str, int],
-    org_id: uuid.UUID = Path(..., description="Organization ID"),
-    membership: OrganizationUser = Depends(require_admin),
-    db: AsyncSession = Depends(get_async_db),
+    org_id: OrgIdPath,
+    membership: AdminMembership,
+    db: DbSession,
 ):
     """
     Reorder bypass rules by updating their priorities.
@@ -377,7 +385,7 @@ async def reorder_bypass_rules(
     stmt = (
         select(BypassRule)
         .where(BypassRule.organization_id == org_id)
-        .order_by(BypassRule.priority.desc(), BypassRule.rule_name)
+        .order_by(desc(BypassRule.priority), BypassRule.rule_name)
     )
     result = await db.execute(stmt)
     updated_rules = result.scalars().all()
