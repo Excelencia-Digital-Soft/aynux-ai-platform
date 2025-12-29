@@ -61,7 +61,6 @@ async def _get_langgraph_service() -> LangGraphChatbotService:
 @router.post("/webhook/")
 @router.post("/webhook")
 async def process_webhook(
-    payload: ChattigoWebhookPayload,
     request: Request,
     db_session: AsyncSession = Depends(get_async_db),  # noqa: B008
     settings: Settings = Depends(get_settings),  # noqa: B008
@@ -73,7 +72,6 @@ async def process_webhook(
     No verification needed - Chattigo handles that with Meta.
 
     Args:
-        payload: ChattigoWebhookPayload from Chattigo
         request: FastAPI request object
         db_session: Database session
         settings: Application settings
@@ -88,6 +86,23 @@ async def process_webhook(
             status_code=503,
             detail="Chattigo integration is disabled.",
         )
+
+    # 1. Capture raw body BEFORE Pydantic parsing for debugging
+    import json
+
+    raw_body = await request.body()
+    logger.info(f"Raw webhook body: {raw_body.decode('utf-8')}")
+
+    # 2. Parse to dict for analysis
+    try:
+        raw_json = json.loads(raw_body)
+        logger.info(f"Parsed JSON keys: {list(raw_json.keys())}")
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in webhook: {e}")
+        return {"status": "error", "message": "Invalid JSON"}
+
+    # 3. Create Pydantic model
+    payload = ChattigoWebhookPayload(**raw_json)
 
     logger.info(
         f"Received webhook: msisdn={payload.msisdn}, "
