@@ -63,11 +63,10 @@ class ConversationManager:
             self.logger.error(f"Error caching conversation: {e}")
 
     async def send_whatsapp_response(self, user_number: str, response: str):
-        """Envía respuesta por WhatsApp (modo prueba)"""
+        """Envía respuesta por WhatsApp via Chattigo"""
         try:
-            self.logger.info(f"[TEST MODE] WhatsApp message to {user_number}: {response[:50]}...")
-            # TODO: Implement actual WhatsApp sending
-            # await self.whatsapp_service.enviar_mensaje_texto(user_number, response)
+            self.logger.info(f"Sending WhatsApp message to {user_number}: {response[:50]}...")
+            await self.whatsapp_service.enviar_mensaje_texto(user_number, response)
         except Exception as e:
             self.logger.error(f"Error sending WhatsApp message: {e}")
             raise

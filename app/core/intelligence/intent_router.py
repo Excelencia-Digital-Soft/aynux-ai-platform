@@ -3,7 +3,7 @@ Router inteligente que usa IA con caché optimizado para detectar intenciones.
 
 Optimized for speed:
 - Uses SIMPLE model tier for fast intent analysis
-- Reduced timeout (15s instead of 70s)
+- Configurable timeout via INTENT_LLM_TIMEOUT env var (default: 60s)
 - Three-level fallback: Ollama → spaCy → Keywords
 """
 
@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import time
 from collections import OrderedDict
 from typing import Any, Dict, Optional
@@ -24,7 +25,7 @@ from app.utils import extract_json_from_text
 logger = logging.getLogger(__name__)
 
 # Constants for IntentRouter
-INTENT_LLM_TIMEOUT = 15.0  # Reduced from 70s for faster fallback
+INTENT_LLM_TIMEOUT = float(os.getenv("INTENT_LLM_TIMEOUT", "60.0"))  # Configurable via env
 INTENT_LLM_TEMPERATURE = 0.3  # Lower temperature for deterministic results
 
 
