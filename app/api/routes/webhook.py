@@ -77,7 +77,7 @@ async def process_webhook(
         settings: Application settings
 
     Returns:
-        Processing result
+        Processing result...
     """
     # Validate Chattigo is enabled
     if not settings.CHATTIGO_ENABLED:
