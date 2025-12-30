@@ -84,23 +84,53 @@ class SupportResponseGenerator:
             return await self.generate_fallback(query_type, module)
 
     def _format_history(self, state_dict: dict[str, Any]) -> str:
-        """Format conversation history for LLM context."""
+        """Format conversation history for LLM context.
+
+        Prioritizes:
+        1. conversation_summary - Rolling summary generated every N turns
+        2. conversation_context - Last exchange from context
+        3. messages - Direct messages (fallback, rarely has history)
+        """
+        # Priority 1: Use conversation_summary (rolling summary from HistoryAgent)
+        summary = state_dict.get("conversation_summary", "")
+        if summary and summary.strip():
+            return summary.strip()
+
+        # Priority 2: Extract last exchange from conversation_context
+        context = state_dict.get("conversation_context", {})
+        if context:
+            # Try rolling_summary first
+            rolling_summary = context.get("rolling_summary", "")
+            if rolling_summary:
+                return rolling_summary
+
+            # Build from last exchange
+            last_user = context.get("last_user_message", "")
+            last_bot = context.get("last_bot_response", "")
+            if last_user or last_bot:
+                parts = []
+                if last_user:
+                    parts.append(f"Usuario: {last_user}")
+                if last_bot:
+                    parts.append(f"Agente: {last_bot}")
+                return "\n".join(parts)
+
+        # Priority 3: Fallback to messages array (rarely useful)
         messages = state_dict.get("messages", [])
-        if not messages or len(messages) <= 1:
-            return ""
+        if messages and len(messages) > 1:
+            recent = messages[-10:]
+            formatted = []
+            for msg in recent:
+                if hasattr(msg, "content"):
+                    content = msg.content
+                    msg_type = getattr(msg, "type", "")
+                    if msg_type in ("human", "user"):
+                        formatted.append(f"Usuario: {content}")
+                    elif msg_type in ("ai", "assistant"):
+                        formatted.append(f"Agente: {content}")
+            return "\n".join(formatted) if formatted else ""
 
-        recent = messages[-10:]
-        formatted = []
-
-        for msg in recent:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            if role in ("human", "user"):
-                formatted.append(f"Usuario: {content}")
-            elif role in ("assistant", "ai"):
-                formatted.append(f"Agente: {content}")
-
-        return "\n".join(formatted) if formatted else ""
+        return ""
 
     def _extract_content(self, response: Any) -> str:
         """Extract content from LLM response."""
