@@ -15,12 +15,21 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from datetime import UTC, datetime
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes.admin.chat_admin_helpers import (
+    build_debug_execution_steps,
+    build_webhook_execution_steps,
+    get_default_graph,
+    get_mock_execution_steps,
+)
+from app.api.routes.admin.chat_admin_service import (
+    get_chat_service,
+    get_metrics_summary,
+    update_metrics,
+)
 from app.config.settings import get_settings
 from app.database.async_db import get_async_db
 from app.models.chat import (
@@ -30,77 +39,13 @@ from app.models.chat import (
     ChatTestRequest,
     ChatTestResponse,
     ExecutionStepModel,
+    WebhookSimulationRequest,
 )
-from app.services.langgraph_chatbot_service import LangGraphChatbotService
+from app.models.message import Contact, WhatsAppMessage
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# ============================================================
-# SERVICE SINGLETON
-# ============================================================
-
-_chat_service: LangGraphChatbotService | None = None
-
-
-async def _get_chat_service() -> LangGraphChatbotService:
-    """Get or initialize the chat service singleton."""
-    global _chat_service
-
-    if _chat_service is None:
-        try:
-            _chat_service = LangGraphChatbotService()
-            await _chat_service.initialize()
-            logger.info("Chat service initialized for admin endpoints")
-        except Exception as e:
-            logger.error(f"Failed to initialize chat service: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Chat service temporarily unavailable",
-            ) from e
-
-    return _chat_service
-
-
-# ============================================================
-# IN-MEMORY METRICS STORAGE (simple implementation)
-# ============================================================
-
-_metrics_store: dict[str, Any] = {
-    "total_messages": 0,
-    "total_sessions": 0,
-    "response_times": [],
-    "errors": 0,
-    "agents_used": {},
-    "last_reset": datetime.now(UTC).isoformat(),
-}
-
-
-def _update_metrics(
-    response_time_ms: float,
-    agent_used: str,
-    is_error: bool = False,
-) -> None:
-    """Update in-memory metrics after a test."""
-    _metrics_store["total_messages"] += 1
-    _metrics_store["response_times"].append(response_time_ms)
-
-    # Keep only last 1000 response times
-    if len(_metrics_store["response_times"]) > 1000:
-        _metrics_store["response_times"] = _metrics_store["response_times"][-1000:]
-
-    if is_error:
-        _metrics_store["errors"] += 1
-
-    if agent_used not in _metrics_store["agents_used"]:
-        _metrics_store["agents_used"][agent_used] = 0
-    _metrics_store["agents_used"][agent_used] += 1
-
-
-# ============================================================
-# ENDPOINTS
-# ============================================================
 
 
 @router.post("/test", response_model=ChatTestResponse)
@@ -117,14 +62,11 @@ async def test_chat_agent(
     start_time = time.time()
 
     try:
-        service = await _get_chat_service()
-
-        # Generate session_id if not provided
+        service = await get_chat_service()
         session_id = request.session_id or str(uuid.uuid4())
 
         logger.info(f"Chat admin test: user={request.user_id}, session={session_id}")
 
-        # Process the message
         result = await service.process_chat_message(
             message=request.message,
             user_id=request.user_id,
@@ -135,75 +77,18 @@ async def test_chat_agent(
 
         response_time_ms = (time.time() - start_time) * 1000
         agent_used = result.get("agent_used", "unknown")
-
-        # Update metrics
-        _update_metrics(response_time_ms, agent_used, is_error=False)
-
-        # Build execution steps if debug mode - dynamically from agent_history
-        execution_steps: list[ExecutionStepModel] | None = None
         graph_result = result.get("graph_result", {})
 
+        update_metrics(response_time_ms, agent_used, is_error=False)
+
+        execution_steps: list[ExecutionStepModel] | None = None
         if request.debug:
-            agent_history = graph_result.get("agent_history", [])
-            routing_decision = graph_result.get("routing_decision", {})
-
-            execution_steps = []
-            step_number = 1
-
-            # Step 1: Message received
-            execution_steps.append(
-                ExecutionStepModel(
-                    id=str(uuid.uuid4()),
-                    step_number=step_number,
-                    node_type="start",
-                    name="message_received",
-                    description="User message received",
-                    input={"message": request.message},
-                    output=None,
-                    duration_ms=10,
-                    status="completed",
-                    timestamp=datetime.now(UTC).isoformat(),
-                )
-            )
-            step_number += 1
-
-            # Steps 2+: Each agent in history
-            for agent_name in agent_history:
-                node_type = (
-                    "orchestrator"
-                    if agent_name == "orchestrator"
-                    else ("supervisor" if agent_name == "supervisor" else "agent")
-                )
-                execution_steps.append(
-                    ExecutionStepModel(
-                        id=str(uuid.uuid4()),
-                        step_number=step_number,
-                        node_type=node_type,
-                        name=agent_name,
-                        description=f"Executed by {agent_name}",
-                        input=routing_decision if agent_name == "orchestrator" else None,
-                        output=None,
-                        duration_ms=int(response_time_ms / max(len(agent_history), 1)),
-                        status="completed",
-                        timestamp=datetime.now(UTC).isoformat(),
-                    )
-                )
-                step_number += 1
-
-            # Final step: Response sent
-            execution_steps.append(
-                ExecutionStepModel(
-                    id=str(uuid.uuid4()),
-                    step_number=step_number,
-                    node_type="end",
-                    name="response_sent",
-                    description="Response generated",
-                    input=None,
-                    output={"response_preview": result.get("response", "")[:100]},
-                    duration_ms=5,
-                    status="completed",
-                    timestamp=datetime.now(UTC).isoformat(),
-                )
+            execution_steps = build_debug_execution_steps(
+                message=request.message,
+                response=result.get("response", ""),
+                agent_history=graph_result.get("agent_history", []),
+                routing_decision=graph_result.get("routing_decision", {}),
+                response_time_ms=response_time_ms,
             )
 
         return ChatTestResponse(
@@ -211,18 +96,19 @@ async def test_chat_agent(
             response=result.get("response", ""),
             agent_used=agent_used,
             execution_steps=execution_steps,
-            debug_info={
-                "response_time_ms": response_time_ms,
-                "requires_human": result.get("requires_human", False),
-                "is_complete": result.get("is_complete", False),
-                # Graph execution details
-                "agent_history": graph_result.get("agent_history", []),
-                "routing_decision": graph_result.get("routing_decision", {}),
-                "orchestrator_analysis": graph_result.get("orchestrator_analysis", {}),
-                "routing_attempts": graph_result.get("routing_attempts", 0),
-            }
-            if request.debug
-            else None,
+            debug_info=(
+                {
+                    "response_time_ms": response_time_ms,
+                    "requires_human": result.get("requires_human", False),
+                    "is_complete": result.get("is_complete", False),
+                    "agent_history": graph_result.get("agent_history", []),
+                    "routing_decision": graph_result.get("routing_decision", {}),
+                    "orchestrator_analysis": graph_result.get("orchestrator_analysis", {}),
+                    "routing_attempts": graph_result.get("routing_attempts", 0),
+                }
+                if request.debug
+                else None
+            ),
             metadata={
                 "user_id": request.user_id,
                 "processing_time_ms": response_time_ms,
@@ -233,12 +119,113 @@ async def test_chat_agent(
         raise
     except Exception as e:
         response_time_ms = (time.time() - start_time) * 1000
-        _update_metrics(response_time_ms, "error", is_error=True)
-
+        update_metrics(response_time_ms, "error", is_error=True)
         logger.error(f"Error in chat admin test: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing test message: {e}",
+        ) from e
+
+
+@router.post("/test-webhook", response_model=ChatTestResponse)
+async def test_webhook_simulation(
+    request: WebhookSimulationRequest,
+    db_session: AsyncSession = Depends(get_async_db),  # noqa: B008
+) -> ChatTestResponse:
+    """
+    Simulate WhatsApp webhook using the exact same flow as production.
+
+    Uses process_webhook_message() instead of process_chat_message() to test
+    the full webhook processing pipeline from the Chat Visualizer UI.
+    """
+    start_time = time.time()
+
+    try:
+        service = await get_chat_service()
+        session_id = request.session_id or f"web_{request.phone_number}"
+
+        logger.info(
+            f"Webhook simulation: phone={request.phone_number}, "
+            f"domain={request.business_domain}, session={session_id}"
+        )
+
+        message = WhatsAppMessage.model_validate(
+            {
+                "from": request.phone_number,
+                "id": str(uuid.uuid4()),
+                "timestamp": str(int(time.time())),
+                "type": "text",
+                "text": {"body": request.message},
+            }
+        )
+
+        contact = Contact(
+            wa_id=request.phone_number,
+            profile={"name": request.user_name},
+        )
+
+        result = await service.process_webhook_message(
+            message=message,
+            contact=contact,
+            business_domain=request.business_domain,
+            db_session=db_session,
+        )
+
+        response_time_ms = (time.time() - start_time) * 1000
+
+        # Extract full agent history from graph_result (not just agent_used)
+        graph_result = result.metadata.get("graph_result", {}) if result.metadata else {}
+        agent_history = graph_result.get("agent_history", [])
+        agent_used = result.metadata.get("agent_used", "unknown") if result.metadata else "unknown"
+
+        update_metrics(response_time_ms, agent_used, is_error=result.status != "success")
+
+        execution_steps: list[ExecutionStepModel] | None = None
+        if request.debug:
+            execution_steps = build_webhook_execution_steps(
+                message=request.message,
+                response=result.message or "",
+                phone_number=request.phone_number,
+                user_name=request.user_name,
+                business_domain=request.business_domain,
+                agent_history=agent_history,
+                response_time_ms=response_time_ms,
+            )
+
+        return ChatTestResponse(
+            session_id=session_id,
+            response=result.message,
+            agent_used=agent_used,
+            execution_steps=execution_steps,
+            debug_info=(
+                {
+                    "response_time_ms": response_time_ms,
+                    "requires_human": result.metadata.get("requires_human", False) if result.metadata else False,
+                    "is_complete": True,
+                    "webhook_simulation": True,
+                    "channel": "WEB_SIMULATOR",
+                    "business_domain": request.business_domain,
+                }
+                if request.debug
+                else None
+            ),
+            metadata={
+                "phone_number": request.phone_number,
+                "user_name": request.user_name,
+                "processing_time_ms": response_time_ms,
+                "flow": "process_webhook_message",
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        response_time_ms = (time.time() - start_time) * 1000
+        update_metrics(response_time_ms, "error", is_error=True)
+        logger.error(f"Error in webhook simulation: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing webhook simulation: {e}",
         ) from e
 
 
@@ -250,22 +237,16 @@ async def get_chat_metrics(days: int = 7) -> ChatMetricsResponse:
     Returns aggregated metrics about chat usage.
     """
     try:
-        response_times = _metrics_store["response_times"]
-        avg_response_time = sum(response_times) / len(response_times) if response_times else 0.0
-
-        total_messages = _metrics_store["total_messages"]
-        errors = _metrics_store["errors"]
-        error_rate = (errors / total_messages * 100) if total_messages > 0 else 0.0
-
+        summary = get_metrics_summary()
         return ChatMetricsResponse(
-            total_messages=total_messages,
-            total_sessions=_metrics_store["total_sessions"],
+            total_messages=summary["total_messages"],
+            total_sessions=summary["total_sessions"],
             total_tokens=0,  # Would need to track this in real implementation
-            avg_response_time_ms=round(avg_response_time, 2),
+            avg_response_time_ms=summary["avg_response_time_ms"],
             tool_calls_count=0,  # Would need to track this in real implementation
-            error_count=errors,
-            error_rate=round(error_rate, 2),
-            agents_used=_metrics_store["agents_used"],
+            error_count=summary["errors"],
+            error_rate=summary["error_rate"],
+            agents_used=summary["agents_used"],
             period_days=days,
         )
 
@@ -284,47 +265,8 @@ async def get_execution_steps(message_id: str) -> dict[str, list[ExecutionStepMo
 
     Returns the execution trace for visualization.
     """
-    # For now, return mock data - would need to implement execution tracing
-    steps = [
-        ExecutionStepModel(
-            id=str(uuid.uuid4()),
-            step_number=1,
-            node_type="start",
-            name="orchestrator",
-            description="SuperOrchestrator routing",
-            input=None,
-            output=None,
-            duration_ms=50,
-            status="completed",
-            timestamp=datetime.now(UTC).isoformat(),
-        ),
-        ExecutionStepModel(
-            id=str(uuid.uuid4()),
-            step_number=2,
-            node_type="decision",
-            name="intent_classification",
-            description="Classifying user intent",
-            input=None,
-            output=None,
-            duration_ms=100,
-            status="completed",
-            timestamp=datetime.now(UTC).isoformat(),
-        ),
-        ExecutionStepModel(
-            id=str(uuid.uuid4()),
-            step_number=3,
-            node_type="llm_call",
-            name="agent_response",
-            description="Generating response",
-            input=None,
-            output=None,
-            duration_ms=500,
-            status="completed",
-            timestamp=datetime.now(UTC).isoformat(),
-        ),
-    ]
-
-    return {"steps": steps}
+    _ = message_id  # Unused but part of API contract
+    return {"steps": get_mock_execution_steps()}
 
 
 @router.get("/execution/{message_id}/graph", response_model=ChatGraphResponse)
@@ -334,46 +276,8 @@ async def get_execution_graph(message_id: str) -> ChatGraphResponse:
 
     Returns nodes and edges for the execution flow visualization.
     """
-    # Define the SuperOrchestrator graph structure
-    nodes = [
-        {"id": "start", "type": "entry", "label": "Start", "data": None},
-        {"id": "orchestrator", "type": "router", "label": "SuperOrchestrator", "data": None},
-        {"id": "intent", "type": "decision", "label": "Intent Classification", "data": None},
-        {"id": "greeting_agent", "type": "agent", "label": "Greeting", "data": None},
-        {"id": "excelencia_agent", "type": "agent", "label": "Excelencia", "data": None},
-        {"id": "support_agent", "type": "agent", "label": "Support", "data": None},
-        {"id": "fallback_agent", "type": "agent", "label": "Fallback", "data": None},
-        {"id": "farewell_agent", "type": "agent", "label": "Farewell", "data": None},
-        {"id": "response", "type": "end", "label": "Response", "data": None},
-    ]
-
-    edges = [
-        {"id": "e1", "source": "start", "target": "orchestrator"},
-        {"id": "e2", "source": "orchestrator", "target": "intent"},
-        {"id": "e3", "source": "intent", "target": "greeting_agent"},
-        {"id": "e4", "source": "intent", "target": "excelencia_agent"},
-        {"id": "e5", "source": "intent", "target": "support_agent"},
-        {"id": "e6", "source": "intent", "target": "fallback_agent"},
-        {"id": "e7", "source": "intent", "target": "farewell_agent"},
-        {"id": "e8", "source": "greeting_agent", "target": "response"},
-        {"id": "e9", "source": "excelencia_agent", "target": "response"},
-        {"id": "e10", "source": "support_agent", "target": "response"},
-        {"id": "e11", "source": "fallback_agent", "target": "response"},
-        {"id": "e12", "source": "farewell_agent", "target": "response"},
-    ]
-
-    return ChatGraphResponse(
-        nodes=[
-            {"id": n["id"], "type": n["type"], "label": n["label"], "data": n["data"]}
-            for n in nodes
-        ],
-        edges=[
-            {"id": e["id"], "source": e["source"], "target": e["target"]}
-            for e in edges
-        ],
-        current_node="response",
-        visited_nodes=["start", "orchestrator", "intent", "response"],
-    )
+    _ = message_id  # Unused but part of API contract
+    return get_default_graph()
 
 
 @router.get("/config", response_model=ChatAgentConfigResponse)
@@ -384,7 +288,6 @@ async def get_agent_config() -> ChatAgentConfigResponse:
     Returns the configuration being used by the chat agent.
     """
     try:
-        # Get configuration from settings
         settings = get_settings()
         return ChatAgentConfigResponse(
             model=getattr(settings, "OLLAMA_API_MODEL_COMPLEX", "gemma2"),

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,9 +48,9 @@ class WebhookProcessingResult:
     error_message: str | None = None
     fallback_error: str | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
-        response = {
+        response: dict[str, Any] = {
             "status": self.status,
             "domain": self.domain,
             "mode": self.mode,
@@ -78,6 +78,7 @@ class BypassResult:
     organization_id: UUID | None = None
     domain: str | None = None
     target_agent: str | None = None
+    pharmacy_id: UUID | None = None
 
     @property
     def matched(self) -> bool:
@@ -150,7 +151,7 @@ class ProcessWebhookUseCase:
         bypass_result = await self._evaluate_bypass_routing(wa_id, whatsapp_phone_number_id)
 
         if bypass_result.matched:
-            domain = bypass_result.domain
+            domain = bypass_result.domain or self.DEFAULT_DOMAIN
             logger.info(
                 f"[BYPASS] Using bypass routing: {wa_id} -> org={bypass_result.organization_id}, domain={domain}"
             )
@@ -161,9 +162,15 @@ class ProcessWebhookUseCase:
         # Step 2: Load tenant registry if multi-tenant mode
         _, mode = await self._load_tenant_registry(bypass_result.organization_id, bypass_result.target_agent)
 
-        # Step 3: Process message
+        # Step 3: Process message (pass organization_id and pharmacy_id for multi-tenant context)
         try:
-            result = await self._process_message(message, contact, domain)
+            result = await self._process_message(
+                message,
+                contact,
+                domain,
+                organization_id=bypass_result.organization_id,
+                pharmacy_id=bypass_result.pharmacy_id,
+            )
 
             logger.info(f"Message processed successfully: {result.status}")
 
@@ -222,6 +229,7 @@ class ProcessWebhookUseCase:
                 organization_id=match.organization_id,
                 domain=match.domain,
                 target_agent=match.target_agent,
+                pharmacy_id=match.pharmacy_id,
             )
 
         return BypassResult()
@@ -294,6 +302,8 @@ class ProcessWebhookUseCase:
         message: WhatsAppMessage,
         contact: Contact,
         domain: str,
+        organization_id: UUID | None = None,
+        pharmacy_id: UUID | None = None,
     ) -> BotResponse:
         """
         Process message via LangGraph service.
@@ -302,6 +312,8 @@ class ProcessWebhookUseCase:
             message: WhatsApp message
             contact: WhatsApp contact
             domain: Business domain
+            organization_id: Organization UUID (from bypass routing)
+            pharmacy_id: Pharmacy UUID (from bypass routing, for config lookup)
 
         Returns:
             BotResponse from LangGraph
@@ -311,6 +323,8 @@ class ProcessWebhookUseCase:
             contact=contact,
             business_domain=domain,
             db_session=self._db,
+            organization_id=organization_id,
+            pharmacy_id=pharmacy_id,
         )
 
     async def _attempt_fallback(

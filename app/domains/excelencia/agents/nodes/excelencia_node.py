@@ -113,7 +113,10 @@ class ExcelenciaNode(BaseAgent):
 
     async def _get_modules(self) -> dict[str, dict[str, Any]]:
         """
-        Get software catalog from company_knowledge table with caching.
+        Get software catalog from software_modules table with caching.
+
+        Now uses the dedicated excelencia.software_modules table instead of
+        company_knowledge. Falls back to _FALLBACK_MODULES if database unavailable.
 
         Returns:
             Dict of module_code -> module_info
@@ -122,36 +125,24 @@ class ExcelenciaNode(BaseAgent):
             return self._modules_cache
 
         try:
-            from app.core.container import DependencyContainer
+            from app.domains.excelencia.infrastructure.repositories import SoftwareModuleRepository
 
             async with get_async_db_context() as db:
-                container = DependencyContainer()
-                # Use knowledge search to get software_catalog items
-                use_case = container.create_search_knowledge_use_case(db)
-                results = await use_case.execute(
-                    query="software productos módulos sistemas soluciones",
-                    max_results=20,
-                    document_type="software_catalog",
-                    search_strategy="pgvector_primary",
-                )
+                repository = SoftwareModuleRepository(db)
+                # Get all modules as dict format (legacy compatible)
+                self._modules_cache = await repository.get_all_as_dict(active_only=True)
 
-                # Convert to modules dict format
-                self._modules_cache = {}
-                for item in results:
-                    # Use first 8 chars of id as code
-                    code = item.get("id", "")[:8].upper() if item.get("id") else f"MOD-{len(self._modules_cache)+1:03d}"
-                    self._modules_cache[code] = {
-                        "name": item.get("title", ""),
-                        "description": item.get("content", "")[:300],
-                        "features": item.get("tags", []),
-                        "target": item.get("category", "general"),
-                    }
+                if self._modules_cache:
+                    logger.info(f"Loaded {len(self._modules_cache)} software modules from database")
+                    return self._modules_cache
 
-                logger.info(f"Loaded {len(self._modules_cache)} software products from company_knowledge")
+                # If no modules in DB, use fallback
+                logger.warning("No modules found in database, using fallback")
+                self._modules_cache = _FALLBACK_MODULES.copy()
                 return self._modules_cache
 
         except Exception as e:
-            logger.warning(f"Failed to load modules from company_knowledge: {e}, using fallback")
+            logger.warning(f"Failed to load modules from database: {e}, using fallback")
             self._modules_cache = _FALLBACK_MODULES.copy()
             return self._modules_cache
 

@@ -74,7 +74,8 @@ class SQLAlchemyCustomerRepository(ICustomerRepository):
         result = await self.session.execute(select(CustomerModel).where(CustomerModel.id == customer_id))
         model = result.scalar_one_or_none()
         if model:
-            model.last_contact = datetime.now(timezone.utc)
+            # Use naive UTC datetime for TIMESTAMP WITHOUT TIME ZONE columns
+            model.last_contact = datetime.now(timezone.utc).replace(tzinfo=None)
             await self.session.commit()
             return True
         return False
@@ -85,7 +86,8 @@ class SQLAlchemyCustomerRepository(ICustomerRepository):
         model = result.scalar_one_or_none()
         if model:
             model.total_interactions = (model.total_interactions or 0) + 1
-            model.last_contact = datetime.now(timezone.utc)
+            # Use naive UTC datetime for TIMESTAMP WITHOUT TIME ZONE columns
+            model.last_contact = datetime.now(timezone.utc).replace(tzinfo=None)
             await self.session.commit()
             return True
         return False
@@ -118,7 +120,9 @@ class SQLAlchemyCustomerRepository(ICustomerRepository):
 
         # Create new customer
         try:
-            now = datetime.now(timezone.utc)
+            # Use naive UTC datetime for TIMESTAMP WITHOUT TIME ZONE columns
+            # Remove tzinfo to avoid asyncpg "can't subtract offset-naive and offset-aware" error
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             model = CustomerModel(
                 phone_number=phone_number,
                 profile_name=profile_name,
@@ -178,6 +182,8 @@ class SQLAlchemyCustomerRepository(ICustomerRepository):
 
     def _to_model(self, data: dict[str, Any]) -> CustomerModel:
         """Convert dictionary to model."""
+        # Use naive UTC datetime for TIMESTAMP WITHOUT TIME ZONE columns
+        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
         return CustomerModel(
             phone_number=data.get("phone_number"),
             name=data.get("name"),
@@ -196,8 +202,8 @@ class SQLAlchemyCustomerRepository(ICustomerRepository):
             active=data.get("active", True),
             blocked=data.get("blocked", False),
             vip=data.get("vip", False),
-            first_contact=data.get("first_contact", datetime.now(timezone.utc)),
-            last_contact=data.get("last_contact", datetime.now(timezone.utc)),
+            first_contact=data.get("first_contact", now_naive),
+            last_contact=data.get("last_contact", now_naive),
         )
 
     def _update_model(self, model: CustomerModel, data: dict[str, Any]) -> None:

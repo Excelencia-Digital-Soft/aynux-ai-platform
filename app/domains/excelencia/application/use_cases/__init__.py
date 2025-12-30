@@ -1,8 +1,33 @@
 """
 Excelencia Use Cases
 
-Note: Module and Demo use cases have been removed.
-Software catalog data is now managed via company_knowledge table.
+Software Module use cases for database-backed module management.
 """
 
-__all__: list[str] = []
+from .software_module_use_cases import (
+    CreateModuleDTO,
+    CreateModuleUseCase,
+    DeleteModuleUseCase,
+    GetModuleUseCase,
+    GetModulesForChatbotUseCase,
+    ListModulesUseCase,
+    ModuleResponseDTO,
+    SyncAllModulesToRagUseCase,
+    UpdateModuleDTO,
+    UpdateModuleUseCase,
+)
+
+__all__ = [
+    # DTOs
+    "CreateModuleDTO",
+    "UpdateModuleDTO",
+    "ModuleResponseDTO",
+    # Use Cases
+    "ListModulesUseCase",
+    "GetModuleUseCase",
+    "CreateModuleUseCase",
+    "UpdateModuleUseCase",
+    "DeleteModuleUseCase",
+    "GetModulesForChatbotUseCase",
+    "SyncAllModulesToRagUseCase",
+]

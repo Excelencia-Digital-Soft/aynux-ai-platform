@@ -162,6 +162,7 @@ class PharmacyState(TypedDict):
     # Multi-Tenant Context
     # =========================================================================
     organization_id: str | None  # Organization UUID for multi-tenant config lookup
+    pharmacy_id: str | None  # Pharmacy UUID for pharmacy-specific config (MP credentials, etc.)
 
     # =========================================================================
     # Greeting State (daily tracking)

@@ -132,7 +132,7 @@ class KnowledgeEmbeddingService:
                         embedding = await self.generate_embedding(content)
 
                         # Update pgvector (PostgreSQL)
-                        knowledge.embedding = embedding  # type: ignore[assignment]
+                        knowledge.embedding = embedding
                         db.add(knowledge)
 
                         logger.info(f"Updated pgvector embedding for knowledge '{knowledge.title}'")
@@ -156,16 +156,18 @@ class KnowledgeEmbeddingService:
         query: str,
         k: int = 5,
         document_type: Optional[str] = None,
-        min_similarity: float = 0.5,
+        min_similarity: float = 0.3,
+        keyword_search: bool = True,
     ) -> List[Dict[str, Any]]:
         """
-        Search knowledge base using pgvector semantic search.
+        Search knowledge base using hybrid search (vector + keyword).
 
         Args:
             query: Search query text
             k: Number of results to return
             document_type: If provided, search only this document type
             min_similarity: Minimum similarity score (0.0-1.0)
+            keyword_search: If True, fallback to keyword search when vector results < k
 
         Returns:
             List of dictionaries with search results
@@ -218,7 +220,7 @@ class KnowledgeEmbeddingService:
                     rows = result.fetchall()
 
                     # Format results
-                    formatted_results = []
+                    formatted_results: list[dict[str, Any]] = []
                     for row in rows:
                         tags_value = row.tags if row.tags else []
                         formatted_results.append(
@@ -231,8 +233,64 @@ class KnowledgeEmbeddingService:
                                 "similarity_score": float(row.similarity),
                                 "content": row.content,
                                 "metadata": row.meta_data or {},
+                                "match_type": "vector",
                             }
                         )
+
+                    # Hybrid search: if vector results < k, fallback to keyword search
+                    if keyword_search and len(formatted_results) < k:
+                        existing_ids = [r["knowledge_id"] for r in formatted_results]
+                        remaining = k - len(formatted_results)
+
+                        # Extract keywords from query (words > 3 chars)
+                        keywords = [w for w in query.split() if len(w) > 3]
+
+                        if keywords:
+                            # Build ILIKE conditions for each keyword
+                            keyword_conditions = " OR ".join(
+                                f"(content ILIKE '%{kw}%' OR title ILIKE '%{kw}%')"
+                                for kw in keywords
+                            )
+
+                            keyword_query = f"""
+                                SELECT id, title, content, document_type, category, tags, meta_data
+                                FROM core.company_knowledge
+                                WHERE active = true
+                                AND ({keyword_conditions})
+                            """
+
+                            if existing_ids:
+                                ids_str = ",".join(f"'{id}'" for id in existing_ids)
+                                keyword_query += f" AND id::text NOT IN ({ids_str})"
+
+                            if document_type:
+                                keyword_query += f" AND document_type = '{document_type}'"
+
+                            keyword_query += f" LIMIT {remaining}"
+
+                            keyword_result = await db.execute(text(keyword_query))
+                            keyword_rows = keyword_result.fetchall()
+
+                            for row in keyword_rows:
+                                tags_val = row.tags if row.tags else []
+                                formatted_results.append(
+                                    {
+                                        "knowledge_id": str(row.id),
+                                        "title": row.title,
+                                        "document_type": row.document_type,
+                                        "category": row.category or "",
+                                        "tags": tags_val,
+                                        "similarity_score": 0.0,
+                                        "content": row.content,
+                                        "metadata": row.meta_data or {},
+                                        "match_type": "keyword",
+                                    }
+                                )
+
+                            if keyword_rows:
+                                logger.info(
+                                    f"Hybrid search added {len(keyword_rows)} keyword matches for: {keywords}"
+                                )
 
                     return formatted_results
 

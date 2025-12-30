@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -29,11 +30,13 @@ class BypassMatch:
         organization_id: UUID of the matched organization
         domain: Domain to use for message processing
         target_agent: Agent to route the message to
+        pharmacy_id: UUID of the pharmacy (if rule is linked to a pharmacy)
     """
 
     organization_id: UUID
     domain: str
     target_agent: str
+    pharmacy_id: UUID | None = None
 
 
 class BypassRoutingService:
@@ -90,12 +93,14 @@ class BypassRoutingService:
                     )
                     logger.info(
                         f"[BYPASS] Rule '{rule.rule_name}' matched for {wa_id}: "
-                        f"org={org.slug}, domain={domain}, agent={rule.target_agent}"
+                        f"org={org.slug}, domain={domain}, agent={rule.target_agent}, "
+                        f"pharmacy_id={rule.pharmacy_id}"
                     )
                     return BypassMatch(
-                        organization_id=org.id,
-                        domain=domain,
-                        target_agent=rule.target_agent,
+                        organization_id=cast(UUID, org.id),
+                        domain=cast(str, domain),
+                        target_agent=cast(str, rule.target_agent),
+                        pharmacy_id=cast(UUID | None, rule.pharmacy_id),
                     )
 
             return None
@@ -121,7 +126,7 @@ class BypassRoutingService:
             .outerjoin(TenantConfig, TenantConfig.organization_id == Organization.id)
             .where(Organization.status == "active")
             .where(BypassRule.enabled == True)  # noqa: E712
-            .order_by(BypassRule.priority.desc(), BypassRule.rule_name)
+            .order_by(BypassRule.priority.desc(), BypassRule.rule_name)  # type: ignore[union-attr]
         )
         result = await self._db.execute(query)
         return [tuple(row) for row in result.all()]
@@ -154,12 +159,14 @@ class BypassRoutingService:
                         or "excelencia"
                     )
                     logger.info(
-                        f"[BYPASS] Rule '{rule.rule_name}' matched for org {organization_id}"
+                        f"[BYPASS] Rule '{rule.rule_name}' matched for org {organization_id}, "
+                        f"pharmacy_id={rule.pharmacy_id}"
                     )
                     return BypassMatch(
                         organization_id=organization_id,
-                        domain=domain,
-                        target_agent=rule.target_agent,
+                        domain=cast(str, domain),
+                        target_agent=cast(str, rule.target_agent),
+                        pharmacy_id=cast(UUID | None, rule.pharmacy_id),
                     )
 
             return None
@@ -186,7 +193,7 @@ class BypassRoutingService:
             .outerjoin(TenantConfig, TenantConfig.organization_id == BypassRule.organization_id)
             .where(BypassRule.organization_id == organization_id)
             .where(BypassRule.enabled == True)  # noqa: E712
-            .order_by(BypassRule.priority.desc(), BypassRule.rule_name)
+            .order_by(BypassRule.priority.desc(), BypassRule.rule_name)  # type: ignore[union-attr]
         )
         result = await self._db.execute(query)
         return [tuple(row) for row in result.all()]
