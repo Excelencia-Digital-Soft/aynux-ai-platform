@@ -17,6 +17,7 @@ This package contains all models related to multi-tenancy support:
 """
 
 from .bypass_rule import BypassRule
+from .chattigo_credentials import ChattigoCredentials
 from .organization import Organization
 from .organization_user import OrganizationUser
 from .pharmacy_merchant_config import PharmacyMerchantConfig
@@ -28,6 +29,7 @@ from .tenant_prompt import TenantPrompt
 
 __all__ = [
     "BypassRule",
+    "ChattigoCredentials",
     "Organization",
     "OrganizationUser",
     "PharmacyMerchantConfig",

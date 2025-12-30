@@ -360,6 +360,7 @@ class IntentRouter:
                 "gremio",
                 "gremios",
                 "capacitación",
+                "zismed",  # Suite médica integral
                 "ai medassist",
                 "turmedica",
                 "mediflow",

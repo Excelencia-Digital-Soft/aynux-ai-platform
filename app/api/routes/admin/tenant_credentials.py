@@ -29,11 +29,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_organization_by_id, require_admin
-from app.core.tenancy.credential_models import CredentialUpdateRequest
-from app.core.tenancy.credential_service import (
+from app.core.tenancy import (
     CredentialEncryptionError,
     CredentialNotFoundError,
-    get_credential_service,
+    CredentialUpdateRequest,
+    get_tenant_credential_service,
 )
 from app.database.async_db import get_async_db
 from app.models.db.tenancy import Organization
@@ -170,7 +170,7 @@ async def get_credentials_status(
 
     Returns boolean status for each credential type without exposing values.
     """
-    service = get_credential_service()
+    service = get_tenant_credential_service()
 
     has_creds = await service.has_credentials(db, org_id)
 
@@ -204,7 +204,7 @@ async def get_credentials(
 
     All sensitive fields are masked with "***" in the response.
     """
-    service = get_credential_service()
+    service = get_tenant_credential_service()
 
     try:
         creds = await service._get_tenant_credentials(db, org_id)
@@ -240,7 +240,7 @@ async def update_credentials(
     Only updates fields that are provided (not None).
     Sensitive fields are automatically encrypted using pgcrypto.
     """
-    service = get_credential_service()
+    service = get_tenant_credential_service()
 
     # Convert Pydantic model to dataclass
     update_request = CredentialUpdateRequest(
@@ -283,7 +283,7 @@ async def update_whatsapp_credentials(
     db: AsyncSession = Depends(get_async_db),
 ) -> CredentialsResponse:
     """Update only WhatsApp credentials for an organization."""
-    service = get_credential_service()
+    service = get_tenant_credential_service()
 
     update_request = CredentialUpdateRequest(
         whatsapp_access_token=update_data.access_token,
@@ -315,7 +315,7 @@ async def update_dux_credentials(
     db: AsyncSession = Depends(get_async_db),
 ) -> CredentialsResponse:
     """Update only DUX credentials for an organization."""
-    service = get_credential_service()
+    service = get_tenant_credential_service()
 
     update_request = CredentialUpdateRequest(
         dux_api_key=update_data.api_key,
@@ -346,7 +346,7 @@ async def update_plex_credentials(
     db: AsyncSession = Depends(get_async_db),
 ) -> CredentialsResponse:
     """Update only Plex credentials for an organization."""
-    service = get_credential_service()
+    service = get_tenant_credential_service()
 
     update_request = CredentialUpdateRequest(
         plex_api_url=update_data.api_url,
@@ -386,7 +386,7 @@ async def delete_credentials(
 
     WARNING: This action is irreversible. All encrypted credentials will be deleted.
     """
-    service = get_credential_service()
+    service = get_tenant_credential_service()
 
     deleted = await service.delete_credentials(db, org_id)
     if not deleted:

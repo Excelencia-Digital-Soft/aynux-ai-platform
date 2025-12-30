@@ -74,11 +74,11 @@ class ChattigoAdapter:
             settings: Application settings containing Chattigo configuration
         """
         self._settings = settings
-        self._base_url = settings.CHATTIGO_BASE_URL
+        self._login_url = settings.CHATTIGO_LOGIN_URL
+        self._message_url = settings.CHATTIGO_MESSAGE_URL
         self._username = settings.CHATTIGO_USERNAME
         self._password = settings.CHATTIGO_PASSWORD
-        self._channel_id = settings.CHATTIGO_CHANNEL_ID
-        self._campaign_id = settings.CHATTIGO_CAMPAIGN_ID
+        self._did = settings.CHATTIGO_DID
         self._bot_name = settings.CHATTIGO_BOT_NAME
 
         self._token: str | None = None
@@ -156,7 +156,7 @@ class ChattigoAdapter:
             )
 
             response = await self._client.post(
-                f"{self._base_url}/login",
+                self._login_url,
                 json=payload.model_dump(),
             )
             response.raise_for_status()
@@ -194,21 +194,19 @@ class ChattigoAdapter:
     async def send_message(
         self,
         msisdn: str,
-        did: str,
-        id_chat: int,
         message: str,
+        sender_name: str | None = None,
     ) -> dict[str, Any]:
         """
-        Send text message via Chattigo.
+        Send text message via Chattigo API.
 
         Args:
             msisdn: Recipient phone number
-            did: Bot's phone number (destination ID)
-            id_chat: Chat/conversation ID
             message: Message content
+            sender_name: Optional sender name (defaults to bot name)
 
         Returns:
-            API response dict
+            API response dict with status
 
         Raises:
             ChattigoSendError: If message sending fails
@@ -218,37 +216,33 @@ class ChattigoAdapter:
         if not self._client:
             raise ChattigoError("Client not initialized")
 
-        unique_message_id = str(int(time.time() * 1000))
-
+        # Chattigo ISV proprietary format
+        # IMPORTANT: For ISV, use lowercase "text" (not "Text" like BSP)
+        # Do NOT include channelProvider or stateAgent (causes 502/503)
         payload = {
-            "id": unique_message_id,
-            "idChat": id_chat,
-            "chatType": "OUTBOUND",
-            "did": did,
+            "id": str(int(time.time() * 1000)),
+            "did": self._did,
             "msisdn": msisdn,
-            "type": "Text",
+            "type": "text",  # Must be lowercase for ISV
             "channel": "WHATSAPP",
-            "channelId": self._channel_id,
-            "channelProvider": "APICLOUDBSP",
+            "chatType": "OUTBOUND",  # Indicates outbound message direction
             "content": message,
-            "name": self._bot_name,
-            "idCampaign": self._campaign_id,
+            "name": sender_name or self._bot_name,
             "isAttachment": False,
-            "stateAgent": "BOT",
         }
 
         try:
             logger.debug(f"Sending message to {msisdn}: {message[:50]}...")
 
             response = await self._client.post(
-                f"{self._base_url}/webhooks/inbound",
+                self._message_url,
                 headers=self._get_headers(),
                 json=payload,
             )
             response.raise_for_status()
 
             result = self._safe_parse_json(response)
-            logger.info(f"Message sent to {msisdn}: {result}")
+            logger.info(f"Message sent to {msisdn}: status={response.status_code}")
             return {"status": "ok", "data": result}
 
         except httpx.HTTPError as e:
@@ -258,51 +252,44 @@ class ChattigoAdapter:
     async def send_document(
         self,
         msisdn: str,
-        did: str,
-        id_chat: int,
         document_url: str,
         filename: str,
+        mime_type: str = "application/pdf",
         caption: str | None = None,
     ) -> dict[str, Any]:
         """
-        Send document via Chattigo.
+        Send document via Chattigo API.
 
         Args:
             msisdn: Recipient phone number
-            did: Bot's phone number
-            id_chat: Chat/conversation ID
             document_url: Public URL of the document
             filename: Document filename
+            mime_type: MIME type of the document
             caption: Optional caption
 
         Returns:
-            API response dict
+            API response dict with status
         """
         await self._ensure_token()
 
         if not self._client:
             raise ChattigoError("Client not initialized")
 
-        unique_message_id = str(int(time.time() * 1000))
-
+        # Chattigo ISV proprietary format for media
         payload = {
-            "id": unique_message_id,
-            "idChat": id_chat,
-            "chatType": "OUTBOUND",
-            "did": did,
+            "id": str(int(time.time() * 1000)),
+            "did": self._did,
             "msisdn": msisdn,
-            "type": "Document",
+            "type": "media",
             "channel": "WHATSAPP",
-            "channelId": self._channel_id,
-            "channelProvider": "APICLOUDBSP",
-            "content": caption or "",
+            "chatType": "OUTBOUND",
+            "content": caption or "Documento adjunto.",
             "name": self._bot_name,
-            "idCampaign": self._campaign_id,
             "isAttachment": True,
-            "stateAgent": "BOT",
             "attachment": {
-                "url": document_url,
-                "filename": filename,
+                "mediaUrl": document_url,
+                "mimeType": mime_type,
+                "fileName": filename,
             },
         }
 
@@ -310,14 +297,14 @@ class ChattigoAdapter:
             logger.debug(f"Sending document to {msisdn}: {filename}")
 
             response = await self._client.post(
-                f"{self._base_url}/webhooks/inbound",
+                self._message_url,
                 headers=self._get_headers(),
                 json=payload,
             )
             response.raise_for_status()
 
             result = self._safe_parse_json(response)
-            logger.info(f"Document sent to {msisdn}: {result}")
+            logger.info(f"Document sent to {msisdn}: status={response.status_code}")
             return {"status": "ok", "data": result}
 
         except httpx.HTTPError as e:
@@ -327,48 +314,41 @@ class ChattigoAdapter:
     async def send_image(
         self,
         msisdn: str,
-        did: str,
-        id_chat: int,
         image_url: str,
         caption: str | None = None,
+        mime_type: str = "image/jpeg",
     ) -> dict[str, Any]:
         """
-        Send image via Chattigo.
+        Send image via Chattigo API.
 
         Args:
             msisdn: Recipient phone number
-            did: Bot's phone number
-            id_chat: Chat/conversation ID
             image_url: Public URL of the image
             caption: Optional caption
+            mime_type: MIME type of the image
 
         Returns:
-            API response dict
+            API response dict with status
         """
         await self._ensure_token()
 
         if not self._client:
             raise ChattigoError("Client not initialized")
 
-        unique_message_id = str(int(time.time() * 1000))
-
+        # Chattigo ISV proprietary format for media
         payload = {
-            "id": unique_message_id,
-            "idChat": id_chat,
-            "chatType": "OUTBOUND",
-            "did": did,
+            "id": str(int(time.time() * 1000)),
+            "did": self._did,
             "msisdn": msisdn,
-            "type": "Image",
+            "type": "media",
             "channel": "WHATSAPP",
-            "channelId": self._channel_id,
-            "channelProvider": "APICLOUDBSP",
+            "chatType": "OUTBOUND",
             "content": caption or "",
             "name": self._bot_name,
-            "idCampaign": self._campaign_id,
             "isAttachment": True,
-            "stateAgent": "BOT",
             "attachment": {
-                "url": image_url,
+                "mediaUrl": image_url,
+                "mimeType": mime_type,
             },
         }
 
@@ -376,14 +356,14 @@ class ChattigoAdapter:
             logger.debug(f"Sending image to {msisdn}")
 
             response = await self._client.post(
-                f"{self._base_url}/webhooks/inbound",
+                self._message_url,
                 headers=self._get_headers(),
                 json=payload,
             )
             response.raise_for_status()
 
             result = self._safe_parse_json(response)
-            logger.info(f"Image sent to {msisdn}: {result}")
+            logger.info(f"Image sent to {msisdn}: status={response.status_code}")
             return {"status": "ok", "data": result}
 
         except httpx.HTTPError as e:
@@ -409,7 +389,7 @@ class ChattigoAdapter:
             return {
                 "status": "healthy",
                 "authenticated": True,
-                "channel_id": self._channel_id,
+                "did": self._did,
                 "username": self._username,
             }
         except Exception as e:

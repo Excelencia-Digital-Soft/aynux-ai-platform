@@ -175,10 +175,10 @@ async def get_pharmacy_customers(
     """
     pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
 
-    # Query distinct customers for this organization
+    # Query distinct customers for this specific pharmacy
     stmt = (
         select(ConversationContext)
-        .where(ConversationContext.organization_id == pharmacy.organization_id)
+        .where(ConversationContext.pharmacy_id == uuid.UUID(pharmacy_id))
         .where(ConversationContext.user_phone.isnot(None))
     )
 
@@ -234,9 +234,9 @@ async def get_pharmacy_timeline(
     """
     pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
 
-    # Get conversations for this organization
+    # Get conversations for this specific pharmacy
     conv_stmt = select(ConversationContext.conversation_id).where(
-        ConversationContext.organization_id == pharmacy.organization_id
+        ConversationContext.pharmacy_id == uuid.UUID(pharmacy_id)
     )
     conv_result = await db.execute(conv_stmt)
     conversation_ids = [row[0] for row in conv_result.fetchall()]
@@ -330,11 +330,11 @@ async def get_pharmacy_conversation(
     """
     pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
 
-    # Get conversation context
+    # Get conversation context for this specific pharmacy
     ctx_stmt = (
         select(ConversationContext)
         .where(ConversationContext.conversation_id == conversation_id)
-        .where(ConversationContext.organization_id == pharmacy.organization_id)
+        .where(ConversationContext.pharmacy_id == uuid.UUID(pharmacy_id))
     )
     ctx_result = await db.execute(ctx_stmt)
     context = ctx_result.scalar_one_or_none()
@@ -398,9 +398,9 @@ async def get_pharmacy_stats(
     week_start = today_start - timedelta(days=7)
     day_ago = now - timedelta(hours=24)
 
-    # Get all conversations for this org
+    # Get all conversations for this specific pharmacy
     conv_stmt = select(ConversationContext).where(
-        ConversationContext.organization_id == pharmacy.organization_id
+        ConversationContext.pharmacy_id == uuid.UUID(pharmacy_id)
     )
     conv_result = await db.execute(conv_stmt)
     conversations = conv_result.scalars().all()

@@ -207,6 +207,12 @@ class Organization(Base, TimestampMixin):
         cascade="all, delete-orphan",
     )
 
+    chattigo_credentials = relationship(
+        "ChattigoCredentials",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
     # Table configuration
     __table_args__ = (
         Index("idx_organizations_slug", slug),

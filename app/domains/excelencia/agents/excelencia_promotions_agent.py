@@ -281,12 +281,17 @@ class ExcelenciaPromotionsAgent(BaseAgent):
             return ""
 
     async def _generate_response(
-        self, user_message: str, query_analysis: dict[str, Any], _state_dict: dict[str, Any]
+        self, user_message: str, query_analysis: dict[str, Any], state_dict: dict[str, Any]
     ) -> str:
         """Generate response based on query analysis."""
         query_type = query_analysis.get("query_type", "general")
         modules = query_analysis.get("modules", [])
         is_new_client = query_analysis.get("is_new_client")
+
+        # Get conversation context from state (injected by HistoryAgent)
+        conversation_summary = state_dict.get("conversation_summary", "")
+        if conversation_summary:
+            logger.info(f"ExcelenciaPromotionsAgent: Using conversation context ({len(conversation_summary)} chars)")
 
         # Get promotions
         promotions = await self._get_promotions()
@@ -311,6 +316,7 @@ class ExcelenciaPromotionsAgent(BaseAgent):
                     "is_new_client": str(is_new_client) if is_new_client is not None else "No especificado",
                     "rag_context": rag_context,
                     "promotions_text": promos_text,
+                    "conversation_summary": conversation_summary,
                 },
             )
         except Exception as e:

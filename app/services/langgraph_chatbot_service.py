@@ -80,8 +80,8 @@ class LangGraphChatbotService:
             # Crear y configurar el sistema de graph
             self.graph_system = AynuxGraph(self.langgraph_config.model_dump())
 
-            # Inicializar el graph de forma asíncrona
-            self.graph_system.initialize()
+            # Inicializar el graph de forma asíncrona (con checkpointer)
+            await self.graph_system.initialize()
 
             self._initialized = True
             self.logger.info("LangGraph chatbot service initialized successfully")
@@ -154,6 +154,7 @@ class LangGraphChatbotService:
                 db_session=db_session,
                 organization_id=organization_id,
                 pharmacy_id=pharmacy_id,
+                user_phone=user_number,
             )
 
             # Operaciones post-procesamiento

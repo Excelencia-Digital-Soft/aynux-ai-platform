@@ -330,6 +330,7 @@ class ConversationContextService:
         stmt = insert(ConversationContext).values(
             conversation_id=conversation_id,
             organization_id=context.organization_id,
+            pharmacy_id=context.pharmacy_id,
             user_phone=context.user_phone,
             rolling_summary=context.rolling_summary,
             topic_history=context.topic_history,
@@ -344,6 +345,9 @@ class ConversationContextService:
         stmt = stmt.on_conflict_do_update(
             index_elements=["conversation_id"],
             set_={
+                "organization_id": context.organization_id,
+                "pharmacy_id": context.pharmacy_id,
+                "user_phone": context.user_phone,
                 "rolling_summary": context.rolling_summary,
                 "topic_history": context.topic_history,
                 "key_entities": context.key_entities,
@@ -377,6 +381,7 @@ class ConversationContextService:
         return ConversationContextModel(
             conversation_id=row.conversation_id,
             organization_id=str(row.organization_id) if row.organization_id else None,
+            pharmacy_id=str(row.pharmacy_id) if row.pharmacy_id else None,
             user_phone=row.user_phone,
             rolling_summary=row.rolling_summary or "",
             topic_history=row.topic_history or [],

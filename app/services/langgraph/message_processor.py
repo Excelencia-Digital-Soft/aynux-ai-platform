@@ -71,6 +71,7 @@ class MessageProcessor:
         db_session: AsyncSession | None = None,
         organization_id: UUID | None = None,
         pharmacy_id: UUID | None = None,
+        user_phone: str | None = None,
     ) -> Dict[str, Any]:
         """
         Procesa el mensaje usando el sistema LangGraph multi-agente.
@@ -85,6 +86,7 @@ class MessageProcessor:
             db_session: Sesión de base de datos async (opcional)
             organization_id: UUID de organización (for multi-tenant context)
             pharmacy_id: UUID de farmacia (for pharmacy config lookup in PaymentLinkNode)
+            user_phone: Número de teléfono del usuario (for conversation context)
 
         Returns:
             Diccionario con respuesta del graph y metadatos
@@ -100,6 +102,7 @@ class MessageProcessor:
                 db_session=db_session,
                 organization_id=str(organization_id) if organization_id else None,
                 pharmacy_id=str(pharmacy_id) if pharmacy_id else None,
+                user_phone=user_phone,
             )
 
             # Extraer la respuesta del último mensaje AI

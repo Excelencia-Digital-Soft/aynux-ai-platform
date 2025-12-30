@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Script de pruebas E2E para la integración con Chattigo ISV.
+Script de pruebas E2E para la integración con Chattigo API.
 
 Este script verifica:
-1. Autenticación con Chattigo API
-2. Envío de mensaje de prueba via /webhooks/inbound
+1. Autenticación con Chattigo API (https://api.chattigo.com/login)
+2. Envío de mensaje de prueba (https://api.chattigo.com/message)
 
 Uso:
     cd python
@@ -38,14 +38,17 @@ class ChattigoTester:
     """Clase para probar la integración con Chattigo."""
 
     def __init__(self):
-        self.base_url = os.getenv(
-            "CHATTIGO_BASE_URL",
-            "https://channels.chattigo.com/bsp-cloud-chattigo-isv",
+        self.login_url = os.getenv(
+            "CHATTIGO_LOGIN_URL",
+            "https://channels.chattigo.com/bsp-cloud-chattigo-isv/login",
+        )
+        self.message_url = os.getenv(
+            "CHATTIGO_MESSAGE_URL",
+            "https://channels.chattigo.com/bsp-cloud-chattigo-isv/webhooks/inbound",
         )
         self.username = os.getenv("CHATTIGO_USERNAME", "")
         self.password = os.getenv("CHATTIGO_PASSWORD", "")
-        self.channel_id = int(os.getenv("CHATTIGO_CHANNEL_ID", "12676"))
-        self.campaign_id = os.getenv("CHATTIGO_CAMPAIGN_ID", "7883")
+        self.did = os.getenv("CHATTIGO_DID", "5492644710400")
         self.bot_name = os.getenv("CHATTIGO_BOT_NAME", "Aynux")
 
         self.token: str | None = None
@@ -83,15 +86,14 @@ class ChattigoTester:
             self._print_result(False, "Credenciales no configuradas en .env")
             return False
 
-        self._print_info("Base URL", self.base_url)
+        self._print_info("Login URL", self.login_url)
         self._print_info("Username", self.username)
-        self._print_info("Channel ID", str(self.channel_id))
+        self._print_info("DID", self.did)
 
         try:
             print("\n  Intentando login...")
-            # Endpoint correcto: /login (sin /api-bot/)
             response = await self.client.post(
-                f"{self.base_url}/login",
+                self.login_url,
                 json={"username": self.username, "password": self.password},
             )
 
@@ -119,8 +121,10 @@ class ChattigoTester:
             self._print_result(False, f"Excepcion: {e}")
             return False
 
-    async def send_test_message(self, phone_number: str, message: str | None = None) -> bool:
-        """Envía un mensaje de prueba via /webhooks/inbound."""
+    async def send_test_message(
+        self, phone_number: str, message: str | None = None
+    ) -> bool:
+        """Envía un mensaje de prueba via Chattigo API."""
         self._print_header("ENVIO DE MENSAJE DE PRUEBA")
 
         if not self.token:
@@ -132,8 +136,9 @@ class ChattigoTester:
             message = f"Mensaje de prueba de Aynux Bot - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
         self._print_info("Destinatario", phone_number)
+        self._print_info("DID (Bot number)", self.did)
         self._print_info("Mensaje", message[:50] + "..." if len(message) > 50 else message)
-        self._print_info("Endpoint", f"{self.base_url}/webhooks/inbound")
+        self._print_info("Endpoint", self.message_url)
 
         try:
             headers = {
@@ -141,14 +146,15 @@ class ChattigoTester:
                 "Content-Type": "application/json",
             }
 
-            # Payload para /webhooks/inbound
+            # Chattigo proprietary format
             payload = {
-                "did": str(self.channel_id),
+                "id": str(int(datetime.now().timestamp() * 1000)),
+                "did": self.did,
                 "msisdn": phone_number,
-                "name": self.bot_name,
                 "type": "text",
                 "channel": "WHATSAPP",
                 "content": message,
+                "name": self.bot_name,
                 "isAttachment": False,
             }
 
@@ -156,7 +162,7 @@ class ChattigoTester:
             print(f"  Payload: {payload}")
 
             response = await self.client.post(
-                f"{self.base_url}/webhooks/inbound",
+                self.message_url,
                 headers=headers,
                 json=payload,
             )
@@ -179,7 +185,7 @@ class ChattigoTester:
 
     async def run_full_test(self, phone_number: str | None = None):
         """Ejecuta todas las pruebas."""
-        self._print_header("PRUEBA COMPLETA E2E - CHATTIGO ISV")
+        self._print_header("PRUEBA COMPLETA E2E - CHATTIGO API")
         print(f"  Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"  Ambiente: {os.getenv('ENVIRONMENT', 'development')}")
 
@@ -216,21 +222,23 @@ class ChattigoTester:
         # Información importante
         self._print_header("INFORMACION IMPORTANTE")
         print("""
-  Endpoints API Chattigo ISV:
-  - Login: POST /login
-  - Enviar mensaje: POST /webhooks/inbound
+  Endpoints API Chattigo:
+  - Login: POST https://api.chattigo.com/login
+  - Enviar mensaje: POST https://api.chattigo.com/message
 
-  Webhook de respuestas (donde Chattigo envia mensajes):
-  - Se configura en el panel de Chattigo, no via API
-  - URL configurada: https://api.aynux.com.ar/api/v1/webhook
-  - Contactar a Chattigo si no esta configurado
+  Configuracion requerida (.env):
+  - CHATTIGO_LOGIN_URL
+  - CHATTIGO_MESSAGE_URL
+  - CHATTIGO_USERNAME
+  - CHATTIGO_PASSWORD
+  - CHATTIGO_DID (numero WhatsApp Business)
         """)
 
         return results
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Pruebas de integracion Chattigo ISV")
+    parser = argparse.ArgumentParser(description="Pruebas de integracion Chattigo API")
     parser.add_argument("--auth-only", action="store_true", help="Solo probar autenticacion")
     parser.add_argument("--send-test", action="store_true", help="Enviar mensaje de prueba")
     parser.add_argument("--phone", type=str, help="Numero de telefono para mensaje de prueba")
