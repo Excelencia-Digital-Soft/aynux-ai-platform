@@ -441,10 +441,10 @@ class AIModelService:
         """
         from app.config.model_capabilities import ModelCapabilities
 
-        model.family = details.get("family") or model.family  # type: ignore[assignment]
-        model.parameter_size = details.get("parameter_size") or model.parameter_size  # type: ignore[assignment]
-        model.quantization_level = details.get("quantization_level") or model.quantization_level  # type: ignore[assignment]
-        model.last_synced_at = datetime.now(UTC)  # type: ignore[assignment]
+        model.family = details.get("family") or model.family
+        model.parameter_size = details.get("parameter_size") or model.parameter_size
+        model.quantization_level = details.get("quantization_level") or model.quantization_level
+        model.last_synced_at = datetime.now(UTC)
 
         capability_changed = 0
         if capabilities and isinstance(capabilities, ModelCapabilities):

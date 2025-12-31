@@ -5,11 +5,14 @@ Conversation management and post-processing for LangGraph chatbot service
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from app.integrations.whatsapp import WhatsAppService
 from app.models.conversation import ConversationHistory
 from app.repositories.async_redis_repository import AsyncRedisRepository
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 # Configurar expiración de conversación (24 horas)
 CONVERSATION_EXPIRATION = 86400  # 24 horas en segundos
@@ -20,10 +23,25 @@ logger = logging.getLogger(__name__)
 class ConversationManager:
     """Handles conversation caching, post-processing, and WhatsApp integration"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        chattigo_context: dict | None = None,
+        db_session: "AsyncSession | None" = None,
+    ):
+        """
+        Initialize ConversationManager with optional Chattigo context.
+
+        Args:
+            chattigo_context: Chattigo-specific context (did, idChat, etc.)
+                            Used to select correct credentials from DB.
+            db_session: Database session for credential lookup.
+        """
         self.logger = logging.getLogger(__name__)
         self.redis_repo = AsyncRedisRepository[ConversationHistory](ConversationHistory, prefix="chat")
-        self.whatsapp_service = WhatsAppService()
+        self.whatsapp_service = WhatsAppService(
+            chattigo_context=chattigo_context,
+            db_session=db_session,
+        )
         self.monitoring = self._create_monitoring_placeholder()
 
     def _create_monitoring_placeholder(self):

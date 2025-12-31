@@ -87,7 +87,7 @@ class ChattigoMessagingService:
         did = self._chattigo_context.get("did")
         if self._db_session is not None and did:
             # Import at module level check to satisfy type checkers
-            from app.core.tenancy.credential_service import CredentialNotFoundError
+            from app.core.tenancy.tenant_credential_service import CredentialNotFoundError
             from app.integrations.chattigo.adapter_factory import (
                 get_chattigo_adapter_factory,
             )

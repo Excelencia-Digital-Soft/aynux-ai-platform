@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional
 from app.core.interfaces.llm import ILLM
 from app.core.interfaces.repository import ISearchableRepository
 from app.core.interfaces.vector_store import IVectorStore
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,7 @@ class SearchProductsUseCase:
         product_repository: ISearchableRepository,
         vector_store: IVectorStore,
         llm: Optional[ILLM] = None,
+        prompt_manager: Optional[PromptManager] = None,
     ):
         """
         Initialize use case with dependencies.
@@ -62,10 +65,12 @@ class SearchProductsUseCase:
             product_repository: Repository for product data access
             vector_store: Vector store for semantic search
             llm: Optional LLM for query enhancement
+            prompt_manager: Optional PromptManager for YAML template loading
         """
         self.product_repo = product_repository
         self.vector_store = vector_store
         self.llm = llm
+        self.prompt_manager = prompt_manager
 
     async def execute(self, request: SearchProductsRequest) -> SearchProductsResponse:
         """
@@ -236,7 +241,33 @@ class SearchProductsUseCase:
             return query
 
         try:
-            prompt = f"""Enhance this product search query for better semantic search:
+            # Try to load prompt from YAML template
+            prompt: str
+            if self.prompt_manager:
+                try:
+                    prompt = await self.prompt_manager.get_prompt(
+                        PromptRegistry.ECOMMERCE_PRODUCT_QUERY_ENHANCEMENT,
+                        variables={
+                            "query": query,
+                            "category": category if category else "Any",
+                        },
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to load YAML prompt: {e}, using fallback")
+                    prompt = self._build_fallback_enhance_prompt(query, category)
+            else:
+                prompt = self._build_fallback_enhance_prompt(query, category)
+
+            enhanced = await self.llm.generate(prompt, temperature=0.3, max_tokens=100)
+            return enhanced.strip()
+
+        except Exception as e:
+            logger.warning(f"Could not enhance query: {e}")
+            return query
+
+    def _build_fallback_enhance_prompt(self, query: str, category: Optional[str]) -> str:
+        """Build fallback prompt when YAML loading fails."""
+        return f"""Enhance this product search query for better semantic search:
 
 Query: "{query}"
 Category: {category if category else "Any"}
@@ -247,13 +278,6 @@ Generate an enhanced version that includes:
 - Technical specifications if applicable
 
 Return ONLY the enhanced query, no explanations."""
-
-            enhanced = await self.llm.generate(prompt, temperature=0.3, max_tokens=100)
-            return enhanced.strip()
-
-        except Exception as e:
-            logger.warning(f"Could not enhance query: {e}")
-            return query
 
     def _product_to_dict(self, product: Any) -> Dict[str, Any]:
         """

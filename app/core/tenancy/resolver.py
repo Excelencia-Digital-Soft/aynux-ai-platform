@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.models.db.tenancy import Organization, OrganizationUser, TenantConfig
+from app.models.db.tenancy import Organization, OrganizationUser
 
 from .context import TenantContext
 

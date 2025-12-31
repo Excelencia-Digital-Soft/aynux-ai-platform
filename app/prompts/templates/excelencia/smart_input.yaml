@@ -1,0 +1,153 @@
+# Excelencia Domain - Smart Input Prompts
+# Purpose: LLM prompts for smart input interpretation in incident flow
+
+prompts:
+  # =============================================================================
+  # DESCRIPTION QUALITY CHECK - Evaluate problem description quality
+  # =============================================================================
+  - key: excelencia.smart_input.description_check
+    name: Description Quality Checker
+    description: Evaluates if a problem description has sufficient detail for support
+    version: "1.0.0"
+    template: |
+      Evalua si la siguiente descripcion de un problema tecnico es suficientemente clara.
+
+      Descripcion: "{description}"
+
+      Criterios de calidad:
+      1. Describe que paso o que error ocurre
+      2. Da contexto sobre cuando o donde ocurre
+      3. Tiene suficiente informacion para que soporte pueda investigar
+
+      Responde en formato: ACEPTABLE|SUGERENCIA
+      - Si es aceptable: "yes|"
+      - Si necesita mejora: "no|[sugerencia breve de que agregar]"
+
+      Ejemplos:
+      - "no funciona" -> no|Podrias indicar que parte del sistema no funciona y que mensaje de error ves?
+      - "El modulo de facturacion da error al generar CFDI" -> yes|
+      - "pantalla azul" -> no|Podrias describir cuando aparece el problema y que estabas haciendo?
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - excelencia
+        - smart_input
+        - validation
+        - description
+      variables:
+        required:
+          - description
+
+  # =============================================================================
+  # PRIORITY INTERPRETER - Interpret priority from natural language
+  # =============================================================================
+  - key: excelencia.smart_input.priority_interpret
+    name: Priority Interpreter
+    description: Interprets user priority selection from natural language
+    version: "1.0.0"
+    template: |
+      Analiza el siguiente mensaje del usuario e identifica la prioridad que indica.
+
+      Mensaje: "{message}"
+
+      Opciones de prioridad:
+      - critical: Sistema caido, urgente, bloqueante, critico
+      - high: Importante, afecta trabajo, serio
+      - medium: Molestia, inconveniente, puede esperar
+      - low: Menor, baja importancia, cuando puedas
+
+      Responde SOLO con una de estas palabras: critical, high, medium, low, unknown
+
+      Si no puedes determinar la prioridad, responde: unknown
+    metadata:
+      temperature: 0.3
+      max_tokens: 20
+      tags:
+        - excelencia
+        - smart_input
+        - priority
+        - interpretation
+      variables:
+        required:
+          - message
+
+  # =============================================================================
+  # CONFIRMATION INTERPRETER - Interpret confirmation responses
+  # =============================================================================
+  - key: excelencia.smart_input.confirmation_interpret
+    name: Confirmation Interpreter
+    description: Interprets user confirmation responses and detects edit targets
+    version: "1.0.0"
+    template: |
+      Analiza el siguiente mensaje y determina la intencion del usuario.
+
+      Mensaje: "{message}"
+
+      Contexto: El usuario esta confirmando si quiere crear una incidencia de soporte.
+
+      Opciones:
+      - yes: El usuario confirma que SI quiere crear la incidencia
+      - no: El usuario quiere corregir o cambiar algo
+      - cancel: El usuario quiere cancelar todo el proceso
+
+      Responde en formato: INTENCION|CAMPO_A_EDITAR
+      - Si es "yes" o "cancel": responde solo la intencion (ej: "yes")
+      - Si es "no" y menciona que quiere cambiar: responde "no|description" o "no|priority"
+      - Si es "no" sin especificar: responde "no"
+
+      Ejemplos:
+      - "si perfecto" -> yes
+      - "quiero cambiar la prioridad" -> no|priority
+      - "no, la descripcion esta mal" -> no|description
+      - "olvidalo" -> cancel
+
+      Responde SOLO con el formato indicado.
+    metadata:
+      temperature: 0.3
+      max_tokens: 30
+      tags:
+        - excelencia
+        - smart_input
+        - confirmation
+        - interpretation
+      variables:
+        required:
+          - message
+
+  # =============================================================================
+  # INCIDENT DETECTOR - Detect incident creation intent
+  # =============================================================================
+  - key: excelencia.smart_input.incident_detect
+    name: Incident Intent Detector
+    description: Detects if user wants to report a technical problem or create an incident
+    version: "1.0.0"
+    template: |
+      Determina si el usuario quiere reportar un problema tecnico o incidencia.
+
+      Mensaje: "{message}"
+
+      Indicadores de incidencia:
+      - Reporta un problema, bug, error o falla
+      - Algo no funciona como deberia
+      - El sistema esta caido o lento
+      - Quiere registrar un ticket de soporte
+
+      Responde SOLO: yes o no
+
+      Ejemplos:
+      - "oye, el sistema esta muy lento hoy" -> yes
+      - "como exporto un reporte?" -> no
+      - "la facturacion no me deja timbrar" -> yes
+      - "necesito capacitacion" -> no
+    metadata:
+      temperature: 0.3
+      max_tokens: 10
+      tags:
+        - excelencia
+        - smart_input
+        - incident
+        - detection
+      variables:
+        required:
+          - message

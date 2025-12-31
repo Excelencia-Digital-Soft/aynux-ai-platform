@@ -51,6 +51,7 @@ class ChattigoCredentials:
     token_refresh_hours: int
     organization_id: UUID
     bypass_rule_id: UUID | None = None
+    enabled: bool = True
 
     def __repr__(self) -> str:
         """Mask sensitive credentials in repr."""
@@ -61,7 +62,8 @@ class ChattigoCredentials:
             f"name={self.name}, "
             f"username={masked_user}, "
             f"password=***, "
-            f"org_id={self.organization_id})"
+            f"org_id={self.organization_id}, "
+            f"enabled={self.enabled})"
         )
 
 

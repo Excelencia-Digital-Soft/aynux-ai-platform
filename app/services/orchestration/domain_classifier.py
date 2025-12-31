@@ -267,14 +267,17 @@ class DomainClassifier:
             response = await llm.ainvoke(prompt)
 
             # Parse response
-
             from app.utils import extract_json_from_text
 
+            content = response.content if isinstance(response.content, str) else str(response.content)
             result_dict = extract_json_from_text(
-                response.content,
+                content,
                 default={"domain": "excelencia", "confidence": 0.4},
                 required_keys=["domain"],
             )
+
+            if not result_dict or not isinstance(result_dict, dict):
+                result_dict = {"domain": "excelencia", "confidence": 0.4}
 
             domain = result_dict.get("domain", "excelencia")
             confidence = float(result_dict.get("confidence", 0.5))

@@ -2,6 +2,9 @@
 # Purpose: AI-powered SQL generation for product searches
 
 prompts:
+  # =============================================================================
+  # SYSTEM PROMPTS (Context setting)
+  # =============================================================================
   - key: ecommerce.product_sql.builder_system
     name: Product SQL Builder System Prompt
     description: System prompt for SQL generation specialized in e-commerce products
@@ -49,3 +52,243 @@ prompts:
         - product_sql
         - analyzer
         - system
+
+  # =============================================================================
+  # USER PROMPTS (Query templates with variables)
+  # =============================================================================
+  - key: ecommerce.product_sql.complexity_analysis
+    name: Query Complexity Analysis User Prompt
+    description: User prompt for analyzing query complexity
+    version: "1.0.0"
+    template: |
+      # ANALISIS DE COMPLEJIDAD DE CONSULTA
+
+      CONSULTA: "{user_query}"
+
+      INTENCION DETECTADA:
+      {intent_json}
+
+      Analiza la complejidad y responde en JSON:
+
+      {{
+        "complexity_level": "simple|medium|complex|very_complex",
+        "requires_joins": bool,
+        "requires_aggregation": bool,
+        "requires_subqueries": bool,
+        "requires_full_text_search": bool,
+        "tables_needed": ["products", "categories", "brands"],
+        "estimated_query_type": "simple_select|filtered_search|aggregated_report|complex_analysis",
+        "optimization_hints": ["indice_sugerido", "join_order"]
+      }}
+
+      CRITERIOS:
+      - simple: busqueda basica por nombre/categoria
+      - medium: filtros multiples, joins basicos
+      - complex: agregaciones, subqueries, full-text search
+      - very_complex: multiples joins, queries anidadas, analisis estadistico
+    metadata:
+      temperature: 0.2
+      max_tokens: 300
+      tags:
+        - ecommerce
+        - product_sql
+        - complexity
+        - analysis
+      variables:
+        required:
+          - user_query
+          - intent_json
+
+  - key: ecommerce.product_sql.builder_user
+    name: Product SQL Builder User Prompt
+    description: User prompt for SQL generation with context
+    version: "1.0.0"
+    template: |
+      # GENERACION DE SQL PARA PRODUCTOS
+
+      ## CONSULTA DEL USUARIO:
+      "{user_query}"
+
+      ## CONTEXTO DE INTENCION:
+      {intent_context}
+
+      ## ANALISIS DE COMPLEJIDAD:
+      {complexity_json}
+
+      ## SCHEMA DE BASE DE DATOS:
+      {schema_context}
+
+      ## REGLAS IMPORTANTES:
+      1. SOLO consultas SELECT permitidas
+      2. Usar JOINS apropiados para relaciones
+      3. Incluir filtros de productos activos (active = true)
+      4. Optimizar para performance
+      5. Limitar resultados a {max_results}
+      6. Usar ILIKE para busquedas de texto case-insensitive
+      7. Manejar NULLs apropiadamente
+
+      ## EJEMPLOS DE CONSULTAS TIPICAS:
+
+      Busqueda simple:
+      ```sql
+      SELECT p.*, c.display_name as category_name, b.name as brand_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN brands b ON p.brand_id = b.id
+      WHERE p.active = true AND p.name ILIKE '%keyword%'
+      ORDER BY p.created_at DESC
+      LIMIT {max_results};
+      ```
+
+      Busqueda con filtros:
+      ```sql
+      SELECT p.*, c.display_name as category_name, b.name as brand_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN brands b ON p.brand_id = b.id
+      WHERE p.active = true
+        AND (p.name ILIKE '%keyword%' OR p.description ILIKE '%keyword%')
+        AND c.name = 'categoria'
+        AND p.price BETWEEN min_price AND max_price
+        AND p.stock > 0
+      ORDER BY p.price ASC
+      LIMIT {max_results};
+      ```
+
+      ## INSTRUCCIONES:
+      Genera UNA consulta SQL optimizada que responda exactamente a la consulta del usuario.
+      Responde SOLO con el SQL, sin explicaciones.
+    metadata:
+      temperature: 0.1
+      max_tokens: 500
+      tags:
+        - ecommerce
+        - product_sql
+        - builder
+        - user
+      variables:
+        required:
+          - user_query
+          - max_results
+        optional:
+          - intent_context
+          - complexity_json
+          - schema_context
+
+  - key: ecommerce.product_sql.aggregation_user
+    name: Product SQL Aggregation User Prompt
+    description: User prompt for SQL aggregation queries
+    version: "1.0.0"
+    template: |
+      # GENERACION DE SQL DE AGREGACION
+
+      CONSULTA: "{user_query}"
+      TIPO DE AGREGACION: {aggregation_type}
+
+      INTENCION:
+      {intent_json}
+
+      Genera una consulta SQL que calcule agregaciones de productos.
+
+      EJEMPLOS:
+      - COUNT: SELECT COUNT(*) as total_products FROM products WHERE...
+      - AVG: SELECT AVG(price) as average_price FROM products WHERE...
+      - SUM: SELECT SUM(stock) as total_stock FROM products WHERE...
+      - GROUP BY: SELECT category_name, COUNT(*) FROM products p JOIN categories c...
+
+      Incluye JOINs necesarios y responde SOLO con el SQL:
+    metadata:
+      temperature: 0.1
+      max_tokens: 300
+      tags:
+        - ecommerce
+        - product_sql
+        - aggregation
+        - user
+      variables:
+        required:
+          - user_query
+          - aggregation_type
+          - intent_json
+
+  - key: ecommerce.product.query_enhancement
+    name: Query Enhancement Prompt
+    description: Enhance product search queries for better semantic search
+    version: "1.0.0"
+    template: |
+      Enhance this product search query for better semantic search:
+
+      Query: "{query}"
+      Category: {category}
+
+      Generate an enhanced version that includes:
+      - Synonyms
+      - Related terms
+      - Technical specifications if applicable
+
+      Return ONLY the enhanced query, no explanations.
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - ecommerce
+        - product
+        - query
+        - enhancement
+      variables:
+        required:
+          - query
+        optional:
+          - category
+
+  - key: ecommerce.product.base_response
+    name: Base Product Response Generator
+    description: Generate AI response for product search results
+    version: "1.0.0"
+    template: |
+      # E-COMMERCE PRODUCT SEARCH ASSISTANT
+
+      ## USER MESSAGE
+      "{message}"
+
+      ## USER INTENT ANALYSIS
+      {intent_info}
+
+      ## LANGUAGE DETECTION & RESPONSE REQUIREMENT
+      IMPORTANT: Detect the language of the user's query and respond in the SAME language.
+      - If Spanish -> Respond in Spanish
+      - If English -> Respond in English
+      - If Portuguese -> Respond in Portuguese
+      - Default: Spanish
+
+      ## FOUND PRODUCTS
+      {product_info}
+
+      ## SEARCH METADATA
+      {metadata_info}
+
+      ## INSTRUCTIONS
+      Generate a natural, conversational response that:
+      1. Highlights the most relevant products (top 3-5)
+      2. Includes key details: name, brand, price, stock status
+      3. Uses natural language and friendly tone
+      4. Maximum 6 lines, concise but informative
+      5. Includes relevant emojis moderately (1-3 max)
+      6. Consider user intent (category, brand, price range) when emphasizing products
+
+      Generate your response now:
+    metadata:
+      temperature: 0.7
+      max_tokens: 300
+      tags:
+        - ecommerce
+        - product
+        - response
+        - base
+      variables:
+        required:
+          - message
+          - product_info
+        optional:
+          - intent_info
+          - metadata_info

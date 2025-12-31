@@ -43,7 +43,9 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.core.schemas.tenant_agent_config import AgentConfig, TenantAgentRegistry
-    from app.core.tenancy.cache import TenantConfigCache
+
+# TenantConfigCache is planned but not yet implemented
+TenantConfigCache = object  # Placeholder type
 
 logger = logging.getLogger(__name__)
 

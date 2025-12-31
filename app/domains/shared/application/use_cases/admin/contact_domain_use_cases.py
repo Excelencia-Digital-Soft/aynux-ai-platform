@@ -111,9 +111,9 @@ class AssignContactDomainUseCase:
 
             if contact_domain:
                 # Update existing assignment
-                contact_domain.domain = domain  # type: ignore[assignment]
-                contact_domain.assigned_method = method  # type: ignore[assignment]
-                contact_domain.confidence = confidence  # type: ignore[assignment]
+                contact_domain.domain = domain
+                contact_domain.assigned_method = method
+                contact_domain.confidence = confidence
             else:
                 # Create new assignment
                 contact_domain = ContactDomain(

@@ -221,7 +221,7 @@ class ExcelenciaPromotionsAgent(BaseAgent):
                 default=None,
             )
 
-            if not ai_analysis:
+            if not ai_analysis or not isinstance(ai_analysis, dict):
                 logger.warning("ExcelenciaPromotionsAgent: JSON extraction failed, using fallback")
                 return self._create_fallback_analysis(query_type)
 

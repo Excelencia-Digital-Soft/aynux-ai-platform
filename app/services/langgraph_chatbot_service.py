@@ -59,7 +59,8 @@ class LangGraphChatbotService:
         # Módulos especializados
         self.message_processor = MessageProcessor()
         self.security_validator = SecurityValidator()
-        self.conversation_manager = ConversationManager()
+        # ConversationManager se crea por request para soportar multi-DID Chattigo
+        self._default_conversation_manager = ConversationManager()
         self.system_monitor = SystemMonitor()
 
         # Graph principal (se inicializa en initialize())
@@ -98,6 +99,7 @@ class LangGraphChatbotService:
         db_session: AsyncSession | None = None,
         organization_id: "UUID | None" = None,
         pharmacy_id: "UUID | None" = None,
+        chattigo_context: dict | None = None,
     ) -> BotResponse:
         """
         Procesa un mensaje de WhatsApp usando el sistema multi-agente refactorizado.
@@ -109,6 +111,8 @@ class LangGraphChatbotService:
             db_session: Sesión de base de datos async (opcional)
             organization_id: UUID de organización (from bypass routing, for multi-tenant context)
             pharmacy_id: UUID de farmacia (from bypass routing, for pharmacy config lookup)
+            chattigo_context: Contexto de Chattigo (did, idChat, etc.) para seleccionar
+                            credenciales correctas de la base de datos.
 
         Returns:
             Respuesta estructurada del bot
@@ -157,8 +161,14 @@ class LangGraphChatbotService:
                 user_phone=user_number,
             )
 
+            # Crear ConversationManager con contexto de Chattigo para selección de credenciales
+            conversation_manager = ConversationManager(
+                chattigo_context=chattigo_context,
+                db_session=db_session,
+            )
+
             # Operaciones post-procesamiento
-            await self.conversation_manager.handle_whatsapp_post_processing(
+            await conversation_manager.handle_whatsapp_post_processing(
                 db_available=db_available,
                 user_number=user_number,
                 user_message=message_text,
@@ -178,7 +188,12 @@ class LangGraphChatbotService:
             )
 
         except Exception as e:
-            return await self.conversation_manager.handle_processing_error(e, user_number)
+            # Usar ConversationManager con contexto para error handling
+            error_manager = ConversationManager(
+                chattigo_context=chattigo_context,
+                db_session=db_session,
+            )
+            return await error_manager.handle_processing_error(e, user_number)
 
     async def process_chat_message(
         self,
@@ -225,8 +240,8 @@ class LangGraphChatbotService:
                 db_session=db_session,
             )
 
-            # Post-procesamiento simplificado (sin WhatsApp)
-            await self.conversation_manager.handle_chat_post_processing(
+            # Post-procesamiento simplificado (sin WhatsApp, usa default manager)
+            await self._default_conversation_manager.handle_chat_post_processing(
                 user_id=user_id, user_message=message, session_id=session_id, response_data=response_data
             )
 
@@ -285,10 +300,10 @@ class LangGraphChatbotService:
                 last_event = stream_event
                 yield stream_event
 
-            # Post-procesamiento simplificado (sin WhatsApp)
+            # Post-procesamiento simplificado (sin WhatsApp, usa default manager)
             # Solo si el último evento fue de completion
             if last_event and last_event.event_type.value == "complete":
-                await self.conversation_manager.handle_chat_post_processing(
+                await self._default_conversation_manager.handle_chat_post_processing(
                     user_id=user_id,
                     user_message=message,
                     session_id=session_id,

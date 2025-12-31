@@ -3,13 +3,23 @@ Excelencia Application Ports
 
 Interface definitions (ports) for the Excelencia domain.
 Uses Protocol for structural typing.
+
+Note: Demo and Module entities are planned but not yet implemented.
+The interfaces below define contracts for future implementation.
 """
 
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
-from app.domains.excelencia.domain.entities.demo import Demo, DemoStatus
-from app.domains.excelencia.domain.entities.module import ERPModule, ModuleCategory
+# TODO: Create these entities when implementing demo scheduling feature
+# from app.domains.excelencia.domain.entities.demo import Demo, DemoStatus
+# from app.domains.excelencia.domain.entities.module import ERPModule, ModuleCategory
+
+# Placeholder types until entities are implemented
+Demo = Any
+DemoStatus = str
+ERPModule = Any
+ModuleCategory = str
 
 
 @runtime_checkable

@@ -39,70 +39,24 @@ class ProductSQLBuilder:
         schema_context = self._build_schema_context()
         intent_context = self._build_intent_context(intent)
 
-        sql_prompt = f"""# GENERACIÓN DE SQL PARA PRODUCTOS
-
-## CONSULTA DEL USUARIO:
-"{user_query}"
-
-## CONTEXTO DE INTENCIÓN:
-{intent_context}
-
-## ANÁLISIS DE COMPLEJIDAD:
-{json.dumps(complexity, indent=2)}
-
-## SCHEMA DE BASE DE DATOS:
-{schema_context}
-
-## REGLAS IMPORTANTES:
-1. SOLO consultas SELECT permitidas
-2. Usar JOINS apropiados para relaciones
-3. Incluir filtros de productos activos (active = true)
-4. Optimizar para performance
-5. Limitar resultados a {max_results}
-6. Usar ILIKE para búsquedas de texto case-insensitive
-7. Manejar NULLs apropiadamente
-
-## EJEMPLOS DE CONSULTAS TÍPICAS:
-
-Búsqueda simple:
-```sql
-SELECT p.*, c.display_name as category_name, b.name as brand_name
-FROM products p
-LEFT JOIN categories c ON p.category_id = c.id
-LEFT JOIN brands b ON p.brand_id = b.id
-WHERE p.active = true AND p.name ILIKE '%keyword%'
-ORDER BY p.created_at DESC
-LIMIT {max_results};
-```
-
-Búsqueda con filtros:
-```sql
-SELECT p.*, c.display_name as category_name, b.name as brand_name
-FROM products p
-LEFT JOIN categories c ON p.category_id = c.id
-LEFT JOIN brands b ON p.brand_id = b.id
-WHERE p.active = true
-  AND (p.name ILIKE '%keyword%' OR p.description ILIKE '%keyword%')
-  AND c.name = 'categoria'
-  AND p.price BETWEEN min_price AND max_price
-  AND p.stock > 0
-ORDER BY p.price ASC
-LIMIT {max_results};
-```
-
-## INSTRUCCIONES:
-Genera UNA consulta SQL optimizada que responda exactamente a la consulta del usuario.
-Responde SOLO con el SQL, sin explicaciones.
-"""
-
         try:
-            # Load system prompt from YAML
+            # Load both prompts from YAML
             system_prompt = await self.prompt_manager.get_prompt(
                 PromptRegistry.ECOMMERCE_PRODUCT_SQL_BUILDER_SYSTEM,
             )
+            user_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.ECOMMERCE_PRODUCT_SQL_BUILDER_USER,
+                variables={
+                    "user_query": user_query,
+                    "intent_context": intent_context,
+                    "complexity_json": json.dumps(complexity, indent=2),
+                    "schema_context": schema_context,
+                    "max_results": str(max_results),
+                },
+            )
             response = await self.ollama.generate_response(
                 system_prompt=system_prompt,
-                user_prompt=sql_prompt,
+                user_prompt=user_prompt,
                 temperature=0.1,
             )
 
@@ -121,32 +75,22 @@ Responde SOLO con el SQL, sin explicaciones.
         """
         Genera SQL específico para agregaciones.
         """
-        aggregation_prompt = f"""# GENERACIÓN DE SQL DE AGREGACIÓN
-
-CONSULTA: "{user_query}"
-TIPO DE AGREGACIÓN: {aggregation_type}
-
-INTENCIÓN:
-{json.dumps(intent, indent=2)}
-
-Genera una consulta SQL que calcule agregaciones de productos.
-
-EJEMPLOS:
-- COUNT: SELECT COUNT(*) as total_products FROM products WHERE...
-- AVG: SELECT AVG(price) as average_price FROM products WHERE...
-- SUM: SELECT SUM(stock) as total_stock FROM products WHERE...
-- GROUP BY: SELECT category_name, COUNT(*) FROM products p JOIN categories c...
-
-Incluye JOINs necesarios y responde SOLO con el SQL:"""
-
         try:
-            # Load system prompt from YAML
+            # Load both prompts from YAML
             system_prompt = await self.prompt_manager.get_prompt(
                 PromptRegistry.ECOMMERCE_PRODUCT_SQL_AGGREGATION_SYSTEM,
             )
+            user_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.ECOMMERCE_PRODUCT_SQL_AGGREGATION_USER,
+                variables={
+                    "user_query": user_query,
+                    "aggregation_type": aggregation_type,
+                    "intent_json": json.dumps(intent, indent=2),
+                },
+            )
             response = await self.ollama.generate_response(
                 system_prompt=system_prompt,
-                user_prompt=aggregation_prompt,
+                user_prompt=user_prompt,
                 temperature=0.1,
             )
 

@@ -31,7 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import require_admin
+from app.api.dependencies import require_scopes
 from app.core.tenancy import (
     ChattigoCredentialCreateRequest,
     ChattigoCredentialUpdateRequest,
@@ -221,7 +221,7 @@ def _to_response(creds) -> ChattigoCredentialResponse:
         message_url=creds.message_url,
         bot_name=creds.bot_name,
         token_refresh_hours=creds.token_refresh_hours,
-        enabled=True,  # DTO only returns enabled credentials
+        enabled=creds.enabled,  # Use actual enabled value from DTO
         organization_id=str(creds.organization_id),
         bypass_rule_id=str(creds.bypass_rule_id) if creds.bypass_rule_id else None,
     )
@@ -242,7 +242,7 @@ async def list_chattigo_credentials(
         None,
         description="Filter by organization UUID",
     ),
-    _admin: None = Depends(require_admin),
+    _admin: None = Depends(require_scopes(["admin"])),
     db: AsyncSession = Depends(get_async_db),
 ) -> ChattigoCredentialList:
     """
@@ -254,7 +254,10 @@ async def list_chattigo_credentials(
     service = get_chattigo_credential_service()
 
     org_uuid = uuid.UUID(organization_id) if organization_id else None
-    credentials = await service.get_all_credentials(db, org_uuid)
+    # Admin API shows all credentials including disabled ones
+    credentials = await service.get_all_credentials(
+        db, org_uuid, include_disabled=True
+    )
 
     return ChattigoCredentialList(
         credentials=[_to_response(c) for c in credentials],
@@ -274,7 +277,7 @@ async def list_chattigo_credentials(
 )
 async def get_chattigo_credentials(
     did: str = Path(..., description="WhatsApp Business phone number (DID)"),
-    _admin: None = Depends(require_admin),
+    _admin: None = Depends(require_scopes(["admin"])),
     db: AsyncSession = Depends(get_async_db),
 ) -> ChattigoCredentialResponse:
     """
@@ -307,7 +310,7 @@ async def get_chattigo_credentials(
 )
 async def create_chattigo_credentials(
     data: ChattigoCredentialCreate,
-    _admin: None = Depends(require_admin),
+    _admin: None = Depends(require_scopes(["admin"])),
     db: AsyncSession = Depends(get_async_db),
 ) -> ChattigoCredentialResponse:
     """
@@ -370,7 +373,7 @@ async def create_chattigo_credentials(
 async def update_chattigo_credentials(
     data: ChattigoCredentialUpdate,
     did: str = Path(..., description="WhatsApp Business phone number (DID)"),
-    _admin: None = Depends(require_admin),
+    _admin: None = Depends(require_scopes(["admin"])),
     db: AsyncSession = Depends(get_async_db),
 ) -> ChattigoCredentialResponse:
     """
@@ -439,7 +442,7 @@ async def update_chattigo_credentials(
 )
 async def delete_chattigo_credentials(
     did: str = Path(..., description="WhatsApp Business phone number (DID)"),
-    _admin: None = Depends(require_admin),
+    _admin: None = Depends(require_scopes(["admin"])),
     db: AsyncSession = Depends(get_async_db),
 ) -> None:
     """
@@ -475,7 +478,7 @@ async def delete_chattigo_credentials(
 )
 async def test_chattigo_credentials(
     did: str = Path(..., description="WhatsApp Business phone number (DID)"),
-    _admin: None = Depends(require_admin),
+    _admin: None = Depends(require_scopes(["admin"])),
     db: AsyncSession = Depends(get_async_db),
 ) -> ChattigoTestResult:
     """
@@ -505,7 +508,7 @@ async def test_chattigo_credentials(
                 name=health.get("name", "Unknown"),
                 message=health.get("error", "Authentication failed"),
             )
-    except CredentialNotFoundError as e:
+    except ChattigoNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Chattigo credentials not found for DID {did}",
@@ -530,7 +533,7 @@ async def test_chattigo_credentials(
     summary="Get token cache statistics",
 )
 async def get_cache_stats(
-    _admin: None = Depends(require_admin),
+    _admin: None = Depends(require_scopes(["admin"])),
 ) -> ChattigoCacheStats:
     """
     Get token cache statistics for monitoring.
@@ -553,7 +556,7 @@ async def get_cache_stats(
 )
 async def invalidate_cache(
     did: str = Path(..., description="WhatsApp Business phone number (DID)"),
-    _admin: None = Depends(require_admin),
+    _admin: None = Depends(require_scopes(["admin"])),
 ) -> None:
     """
     Invalidate cached token for a DID.

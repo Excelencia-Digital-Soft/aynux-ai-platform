@@ -46,7 +46,7 @@ class PromptValidator:
                 "warnings": List[str]
             }
         """
-        result = {"is_valid": True, "errors": [], "warnings": []}
+        result: Dict[str, Any] = {"is_valid": True, "errors": [], "warnings": []}
 
         # Validar campos requeridos
         required_fields = ["key", "name", "template"]
@@ -90,7 +90,7 @@ class PromptValidator:
         Returns:
             Resultado de validación
         """
-        result = {"is_valid": True, "errors": []}
+        result: Dict[str, Any] = {"is_valid": True, "errors": []}
 
         if not key:
             result["errors"].append("Key cannot be empty")
@@ -121,7 +121,7 @@ class PromptValidator:
         Returns:
             Resultado de validación
         """
-        result = {"is_valid": True, "errors": [], "warnings": []}
+        result: Dict[str, Any] = {"is_valid": True, "errors": [], "warnings": []}
 
         if not template:
             result["errors"].append("Template cannot be empty")
@@ -192,7 +192,7 @@ class PromptValidator:
         """
         import re
 
-        result = {"is_valid": True, "errors": [], "warnings": []}
+        result: Dict[str, Any] = {"is_valid": True, "errors": [], "warnings": []}
 
         # Extraer variables del template
         template_variables = set(re.findall(r"\{([^}]+)\}", template))

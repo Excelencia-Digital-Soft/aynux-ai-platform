@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from app.integrations.llm import ModelComplexity
+from app.prompts import PromptRegistry
 from app.utils.json_extractor import extract_json_from_text
 
 from .base_handler import BaseExcelenciaHandler
+
+if TYPE_CHECKING:
+    from app.prompts import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +43,26 @@ class IntentAnalysisHandler(BaseExcelenciaHandler):
 
     Uses LLM for deep understanding with keyword-based fallback.
     """
+
+    def __init__(
+        self,
+        ollama=None,
+        prompt_manager: "PromptManager | None" = None,
+    ):
+        """
+        Initialize handler with optional PromptManager.
+
+        Args:
+            ollama: OllamaLLM instance
+            prompt_manager: PromptManager for loading prompt templates
+        """
+        super().__init__(ollama)
+        self._prompt_manager = prompt_manager
+
+    @property
+    def prompt_manager(self) -> "PromptManager | None":
+        """Get PromptManager instance."""
+        return self._prompt_manager
 
     # Query type keywords for detection
     QUERY_TYPES: ClassVar[dict[str, list[str]]] = {
@@ -132,7 +156,38 @@ CONTEXTO DE CONVERSACION ANTERIOR:
 Considera este contexto al interpretar la consulta actual.
 """
 
-        prompt = f"""Analiza la siguiente consulta sobre el Software Excelencia:
+        # Build prompt from YAML template or fallback to inline
+        prompt = await self._build_analysis_prompt(message, context_section)
+
+        self.logger.info("IntentAnalysisHandler: Analyzing with LLM...")
+        llm = self.get_llm(complexity=ModelComplexity.SIMPLE, temperature=INTENT_ANALYSIS_TEMPERATURE)
+        response = await llm.ainvoke(prompt)
+
+        response_text = self.extract_response_content(response)
+        self.logger.info(f"IntentAnalysisHandler: Parsing response: {response_text[:100]}...")
+
+        result = extract_json_from_text(response_text, required_keys=["query_type"], default=None)
+        # extract_json_from_text can return list or dict; we only accept dict
+        if isinstance(result, dict):
+            return result
+        return None
+
+    async def _build_analysis_prompt(self, message: str, context_section: str) -> str:
+        """Build analysis prompt from YAML template or fallback."""
+        if self._prompt_manager:
+            try:
+                return await self._prompt_manager.get_prompt(
+                    PromptRegistry.EXCELENCIA_INTENT_ANALYSIS,
+                    variables={
+                        "message": message,
+                        "context_section": context_section,
+                    },
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to load YAML prompt: {e}, using fallback")
+
+        # Fallback to inline prompt
+        return f"""Analiza la siguiente consulta sobre el Software Excelencia:
 {context_section}
 CONSULTA ACTUAL: "{message}"
 
@@ -147,19 +202,6 @@ Ejemplo de respuesta valida:
 {{"query_type": "support", "user_intent": "consulta sobre facturacion", "specific_modules": [], "requires_demo": false, "urgency": "medium"}}
 
 Responde SOLO con el JSON, sin explicaciones ni texto adicional."""
-
-        self.logger.info("IntentAnalysisHandler: Analyzing with LLM...")
-        llm = self.get_llm(complexity=ModelComplexity.SIMPLE, temperature=INTENT_ANALYSIS_TEMPERATURE)
-        response = await llm.ainvoke(prompt)
-
-        response_text = self.extract_response_content(response)
-        self.logger.info(f"IntentAnalysisHandler: Parsing response: {response_text[:100]}...")
-
-        result = extract_json_from_text(response_text, required_keys=["query_type"], default=None)
-        # extract_json_from_text can return list or dict; we only accept dict
-        if isinstance(result, dict):
-            return result
-        return None
 
     def _create_fallback(
         self, message: str, query_type: str, modules: list[str]

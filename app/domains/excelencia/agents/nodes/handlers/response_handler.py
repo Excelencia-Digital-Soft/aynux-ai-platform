@@ -8,11 +8,15 @@ Single responsibility: generate responses for Excelencia queries.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.integrations.llm import ModelComplexity
+from app.prompts import PromptRegistry
 
 from .base_handler import BaseExcelenciaHandler
+
+if TYPE_CHECKING:
+    from app.prompts import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +30,26 @@ class ResponseGenerationHandler(BaseExcelenciaHandler):
 
     Uses LLM for AI-powered responses with fallback support.
     """
+
+    def __init__(
+        self,
+        ollama=None,
+        prompt_manager: "PromptManager | None" = None,
+    ):
+        """
+        Initialize handler with optional PromptManager.
+
+        Args:
+            ollama: OllamaLLM instance
+            prompt_manager: PromptManager for loading prompt templates
+        """
+        super().__init__(ollama)
+        self._prompt_manager = prompt_manager
+
+    @property
+    def prompt_manager(self) -> "PromptManager | None":
+        """Get PromptManager instance."""
+        return self._prompt_manager
 
     async def generate(
         self,
@@ -56,8 +80,8 @@ class ResponseGenerationHandler(BaseExcelenciaHandler):
         modules_list = self._build_modules_list(modules)
         conversation_context = self._build_conversation_context(state_dict)
 
-        # Build prompt
-        prompt = self._build_prompt(
+        # Build prompt from YAML template or fallback
+        prompt = await self._build_prompt(
             user_message=user_message,
             query_analysis=query_analysis,
             modules_context=modules_context,
@@ -203,7 +227,7 @@ class ResponseGenerationHandler(BaseExcelenciaHandler):
 IMPORTANTE: Usa este contexto para entender referencias como "sus caracteristicas", "ese modulo", etc.
 """
 
-    def _build_prompt(
+    async def _build_prompt(
         self,
         user_message: str,
         query_analysis: dict[str, Any],
@@ -212,11 +236,31 @@ IMPORTANTE: Usa este contexto para entender referencias como "sus caracteristica
         conversation_context: str,
         modules_list: str,
     ) -> str:
-        """Build the full response generation prompt."""
+        """Build the full response generation prompt from YAML or fallback."""
         query_type = query_analysis.get("query_type", "general")
         user_intent = query_analysis.get("user_intent", "N/A")
         requires_demo = query_analysis.get("requires_demo", False)
 
+        # Try YAML template first
+        if self._prompt_manager:
+            try:
+                return await self._prompt_manager.get_prompt(
+                    PromptRegistry.EXCELENCIA_RESPONSE_GENERATION,
+                    variables={
+                        "user_message": user_message,
+                        "query_type": query_type,
+                        "user_intent": user_intent,
+                        "requires_demo": str(requires_demo),
+                        "modules_context": modules_context,
+                        "rag_context": rag_context,
+                        "conversation_context": conversation_context,
+                        "modules_list": modules_list,
+                    },
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to load YAML prompt: {e}, using fallback")
+
+        # Fallback to inline prompt
         return f"""Eres un asistente especializado en el Software Excelencia.
 {conversation_context}
 ## CONSULTA ACTUAL DEL USUARIO:

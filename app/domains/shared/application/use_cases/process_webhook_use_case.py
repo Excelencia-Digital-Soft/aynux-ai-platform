@@ -325,6 +325,7 @@ class ProcessWebhookUseCase:
             db_session=self._db,
             organization_id=organization_id,
             pharmacy_id=pharmacy_id,
+            chattigo_context=self._chattigo_context,
         )
 
     async def _attempt_fallback(

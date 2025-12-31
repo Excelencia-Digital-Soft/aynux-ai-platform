@@ -274,6 +274,12 @@ class Settings(BaseSettings):
     LANGSMITH_METRICS_ENABLED: bool = Field(True, description="Enable metrics collection")
     LANGSMITH_DATASET_NAME: str = Field("aynux-evals", description="Dataset name for evaluations")
 
+    # Credential Encryption (pgcrypto)
+    CREDENTIAL_ENCRYPTION_KEY: str | None = Field(
+        None,
+        description="32-byte key for encrypting credentials at rest (generate with secrets.token_urlsafe(32))",
+    )
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",

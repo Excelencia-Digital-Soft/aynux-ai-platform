@@ -22,10 +22,11 @@ Usage:
 """
 
 import logging
-import os
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -44,24 +45,23 @@ class CredentialEncryptionService:
     All values are base64-encoded for storage.
     """
 
-    ENCRYPTION_KEY_ENV = "CREDENTIAL_ENCRYPTION_KEY"
-
     def __init__(self) -> None:
         """Initialize the encryption service."""
         self._encryption_key: str | None = None
 
     @property
     def encryption_key(self) -> str:
-        """Get the encryption key from environment.
+        """Get the encryption key from settings.
 
         Raises:
             CredentialEncryptionError: If key is not configured.
         """
         if self._encryption_key is None:
-            key = os.environ.get(self.ENCRYPTION_KEY_ENV)
+            settings = get_settings()
+            key = settings.CREDENTIAL_ENCRYPTION_KEY
             if not key:
                 raise CredentialEncryptionError(
-                    f"Missing {self.ENCRYPTION_KEY_ENV} environment variable. "
+                    "Missing CREDENTIAL_ENCRYPTION_KEY in settings. "
                     'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
                 )
             self._encryption_key = key

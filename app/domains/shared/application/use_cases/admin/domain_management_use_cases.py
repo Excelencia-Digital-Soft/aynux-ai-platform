@@ -121,7 +121,7 @@ class EnableDomainUseCase:
             config = result.scalar_one_or_none()
 
             if config:
-                config.enabled = "true"  # type: ignore[assignment]
+                config.enabled = "true"
             else:
                 config = DomainConfig(
                     domain=domain,
@@ -182,7 +182,7 @@ class DisableDomainUseCase:
             if not config:
                 raise ValueError(f"Domain configuration '{domain}' not found")
 
-            config.enabled = "false"  # type: ignore[assignment]
+            config.enabled = "false"
             await self.db.commit()
 
             logger.info(f"Domain disabled: {domain}")
@@ -248,17 +248,17 @@ class UpdateDomainConfigUseCase:
 
             # Update provided fields
             if enabled is not None:
-                config.enabled = enabled  # type: ignore[assignment]
+                config.enabled = enabled
             if display_name is not None:
-                config.display_name = display_name  # type: ignore[assignment]
+                config.display_name = display_name
             if description is not None:
-                config.description = description  # type: ignore[assignment]
+                config.description = description
             if phone_patterns is not None:
-                config.phone_patterns = phone_patterns  # type: ignore[assignment]
+                config.phone_patterns = phone_patterns
             if keyword_patterns is not None:
-                config.keyword_patterns = keyword_patterns  # type: ignore[assignment]
+                config.keyword_patterns = keyword_patterns
             if priority is not None:
-                config.priority = priority  # type: ignore[assignment]
+                config.priority = priority
 
             await self.db.commit()
 

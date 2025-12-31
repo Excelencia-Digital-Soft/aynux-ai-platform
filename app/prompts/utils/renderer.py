@@ -116,7 +116,7 @@ class PromptRenderer:
                 "errors": list
             }
         """
-        result = {"is_valid": True, "required_variables": [], "errors": []}
+        result: Dict[str, Any] = {"is_valid": True, "required_variables": [], "errors": []}
 
         try:
             # Pre-process: Remove escaped braces before finding variables

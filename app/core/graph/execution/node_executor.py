@@ -98,13 +98,19 @@ class NodeExecutor:
             result = await supervisor._process_internal(message=user_message, state_dict=state_dict)
 
             # Prepare updates
+            # IMPORTANT: Preserve is_complete from agent if already True
+            # This prevents the supervisor from overriding agent completion status
+            agent_already_complete = state.get("is_complete", False)
+
             updates = {
                 "current_agent": "supervisor",
                 "supervisor_evaluation": result.get("supervisor_evaluation", {}),
                 "conversation_flow": result.get("conversation_flow", {}),
                 "supervisor_analysis": result.get("supervisor_analysis", {}),
-                "is_complete": result.get("is_complete", False),
-                "needs_re_routing": result.get("needs_re_routing", False),
+                # Preserve is_complete if agent already marked it True
+                "is_complete": agent_already_complete or result.get("is_complete", False),
+                # Don't re-route if already complete
+                "needs_re_routing": False if agent_already_complete else result.get("needs_re_routing", False),
                 "human_handoff_requested": result.get("human_handoff_requested", False),
                 "supervisor_retry_count": state.get("supervisor_retry_count", 0) + 1,
                 "agent_history": ["supervisor"],  # Reducer will concatenate

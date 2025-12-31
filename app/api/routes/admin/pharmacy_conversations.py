@@ -21,10 +21,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
-from sqlalchemy import desc, distinct, func, or_, select
+from pydantic import BaseModel
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import get_current_user_db
 from app.database.async_db import get_async_db
@@ -173,7 +172,7 @@ async def get_pharmacy_customers(
 
     Returns distinct customers with their conversation metadata.
     """
-    pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
+    _ = await get_pharmacy_with_auth(pharmacy_id, db, user)  # Validates access
 
     # Query distinct customers for this specific pharmacy
     stmt = (
@@ -232,7 +231,7 @@ async def get_pharmacy_timeline(
 
     Returns paginated messages with optional filters.
     """
-    pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
+    _ = await get_pharmacy_with_auth(pharmacy_id, db, user)  # Validates access
 
     # Get conversations for this specific pharmacy
     conv_stmt = select(ConversationContext.conversation_id).where(
@@ -328,7 +327,7 @@ async def get_pharmacy_conversation(
 
     Returns messages with conversation context.
     """
-    pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
+    _ = await get_pharmacy_with_auth(pharmacy_id, db, user)  # Validates access
 
     # Get conversation context for this specific pharmacy
     ctx_stmt = (
@@ -391,7 +390,7 @@ async def get_pharmacy_stats(
 
     Returns aggregated metrics about customer interactions.
     """
-    pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
+    _ = await get_pharmacy_with_auth(pharmacy_id, db, user)  # Validates access
 
     now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)

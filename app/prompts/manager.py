@@ -208,11 +208,11 @@ class PromptManager:
                     db.add(version)
 
                     # Actualizar prompt
-                    existing.template = template  # type: ignore[assignment]
-                    existing.name = name  # type: ignore[assignment]
-                    existing.description = description  # type: ignore[assignment]
+                    existing.template = template
+                    existing.name = name
+                    existing.description = description
                     existing.metadata = metadata or {}
-                    existing.is_dynamic = True  # type: ignore[assignment]
+                    existing.is_dynamic = True
 
                     await db.commit()
                     await db.refresh(existing)

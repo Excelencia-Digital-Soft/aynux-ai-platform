@@ -31,8 +31,8 @@ from app.core.schemas.tenant_agent_config import (
 )
 from app.models.db.tenancy.tenant_agent import TenantAgent
 
-if TYPE_CHECKING:
-    from app.core.tenancy.cache import TenantConfigCache
+# TenantConfigCache is planned but not yet implemented
+TenantConfigCache = object  # Placeholder type
 
 logger = logging.getLogger(__name__)
 

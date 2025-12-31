@@ -4,10 +4,13 @@ Incident intent detector with LLM fallback.
 Detects if user wants to create a support incident.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING
 
 from app.integrations.llm import OllamaLLM
+from app.prompts import PromptRegistry
 
 from .base import BaseInterpreter, InterpretationResult
 from .constants import INCIDENT_INTENT_KEYWORDS
@@ -16,6 +19,7 @@ if TYPE_CHECKING:
     from app.domains.excelencia.application.services.query_type_detector import (
         CompositeQueryTypeDetector,
     )
+    from app.prompts import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +32,7 @@ class IncidentIntentDetector(BaseInterpreter):
         message: str,
         query_type_detector: "CompositeQueryTypeDetector",
         llm: OllamaLLM | None = None,
+        prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """
         Detect if the user wants to create an incident.
@@ -58,7 +63,7 @@ class IncidentIntentDetector(BaseInterpreter):
 
         # 3. LLM fallback for ambiguous phrases
         if llm and match.confidence < 0.6:
-            return await self._llm_detect(message, llm)
+            return await self._llm_detect(message, llm, prompt_manager)
 
         return InterpretationResult(
             success=False,
@@ -71,9 +76,10 @@ class IncidentIntentDetector(BaseInterpreter):
         self,
         message: str,
         llm: OllamaLLM,
+        prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """LLM fallback for incident intent detection."""
-        prompt = f"""Determina si el usuario quiere reportar un problema tecnico o incidencia.
+        fallback_prompt = f"""Determina si el usuario quiere reportar un problema tecnico o incidencia.
 
 Mensaje: "{message}"
 
@@ -90,6 +96,13 @@ Ejemplos:
 - "como exporto un reporte?" -> no
 - "la facturacion no me deja timbrar" -> yes
 - "necesito capacitacion" -> no"""
+
+        prompt = await self._get_prompt_from_yaml(
+            prompt_manager,
+            PromptRegistry.EXCELENCIA_SMART_INPUT_INCIDENT_DETECT,
+            {"message": message},
+            fallback_prompt,
+        )
 
         result = await self._invoke_llm(prompt, llm)
 

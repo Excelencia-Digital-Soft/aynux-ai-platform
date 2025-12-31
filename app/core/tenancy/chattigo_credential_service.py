@@ -151,23 +151,32 @@ class ChattigoCredentialService:
             token_refresh_hours=cast(int, creds.token_refresh_hours),
             organization_id=cast(UUID, creds.organization_id),
             bypass_rule_id=creds.bypass_rule_id,
+            enabled=True,  # This method only returns enabled credentials
         )
 
     async def get_all_credentials(
-        self, db: AsyncSession, organization_id: UUID | None = None
+        self,
+        db: AsyncSession,
+        organization_id: UUID | None = None,
+        include_disabled: bool = False,
     ) -> list[ChattigoCredentials]:
         """List all Chattigo credentials, optionally filtered by organization.
 
         Args:
             db: Database session
             organization_id: Optional organization UUID to filter by
+            include_disabled: If True, include disabled credentials (for admin listing)
 
         Returns:
             List of ChattigoCredentials DTOs with decrypted values
         """
-        query = select(ChattigoCredentialsModel).where(
-            ChattigoCredentialsModel.enabled == True  # noqa: E712
-        )
+        query = select(ChattigoCredentialsModel)
+
+        # Only filter by enabled if not including disabled (for integration use)
+        if not include_disabled:
+            query = query.where(
+                ChattigoCredentialsModel.enabled == True  # noqa: E712
+            )
 
         if organization_id is not None:
             query = query.where(
@@ -199,6 +208,7 @@ class ChattigoCredentialService:
                         token_refresh_hours=cast(int, model.token_refresh_hours),
                         organization_id=cast(UUID, model.organization_id),
                         bypass_rule_id=model.bypass_rule_id,
+                        enabled=cast(bool, model.enabled),
                     )
                 )
             except CredentialEncryptionError as e:
@@ -304,6 +314,7 @@ class ChattigoCredentialService:
             token_refresh_hours=cast(int, creds.token_refresh_hours),
             organization_id=cast(UUID, creds.organization_id),
             bypass_rule_id=creds.bypass_rule_id,
+            enabled=True,  # New credentials are always enabled
         )
 
     async def update_credentials(

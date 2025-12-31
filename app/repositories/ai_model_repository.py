@@ -144,7 +144,7 @@ class AIModelRepository:
         Returns:
             Updated AIModel
         """
-        model.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+        model.updated_at = datetime.now(UTC)
         await self._db.commit()
         await self._db.refresh(model)
         return model
@@ -219,8 +219,8 @@ class AIModelRepository:
         for item in orders:
             model = await self.get_by_id(item["id"])
             if model:
-                model.sort_order = item["sort_order"]  # type: ignore[assignment]
-                model.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+                model.sort_order = item["sort_order"]
+                model.updated_at = datetime.now(UTC)
                 updated += 1
 
         await self._db.commit()
