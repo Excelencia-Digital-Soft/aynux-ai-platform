@@ -415,7 +415,7 @@ async def update_chattigo_credentials(
         # Invalidate token cache if credentials changed
         if data.username or data.password:
             factory = get_chattigo_adapter_factory()
-            factory.token_cache.invalidate(did)
+            await factory.token_cache.invalidate(did)
 
         return _to_response(creds)
     except ChattigoNotFoundError as e:
@@ -463,7 +463,7 @@ async def delete_chattigo_credentials(
 
     # Invalidate token cache
     factory = get_chattigo_adapter_factory()
-    factory.token_cache.invalidate(did)
+    await factory.token_cache.invalidate(did)
 
 
 # ============================================================
@@ -564,4 +564,4 @@ async def invalidate_cache(
     Forces token refresh on next request.
     """
     factory = get_chattigo_adapter_factory()
-    factory.token_cache.invalidate(did)
+    await factory.token_cache.invalidate(did)
