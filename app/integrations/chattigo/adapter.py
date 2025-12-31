@@ -3,23 +3,27 @@
 # Description: Adaptador para comunicación con Chattigo API.
 #              Maneja autenticación y envío de mensajes.
 # Tenant-Aware: No - Chattigo maneja autenticación por ISV.
+#
+# DEPRECATED: Use ChattigoMultiDIDAdapter via adapter_factory instead.
+#             Credentials are now stored in database (chattigo_credentials table).
 # ============================================================================
 """
 Chattigo API Adapter.
 
+DEPRECATED: This adapter is deprecated. Use ChattigoMultiDIDAdapter via
+adapter_factory.get_chattigo_adapter_factory() instead. Credentials are now
+stored in the database with encryption.
+
+Configure credentials via Admin API: POST /api/v1/admin/chattigo-credentials
+
 Handles authentication and message sending via Chattigo's API.
 Based on DECSA implementation with Aynux Clean Architecture patterns.
-
-Usage:
-    adapter = ChattigoAdapter(settings)
-    await adapter.initialize()
-    await adapter.send_message(msisdn, did, id_chat, message)
-    await adapter.close()
 """
 
 import json
 import logging
 import time
+import warnings
 from typing import Any
 
 import httpx
@@ -53,33 +57,55 @@ class ChattigoAdapter:
     """
     Adapter for Chattigo WhatsApp API.
 
+    DEPRECATED: Use ChattigoMultiDIDAdapter via adapter_factory instead.
+    Credentials are now stored in database (chattigo_credentials table).
+    Configure via Admin API: POST /api/v1/admin/chattigo-credentials
+
     Responsibilities:
     - Authentication with Chattigo API
     - Token management and refresh
     - Message sending (text, documents, images)
-
-    Usage:
-        async with ChattigoAdapter(settings) as adapter:
-            await adapter.send_message(msisdn, did, id_chat, "Hello!")
     """
 
     DEFAULT_TIMEOUT = 30.0
     TOKEN_REFRESH_BUFFER = 60  # Refresh token 60 seconds before expiry
 
-    def __init__(self, settings: Settings):
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        username: str,
+        password: str,
+        did: str,
+        bot_name: str = "Aynux",
+    ):
         """
         Initialize Chattigo adapter.
 
+        DEPRECATED: Use ChattigoMultiDIDAdapter via adapter_factory instead.
+
         Args:
-            settings: Application settings containing Chattigo configuration
+            settings: Application settings (only for endpoint URLs)
+            username: Chattigo API username (required)
+            password: Chattigo API password (required)
+            did: WhatsApp Business DID (required)
+            bot_name: Bot name for messages (default: "Aynux")
         """
+        warnings.warn(
+            "ChattigoAdapter is deprecated. Use ChattigoMultiDIDAdapter via "
+            "adapter_factory.get_chattigo_adapter_factory() instead. "
+            "Credentials should be stored in database (chattigo_credentials table).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         self._settings = settings
         self._login_url = settings.CHATTIGO_LOGIN_URL
         self._message_url = settings.CHATTIGO_MESSAGE_URL
-        self._username = settings.CHATTIGO_USERNAME
-        self._password = settings.CHATTIGO_PASSWORD
-        self._did = settings.CHATTIGO_DID
-        self._bot_name = settings.CHATTIGO_BOT_NAME
+        self._username = username
+        self._password = password
+        self._did = did
+        self._bot_name = bot_name
 
         self._token: str | None = None
         self._token_expiry: float = 0

@@ -180,7 +180,8 @@ MULTI_TENANT_MODE=false  # true for SaaS mode
 TENANT_HEADER=X-Tenant-ID
 
 # Integrations
-WHATSAPP_ACCESS_TOKEN, DUX_API_KEY, LANGSMITH_API_KEY
+DUX_API_KEY, LANGSMITH_API_KEY
+# NOTE: WhatsApp/Chattigo credentials stored in database via Admin API
 ```
 
 ### LLM Configuration (Hybrid Architecture)

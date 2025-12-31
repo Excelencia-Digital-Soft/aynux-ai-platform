@@ -9,9 +9,9 @@ Chattigo Mode (Default):
   - No direct WhatsApp Graph API calls needed
 
 Multi-DID Support:
-  - When db_session and chattigo_context with 'did' are provided,
-    credentials are fetched from chattigo_credentials table
-  - Falls back to settings-based credentials if not found in DB
+  - Credentials are fetched from chattigo_credentials table (encrypted)
+  - Requires db_session and chattigo_context with 'did' to be provided
+  - Configure credentials via Admin API: POST /api/v1/admin/chattigo-credentials
 """
 
 import logging
@@ -37,12 +37,13 @@ class ChattigoMessagingService:
     This is the primary implementation for sending messages via Chattigo API.
 
     Multi-DID Support:
-    - If db_session and chattigo_context with 'did' are provided,
-      credentials are fetched from chattigo_credentials table.
-    - Falls back to settings-based credentials if:
-      1. No db_session provided
-      2. No 'did' in chattigo_context
-      3. No credentials found in database for the DID
+    - Credentials are fetched from chattigo_credentials table (encrypted)
+    - Requires db_session and chattigo_context with 'did' to be provided
+    - Configure credentials via Admin API: POST /api/v1/admin/chattigo-credentials
+
+    Raises:
+        CredentialNotFoundError: If no credentials found for the DID
+        ValueError: If db_session or did not provided
     """
 
     def __init__(
@@ -55,68 +56,45 @@ class ChattigoMessagingService:
         Initialize Chattigo messaging service.
 
         Args:
-            settings: Application settings with Chattigo configuration (fallback)
+            settings: Application settings with Chattigo endpoint configuration
             chattigo_context: Context from incoming webhook (did, idChat, channelId, idCampaign)
-            db_session: Optional database session for multi-DID credential lookup
+            db_session: Database session for credential lookup (required for multi-DID)
         """
         self._settings = settings
         self._chattigo_context = chattigo_context or {}
         self._db_session = db_session
         self._adapter = None
-        self._multi_did_adapter = None
-        self._use_multi_did = False
 
     async def _get_adapter(self):
         """
         Get or create ChattigoAdapter instance.
 
-        Attempts to use multi-DID credentials from database if:
-        1. db_session is available
-        2. chattigo_context contains 'did'
-        3. Credentials exist in database for that DID
+        Credentials are fetched from chattigo_credentials table (encrypted).
+        Requires db_session and chattigo_context with 'did' to be provided.
 
-        Falls back to settings-based adapter if any of the above fail.
+        Raises:
+            ValueError: If db_session or did not provided
+            CredentialNotFoundError: If no credentials found for the DID
         """
         # If we already have an adapter, return it
-        if self._use_multi_did and self._multi_did_adapter is not None:
-            return self._multi_did_adapter
         if self._adapter is not None:
             return self._adapter
 
-        # Try multi-DID first if we have db and did
         did = self._chattigo_context.get("did")
-        if self._db_session is not None and did:
-            # Import at module level check to satisfy type checkers
-            from app.core.tenancy.tenant_credential_service import CredentialNotFoundError
-            from app.integrations.chattigo.adapter_factory import (
-                get_chattigo_adapter_factory,
+        if self._db_session is None or not did:
+            raise ValueError(
+                "Chattigo credentials require db_session and chattigo_context with 'did'. "
+                "Configure credentials via Admin API: POST /api/v1/admin/chattigo-credentials"
             )
 
-            try:
-                factory = get_chattigo_adapter_factory()
-                self._multi_did_adapter = await factory.get_adapter(self._db_session, did)
-                await self._multi_did_adapter.initialize()
-                self._use_multi_did = True
-                logger.info(f"Using multi-DID credentials for DID {did}")
-                return self._multi_did_adapter
+        from app.integrations.chattigo.adapter_factory import (
+            get_chattigo_adapter_factory,
+        )
 
-            except CredentialNotFoundError:
-                logger.info(
-                    f"No multi-DID credentials found for DID {did}, "
-                    "falling back to settings-based adapter"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to get multi-DID adapter for DID {did}: {e}, "
-                    "falling back to settings-based adapter"
-                )
-
-        # Fallback to settings-based adapter
-        from app.integrations.chattigo import ChattigoAdapter
-
-        self._adapter = ChattigoAdapter(self._settings)
+        factory = get_chattigo_adapter_factory()
+        self._adapter = await factory.get_adapter(self._db_session, did)
         await self._adapter.initialize()
-        logger.info("Using settings-based Chattigo adapter")
+        logger.info(f"Using database credentials for DID {did}")
         return self._adapter
 
     async def send_message(self, numero: str, mensaje: str) -> dict[str, Any]:
@@ -234,14 +212,10 @@ class ChattigoMessagingService:
     send_template_with_document = enviar_template_con_documento
 
     async def close(self):
-        """Close adapters."""
-        if self._multi_did_adapter:
-            await self._multi_did_adapter.close()
-            self._multi_did_adapter = None
+        """Close adapter."""
         if self._adapter:
             await self._adapter.close()
             self._adapter = None
-        self._use_multi_did = False
 
 
 # ============================================================================
@@ -342,8 +316,7 @@ class WhatsAppService:
             "config": {
                 "chattigo_enabled": self.settings.CHATTIGO_ENABLED,
                 "chattigo_base_url": self.settings.CHATTIGO_BASE_URL,
-                "chattigo_username": self.settings.CHATTIGO_USERNAME,
-                "chattigo_channel_id": self.settings.CHATTIGO_CHANNEL_ID,
+                "credentials_source": "database (chattigo_credentials table)",
             },
         }
 
@@ -363,26 +336,18 @@ def get_messaging_service(
     Returns ChattigoMessagingService since Chattigo is the only
     supported messaging integration.
 
-    Multi-DID Support:
-    - When db_session and chattigo_context with 'did' are provided,
-      credentials are fetched from chattigo_credentials table.
-    - Falls back to settings-based credentials if not found in DB.
+    Credentials are fetched from chattigo_credentials table (encrypted).
+    Configure credentials via Admin API: POST /api/v1/admin/chattigo-credentials
 
     Args:
         chattigo_context: Context from Chattigo webhook (did, idChat, etc.)
                          Required for proper message routing.
-        db_session: Optional database session for multi-DID credential lookup.
-                   If provided with chattigo_context containing 'did',
-                   enables multi-DID credential support.
+        db_session: Database session for credential lookup (required).
 
     Returns:
         ChattigoMessagingService instance
 
     Example:
-        # Basic usage (settings-based)
-        service = get_messaging_service(chattigo_context=ctx)
-
-        # Multi-DID usage (database credentials)
         service = get_messaging_service(chattigo_context=ctx, db_session=db)
         await service.send_message("5491234567890", "Hello!")
     """

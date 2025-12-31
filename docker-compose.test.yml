@@ -86,14 +86,10 @@ services:
       - REDIS_PASSWORD=
       # pgvector
       - PGVECTOR_SIMILARITY_THRESHOLD=0.7
-      # Chattigo Integration (mock values for testing)
+      # Chattigo Integration (credentials in database for testing)
+      # Test fixtures should seed chattigo_credentials table
       - CHATTIGO_ENABLED=true
       - CHATTIGO_BASE_URL=https://mock.chattigo.test
-      - CHATTIGO_USERNAME=test_username
-      - CHATTIGO_PASSWORD=test_password
-      - CHATTIGO_CHANNEL_ID=99999
-      - CHATTIGO_CAMPAIGN_ID=test_campaign
-      - CHATTIGO_BOT_NAME=TestBot
       # Disable external services during tests
       - DUX_SYNC_ENABLED=false
       - LANGSMITH_TRACING_ENABLED=false

@@ -39,12 +39,29 @@ curl -X POST "https://channels.chattigo.com/bsp-cloud-chattigo-isv/login" \
 }
 ```
 
-**Variables de entorno requeridas:**
+**Credenciales en Base de Datos:**
+
+Las credenciales de Chattigo ahora se almacenan en la base de datos con encriptación.
+Configure via Admin API:
+
 ```bash
-CHATTIGO_USERNAME=usuario@dominio
-CHATTIGO_PASSWORD=tu_password
-CHATTIGO_CHANNEL_ID=12676
-CHATTIGO_CAMPAIGN_ID=7883
+# Crear credenciales para un DID
+curl -X POST "http://localhost:8080/api/v1/admin/chattigo-credentials" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TU_JWT_TOKEN" \
+  -d '{
+    "did": "5492644710400",
+    "name": "WhatsApp Principal",
+    "username": "usuario@dominio",
+    "password": "tu_password",
+    "organization_id": "uuid-de-organizacion"
+  }'
+```
+
+**Variables de entorno (solo configuración, NO credenciales):**
+```bash
+CHATTIGO_ENABLED=true
+CHATTIGO_BASE_URL=https://channels.chattigo.com/bsp-cloud-chattigo-isv
 ```
 
 ---
@@ -277,20 +294,36 @@ if is_status_update(wa_request):
 
 ## 6. Configuración de Producción
 
-### Variables de Entorno
+### Credenciales (Base de Datos)
+
+Las credenciales de Chattigo se almacenan en la tabla `chattigo_credentials` con encriptación.
+Gestione las credenciales via Admin API:
 
 ```bash
-# Chattigo
+# Listar credenciales
+GET /api/v1/admin/chattigo-credentials
+
+# Crear credenciales
+POST /api/v1/admin/chattigo-credentials
+{
+  "did": "5492644710400",
+  "name": "WhatsApp Produccion",
+  "username": "usuario@dominio",
+  "password": "password_seguro",
+  "bot_name": "Aynux",
+  "organization_id": "uuid-de-organizacion"
+}
+
+# Probar autenticación
+POST /api/v1/admin/chattigo-credentials/{did}/test
+```
+
+### Variables de Entorno (Solo Configuración)
+
+```bash
+# Chattigo (solo configuración, credenciales en DB)
 CHATTIGO_ENABLED=true
 CHATTIGO_BASE_URL=https://channels.chattigo.com/bsp-cloud-chattigo-isv
-CHATTIGO_USERNAME=usuario@dominio
-CHATTIGO_PASSWORD=password_seguro
-CHATTIGO_CHANNEL_ID=12676
-CHATTIGO_CAMPAIGN_ID=7883
-CHATTIGO_BOT_NAME=Aynux
-
-# WhatsApp (heredado, usado por el servicio)
-WHATSAPP_PHONE_NUMBER_ID=734053143122597
 ```
 
 ### Verificar Conectividad
