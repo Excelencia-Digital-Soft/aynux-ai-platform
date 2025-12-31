@@ -6,11 +6,15 @@ Prueba múltiples combinaciones de:
 1. Endpoints: /outbound, /webhooks/outbound, /webhooks/inbound, /message, /send
 2. Payloads: Simplificado vs BSP completo con chatType OUTBOUND
 
+IMPORTANTE: Las credenciales de Chattigo ahora se almacenan en la base de datos.
+Configure credenciales via Admin API: POST /api/v1/admin/chattigo-credentials
+
 Uso:
     cd python
-    uv run python scripts/test_chattigo_outbound.py
+    uv run python scripts/test_chattigo_outbound.py --username USER --password PASS
 """
 
+import argparse
 import asyncio
 import os
 import sys
@@ -20,22 +24,20 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables (only for URLs)
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 class ChattigoOutboundTester:
     """Tester exhaustivo para encontrar el endpoint de outbound de Chattigo ISV."""
 
-    def __init__(self):
+    def __init__(self, username: str, password: str, did: str, bot_name: str = "Aynux"):
         self.base_url = "https://channels.chattigo.com/bsp-cloud-chattigo-isv"
         self.login_url = os.getenv("CHATTIGO_LOGIN_URL", f"{self.base_url}/login")
-        self.username = os.getenv("CHATTIGO_USERNAME", "")
-        self.password = os.getenv("CHATTIGO_PASSWORD", "")
-        self.did = os.getenv("CHATTIGO_DID", "5492644710400")
-        self.bot_name = os.getenv("CHATTIGO_BOT_NAME", "Aynux")
-        self.channel_id = int(os.getenv("CHATTIGO_CHANNEL_ID", "0"))
-        self.id_campaign = os.getenv("CHATTIGO_ID_CAMPAIGN", "")
+        self.username = username
+        self.password = password
+        self.did = did
+        self.bot_name = bot_name
 
         self.token: str | None = None
         self.client: httpx.AsyncClient | None = None
@@ -259,15 +261,27 @@ class ChattigoOutboundTester:
 
 
 async def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Prueba exhaustiva de Chattigo ISV")
+    parser = argparse.ArgumentParser(
+        description="Prueba exhaustiva de Chattigo ISV",
+        epilog="Credenciales se almacenan en DB. Configure via Admin API: POST /api/v1/admin/chattigo-credentials",
+    )
+    # Credential arguments (required)
+    parser.add_argument("--username", type=str, required=True, help="Chattigo API username")
+    parser.add_argument("--password", type=str, required=True, help="Chattigo API password")
+    parser.add_argument("--did", type=str, default="5492644710400", help="WhatsApp Business DID")
+    parser.add_argument("--bot-name", type=str, default="Aynux", help="Bot name for messages")
+    # Test arguments
     parser.add_argument("--phone", type=str, default="5492644472542",
                         help="Numero de telefono para prueba")
 
     args = parser.parse_args()
 
-    async with ChattigoOutboundTester() as tester:
+    async with ChattigoOutboundTester(
+        username=args.username,
+        password=args.password,
+        did=args.did,
+        bot_name=args.bot_name,
+    ) as tester:
         await tester.run_exhaustive_test(args.phone)
 
 

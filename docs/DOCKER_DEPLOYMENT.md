@@ -324,10 +324,9 @@ OLLAMA_API_MODEL_COMPLEX=deepseek-r1:7b
 ENVIRONMENT=production
 DEBUG=false
 
-# WhatsApp (if using)
-WHATSAPP_ACCESS_TOKEN=<your-token>
-WHATSAPP_PHONE_NUMBER_ID=<your-phone-id>
-WHATSAPP_VERIFY_TOKEN=<your-verify-token>
+# WhatsApp/Chattigo credentials are stored in database with encryption.
+# Configure via Admin API: POST /api/v1/admin/chattigo-credentials
+# or PUT /api/v1/admin/organizations/{org_id}/credentials
 
 # Monitoring
 LANGSMITH_API_KEY=<your-langsmith-key>

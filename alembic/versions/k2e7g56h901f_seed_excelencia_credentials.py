@@ -9,14 +9,14 @@ from environment variables.
 
 IMPORTANT: This migration requires the following environment variables:
 - CREDENTIAL_ENCRYPTION_KEY: pgcrypto encryption key
-- WHATSAPP_ACCESS_TOKEN: WhatsApp Graph API access token
-- WHATSAPP_PHONE_NUMBER_ID: WhatsApp Business phone number ID
-- WHATSAPP_VERIFY_TOKEN: Webhook verification token
 - DUX_API_KEY: DUX ERP API key
 - DUX_API_BASE_URL: DUX API base URL
 - PLEX_API_BASE_URL: Plex ERP API URL
 - PLEX_API_USER: Plex ERP username
 - PLEX_API_PASS: Plex ERP password
+
+NOTE: WhatsApp/Chattigo credentials are stored in database with encryption.
+Configure via Admin API: POST /api/v1/admin/chattigo-credentials
 
 Run with: PGPASSWORD=aynux_dev uv run alembic upgrade head
 """
@@ -51,9 +51,7 @@ def upgrade() -> None:
         return
 
     # Get credentials from environment
-    wa_access_token = os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
-    wa_phone_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "")
-    wa_verify_token = os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
+    # NOTE: WhatsApp/Chattigo credentials are stored in database via Admin API
 
     dux_api_key = os.environ.get("DUX_API_KEY", "")
     dux_base_url = os.environ.get("DUX_API_BASE_URL", "")
@@ -63,11 +61,10 @@ def upgrade() -> None:
     plex_pass = os.environ.get("PLEX_API_PASS", "")
 
     # Check if we have any credentials to seed
-    has_whatsapp = wa_access_token and wa_phone_id and wa_verify_token
     has_dux = dux_api_key and dux_base_url
     has_plex = plex_url and plex_user and plex_pass
 
-    if not any([has_whatsapp, has_dux, has_plex]):
+    if not any([has_dux, has_plex]):
         print("WARNING: No credentials found in environment variables.")
         print("Credentials can be added later via Admin API.")
         _create_excelencia_org_only()
@@ -130,12 +127,10 @@ def upgrade() -> None:
 
     # Build credential insert with encryption
     # Use raw SQL with parameter binding for security
+    # NOTE: WhatsApp credentials are managed via Admin API, not seeded from env vars
     insert_sql = text("""
         INSERT INTO core.tenant_credentials (
             organization_id,
-            whatsapp_access_token_encrypted,
-            whatsapp_phone_number_id,
-            whatsapp_verify_token_encrypted,
             dux_api_key_encrypted,
             dux_api_base_url,
             plex_api_url,
@@ -145,9 +140,6 @@ def upgrade() -> None:
             updated_at
         ) VALUES (
             CAST(:org_id AS uuid),
-            CASE WHEN :wa_token != '' THEN encode(pgp_sym_encrypt(:wa_token, :key), 'base64') ELSE NULL END,
-            CASE WHEN :wa_phone != '' THEN :wa_phone ELSE NULL END,
-            CASE WHEN :wa_verify != '' THEN encode(pgp_sym_encrypt(:wa_verify, :key), 'base64') ELSE NULL END,
             CASE WHEN :dux_key != '' THEN encode(pgp_sym_encrypt(:dux_key, :key), 'base64') ELSE NULL END,
             CASE WHEN :dux_url != '' THEN :dux_url ELSE NULL END,
             CASE WHEN :plex_url != '' THEN :plex_url ELSE NULL END,
@@ -156,18 +148,6 @@ def upgrade() -> None:
             NOW(),
             NOW()
         ) ON CONFLICT (organization_id) DO UPDATE SET
-            whatsapp_access_token_encrypted = CASE
-                WHEN :wa_token != '' THEN encode(pgp_sym_encrypt(:wa_token, :key), 'base64')
-                ELSE core.tenant_credentials.whatsapp_access_token_encrypted
-            END,
-            whatsapp_phone_number_id = CASE
-                WHEN :wa_phone != '' THEN :wa_phone
-                ELSE core.tenant_credentials.whatsapp_phone_number_id
-            END,
-            whatsapp_verify_token_encrypted = CASE
-                WHEN :wa_verify != '' THEN encode(pgp_sym_encrypt(:wa_verify, :key), 'base64')
-                ELSE core.tenant_credentials.whatsapp_verify_token_encrypted
-            END,
             dux_api_key_encrypted = CASE
                 WHEN :dux_key != '' THEN encode(pgp_sym_encrypt(:dux_key, :key), 'base64')
                 ELSE core.tenant_credentials.dux_api_key_encrypted
@@ -196,9 +176,6 @@ def upgrade() -> None:
         {
             "org_id": EXCELENCIA_ORG_ID,
             "key": encryption_key,
-            "wa_token": wa_access_token,
-            "wa_phone": wa_phone_id,
-            "wa_verify": wa_verify_token,
             "dux_key": dux_api_key,
             "dux_url": dux_base_url,
             "plex_url": plex_url,
@@ -208,7 +185,7 @@ def upgrade() -> None:
     )
 
     print(f"Seeded credentials for excelencia organization ({EXCELENCIA_ORG_ID}):")
-    print(f"  - WhatsApp: {'configured' if has_whatsapp else 'not configured'}")
+    print(f"  - WhatsApp/Chattigo: configure via Admin API")
     print(f"  - DUX: {'configured' if has_dux else 'not configured'}")
     print(f"  - Plex: {'configured' if has_plex else 'not configured'}")
 

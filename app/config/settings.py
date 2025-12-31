@@ -70,17 +70,13 @@ class Settings(BaseSettings):
         "https://channels.chattigo.com/bsp-cloud-chattigo-isv/webhooks/inbound",
         description="Chattigo message sending endpoint",
     )
-    CHATTIGO_USERNAME: str = Field("apimasive@munitintina", description="Chattigo API username")
-    CHATTIGO_PASSWORD: str = Field("api@2025", description="Chattigo API password")
-    CHATTIGO_DID: str = Field("5492644710400", description="WhatsApp Business number (Device ID)")
-    CHATTIGO_BOT_NAME: str = Field("Aynux", description="Bot name shown in messages")
-    # Legacy settings (kept for backward compatibility)
+    # Chattigo credentials (username, password, bot_name, channel_id, campaign_id) are now stored
+    # in the database with encryption. Configure via Admin API: POST /api/v1/admin/chattigo-credentials
+    CHATTIGO_DID: str = Field("5492644710400", description="Default WhatsApp Business number (Device ID)")
     CHATTIGO_BASE_URL: str = Field(
         "https://channels.chattigo.com/bsp-cloud-chattigo-isv",
-        description="Legacy Chattigo API base URL (for webhook registration)",
+        description="Chattigo API base URL (for webhook registration)",
     )
-    CHATTIGO_CHANNEL_ID: int = Field(12676, description="Chattigo channel ID")
-    CHATTIGO_CAMPAIGN_ID: str = Field("7883", description="Chattigo campaign ID")
 
     # PostgreSQL Database Settings
     DB_HOST: str = Field("localhost", description="Host de PostgreSQL")

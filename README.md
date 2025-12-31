@@ -250,10 +250,10 @@ print(response.json())
 ### WhatsApp Integration
 
 ```python
-# Configure webhook in your .env
-WHATSAPP_ACCESS_TOKEN=your_token
-WHATSAPP_PHONE_NUMBER_ID=your_phone_id
-WHATSAPP_VERIFY_TOKEN=your_verify_token
+# WhatsApp/Chattigo credentials are stored in database with encryption.
+# Configure via Admin API:
+#   POST /api/v1/admin/chattigo-credentials
+#   PUT /api/v1/admin/organizations/{org_id}/credentials
 
 # The webhook endpoint automatically handles incoming WhatsApp messages
 # POST /webhook
@@ -758,12 +758,10 @@ All conversations are automatically traced in LangSmith for debugging and optimi
 | `USE_PGVECTOR` | `true` | Enable pgvector semantic search |
 | `PGVECTOR_SIMILARITY_THRESHOLD` | `0.7` | Minimum similarity score (0.0-1.0) |
 
-### WhatsApp
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `WHATSAPP_ACCESS_TOKEN` | - | WhatsApp Business API token |
-| `WHATSAPP_PHONE_NUMBER_ID` | - | Phone number ID |
-| `WHATSAPP_VERIFY_TOKEN` | - | Webhook verification token |
+### WhatsApp / Chattigo
+
+> **Note**: All WhatsApp/Chattigo credentials are stored in database with encryption.
+> Configure via Admin API: `POST /api/v1/admin/chattigo-credentials`
 
 ### Monitoring
 | Variable | Default | Description |

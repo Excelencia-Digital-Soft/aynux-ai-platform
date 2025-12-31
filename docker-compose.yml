@@ -154,13 +154,10 @@ services:
       - API_V1_STR=/api/v1
       - PROJECT_NAME=Aynux WhatsApp Bot
       # Chattigo Integration (WhatsApp via ISV)
+      # Note: Credentials are stored in database (chattigo_credentials table)
+      # Configure via Admin API: POST /api/v1/admin/chattigo-credentials
       - CHATTIGO_ENABLED=${CHATTIGO_ENABLED:-true}
       - CHATTIGO_BASE_URL=${CHATTIGO_BASE_URL:-https://channels.chattigo.com/bsp-cloud-chattigo-isv}
-      - CHATTIGO_USERNAME=${CHATTIGO_USERNAME}
-      - CHATTIGO_PASSWORD=${CHATTIGO_PASSWORD}
-      - CHATTIGO_CHANNEL_ID=${CHATTIGO_CHANNEL_ID:-12676}
-      - CHATTIGO_CAMPAIGN_ID=${CHATTIGO_CAMPAIGN_ID}
-      - CHATTIGO_BOT_NAME=${CHATTIGO_BOT_NAME:-Aynux}
       # DUX Sync - controlled via .env file only (not host environment)
       # Set DUX_SYNC_ENABLED=true in .env to enable
       # LangSmith (optional - for tracing)

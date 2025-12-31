@@ -6,11 +6,15 @@ WhatsApp Business tiene varias reglas:
 1. Ventana de 24 horas: Solo puedes enviar mensajes a usuarios que te escribieron
 2. Formato del numero: Puede requerir formato especifico (con/sin +, codigo de pais, etc.)
 
+IMPORTANTE: Las credenciales de Chattigo ahora se almacenan en la base de datos.
+Configure credenciales via Admin API: POST /api/v1/admin/chattigo-credentials
+
 Uso:
     cd python
-    uv run python scripts/test_chattigo_phone_formats.py --phone 5492644472542
+    uv run python scripts/test_chattigo_phone_formats.py --username USER --password PASS --phone 5492644472542
 """
 
+import argparse
 import asyncio
 import os
 import time
@@ -23,15 +27,15 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 class PhoneFormatTester:
-    def __init__(self):
+    def __init__(self, username: str, password: str, did: str, bot_name: str = "Aynux"):
         self.base_url = "https://channels.chattigo.com/bsp-cloud-chattigo-isv"
         self.login_url = f"{self.base_url}/login"
         self.message_url = f"{self.base_url}/webhooks/inbound"
 
-        self.username = os.getenv("CHATTIGO_USERNAME", "")
-        self.password = os.getenv("CHATTIGO_PASSWORD", "")
-        self.did = os.getenv("CHATTIGO_DID", "5492644710400")
-        self.bot_name = os.getenv("CHATTIGO_BOT_NAME", "Aynux")
+        self.username = username
+        self.password = password
+        self.did = did
+        self.bot_name = bot_name
 
         self.token: str | None = None
         self.client: httpx.AsyncClient | None = None
@@ -183,12 +187,25 @@ class PhoneFormatTester:
 
 
 async def main():
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--phone", type=str, default="5492644472542")
+    parser = argparse.ArgumentParser(
+        description="Prueba de formatos de telefono Chattigo ISV",
+        epilog="Credenciales se almacenan en DB. Configure via Admin API: POST /api/v1/admin/chattigo-credentials",
+    )
+    # Credential arguments (required)
+    parser.add_argument("--username", type=str, required=True, help="Chattigo API username")
+    parser.add_argument("--password", type=str, required=True, help="Chattigo API password")
+    parser.add_argument("--did", type=str, default="5492644710400", help="WhatsApp Business DID")
+    parser.add_argument("--bot-name", type=str, default="Aynux", help="Bot name for messages")
+    # Test arguments
+    parser.add_argument("--phone", type=str, default="5492644472542", help="Phone number for test")
     args = parser.parse_args()
 
-    async with PhoneFormatTester() as tester:
+    async with PhoneFormatTester(
+        username=args.username,
+        password=args.password,
+        did=args.did,
+        bot_name=args.bot_name,
+    ) as tester:
         await tester.run_phone_format_tests(args.phone)
 
 

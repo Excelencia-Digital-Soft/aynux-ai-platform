@@ -50,6 +50,7 @@ from .models import (
     ChattigoWebhookPayload,
 )
 from .payload_builder import ChattigoPayloadBuilder
+from .token_models import ChattigoTokenData
 
 __all__ = [
     # Legacy Adapter
@@ -74,4 +75,6 @@ __all__ = [
     "ChattigoAttachmentMessage",
     "ChattigoLoginRequest",
     "ChattigoLoginResponse",
+    # Token Storage (Redis)
+    "ChattigoTokenData",
 ]

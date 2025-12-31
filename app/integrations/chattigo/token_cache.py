@@ -15,32 +15,41 @@ import time
 import httpx
 
 from app.core.tenancy import ChattigoCredentials
+from app.repositories.async_redis_repository import AsyncRedisRepository
 
 from .exceptions import ChattigoTokenError
 from .models import ChattigoLoginRequest, ChattigoLoginResponse
+from .token_models import ChattigoTokenData
 
 logger = logging.getLogger(__name__)
 
 
 class ChattigoTokenCache:
     """
-    In-memory cache for Chattigo JWT tokens with auto-refresh per DID.
+    Redis-backed cache for Chattigo JWT tokens with auto-refresh per DID.
 
     Each DID maintains its own token with independent refresh timing.
     Tokens are refreshed before expiration based on token_refresh_hours setting.
+
+    Primary storage: Redis (persistent across restarts)
+    Fallback: In-memory dict (if Redis unavailable)
 
     Thread-safe via asyncio.Lock per DID operation.
     """
 
     # Token TTL: 8 hours (per Chattigo ISV spec)
     TOKEN_TTL_HOURS = 8
+    # Redis key prefix for Chattigo tokens
+    REDIS_PREFIX = "chattigo:token"
 
     def __init__(self) -> None:
         """Initialize token cache."""
-        # {did: (token, expiry_timestamp)}
+        # In-memory fallback cache: {did: (token, expiry_timestamp)}
         self._tokens: dict[str, tuple[str, float]] = {}
         self._lock = asyncio.Lock()
         self._http_client: httpx.AsyncClient | None = None
+        # Redis repository for persistent token storage (lazy initialized)
+        self._redis_repo: AsyncRedisRepository[ChattigoTokenData] | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client for token requests."""
@@ -48,11 +57,28 @@ class ChattigoTokenCache:
             self._http_client = httpx.AsyncClient(timeout=30.0)
         return self._http_client
 
+    async def _ensure_redis(self) -> AsyncRedisRepository[ChattigoTokenData]:
+        """
+        Ensure Redis repository is initialized (lazy initialization).
+
+        Returns:
+            Initialized Redis repository for ChattigoTokenData
+        """
+        if self._redis_repo is None:
+            self._redis_repo = AsyncRedisRepository[ChattigoTokenData](
+                ChattigoTokenData,
+                prefix=self.REDIS_PREFIX,
+            )
+        return self._redis_repo
+
     async def close(self) -> None:
-        """Close HTTP client and clear cache."""
+        """Close HTTP client, Redis connection, and clear cache."""
         if self._http_client:
             await self._http_client.aclose()
             self._http_client = None
+        if self._redis_repo:
+            await self._redis_repo.close()
+            self._redis_repo = None
         self._tokens.clear()
 
     async def get_token(
@@ -63,6 +89,9 @@ class ChattigoTokenCache:
 
         Token refresh occurs at (TTL - (TTL - refresh_hours)) from expiry,
         which means refresh happens `refresh_hours` after token was obtained.
+
+        Primary storage: Redis (persistent)
+        Fallback: In-memory dict (if Redis unavailable)
 
         Args:
             did: WhatsApp Business phone number (DID)
@@ -75,17 +104,15 @@ class ChattigoTokenCache:
             ChattigoTokenError: If token cannot be obtained
         """
         async with self._lock:
-            cached = self._tokens.get(did)
+            # Try Redis first (primary storage)
+            redis_repo = await self._ensure_redis()
+            cached = await redis_repo.get(did)
 
             if cached:
-                token, expiry = cached
-                # Calculate when to refresh: refresh_hours after token was obtained
-                # Token was obtained at: expiry - TTL_HOURS * 3600
-                token_obtained_at = expiry - (self.TOKEN_TTL_HOURS * 3600)
-                refresh_at = token_obtained_at + (credentials.token_refresh_hours * 3600)
-
-                if time.time() < refresh_at:
-                    return token  # Token still valid
+                # Check if token needs refresh using tolerance from DB
+                if not cached.should_refresh(credentials.token_refresh_hours):
+                    logger.debug(f"Token for DID {did} retrieved from Redis (still valid)")
+                    return cached.token
 
                 logger.info(
                     f"Token for DID {did} needs refresh "
@@ -99,7 +126,7 @@ class ChattigoTokenCache:
         self, did: str, credentials: ChattigoCredentials
     ) -> str:
         """
-        Obtain new token from Chattigo ISV.
+        Obtain new token from Chattigo ISV and store in Redis.
 
         Args:
             did: WhatsApp Business phone number (DID)
@@ -135,12 +162,24 @@ class ChattigoTokenCache:
             data = ChattigoLoginResponse(**json_data)
             token = data.access_token
 
-            # Store with expiry (8 hours from now)
-            expiry = time.time() + (self.TOKEN_TTL_HOURS * 3600)
-            self._tokens[did] = (token, expiry)
+            # Calculate timestamps
+            now = time.time()
+            expiry = now + (self.TOKEN_TTL_HOURS * 3600)
+
+            # Store in Redis with TTL (primary storage)
+            redis_repo = await self._ensure_redis()
+            token_data = ChattigoTokenData(
+                token=token,
+                obtained_at=now,
+                expiry=expiry,
+            )
+
+            # TTL in seconds (8 hours)
+            ttl_seconds = int(expiry - now)
+            await redis_repo.set(did, token_data, expiration=ttl_seconds)
 
             logger.info(
-                f"Token obtained for DID {did}, "
+                f"Token obtained for DID {did} (stored in Redis), "
                 f"next refresh in {credentials.token_refresh_hours}h"
             )
 
@@ -157,31 +196,34 @@ class ChattigoTokenCache:
                 f"Login response parsing failed for DID {did}: {e}"
             ) from e
 
-    def invalidate(self, did: str) -> None:
+    async def invalidate(self, did: str) -> None:
         """
-        Invalidate cached token for DID.
+        Invalidate cached token for DID in Redis.
 
         Call this after receiving 401 errors to force token refresh.
 
         Args:
             did: WhatsApp Business phone number (DID)
         """
-        if did in self._tokens:
-            del self._tokens[did]
-            logger.info(f"Token invalidated for DID {did}")
+        # Delete from Redis (primary storage)
+        redis_repo = await self._ensure_redis()
+        deleted = await redis_repo.delete(did)
+
+        if deleted:
+            logger.info(f"Token invalidated in Redis for DID {did}")
+        else:
+            logger.debug(f"No token found in Redis for DID {did}")
 
     def get_cache_stats(self) -> dict:
-        """Get cache statistics for monitoring."""
-        now = time.time()
-        dids_list: list[dict] = []
-        for did, (_, expiry) in self._tokens.items():
-            remaining = max(0, expiry - now)
-            dids_list.append({
-                "did": did,
-                "expires_in_seconds": int(remaining),
-                "expires_in_hours": round(remaining / 3600, 2),
-            })
+        """
+        Get cache statistics for monitoring.
+
+        Note: Returns storage backend info. Individual token stats
+        require querying Redis directly (not implemented here).
+        """
         return {
-            "total_cached": len(self._tokens),
-            "dids": dids_list,
+            "storage_backend": "redis",
+            "redis_prefix": self.REDIS_PREFIX,
+            "token_ttl_hours": self.TOKEN_TTL_HOURS,
+            "note": "Query Redis directly for individual token stats",
         }

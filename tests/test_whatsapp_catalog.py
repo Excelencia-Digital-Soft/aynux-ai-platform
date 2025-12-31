@@ -111,8 +111,7 @@ class TestWhatsAppService:
         """Get mock settings for testing"""
         settings_mock = MagicMock()
         settings_mock.WHATSAPP_CATALOG_ID = "1561483558155324"
-        settings_mock.WHATSAPP_ACCESS_TOKEN = "test_token"
-        settings_mock.WHATSAPP_PHONE_NUMBER_ID = "103397245943977"
+        # NOTE: WHATSAPP_ACCESS_TOKEN removed - credentials stored in database
         settings_mock.WHATSAPP_API_BASE = "https://graph.facebook.com"
         settings_mock.WHATSAPP_API_VERSION = "v22.0"
         settings_mock.is_development = True

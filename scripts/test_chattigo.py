@@ -3,18 +3,22 @@
 Script de pruebas E2E para la integración con Chattigo API.
 
 Este script verifica:
-1. Autenticación con Chattigo API (https://api.chattigo.com/login)
-2. Envío de mensaje de prueba (https://api.chattigo.com/message)
+1. Autenticación con Chattigo API
+2. Envío de mensaje de prueba
+
+IMPORTANTE: Las credenciales de Chattigo ahora se almacenan en la base de datos.
+Para producción, configure credenciales via Admin API: POST /api/v1/admin/chattigo-credentials
+
+Este script requiere credenciales explícitas via argumentos CLI.
 
 Uso:
     cd python
-    uv run python scripts/test_chattigo.py
 
     # Solo autenticación
-    uv run python scripts/test_chattigo.py --auth-only
+    uv run python scripts/test_chattigo.py --username USER --password PASS --auth-only
 
     # Enviar mensaje de prueba
-    uv run python scripts/test_chattigo.py --send-test --phone 5491112345678
+    uv run python scripts/test_chattigo.py --username USER --password PASS --send-test --phone 5491112345678
 """
 
 import argparse
@@ -30,14 +34,23 @@ from dotenv import load_dotenv
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Load environment variables
+# Load environment variables (only for URLs)
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 class ChattigoTester:
     """Clase para probar la integración con Chattigo."""
 
-    def __init__(self):
+    def __init__(self, username: str, password: str, did: str, bot_name: str = "Aynux"):
+        """
+        Initialize tester with explicit credentials.
+
+        Args:
+            username: Chattigo API username (required)
+            password: Chattigo API password (required)
+            did: WhatsApp Business DID (required)
+            bot_name: Bot name for messages (default: "Aynux")
+        """
         self.login_url = os.getenv(
             "CHATTIGO_LOGIN_URL",
             "https://channels.chattigo.com/bsp-cloud-chattigo-isv/login",
@@ -46,10 +59,10 @@ class ChattigoTester:
             "CHATTIGO_MESSAGE_URL",
             "https://channels.chattigo.com/bsp-cloud-chattigo-isv/webhooks/inbound",
         )
-        self.username = os.getenv("CHATTIGO_USERNAME", "")
-        self.password = os.getenv("CHATTIGO_PASSWORD", "")
-        self.did = os.getenv("CHATTIGO_DID", "5492644710400")
-        self.bot_name = os.getenv("CHATTIGO_BOT_NAME", "Aynux")
+        self.username = username
+        self.password = password
+        self.did = did
+        self.bot_name = bot_name
 
         self.token: str | None = None
         self.client: httpx.AsyncClient | None = None
@@ -226,19 +239,27 @@ class ChattigoTester:
   - Login: POST https://api.chattigo.com/login
   - Enviar mensaje: POST https://api.chattigo.com/message
 
-  Configuracion requerida (.env):
-  - CHATTIGO_LOGIN_URL
-  - CHATTIGO_MESSAGE_URL
-  - CHATTIGO_USERNAME
-  - CHATTIGO_PASSWORD
-  - CHATTIGO_DID (numero WhatsApp Business)
+  Credenciales ahora se almacenan en base de datos.
+  Configure via Admin API: POST /api/v1/admin/chattigo-credentials
+
+  Para tests manuales, pase credenciales via CLI:
+  --username, --password, --did, --bot-name
         """)
 
         return results
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Pruebas de integracion Chattigo API")
+    parser = argparse.ArgumentParser(
+        description="Pruebas de integracion Chattigo API",
+        epilog="Credenciales se almacenan en DB. Configure via Admin API: POST /api/v1/admin/chattigo-credentials",
+    )
+    # Credential arguments (required)
+    parser.add_argument("--username", type=str, required=True, help="Chattigo API username")
+    parser.add_argument("--password", type=str, required=True, help="Chattigo API password")
+    parser.add_argument("--did", type=str, default="5492644710400", help="WhatsApp Business DID")
+    parser.add_argument("--bot-name", type=str, default="Aynux", help="Bot name for messages")
+    # Action arguments
     parser.add_argument("--auth-only", action="store_true", help="Solo probar autenticacion")
     parser.add_argument("--send-test", action="store_true", help="Enviar mensaje de prueba")
     parser.add_argument("--phone", type=str, help="Numero de telefono para mensaje de prueba")
@@ -246,7 +267,12 @@ async def main():
 
     args = parser.parse_args()
 
-    async with ChattigoTester() as tester:
+    async with ChattigoTester(
+        username=args.username,
+        password=args.password,
+        did=args.did,
+        bot_name=args.bot_name,
+    ) as tester:
         if args.auth_only:
             await tester.test_authentication()
         elif args.send_test:
