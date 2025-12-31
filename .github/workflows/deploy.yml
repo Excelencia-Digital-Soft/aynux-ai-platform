@@ -20,8 +20,8 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 160
-        timeout: 30m
-        command_timeout: 30m
+        timeout: 60m
+        command_timeout: 60m
         script: |
           # Create parent structure
           mkdir -p ~/aynux
