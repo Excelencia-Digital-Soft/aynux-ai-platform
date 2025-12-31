@@ -1,15 +1,15 @@
 # ============================================================================
 # SCOPE: GLOBAL (Chattigo mode)
 # Description: Webhook endpoint for Chattigo WhatsApp integration.
-#              Supports both WhatsApp standard format and Chattigo ISV format.
+#              Implements idempotency and fast response per Chattigo ISV docs.
 # ============================================================================
 """
 WhatsApp Webhook Endpoints (via Chattigo).
 
-Chattigo is a WhatsApp Business API intermediary that:
-- Handles Meta webhook verification
-- Forwards messages to this application (in WhatsApp standard format)
-- Provides API for sending messages
+Chattigo ISV Integration Features:
+- Idempotency: Redis SET NX prevents duplicate processing (Section 4.2)
+- Fast Response: Returns 200 OK immediately, processes in background (Section 4.2)
+- Multi-format: Supports WhatsApp standard and Chattigo ISV formats
 
 ENDPOINTS:
   - POST /webhook → Message processing from Chattigo
@@ -19,29 +19,26 @@ ENDPOINTS:
 
 import json
 import logging
-import time
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.config.settings import Settings, get_settings
 from app.database.async_db import get_async_db
-from app.domains.shared.application.use_cases.process_webhook_use_case import (
-    ProcessWebhookUseCase,
-)
-from app.integrations.chattigo import ChattigoWebhookPayload
-from app.models.message import ChattigoToWhatsAppAdapter, WhatsAppWebhookRequest
-from app.models.parsers.whatsapp_webhook_parser import (
-    extract_phone_number_id,
-    is_status_update,
-)
 from app.services.langgraph_chatbot_service import LangGraphChatbotService
+from app.services.webhook import (
+    IdempotencyService,
+    ProcessingState,
+    WebhookProcessor,
+    WebhookTask,
+)
 
 router = APIRouter(tags=["webhook"])
 logger = logging.getLogger(__name__)
 
 # LangGraph Service (initialized lazily)
 _langgraph_service: LangGraphChatbotService | None = None
+# Idempotency Service (shared instance)
+_idempotency_service: IdempotencyService | None = None
 
 
 async def _get_langgraph_service() -> LangGraphChatbotService:
@@ -58,6 +55,14 @@ async def _get_langgraph_service() -> LangGraphChatbotService:
     return _langgraph_service
 
 
+def _get_idempotency_service() -> IdempotencyService:
+    """Get or create IdempotencyService singleton."""
+    global _idempotency_service
+    if _idempotency_service is None:
+        _idempotency_service = IdempotencyService()
+    return _idempotency_service
+
+
 # ============================================================
 # CHATTIGO WEBHOOK ENDPOINT
 # ============================================================
@@ -67,23 +72,28 @@ async def _get_langgraph_service() -> LangGraphChatbotService:
 @router.post("/webhook")
 async def process_webhook(
     request: Request,
-    db_session: AsyncSession = Depends(get_async_db),  # noqa: B008
+    background_tasks: BackgroundTasks,
     settings: Settings = Depends(get_settings),  # noqa: B008
 ):
     """
     Process incoming messages from Chattigo.
 
+    Implements Chattigo ISV requirements:
+    1. Idempotency check (Redis SET NX) - prevents duplicate processing
+    2. Fast response (<50ms) - returns 200 OK immediately
+    3. Background processing - heavy logic runs async
+
     Supports two payload formats:
-    1. WhatsApp Standard Format (object: "whatsapp_business_account")
-    2. Chattigo ISV Format (msisdn, content, etc.)
+    - WhatsApp Standard Format (object: "whatsapp_business_account")
+    - Chattigo ISV Format (msisdn, content, etc.)
 
     Args:
         request: FastAPI request object
-        db_session: Database session
+        background_tasks: FastAPI BackgroundTasks for async processing
         settings: Application settings
 
     Returns:
-        Processing result
+        Immediate response with message_id for tracking
     """
     # Validate Chattigo is enabled
     if not settings.CHATTIGO_ENABLED:
@@ -101,154 +111,173 @@ async def process_webhook(
         logger.error(f"Invalid JSON in webhook: {e}")
         return {"status": "error", "message": "Invalid JSON"}
 
-    # 2. Detect payload format and process accordingly
-    if raw_json.get("object") == "whatsapp_business_account":
-        # WhatsApp Standard Format (from Meta via Chattigo)
-        return await _process_whatsapp_format(raw_json, db_session, settings)
-    else:
-        # Chattigo ISV Format
-        return await _process_chattigo_format(raw_json, db_session, settings)
+    # 2. Extract message ID for idempotency
+    message_id = _extract_message_id(raw_json)
 
+    # 3. Idempotency check (atomic Redis operation)
+    idempotency = _get_idempotency_service()
+    if message_id:
+        result = await idempotency.try_acquire_lock(message_id)
 
-async def _process_whatsapp_format(
-    raw_json: dict,
-    db_session: AsyncSession,
-    settings: Settings,
-) -> dict:
-    """Process WhatsApp standard webhook format."""
-    try:
-        wa_request = WhatsAppWebhookRequest.model_validate(raw_json)
-    except Exception as e:
-        logger.error(f"Failed to parse WhatsApp format: {e}")
-        return {"status": "error", "message": "Invalid WhatsApp format"}
+        if result.is_duplicate:
+            if result.state == ProcessingState.COMPLETED:
+                logger.debug(f"Duplicate message (completed): {message_id}")
+                return {
+                    "status": "ok",
+                    "type": "duplicate",
+                    "message_id": message_id,
+                }
+            elif result.state == ProcessingState.PROCESSING:
+                logger.debug(f"Duplicate message (still processing): {message_id}")
+                return {
+                    "status": "accepted",
+                    "type": "processing",
+                    "message_id": message_id,
+                }
+            # FAILED state - proceed with retry
 
-    # Skip status updates (delivery receipts, read receipts, etc.)
-    if is_status_update(wa_request):
-        logger.debug("Ignoring WhatsApp status update")
-        return {"status": "ok", "type": "status_update"}
-
-    # Extract message and contact
-    message = wa_request.get_message()
-    contact = wa_request.get_contact()
-
-    if not message:
-        logger.debug("No message in WhatsApp webhook")
-        return {"status": "ok", "type": "no_message"}
-
-    if not contact:
-        logger.warning("No contact in WhatsApp webhook")
-        return {"status": "error", "message": "Missing contact"}
-
-    # Extract phone number ID for routing
-    phone_number_id = extract_phone_number_id(wa_request)
-
-    logger.info(
-        f"Received WhatsApp webhook: from={message.from_}, "
-        f"type={message.type}, content={_get_message_preview(message)}"
+    # 4. Detect payload type
+    payload_type = (
+        "whatsapp"
+        if raw_json.get("object") == "whatsapp_business_account"
+        else "chattigo"
     )
 
-    # Process via Use Case
-    try:
-        service = await _get_langgraph_service()
-        use_case = ProcessWebhookUseCase(
-            db=db_session,
-            settings=settings,
-            langgraph_service=service,
-        )
+    # 5. Quick validation before accepting
+    validation_error = _quick_validate(raw_json, payload_type)
+    if validation_error:
+        if message_id:
+            await idempotency.mark_failed(message_id)
+        return validation_error
 
-        result = await use_case.execute(
-            message=message,
-            contact=contact,
-            whatsapp_phone_number_id=phone_number_id,
-            chattigo_context=None,  # No Chattigo context in standard format
-        )
+    # 6. Log message receipt
+    _log_message_receipt(raw_json, payload_type, message_id)
 
-        return result.to_dict()
-
-    except Exception as e:
-        logger.error(f"Error processing WhatsApp webhook: {e}", exc_info=True)
-        return {"status": "error", "message": str(e)}
-
-
-async def _process_chattigo_format(
-    raw_json: dict,
-    db_session: AsyncSession,
-    settings: Settings,
-) -> dict:
-    """Process Chattigo ISV webhook format."""
-    payload = ChattigoWebhookPayload(**raw_json)
-
-    logger.info(
-        f"Received Chattigo webhook: msisdn={payload.msisdn}, "
-        f"type={payload.type}, content={payload.content[:50] if payload.content else 'empty'}..."
+    # 7. Queue for background processing
+    task = WebhookTask(
+        message_id=message_id or "no_id",
+        payload_type=payload_type,
+        raw_json=raw_json,
+        settings=settings,
     )
 
-    # Skip status updates (no content)
-    if not payload.content and not payload.is_attachment():
-        logger.info("Received Chattigo status update, ignoring")
-        return {"status": "ok", "type": "status_update"}
+    processor = WebhookProcessor(
+        idempotency_service=idempotency,
+        langgraph_service_factory=_get_langgraph_service,
+        db_session_factory=get_async_db,
+    )
+    background_tasks.add_task(processor.process_in_background, task)
 
-    # Skip OUTBOUND (message sent by bot, not user)
-    if payload.chatType == "OUTBOUND":
-        logger.debug("Ignoring OUTBOUND message (sent by bot)")
-        return {"status": "ok", "type": "outbound_ignored"}
-
-    # Validate required fields
-    if not payload.msisdn:
-        logger.warning("Missing msisdn in Chattigo payload")
-        return {"status": "error", "message": "Missing msisdn"}
-
-    # Store Chattigo context
-    chattigo_context = {
-        "did": payload.did,
-        "idChat": payload.idChat,
-        "channelId": payload.channelId,
-        "idCampaign": payload.idCampaign,
+    # 8. Return immediately per Chattigo ISV requirement
+    logger.info(f"Message accepted for processing: {message_id or 'no_id'}")
+    return {
+        "status": "accepted",
+        "message_id": message_id,
+        "processing": "background",
     }
 
-    # Convert to internal models
-    message = ChattigoToWhatsAppAdapter.to_whatsapp_message(
-        msisdn=payload.msisdn,
-        content=payload.content or "",
-        message_id=payload.id or str(int(time.time() * 1000)),
-        timestamp=str(int(time.time())),
-        message_type=payload.type or "Text",
-    )
 
-    contact = ChattigoToWhatsAppAdapter.to_contact(
-        msisdn=payload.msisdn,
-        name=payload.name,
-    )
+def _extract_message_id(raw_json: dict) -> str | None:
+    """
+    Extract unique message ID from webhook payload.
 
-    # Process via Use Case
-    try:
-        service = await _get_langgraph_service()
-        use_case = ProcessWebhookUseCase(
-            db=db_session,
-            settings=settings,
-            langgraph_service=service,
+    Supports both Chattigo ISV format and WhatsApp standard format.
+
+    Args:
+        raw_json: Raw webhook payload
+
+    Returns:
+        Prefixed message ID or None if not extractable
+    """
+    # Chattigo ISV format: direct 'id' field
+    if raw_json.get("id"):
+        return f"chattigo:{raw_json['id']}"
+
+    # WhatsApp standard format: nested in entry/changes/messages
+    if raw_json.get("object") == "whatsapp_business_account":
+        try:
+            entry = raw_json.get("entry", [{}])[0]
+            changes = entry.get("changes", [{}])[0]
+            messages = changes.get("value", {}).get("messages", [])
+            if messages and messages[0].get("id"):
+                return f"whatsapp:{messages[0]['id']}"
+        except (IndexError, KeyError, TypeError):
+            pass
+
+    return None
+
+
+def _quick_validate(raw_json: dict, payload_type: str) -> dict | None:
+    """
+    Quick validation before accepting message.
+
+    Performs lightweight checks that don't require DB access.
+
+    Args:
+        raw_json: Raw webhook payload
+        payload_type: "whatsapp" or "chattigo"
+
+    Returns:
+        Error dict if validation fails, None if valid
+    """
+    if payload_type == "chattigo":
+        # Skip OUTBOUND messages (sent by bot, not user)
+        if raw_json.get("chatType") == "OUTBOUND":
+            return {"status": "ok", "type": "outbound_ignored"}
+
+        # Skip status updates (no content)
+        content = raw_json.get("content")
+        is_attachment = raw_json.get("isAttachment", False)
+        if not content and not is_attachment:
+            return {"status": "ok", "type": "status_update"}
+
+        # Require msisdn
+        if not raw_json.get("msisdn"):
+            return {"status": "error", "message": "Missing msisdn"}
+
+    elif payload_type == "whatsapp":
+        # Check for status updates
+        try:
+            entry = raw_json.get("entry", [{}])[0]
+            changes = entry.get("changes", [{}])[0]
+            value = changes.get("value", {})
+
+            # Status updates have 'statuses' instead of 'messages'
+            if value.get("statuses") and not value.get("messages"):
+                return {"status": "ok", "type": "status_update"}
+
+        except (IndexError, KeyError, TypeError):
+            pass
+
+    return None
+
+
+def _log_message_receipt(raw_json: dict, payload_type: str, message_id: str | None) -> None:
+    """Log message receipt for monitoring."""
+    if payload_type == "chattigo":
+        msisdn = raw_json.get("msisdn", "unknown")
+        msg_type = raw_json.get("type", "unknown")
+        content = raw_json.get("content", "")
+        preview = f"{content[:50]}..." if content and len(content) > 50 else content
+        logger.info(
+            f"Webhook received [Chattigo]: msisdn={msisdn}, "
+            f"type={msg_type}, id={message_id}, content={preview}"
         )
-
-        result = await use_case.execute(
-            message=message,
-            contact=contact,
-            whatsapp_phone_number_id=payload.did,
-            chattigo_context=chattigo_context,
-        )
-
-        return result.to_dict()
-
-    except Exception as e:
-        logger.error(f"Error processing Chattigo webhook: {e}", exc_info=True)
-        return {"status": "error", "message": str(e)}
-
-
-def _get_message_preview(message) -> str:
-    """Get a preview of message content for logging."""
-    if message.text and message.text.body:
-        body = message.text.body
-        return f"{body[:50]}..." if len(body) > 50 else body
-    return f"[{message.type}]"
+    else:
+        try:
+            entry = raw_json.get("entry", [{}])[0]
+            changes = entry.get("changes", [{}])[0]
+            messages = changes.get("value", {}).get("messages", [])
+            if messages:
+                msg = messages[0]
+                from_num = msg.get("from", "unknown")
+                msg_type = msg.get("type", "unknown")
+                logger.info(
+                    f"Webhook received [WhatsApp]: from={from_num}, "
+                    f"type={msg_type}, id={message_id}"
+                )
+        except (IndexError, KeyError, TypeError):
+            logger.info(f"Webhook received [WhatsApp]: id={message_id}")
 
 
 # ============================================================

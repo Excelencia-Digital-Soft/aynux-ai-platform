@@ -13,8 +13,8 @@ from typing import Any
 MimeText = None
 MimeMultipart = None
 try:
-    from email.mime.multipart import MIMEMultipart as MimeMultipart  # type: ignore
-    from email.mime.text import MIMEText as MimeText  # type: ignore
+    from email.mime.multipart import MIMEMultipart as MimeMultipart
+    from email.mime.text import MIMEText as MimeText
 except ImportError:
     pass
 

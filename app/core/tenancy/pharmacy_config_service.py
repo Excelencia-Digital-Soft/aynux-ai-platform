@@ -15,7 +15,7 @@ Usage:
     config_service = PharmacyConfigService(db_session)
     pharmacy_config = await config_service.get_config(org_id)
 
-    # From external_reference parsing (new format only: customer_id:debt_id:org_id:uuid)
+    # From external_reference parsing (format: customer_id:debt_id:pharmacy_id:uuid)
     pharmacy_config, ref_data = await config_service.get_config_by_external_reference(
         external_ref
     )
@@ -168,7 +168,7 @@ class PharmacyConfigService:
         """
         Get pharmacy config by parsing external_reference from MP webhook.
 
-        Format: customer_id:debt_id:org_id:uuid (4 parts required)
+        Format: customer_id:debt_id:pharmacy_id:uuid (4 parts required)
 
         Args:
             external_reference: External reference from MP payment
@@ -177,30 +177,30 @@ class PharmacyConfigService:
             Tuple of (PharmacyConfig, parsed_reference_dict)
 
         Raises:
-            ValueError: If external_reference format is invalid or missing org_id
+            ValueError: If external_reference format is invalid or missing pharmacy_id
         """
         parts = external_reference.split(":")
 
         if len(parts) == 4:
-            customer_id, debt_id, org_id_str, unique_id = parts
+            customer_id, debt_id, pharmacy_id_str, unique_id = parts
             try:
-                org_id = UUID(org_id_str)
+                pharmacy_id = UUID(pharmacy_id_str)
             except ValueError as e:
                 raise ValueError(
-                    f"Invalid org_id in external_reference: {org_id_str}"
+                    f"Invalid pharmacy_id in external_reference: {pharmacy_id_str}"
                 ) from e
 
-            config = await self.get_config(org_id)
+            config = await self.get_config_by_id(pharmacy_id)
             return config, {
                 "customer_id": int(customer_id),
                 "debt_id": debt_id,
-                "org_id": org_id,
+                "pharmacy_id": pharmacy_id,
                 "unique_id": unique_id,
             }
 
         raise ValueError(
             f"Invalid external_reference format: {external_reference}. "
-            f"Expected format: customer_id:debt_id:org_id:uuid"
+            f"Expected format: customer_id:debt_id:pharmacy_id:uuid"
         )
 
     async def _load_from_db(self, org_id: UUID) -> PharmacyMerchantConfig | None:
@@ -299,6 +299,7 @@ class PharmacyConfigService:
 
         return [
             {
+                "id": str(cfg.id),  # Pharmacy config ID (unique per pharmacy)
                 "organization_id": str(cfg.organization_id),
                 "pharmacy_name": cfg.pharmacy_name,
                 "whatsapp_phone_number": cfg.whatsapp_phone_number,

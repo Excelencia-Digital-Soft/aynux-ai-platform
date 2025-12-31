@@ -2,6 +2,9 @@
 # Purpose: AI-powered SQL generation for dynamic data queries
 
 prompts:
+  # =============================================================================
+  # SYSTEM PROMPTS (Context setting)
+  # =============================================================================
   - key: tools.dynamic_sql.query_generator_system
     name: SQL Query Generator System Prompt
     description: System prompt for generating SQL queries from natural language
@@ -49,3 +52,148 @@ prompts:
         - dynamic_sql
         - context_generator
         - system
+
+  # =============================================================================
+  # USER PROMPTS (Query templates with variables)
+  # =============================================================================
+  - key: tools.dynamic_sql.query_generator_user
+    name: SQL Query Generator User Prompt
+    description: User prompt for SQL generation with schema context
+    version: "1.0.0"
+    template: |
+      # GENERACION DE CONSULTA SQL DINAMICA
+
+      ## CONSULTA DEL USUARIO:
+      "{user_query}"
+
+      ## ESQUEMAS DE TABLAS DISPONIBLES:
+      {schema_info}
+
+      ## RESTRICCIONES DE SEGURIDAD:
+      {safety_constraints}
+
+      ## INSTRUCCIONES:
+      1. Genera UNA consulta SQL valida que responda exactamente a la pregunta del usuario
+      2. USA SOLO operaciones SELECT
+      3. Incluye las clausulas WHERE apropiadas para filtros especificos del usuario
+      4. Usa JOINs cuando sea necesario para relacionar tablas
+      5. Incluye LIMIT {max_results} para evitar resultados masivos
+      6. Maneja fechas y rangos de tiempo correctamente
+      7. Usa nombres de columnas exactos del esquema
+
+      ## EJEMPLOS DE CONSULTAS VALIDAS:
+
+      Pregunta: "Cuantos pedidos se hicieron la semana pasada?"
+      SQL: SELECT COUNT(*) as total_orders FROM orders WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY);
+
+      Pregunta: "Muestra mis ultimos 5 pedidos"
+      SQL: SELECT o.*, p.name as product_name FROM orders o
+          LEFT JOIN products p ON o.product_id = p.id ORDER BY o.created_at DESC LIMIT 5;
+
+      Pregunta: "Cuantos productos tenemos en total?"
+      SQL: SELECT COUNT(*) as total_products FROM products;
+
+      Pregunta: "Cuales son los productos mas vendidos en Brasil?"
+      SQL: SELECT p.name, COUNT(o.id) as sales_count FROM products p
+          JOIN orders o ON p.id = o.product_id WHERE o.country = 'Brasil'
+          GROUP BY p.id, p.name ORDER BY sales_count DESC LIMIT 10;
+
+      ## RESPUESTA:
+      Genera SOLO la consulta SQL valida. NO incluyas explicaciones, comentarios o notas.
+      FORMATO: SELECT ... FROM ... WHERE ... LIMIT N;
+
+      SQL:
+    metadata:
+      temperature: 0.1
+      max_tokens: 500
+      tags:
+        - tools
+        - dynamic_sql
+        - query_generator
+        - user
+      variables:
+        required:
+          - user_query
+          - schema_info
+          - max_results
+        optional:
+          - safety_constraints
+
+  - key: tools.dynamic_sql.intent_analyzer_user
+    name: SQL Intent Analyzer User Prompt
+    description: User prompt for analyzing query intent
+    version: "1.0.0"
+    template: |
+      # ANALISIS DE INTENCION PARA CONSULTA SQL
+
+      ## CONSULTA DEL USUARIO:
+      "{user_query}"
+
+      ## ESQUEMAS DISPONIBLES:
+      {schema_info}
+
+      Analiza la consulta y extrae:
+      1. Tablas involucradas
+      2. Tipo de operacion (select, count, sum, avg, etc)
+      3. Filtros necesarios
+      4. Ordenamiento requerido
+      5. Agrupaciones necesarias
+
+      Responde en JSON con la estructura:
+      {{
+        "tables": ["tabla1", "tabla2"],
+        "operation_type": "select|count|aggregate",
+        "filters": {{"campo": "valor"}},
+        "ordering": {{"campo": "asc|desc"}},
+        "grouping": ["campo1"],
+        "time_range": {{"start": "date", "end": "date"}}
+      }}
+
+      Responde SOLO con el JSON:
+    metadata:
+      temperature: 0.1
+      max_tokens: 400
+      tags:
+        - tools
+        - dynamic_sql
+        - intent_analyzer
+        - user
+      variables:
+        required:
+          - user_query
+        optional:
+          - schema_info
+
+  - key: tools.dynamic_sql.context_generator_user
+    name: SQL Context Generator User Prompt
+    description: User prompt for generating context summaries from SQL results
+    version: "1.0.0"
+    template: |
+      # CONTEXTO DE DATOS PARA AGENTE AI
+
+      ## CONSULTA ORIGINAL:
+      "{user_query}"
+
+      ## RESULTADOS DE LA CONSULTA:
+      {query_results}
+
+      ## INSTRUCCIONES:
+      Genera un resumen ejecutivo de los resultados que sea util para un agente AI:
+      1. Resumen de los datos principales
+      2. Insights relevantes
+      3. Patrones o tendencias observadas
+      4. Valores destacados (maximos, minimos, promedios)
+
+      Responde de forma concisa y estructurada:
+    metadata:
+      temperature: 0.3
+      max_tokens: 400
+      tags:
+        - tools
+        - dynamic_sql
+        - context_generator
+        - user
+      variables:
+        required:
+          - user_query
+          - query_results

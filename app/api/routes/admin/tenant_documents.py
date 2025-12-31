@@ -296,16 +296,17 @@ async def create_tenant_document(
     await db.commit()
     await db.refresh(doc)
 
-    # Generate embedding (async in background would be ideal, but for now sync)
-    try:
-        embedding_service = container.create_knowledge_embedding_service()
-        embedding = await embedding_service.generate_embedding(f"{doc.title}\n\n{doc.content}")
-        if embedding:
-            doc.embedding = embedding
-            await db.commit()
-            await db.refresh(doc)
-    except Exception as e:
-        logger.warning(f"Failed to generate embedding for document {doc.id}: {e}")
+    # TODO: Implement embedding generation when knowledge embedding service is available
+    # The embedding service is planned but not yet implemented in DependencyContainer
+    # try:
+    #     embedding_service = container.create_knowledge_embedding_service()
+    #     embedding = await embedding_service.generate_embedding(f"{doc.title}\n\n{doc.content}")
+    #     if embedding:
+    #         doc.embedding = embedding
+    #         await db.commit()
+    #         await db.refresh(doc)
+    # except Exception as e:
+    #     logger.warning(f"Failed to generate embedding for document {doc.id}: {e}")
 
     return _doc_to_detail_response(doc)
 
@@ -406,16 +407,16 @@ async def upload_pdf_document(
         await db.commit()
         await db.refresh(doc)
 
-        # Generate embedding
-        try:
-            embedding_service = container.create_knowledge_embedding_service()
-            embedding = await embedding_service.generate_embedding(f"{doc.title}\n\n{doc.content[:2000]}")
-            if embedding:
-                doc.embedding = embedding
-                await db.commit()
-                await db.refresh(doc)
-        except Exception as e:
-            logger.warning(f"Failed to generate embedding for document {doc.id}: {e}")
+        # TODO: Implement embedding generation when knowledge embedding service is available
+        # try:
+        #     embedding_service = container.create_knowledge_embedding_service()
+        #     embedding = await embedding_service.generate_embedding(f"{doc.title}\n\n{doc.content[:2000]}")
+        #     if embedding:
+        #         doc.embedding = embedding
+        #         await db.commit()
+        #         await db.refresh(doc)
+        # except Exception as e:
+        #     logger.warning(f"Failed to generate embedding for document {doc.id}: {e}")
 
         return UploadResponse(
             success=True,
@@ -496,17 +497,18 @@ async def update_tenant_document(
     await db.commit()
     await db.refresh(doc)
 
-    # Regenerate embedding if content changed
-    if content_changed:
-        try:
-            embedding_service = container.create_knowledge_embedding_service()
-            embedding = await embedding_service.generate_embedding(f"{doc.title}\n\n{doc.content[:2000]}")
-            if embedding:
-                doc.embedding = embedding
-                await db.commit()
-                await db.refresh(doc)
-        except Exception as e:
-            logger.warning(f"Failed to regenerate embedding for document {doc.id}: {e}")
+    # TODO: Implement embedding regeneration when knowledge embedding service is available
+    # if content_changed:
+    #     try:
+    #         embedding_service = container.create_knowledge_embedding_service()
+    #         embedding = await embedding_service.generate_embedding(f"{doc.title}\n\n{doc.content[:2000]}")
+    #         if embedding:
+    #             doc.embedding = embedding
+    #             await db.commit()
+    #             await db.refresh(doc)
+    #     except Exception as e:
+    #         logger.warning(f"Failed to regenerate embedding for document {doc.id}: {e}")
+    _ = content_changed  # Suppress unused variable warning
 
     return _doc_to_detail_response(doc)
 

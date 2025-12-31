@@ -136,7 +136,7 @@ class ProductEmbeddingManager:
                 return False
 
             # Update product
-            product.embedding = embedding  # type: ignore[assignment]
+            product.embedding = embedding
             product.last_embedding_update = datetime.now(UTC)
             product.embedding_model = self.embedding_model
 

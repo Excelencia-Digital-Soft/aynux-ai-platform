@@ -1,24 +1,23 @@
 # ============================================================================
 # SCOPE: MULTI-TENANT
-# Description: Servicio para gestionar credenciales encriptadas por tenant.
-#              Usa pgcrypto para encriptar/desencriptar en PostgreSQL.
+# Description: Servicio para gestionar credenciales de tenant (WhatsApp, DUX, Plex).
+#              Un registro de credenciales por organización.
 # Tenant-Aware: Yes - todas las operaciones requieren organization_id.
 # ============================================================================
 """
-Tenant Credential Service - Encrypted credential management with pgcrypto.
+Tenant Credential Service - Organization-level credential management.
 
 This service provides:
-- Encryption/decryption of sensitive credentials using PostgreSQL pgcrypto
-- Type-safe credential DTOs for each integration (WhatsApp, DUX, Plex)
-- CRUD operations for tenant credentials
+- Encrypted credential management for WhatsApp, DUX, and Plex integrations
+- Type-safe credential DTOs for each integration type
+- CRUD operations scoped to organization_id
 
 Security:
-- Uses pgp_sym_encrypt/pgp_sym_decrypt for AES-256 encryption
-- Encryption key stored in CREDENTIAL_ENCRYPTION_KEY environment variable
+- Uses CredentialEncryptionService for pgcrypto encryption
 - Never exposes encrypted values - only returns decrypted DTOs
 
 Usage:
-    service = TenantCredentialService()
+    service = get_tenant_credential_service()
 
     # Get credentials (decrypted)
     whatsapp = await service.get_whatsapp_credentials(db, org_id)
@@ -30,10 +29,10 @@ Usage:
 """
 
 import logging
-import os
+from typing import cast
 from uuid import UUID
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db.tenancy.tenant_credentials import TenantCredentials
@@ -44,6 +43,7 @@ from .credential_models import (
     PlexCredentials,
     WhatsAppCredentials,
 )
+from .encryption_service import CredentialEncryptionService, get_encryption_service
 
 logger = logging.getLogger(__name__)
 
@@ -54,103 +54,24 @@ class CredentialNotFoundError(Exception):
     pass
 
 
-class CredentialEncryptionError(Exception):
-    """Raised when encryption/decryption fails."""
-
-    pass
-
-
 class TenantCredentialService:
     """
-    Service for managing encrypted tenant credentials.
+    Service for managing encrypted tenant credentials (WhatsApp, DUX, Plex).
 
-    Uses PostgreSQL pgcrypto extension for symmetric encryption.
-    All sensitive data is encrypted at rest and decrypted on-demand.
+    One credential record per organization. Uses CredentialEncryptionService
+    for all encryption/decryption operations.
     """
 
-    ENCRYPTION_KEY_ENV = "CREDENTIAL_ENCRYPTION_KEY"
-
-    def __init__(self) -> None:
-        """Initialize the credential service."""
-        self._encryption_key: str | None = None
-
-    @property
-    def encryption_key(self) -> str:
-        """Get the encryption key from environment.
-
-        Raises:
-            CredentialEncryptionError: If key is not configured.
-        """
-        if self._encryption_key is None:
-            key = os.environ.get(self.ENCRYPTION_KEY_ENV)
-            if not key:
-                raise CredentialEncryptionError(
-                    f"Missing {self.ENCRYPTION_KEY_ENV} environment variable. "
-                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
-                )
-            self._encryption_key = key
-        return self._encryption_key
-
-    # =========================================================================
-    # Encryption/Decryption Helpers
-    # =========================================================================
-
-    async def _encrypt_value(self, db: AsyncSession, value: str) -> str:
-        """Encrypt a value using pgcrypto.
+    def __init__(self, encryption: CredentialEncryptionService | None = None) -> None:
+        """Initialize the tenant credential service.
 
         Args:
-            db: Database session
-            value: Plain text value to encrypt
-
-        Returns:
-            Base64-encoded encrypted value
-
-        Raises:
-            CredentialEncryptionError: If encryption fails
+            encryption: Optional encryption service. Uses singleton if not provided.
         """
-        try:
-            result = await db.execute(
-                text("SELECT encode(pgp_sym_encrypt(:value, :key), 'base64')"),
-                {"value": value, "key": self.encryption_key},
-            )
-            encrypted = result.scalar()
-            if encrypted is None:
-                raise CredentialEncryptionError("pgcrypto encryption returned NULL")
-            return encrypted
-        except Exception as e:
-            logger.error(f"Encryption failed: {e}")
-            raise CredentialEncryptionError(f"Failed to encrypt value: {e}") from e
-
-    async def _decrypt_value(self, db: AsyncSession, encrypted: str) -> str:
-        """Decrypt a value using pgcrypto.
-
-        Args:
-            db: Database session
-            encrypted: Base64-encoded encrypted value
-
-        Returns:
-            Decrypted plain text value
-
-        Raises:
-            CredentialEncryptionError: If decryption fails
-        """
-        try:
-            result = await db.execute(
-                text("SELECT pgp_sym_decrypt(decode(:encrypted, 'base64'), :key)"),
-                {"encrypted": encrypted, "key": self.encryption_key},
-            )
-            decrypted = result.scalar()
-            if decrypted is None:
-                raise CredentialEncryptionError(
-                    "pgcrypto decryption returned NULL - wrong key?"
-                )
-            return decrypted
-        except Exception as e:
-            logger.error(f"Decryption failed: {e}")
-            raise CredentialEncryptionError(f"Failed to decrypt value: {e}") from e
+        self._encryption = encryption or get_encryption_service()
 
     # =========================================================================
-    # Get Credentials (Decrypted)
+    # Private Helpers
     # =========================================================================
 
     async def _get_tenant_credentials(
@@ -183,6 +104,10 @@ class TenantCredentialService:
 
         return creds
 
+    # =========================================================================
+    # Get Credentials (Decrypted)
+    # =========================================================================
+
     async def get_whatsapp_credentials(
         self, db: AsyncSession, organization_id: UUID
     ) -> WhatsAppCredentials:
@@ -208,17 +133,17 @@ class TenantCredentialService:
                 "Required: access_token, phone_number_id, verify_token"
             )
 
-        access_token = await self._decrypt_value(
-            db, creds.whatsapp_access_token_encrypted
+        access_token = await self._encryption.decrypt_value(
+            db, cast(str, creds.whatsapp_access_token_encrypted)
         )
-        verify_token = await self._decrypt_value(
-            db, creds.whatsapp_verify_token_encrypted
+        verify_token = await self._encryption.decrypt_value(
+            db, cast(str, creds.whatsapp_verify_token_encrypted)
         )
 
         return WhatsAppCredentials(
             organization_id=organization_id,
             access_token=access_token,
-            phone_number_id=creds.whatsapp_phone_number_id,
+            phone_number_id=cast(str, creds.whatsapp_phone_number_id),
             verify_token=verify_token,
         )
 
@@ -247,12 +172,14 @@ class TenantCredentialService:
                 "Required: api_key, base_url"
             )
 
-        api_key = await self._decrypt_value(db, creds.dux_api_key_encrypted)
+        api_key = await self._encryption.decrypt_value(
+            db, cast(str, creds.dux_api_key_encrypted)
+        )
 
         return DuxCredentials(
             organization_id=organization_id,
             api_key=api_key,
-            base_url=creds.dux_api_base_url,
+            base_url=cast(str, creds.dux_api_base_url),
         )
 
     async def get_plex_credentials(
@@ -280,12 +207,14 @@ class TenantCredentialService:
                 "Required: api_url, username, password"
             )
 
-        password = await self._decrypt_value(db, creds.plex_api_pass_encrypted)
+        password = await self._encryption.decrypt_value(
+            db, cast(str, creds.plex_api_pass_encrypted)
+        )
 
         return PlexCredentials(
             organization_id=organization_id,
-            api_url=creds.plex_api_url,
-            username=creds.plex_api_user,
+            api_url=cast(str, creds.plex_api_url),
+            username=cast(str, creds.plex_api_user),
             password=password,
         )
 
@@ -293,9 +222,7 @@ class TenantCredentialService:
     # Check Credentials Exist
     # =========================================================================
 
-    async def has_credentials(
-        self, db: AsyncSession, organization_id: UUID
-    ) -> bool:
+    async def has_credentials(self, db: AsyncSession, organization_id: UUID) -> bool:
         """Check if any credentials exist for an organization.
 
         Args:
@@ -343,7 +270,7 @@ class TenantCredentialService:
             return False
 
     # =========================================================================
-    # Create/Update Credentials
+    # Create/Update/Delete Credentials
     # =========================================================================
 
     async def create_credentials(
@@ -390,32 +317,33 @@ class TenantCredentialService:
             creds = await self.create_credentials(db, organization_id)
 
         # Update WhatsApp fields
+        # Note: SQLAlchemy Column types are correctly handled at runtime
         if update.whatsapp_access_token is not None:
-            creds.whatsapp_access_token_encrypted = await self._encrypt_value(
+            creds.whatsapp_access_token_encrypted = await self._encryption.encrypt_value(  # type: ignore[assignment]
                 db, update.whatsapp_access_token
             )
         if update.whatsapp_phone_number_id is not None:
-            creds.whatsapp_phone_number_id = update.whatsapp_phone_number_id
+            creds.whatsapp_phone_number_id = update.whatsapp_phone_number_id  # type: ignore[assignment]
         if update.whatsapp_verify_token is not None:
-            creds.whatsapp_verify_token_encrypted = await self._encrypt_value(
+            creds.whatsapp_verify_token_encrypted = await self._encryption.encrypt_value(  # type: ignore[assignment]
                 db, update.whatsapp_verify_token
             )
 
         # Update DUX fields
         if update.dux_api_key is not None:
-            creds.dux_api_key_encrypted = await self._encrypt_value(
+            creds.dux_api_key_encrypted = await self._encryption.encrypt_value(  # type: ignore[assignment]
                 db, update.dux_api_key
             )
         if update.dux_api_base_url is not None:
-            creds.dux_api_base_url = update.dux_api_base_url
+            creds.dux_api_base_url = update.dux_api_base_url  # type: ignore[assignment]
 
         # Update Plex fields
         if update.plex_api_url is not None:
-            creds.plex_api_url = update.plex_api_url
+            creds.plex_api_url = update.plex_api_url  # type: ignore[assignment]
         if update.plex_api_user is not None:
-            creds.plex_api_user = update.plex_api_user
+            creds.plex_api_user = update.plex_api_user  # type: ignore[assignment]
         if update.plex_api_pass is not None:
-            creds.plex_api_pass_encrypted = await self._encrypt_value(
+            creds.plex_api_pass_encrypted = await self._encryption.encrypt_value(  # type: ignore[assignment]
                 db, update.plex_api_pass
             )
 
@@ -445,13 +373,13 @@ class TenantCredentialService:
             return False
 
 
-# Singleton instance for convenience
-_credential_service: TenantCredentialService | None = None
+# Singleton instance
+_tenant_credential_service: TenantCredentialService | None = None
 
 
-def get_credential_service() -> TenantCredentialService:
-    """Get the singleton credential service instance."""
-    global _credential_service
-    if _credential_service is None:
-        _credential_service = TenantCredentialService()
-    return _credential_service
+def get_tenant_credential_service() -> TenantCredentialService:
+    """Get the singleton tenant credential service instance."""
+    global _tenant_credential_service
+    if _tenant_credential_service is None:
+        _tenant_credential_service = TenantCredentialService()
+    return _tenant_credential_service

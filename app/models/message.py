@@ -17,8 +17,9 @@ class Message(BaseModel):
 class BotResponse(BaseModel):
     """Modelo para respuestas del bot"""
 
-    status: Literal["success", "failure"]
+    status: Literal["success", "failure", "blocked"]
     message: str
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class TextMessage(BaseModel):

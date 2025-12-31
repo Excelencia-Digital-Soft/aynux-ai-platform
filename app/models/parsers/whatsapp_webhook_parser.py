@@ -51,3 +51,27 @@ def extract_phone_number_id(request: WhatsAppWebhookRequest) -> str | None:
         )
     except (IndexError, AttributeError, KeyError):
         return None
+
+
+def extract_display_phone_number(request: WhatsAppWebhookRequest) -> str | None:
+    """
+    Extract WhatsApp Business display phone number from metadata.
+
+    This is the actual phone number (e.g., "5492644710400") that corresponds
+    to the DID used in Chattigo for credential lookup.
+
+    Args:
+        request: WhatsApp webhook request
+
+    Returns:
+        Display phone number string or None if not found
+    """
+    try:
+        return (
+            request.entry[0]
+            .changes[0]
+            .value.get("metadata", {})
+            .get("display_phone_number")
+        )
+    except (IndexError, AttributeError, KeyError):
+        return None

@@ -44,6 +44,12 @@ class PromptRegistry:
     ECOMMERCE_PRODUCT_SQL_BUILDER_SYSTEM = "ecommerce.product_sql.builder_system"
     ECOMMERCE_PRODUCT_SQL_AGGREGATION_SYSTEM = "ecommerce.product_sql.aggregation_system"
     ECOMMERCE_PRODUCT_SQL_ANALYZER_SYSTEM = "ecommerce.product_sql.analyzer_system"
+    # E-commerce Product SQL User Prompts
+    ECOMMERCE_PRODUCT_SQL_COMPLEXITY_ANALYSIS = "ecommerce.product_sql.complexity_analysis"
+    ECOMMERCE_PRODUCT_SQL_BUILDER_USER = "ecommerce.product_sql.builder_user"
+    ECOMMERCE_PRODUCT_SQL_AGGREGATION_USER = "ecommerce.product_sql.aggregation_user"
+    ECOMMERCE_PRODUCT_QUERY_ENHANCEMENT = "ecommerce.product.query_enhancement"
+    ECOMMERCE_PRODUCT_BASE_RESPONSE = "ecommerce.product.base_response"
 
     # === CONVERSATION ===
     CONVERSATION_GREETING_SYSTEM = "conversation.greeting.system"
@@ -209,6 +215,10 @@ class PromptRegistry:
     TOOLS_DYNAMIC_SQL_QUERY_GENERATOR_SYSTEM = "tools.dynamic_sql.query_generator_system"
     TOOLS_DYNAMIC_SQL_INTENT_ANALYZER_SYSTEM = "tools.dynamic_sql.intent_analyzer_system"
     TOOLS_DYNAMIC_SQL_CONTEXT_GENERATOR_SYSTEM = "tools.dynamic_sql.context_generator_system"
+    # Dynamic SQL User Prompts
+    TOOLS_DYNAMIC_SQL_QUERY_GENERATOR_USER = "tools.dynamic_sql.query_generator_user"
+    TOOLS_DYNAMIC_SQL_INTENT_ANALYZER_USER = "tools.dynamic_sql.intent_analyzer_user"
+    TOOLS_DYNAMIC_SQL_CONTEXT_GENERATOR_USER = "tools.dynamic_sql.context_generator_user"
 
     # === HEALTHCARE AGENTS ===
     HEALTHCARE_AGENTS_APPOINTMENT_SYSTEM = "healthcare.agents.appointment_system"
@@ -226,6 +236,16 @@ class PromptRegistry:
 
     # === EXCELENCIA - INCIDENT ERROR ===
     EXCELENCIA_INCIDENT_ERROR_CREATION = "excelencia.incident.error_creation"
+
+    # === EXCELENCIA - INTENT ANALYSIS ===
+    EXCELENCIA_INTENT_ANALYSIS = "excelencia.intent.analysis"
+    EXCELENCIA_RESPONSE_GENERATION = "excelencia.response.generation"
+
+    # === EXCELENCIA - SMART INPUT (LLM interpreters) ===
+    EXCELENCIA_SMART_INPUT_DESCRIPTION_CHECK = "excelencia.smart_input.description_check"
+    EXCELENCIA_SMART_INPUT_PRIORITY_INTERPRET = "excelencia.smart_input.priority_interpret"
+    EXCELENCIA_SMART_INPUT_CONFIRMATION_INTERPRET = "excelencia.smart_input.confirmation_interpret"
+    EXCELENCIA_SMART_INPUT_INCIDENT_DETECT = "excelencia.smart_input.incident_detect"
 
     @classmethod
     def get_all_keys(cls) -> list[str]:

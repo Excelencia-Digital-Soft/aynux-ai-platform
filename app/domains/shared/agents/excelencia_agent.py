@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 
 # Fallback modules when database is unavailable
 _FALLBACK_MODULES: dict[str, dict[str, Any]] = {
+    "ZM-001": {
+        "name": "ZisMed - Sistema Médico Integral",
+        "emoji": "🏥",
+        "description": "Suite médica completa que incluye Historia Clínica Electrónica y Turnos Médicos",
+        "features": ["Historia Clínica", "Turnos Médicos", "Registro Pacientes", "Prescripciones"],
+        "target": "Clínicas, Hospitales, Centros de Salud",
+    },
     "HC-001": {
         "name": "Historia Clínica Electrónica",
         "emoji": "🏥",

@@ -319,9 +319,9 @@ class DuxApiClientFactory:
                 async with client:
                     items = await client.get_items()
         """
-        from app.core.tenancy.credential_service import get_credential_service
+        from app.core.tenancy.tenant_credential_service import get_tenant_credential_service
 
-        credential_service = get_credential_service()
+        credential_service = get_tenant_credential_service()
         creds = await credential_service.get_dux_credentials(db, organization_id)
 
         return DuxApiClient(

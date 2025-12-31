@@ -9,12 +9,11 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from app.core.graph.state_schema import LangGraphState
 
 from .graph import EcommerceGraph
-from .state import EcommerceState
 
 logger = logging.getLogger(__name__)
 

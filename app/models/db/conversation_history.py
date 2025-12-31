@@ -43,6 +43,12 @@ class ConversationContext(Base, TimestampMixin):
         index=True,
         comment="Multi-tenancy: organization that owns this conversation",
     )
+    pharmacy_id = Column(
+        UUID(as_uuid=True),
+        nullable=True,
+        index=True,
+        comment="Pharmacy that owns this conversation (for multi-pharmacy orgs)",
+    )
     user_phone = Column(
         String(50),
         nullable=True,

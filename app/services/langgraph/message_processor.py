@@ -4,7 +4,8 @@ Message processing logic for LangGraph chatbot service
 
 import logging
 from datetime import datetime
-from typing import Any, AsyncGenerator, Dict
+from typing import Any, AsyncGenerator, Dict, cast
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,6 +69,9 @@ class MessageProcessor:
         session_id: str,
         business_domain: str = "ecommerce",
         db_session: AsyncSession | None = None,
+        organization_id: UUID | None = None,
+        pharmacy_id: UUID | None = None,
+        user_phone: str | None = None,
     ) -> Dict[str, Any]:
         """
         Procesa el mensaje usando el sistema LangGraph multi-agente.
@@ -79,12 +83,16 @@ class MessageProcessor:
             conversation_context: Contexto de la conversación
             session_id: ID de la sesión
             business_domain: Dominio de negocio (ecommerce, hospital, credit, excelencia)
+            db_session: Sesión de base de datos async (opcional)
+            organization_id: UUID de organización (for multi-tenant context)
+            pharmacy_id: UUID de farmacia (for pharmacy config lookup in PaymentLinkNode)
+            user_phone: Número de teléfono del usuario (for conversation context)
 
         Returns:
             Diccionario con respuesta del graph y metadatos
         """
         try:
-            # Procesar con el graph multi-agente (incluir business_domain)
+            # Procesar con el graph multi-agente (incluir business_domain y tenant IDs)
             result = await graph_system.invoke(
                 message=message_text,
                 conversation_id=session_id,
@@ -92,6 +100,9 @@ class MessageProcessor:
                 conversation_data=conversation_context.model_dump(),
                 business_domain=business_domain,
                 db_session=db_session,
+                organization_id=str(organization_id) if organization_id else None,
+                pharmacy_id=str(pharmacy_id) if pharmacy_id else None,
+                user_phone=user_phone,
             )
 
             # Extraer la respuesta del último mensaje AI
@@ -168,17 +179,19 @@ class MessageProcessor:
             current_agent = "orchestrator"
 
             # Stream through the graph execution
-            async for chunk in graph_system.astream(
+            async for raw_chunk in graph_system.astream(
                 message=message_text,
                 conversation_id=session_id,
                 customer_data=customer_context.model_dump(),
                 conversation_data=conversation_context.model_dump(),
             ):
                 step_count += 1
+                # Cast to dict - LangGraph stream yields dicts
+                chunk = cast(Dict[str, Any], raw_chunk)
 
                 if chunk.get("type") == "stream_event":
-                    data = chunk.get("data", {})
-                    current_node = data.get("current_node", "unknown")
+                    data = cast(Dict[str, Any], chunk.get("data", {}))
+                    current_node = str(data.get("current_node", "unknown"))
 
                     # Map node names to user-friendly agent names and messages
                     agent_info = self._map_node_to_agent_info(current_node)
@@ -202,14 +215,14 @@ class MessageProcessor:
 
                 elif chunk.get("type") == "final_result":
                     # Process final result
-                    result = chunk.get("data", {})
+                    result = cast(Dict[str, Any], chunk.get("data", {}))
 
                     # Extract response text from final result
                     response_text = "Lo siento, no pude procesar tu mensaje."
-                    agent_used = result.get("current_agent", current_agent)
+                    agent_used = str(result.get("current_agent", current_agent))
 
                     # Get response from last AI message
-                    messages = result.get("messages", [])
+                    messages = cast(list[Any], result.get("messages", []))
                     for msg in reversed(messages):
                         if hasattr(msg, "content") and msg.__class__.__name__ == "AIMessage":
                             response_text = msg.content
@@ -235,8 +248,8 @@ class MessageProcessor:
                         agent_current=agent_used,
                         progress=1.0,
                         metadata={
-                            "requires_human": result.get("human_handoff_requested", False),
-                            "is_complete": result.get("is_complete", True),
+                            "requires_human": bool(result.get("human_handoff_requested", False)),
+                            "is_complete": bool(result.get("is_complete", True)),
                             "processing_time_ms": int(processing_time),
                             "total_steps": step_count,
                             "session_id": session_id,
@@ -246,13 +259,14 @@ class MessageProcessor:
 
                 elif chunk.get("type") == "error":
                     # Emit error event
-                    error_data = chunk.get("data", {})
+                    error_data = cast(Dict[str, Any], chunk.get("data", {}))
+                    error_msg = str(error_data.get("error", "Error desconocido"))
                     yield ChatStreamEvent(
                         event_type=StreamEventType.ERROR,
-                        message=f"❌ Error procesando tu mensaje: {error_data.get('error', 'Error desconocido')}",
+                        message=f"❌ Error procesando tu mensaje: {error_msg}",
                         agent_current=current_agent,
                         progress=0.0,
-                        metadata={"error": error_data.get("error")},
+                        metadata={"error": error_msg},
                         timestamp=datetime.now().isoformat(),
                     )
                     break
@@ -343,7 +357,7 @@ class MessageProcessor:
 
         return agent_info
 
-    def create_customer_context(self, user_id: str, metadata: Dict[str, Any] = None) -> CustomerContext:
+    def create_customer_context(self, user_id: str, metadata: Dict[str, Any] | None = None) -> CustomerContext:
         """Crea contexto del cliente para chat genérico"""
         metadata = metadata or {}
 
@@ -358,7 +372,7 @@ class MessageProcessor:
         )
 
     def create_conversation_context(
-        self, session_id: str, message_text: str, metadata: Dict[str, Any] = None
+        self, session_id: str, message_text: str, metadata: Dict[str, Any] | None = None
     ) -> ConversationContext:
         """Crea contexto de conversación"""
         metadata = metadata or {}

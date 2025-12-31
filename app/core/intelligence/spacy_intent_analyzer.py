@@ -136,7 +136,7 @@ class SpacyIntentAnalyzer:
             },
             "excelencia": {
                 "high": ["excelencia", "excelencia digital", "erp", "demo", "módulo", "módulos"],
-                "medium": ["software", "historia clínica", "turnos médicos", "healthcare", "hotel", "hoteles"],
+                "medium": ["software", "historia clínica", "turnos médicos", "healthcare", "hotel", "hoteles", "zismed"],
                 "low": ["capacitación", "obras sociales", "gremio", "gremios", "validtek", "turmedica", "mediflow"],
             },
             # Excelencia Software Support/Incidents

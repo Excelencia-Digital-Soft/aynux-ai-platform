@@ -4,12 +4,19 @@ Priority interpreter with LLM fallback.
 Interprets user priority selection from numbers or natural language.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 from app.integrations.llm import OllamaLLM
+from app.prompts import PromptRegistry
 
 from .base import BaseInterpreter, InterpretationResult
 from .constants import PRIORITY_DIRECT_MAP, PRIORITY_DISPLAY
+
+if TYPE_CHECKING:
+    from app.prompts import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +28,7 @@ class PriorityInterpreter(BaseInterpreter):
         self,
         message: str,
         llm: OllamaLLM | None = None,
+        prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """
         Interpret priority selection.
@@ -55,15 +63,16 @@ class PriorityInterpreter(BaseInterpreter):
         if llm is None:
             return InterpretationResult(success=False, method="direct")
 
-        return await self._llm_interpret(message, llm)
+        return await self._llm_interpret(message, llm, prompt_manager)
 
     async def _llm_interpret(
         self,
         message: str,
         llm: OllamaLLM,
+        prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """LLM fallback for priority interpretation."""
-        prompt = f"""Analiza el siguiente mensaje del usuario e identifica la prioridad que indica.
+        fallback_prompt = f"""Analiza el siguiente mensaje del usuario e identifica la prioridad que indica.
 
 Mensaje: "{message}"
 
@@ -76,6 +85,13 @@ Opciones de prioridad:
 Responde SOLO con una de estas palabras: critical, high, medium, low, unknown
 
 Si no puedes determinar la prioridad, responde: unknown"""
+
+        prompt = await self._get_prompt_from_yaml(
+            prompt_manager,
+            PromptRegistry.EXCELENCIA_SMART_INPUT_PRIORITY_INTERPRET,
+            {"message": message},
+            fallback_prompt,
+        )
 
         result = await self._invoke_llm(prompt, llm)
 

@@ -43,7 +43,7 @@ from app.core.interfaces.vector_store import (
 from app.database.async_db import get_async_db_context
 from app.models.db.tenancy import TenantDocument
 
-from .context import TenantContext, get_tenant_context
+from .context import get_tenant_context
 
 if TYPE_CHECKING:
     pass

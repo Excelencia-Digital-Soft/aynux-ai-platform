@@ -5,8 +5,7 @@ Integración con PostgreSQL para checkpointing y datos
 import logging
 from typing import Optional
 
-import asyncpg
-from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -22,9 +21,9 @@ class PostgreSQLIntegration:
         self.settings = get_settings()
         self.connection_string = connection_string or self.settings.database_url
 
-        # Para checkpointing de LangGraph
-        self._checkpoint_pool = None
-        self._checkpointer = None
+        # Para checkpointing de LangGraph (usa psycopg internamente)
+        self._checkpointer: AsyncPostgresSaver | None = None
+        self._checkpointer_context = None  # Context manager for cleanup
 
         # Para queries regulares
         self.engine = None
@@ -61,33 +60,33 @@ class PostgreSQLIntegration:
             raise
 
     async def _setup_checkpoint_connection(self):
-        """Configura conexión para checkpointing de LangGraph"""
+        """Configura conexión para checkpointing de LangGraph (async con psycopg)"""
         try:
-            # Asegurar que usa la URL correcta para asyncpg (sin +asyncpg)
-            asyncpg_url = self.connection_string.replace("postgresql+asyncpg://", "postgresql://")
+            # Asegurar URL sin driver específico (psycopg usa postgresql://)
+            db_url = self.connection_string.replace("postgresql+asyncpg://", "postgresql://")
 
-            # Crear pool específico para checkpointing
-            self._checkpoint_pool = await asyncpg.create_pool(asyncpg_url, min_size=2, max_size=10, command_timeout=60)
+            # AsyncPostgresSaver.from_conn_string usa psycopg internamente
+            # Guardamos el context manager para cleanup posterior
+            self._checkpointer_context = AsyncPostgresSaver.from_conn_string(db_url)
 
-            # Crear checkpointer usando el pool
-            if self._checkpoint_pool is not None:
-                self._checkpointer = PostgresSaver(self._checkpoint_pool)  # type: ignore[arg-type]
+            # Entrar al context manager manualmente (se cierra en close())
+            self._checkpointer = await self._checkpointer_context.__aenter__()
 
-                # Inicializar tablas de checkpointing
-                self._checkpointer.setup()
+            # Crear tablas de checkpointing si no existen
+            await self._checkpointer.setup()
 
-            logger.info("PostgreSQL checkpoint connection initialized")
+            logger.info("PostgreSQL async checkpoint connection initialized (psycopg)")
 
         except Exception as e:
             logger.error(f"Error initializing PostgreSQL checkpoint connection: {e}")
             raise
 
-    def get_checkpointer(self) -> PostgresSaver:
+    def get_checkpointer(self) -> AsyncPostgresSaver:
         """
         Obtiene el checkpointer para LangGraph
 
         Returns:
-            Instancia de PostgresSaver configurada
+            Instancia de AsyncPostgresSaver configurada
         """
         if self._checkpointer is None:
             raise RuntimeError("Checkpointer not initialized. Call initialize() first.")
@@ -143,12 +142,18 @@ class PostgreSQLIntegration:
     async def _check_checkpoint_connection(self) -> bool:
         """Verifica la conexión de checkpointing"""
         try:
-            if self._checkpoint_pool is None:
+            # Verificar que el checkpointer existe y tiene conexión
+            if self._checkpointer is None:
                 return False
 
-            async with self._checkpoint_pool.acquire() as conn:
-                result = await conn.fetchval("SELECT 1")
-                return result == 1
+            # Intentar una query simple via SQLAlchemy para verificar tablas
+            if self.async_session:
+                async with self.async_session() as session:
+                    result = await session.execute(
+                        text("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'checkpoints')")
+                    )
+                    return bool(result.scalar())
+            return True
 
         except Exception as e:
             logger.error(f"Checkpoint connection check failed: {e}")
@@ -218,21 +223,20 @@ class PostgreSQLIntegration:
             Número de checkpoints eliminados
         """
         try:
-            if self._checkpoint_pool is None:
+            if self.async_session is None:
                 return 0
 
-            async with self._checkpoint_pool.acquire() as conn:
-                # Query para eliminar checkpoints antiguos
-                query = """
-                DELETE FROM checkpoints 
-                WHERE created_at < NOW() - INTERVAL '%s days'
-                """
-
-                result = await conn.execute(query, days_old)
-                deleted_count = result.split()[-1]  # Extraer número de filas afectadas
+            async with self.async_session() as session:
+                # Query para eliminar checkpoints antiguos (usa SQLAlchemy)
+                result = await session.execute(
+                    text("DELETE FROM checkpoints WHERE created_at < NOW() - INTERVAL :days DAY"),
+                    {"days": days_old},
+                )
+                await session.commit()
+                deleted_count = result.rowcount
 
                 logger.info(f"Cleaned up {deleted_count} old checkpoints")
-                return int(deleted_count) if deleted_count.isdigit() else 0
+                return deleted_count
 
         except Exception as e:
             logger.error(f"Error cleaning up old checkpoints: {e}")
@@ -246,27 +250,22 @@ class PostgreSQLIntegration:
             Diccionario con estadísticas
         """
         try:
-            if self._checkpoint_pool is None:
+            if self.async_session is None:
                 return {}
 
-            async with self._checkpoint_pool.acquire() as conn:
+            async with self.async_session() as session:
                 # Contar checkpoints totales
-                total = await conn.fetchval("SELECT COUNT(*) FROM checkpoints")
+                total_result = await session.execute(text("SELECT COUNT(*) FROM checkpoints"))
+                total = total_result.scalar()
 
                 # Contar por thread_id
-                threads = await conn.fetchval("SELECT COUNT(DISTINCT thread_id) FROM checkpoints")
-
-                # Checkpoint más reciente
-                latest = await conn.fetchval("SELECT MAX(created_at) FROM checkpoints")
-
-                # Checkpoint más antiguo
-                oldest = await conn.fetchval("SELECT MIN(created_at) FROM checkpoints")
+                threads_result = await session.execute(text("SELECT COUNT(DISTINCT thread_id) FROM checkpoints"))
+                threads = threads_result.scalar()
 
                 return {
                     "total_checkpoints": total,
                     "unique_threads": threads,
-                    "latest_checkpoint": latest.isoformat() if latest else None,
-                    "oldest_checkpoint": oldest.isoformat() if oldest else None,
+                    "checkpointer_type": "AsyncPostgresSaver",
                 }
 
         except Exception as e:
@@ -284,12 +283,13 @@ class PostgreSQLIntegration:
             True si el backup fue exitoso
         """
         try:
-            if self._checkpoint_pool is None:
+            if self.async_session is None:
                 return False
 
-            async with self._checkpoint_pool.acquire() as conn:
+            async with self.async_session() as session:
                 # Obtener todos los checkpoints
-                checkpoints = await conn.fetch("SELECT * FROM checkpoints")
+                result = await session.execute(text("SELECT * FROM checkpoints"))
+                checkpoints = result.fetchall()
 
                 # Guardar en archivo
                 import pickle
@@ -319,11 +319,8 @@ class PostgreSQLIntegration:
                     "checked_out": getattr(self.engine.pool, "checkedout", 0) if self.engine else 0,
                 },
                 "checkpoint_connection": {
-                    "status": "initialized" if self._checkpoint_pool else "not_initialized",
-                    "pool_size": self._checkpoint_pool._maxsize if self._checkpoint_pool else 0,
-                    "current_size": (
-                        self._checkpoint_pool._queue.qsize() if self._checkpoint_pool and self._checkpoint_pool._queue else 0
-                    ),
+                    "status": "initialized" if self._checkpointer else "not_initialized",
+                    "type": "AsyncPostgresSaver (psycopg)",
                 },
             }
 
@@ -341,9 +338,9 @@ class PostgreSQLIntegration:
                 await self.engine.dispose()
                 logger.info("Regular PostgreSQL connection closed")
 
-            # Cerrar pool de checkpointing
-            if self._checkpoint_pool:
-                await self._checkpoint_pool.close()
+            # Cerrar checkpointer context manager (psycopg pool)
+            if self._checkpointer_context:
+                await self._checkpointer_context.__aexit__(None, None, None)
                 logger.info("Checkpoint PostgreSQL connection closed")
 
         except Exception as e:

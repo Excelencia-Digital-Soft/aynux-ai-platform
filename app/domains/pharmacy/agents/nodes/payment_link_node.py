@@ -4,7 +4,8 @@ Payment Link Generation Node
 Pharmacy domain node for generating Mercado Pago payment links.
 Creates a Checkout Pro preference and sends the payment link to the customer.
 
-Requires organization_id in state to load pharmacy configuration from database.
+Requires pharmacy_id in state to load pharmacy-specific configuration from database.
+The pharmacy_id is propagated from bypass routing when a BypassRule is linked to a pharmacy.
 """
 
 from __future__ import annotations
@@ -37,12 +38,12 @@ class PaymentLinkNode(BaseAgent):
         - debt_status = "confirmed"
         - plex_customer_id set
         - payment_amount or total_debt set
-        - organization_id set (for loading pharmacy config from DB)
+        - pharmacy_id set (propagated from bypass routing, for loading pharmacy config from DB)
 
     Produces:
         - mp_preference_id: Mercado Pago preference ID
         - mp_init_point: Payment link URL
-        - mp_external_reference: Reference for webhook correlation
+        - mp_external_reference: Reference for webhook correlation (includes pharmacy_id)
         - awaiting_payment: True
         - debt_status: "payment_pending"
     """
@@ -82,32 +83,32 @@ class PaymentLinkNode(BaseAgent):
             State updates with payment link info
         """
         try:
-            # Validate organization_id (required for DB config)
-            org_id_str = state_dict.get("organization_id")
-            if not org_id_str:
-                logger.error("Cannot generate payment link: no organization_id in state")
+            # Validate pharmacy_id (required for DB config)
+            pharmacy_id_str = state_dict.get("pharmacy_id")
+            if not pharmacy_id_str:
+                logger.error("Cannot generate payment link: no pharmacy_id in state")
                 return self._handle_no_organization()
 
             from uuid import UUID
             try:
-                org_id = UUID(str(org_id_str))
+                pharmacy_id = UUID(str(pharmacy_id_str))
             except ValueError:
-                logger.error(f"Invalid organization_id format: {org_id_str}")
+                logger.error(f"Invalid pharmacy_id format: {pharmacy_id_str}")
                 return self._handle_no_organization()
 
-            # Load pharmacy config from database
-            pharmacy_config = await self._load_pharmacy_config(org_id)
+            # Load pharmacy config from database by pharmacy ID
+            pharmacy_config = await self._load_pharmacy_config(pharmacy_id)
             if not pharmacy_config:
                 return self._handle_config_not_found()
 
             # Check if MP is enabled for this pharmacy
             if not pharmacy_config.mp_enabled:
-                logger.warning(f"Mercado Pago integration is disabled for org {org_id}")
+                logger.warning(f"Mercado Pago integration is disabled for pharmacy {pharmacy_id}")
                 return self._handle_mp_disabled()
 
             # Validate MP credentials
             if not pharmacy_config.mp_access_token:
-                logger.error(f"No MP access token configured for org {org_id}")
+                logger.error(f"No MP access token configured for pharmacy {pharmacy_id}")
                 return self._handle_mp_not_configured()
 
             # Validate prerequisites
@@ -135,9 +136,9 @@ class PaymentLinkNode(BaseAgent):
                 return self._handle_invalid_amount()
 
             # Create external reference for webhook correlation
-            # Format: customer_id:debt_id:org_id:uuid (org_id is required)
+            # Format: customer_id:debt_id:pharmacy_id:uuid (pharmacy_id for unique identification)
             unique_id = uuid.uuid4().hex[:8]
-            external_reference = f"{plex_customer_id}:{debt_id}:{org_id}:{unique_id}"
+            external_reference = f"{plex_customer_id}:{debt_id}:{pharmacy_id}:{unique_id}"
 
             logger.info(
                 f"Creating MP payment link: customer={plex_customer_id}, "
@@ -200,20 +201,20 @@ class PaymentLinkNode(BaseAgent):
             logger.error(f"Error generating payment link: {e!s}", exc_info=True)
             return self._handle_error(str(e), state_dict)
 
-    async def _load_pharmacy_config(self, org_id) -> PharmacyConfig | None:
-        """Load pharmacy configuration from database."""
+    async def _load_pharmacy_config(self, pharmacy_id) -> PharmacyConfig | None:
+        """Load pharmacy configuration from database by pharmacy ID."""
         try:
             # Use db_session_factory if provided, otherwise use global context
             if self._db_session_factory:
                 async with self._db_session_factory() as session:
                     config_service = PharmacyConfigService(session)
-                    return await config_service.get_config(org_id)
+                    return await config_service.get_config_by_id(pharmacy_id)
             else:
                 # Fallback to global async db context
                 from app.database.async_db import get_async_db_context
                 async with get_async_db_context() as session:
                     config_service = PharmacyConfigService(session)
-                    return await config_service.get_config(org_id)
+                    return await config_service.get_config_by_id(pharmacy_id)
         except ValueError as e:
             logger.error(f"Failed to load pharmacy config: {e}")
             return None

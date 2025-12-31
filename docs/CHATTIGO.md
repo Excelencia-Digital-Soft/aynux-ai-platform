@@ -161,6 +161,14 @@ Chattigo también envía actualizaciones de estado (entregado, leído). Estos NO
 
 ## 4. Enviar Mensajes
 
+Chattigo utiliza un formato propietario para enviar mensajes (no el formato Meta).
+
+### Endpoint
+
+```
+POST https://channels.chattigo.com/bsp-cloud-chattigo-isv/webhooks/inbound
+```
+
 ### Enviar Mensaje de Texto
 
 ```python
@@ -168,13 +176,15 @@ import requests
 
 url = "https://channels.chattigo.com/bsp-cloud-chattigo-isv/webhooks/inbound"
 
+# Formato propietario Chattigo
 payload = {
-    "did": "5492644710400",        # Tu número de WhatsApp Business
-    "msisdn": "5492644472542",     # Número destino
-    "name": "Aynux",               # Nombre del bot
+    "id": "1234567890",              # ID único del mensaje (timestamp)
+    "did": "5492644710400",          # Tu número de WhatsApp Business
+    "msisdn": "5492644472542",       # Número destino
     "type": "text",
     "channel": "WHATSAPP",
     "content": "Hola! Soy el bot de Aynux",
+    "name": "Aynux",                 # Nombre del bot
     "isAttachment": False
 }
 
@@ -185,6 +195,49 @@ headers = {
 
 response = requests.post(url, headers=headers, json=payload)
 ```
+
+### Enviar Documento/Media
+
+```python
+payload = {
+    "id": "1234567890",
+    "did": "5492644710400",
+    "msisdn": "5492644472542",
+    "type": "media",                 # Tipo "media" para archivos
+    "channel": "WHATSAPP",
+    "content": "Aquí tienes el documento",  # Caption
+    "name": "Aynux",
+    "isAttachment": True,
+    "attachment": {
+        "mediaUrl": "https://example.com/document.pdf",
+        "mimeType": "application/pdf",
+        "fileName": "documento.pdf"
+    }
+}
+```
+
+### Enviar Imagen
+
+```python
+payload = {
+    "id": "1234567890",
+    "did": "5492644710400",
+    "msisdn": "5492644472542",
+    "type": "media",
+    "channel": "WHATSAPP",
+    "content": "Aquí tienes la imagen",
+    "name": "Aynux",
+    "isAttachment": True,
+    "attachment": {
+        "mediaUrl": "https://example.com/image.jpg",
+        "mimeType": "image/jpeg"
+    }
+}
+```
+
+### Respuesta Exitosa
+
+HTTP 200 con cuerpo vacío indica éxito.
 
 ---
 
@@ -297,7 +350,10 @@ uv run python scripts/test_chattigo.py --send-test --phone 5491112345678
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | POST | `/login` | Autenticación |
-| PATCH | `/webhooks/inbound` | Registrar webhook externo |
-| POST | `/webhooks/inbound` | Enviar mensaje saliente |
+| PATCH | `/webhooks/inbound` | Registrar webhook para mensajes entrantes |
+| POST | `/webhooks/inbound` | Enviar mensaje saliente (formato Chattigo propietario) |
 
 **Base URL:** `https://channels.chattigo.com/bsp-cloud-chattigo-isv`
+
+**Formato de Mensajes Salientes:** Formato propietario Chattigo (NO WhatsApp Cloud API)
+- Campos requeridos: `id`, `did`, `msisdn`, `type`, `channel`, `content`, `name`, `isAttachment`

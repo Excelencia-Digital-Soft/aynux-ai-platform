@@ -10,6 +10,7 @@ The set_tenant_registry_for_request() method configures agents per-request.
 
 import logging
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,7 +59,8 @@ class LangGraphChatbotService:
         # Módulos especializados
         self.message_processor = MessageProcessor()
         self.security_validator = SecurityValidator()
-        self.conversation_manager = ConversationManager()
+        # ConversationManager se crea por request para soportar multi-DID Chattigo
+        self._default_conversation_manager = ConversationManager()
         self.system_monitor = SystemMonitor()
 
         # Graph principal (se inicializa en initialize())
@@ -79,8 +81,8 @@ class LangGraphChatbotService:
             # Crear y configurar el sistema de graph
             self.graph_system = AynuxGraph(self.langgraph_config.model_dump())
 
-            # Inicializar el graph de forma asíncrona
-            self.graph_system.initialize()
+            # Inicializar el graph de forma asíncrona (con checkpointer)
+            await self.graph_system.initialize()
 
             self._initialized = True
             self.logger.info("LangGraph chatbot service initialized successfully")
@@ -95,6 +97,9 @@ class LangGraphChatbotService:
         contact: Contact,
         business_domain: str = "ecommerce",
         db_session: AsyncSession | None = None,
+        organization_id: "UUID | None" = None,
+        pharmacy_id: "UUID | None" = None,
+        chattigo_context: dict | None = None,
     ) -> BotResponse:
         """
         Procesa un mensaje de WhatsApp usando el sistema multi-agente refactorizado.
@@ -103,6 +108,11 @@ class LangGraphChatbotService:
             message: Mensaje de WhatsApp recibido
             contact: Información de contacto del usuario
             business_domain: Dominio de negocio (ecommerce, hospital, credit, excelencia)
+            db_session: Sesión de base de datos async (opcional)
+            organization_id: UUID de organización (from bypass routing, for multi-tenant context)
+            pharmacy_id: UUID de farmacia (from bypass routing, for pharmacy config lookup)
+            chattigo_context: Contexto de Chattigo (did, idChat, etc.) para seleccionar
+                            credenciales correctas de la base de datos.
 
         Returns:
             Respuesta estructurada del bot
@@ -128,15 +138,16 @@ class LangGraphChatbotService:
             db_available = await self.security_validator.check_database_health()
 
             # Obtener contextos necesarios
-            profile_name = (
-                contact.profile.get("name") if contact.profile and isinstance(contact.profile, dict) else "Usuario"
-            )
+            profile_name: str = (
+                contact.profile.get("name") if contact.profile and isinstance(contact.profile, dict) else None
+            ) or "Usuario"
             customer_context = await self._get_or_create_customer_context(user_number, profile_name, db_session)
             conversation_context = self.message_processor.create_conversation_context(
                 session_id, message_text, {"channel": "whatsapp"}
             )
 
-            # 5. Procesar con el sistema LangGraph (incluir business_domain)
+            # 5. Procesar con el sistema LangGraph (incluir business_domain y tenant IDs)
+            assert self.graph_system is not None  # Guaranteed after initialize()
             response_data = await self.message_processor.process_with_langgraph(
                 graph_system=self.graph_system,
                 message_text=message_text,
@@ -145,10 +156,19 @@ class LangGraphChatbotService:
                 session_id=session_id,
                 business_domain=business_domain,
                 db_session=db_session,
+                organization_id=organization_id,
+                pharmacy_id=pharmacy_id,
+                user_phone=user_number,
+            )
+
+            # Crear ConversationManager con contexto de Chattigo para selección de credenciales
+            conversation_manager = ConversationManager(
+                chattigo_context=chattigo_context,
+                db_session=db_session,
             )
 
             # Operaciones post-procesamiento
-            await self.conversation_manager.handle_whatsapp_post_processing(
+            await conversation_manager.handle_whatsapp_post_processing(
                 db_available=db_available,
                 user_number=user_number,
                 user_message=message_text,
@@ -163,18 +183,24 @@ class LangGraphChatbotService:
                     "agent_used": response_data.get("agent_used"),
                     "requires_human": response_data.get("requires_human", False),
                     "conversation_id": session_id,
+                    "graph_result": response_data.get("graph_result"),  # Include full execution history
                 },
             )
 
         except Exception as e:
-            return await self.conversation_manager.handle_processing_error(e, user_number)
+            # Usar ConversationManager con contexto para error handling
+            error_manager = ConversationManager(
+                chattigo_context=chattigo_context,
+                db_session=db_session,
+            )
+            return await error_manager.handle_processing_error(e, user_number)
 
     async def process_chat_message(
         self,
         message: str,
         user_id: str,
         session_id: str,
-        metadata: Dict[str, Any] = None,
+        metadata: Dict[str, Any] | None = None,
         db_session: AsyncSession | None = None,
     ) -> Dict[str, Any]:
         """
@@ -204,6 +230,7 @@ class LangGraphChatbotService:
             conversation_context = self.message_processor.create_conversation_context(session_id, message, metadata)
 
             # Procesar con el sistema LangGraph
+            assert self.graph_system is not None  # Guaranteed after initialize()
             response_data = await self.message_processor.process_with_langgraph(
                 graph_system=self.graph_system,
                 message_text=message,
@@ -213,8 +240,8 @@ class LangGraphChatbotService:
                 db_session=db_session,
             )
 
-            # Post-procesamiento simplificado (sin WhatsApp)
-            await self.conversation_manager.handle_chat_post_processing(
+            # Post-procesamiento simplificado (sin WhatsApp, usa default manager)
+            await self._default_conversation_manager.handle_chat_post_processing(
                 user_id=user_id, user_message=message, session_id=session_id, response_data=response_data
             )
 
@@ -232,7 +259,7 @@ class LangGraphChatbotService:
             }
 
     async def process_chat_message_stream(
-        self, message: str, user_id: str, session_id: str, metadata: Dict[str, Any] = None
+        self, message: str, user_id: str, session_id: str, metadata: Dict[str, Any] | None = None
     ) -> AsyncGenerator[ChatStreamEvent, None]:
         """
         Procesa un mensaje de chat con streaming en tiempo real usando el sistema multi-agente.
@@ -261,6 +288,7 @@ class LangGraphChatbotService:
             conversation_context = self.message_processor.create_conversation_context(session_id, message, metadata)
 
             # Procesar con streaming usando el sistema LangGraph
+            assert self.graph_system is not None  # Guaranteed after initialize()
             last_event = None
             async for stream_event in self.message_processor.process_with_langgraph_stream(
                 graph_system=self.graph_system,
@@ -272,10 +300,10 @@ class LangGraphChatbotService:
                 last_event = stream_event
                 yield stream_event
 
-            # Post-procesamiento simplificado (sin WhatsApp)
+            # Post-procesamiento simplificado (sin WhatsApp, usa default manager)
             # Solo si el último evento fue de completion
             if last_event and last_event.event_type.value == "complete":
-                await self.conversation_manager.handle_chat_post_processing(
+                await self._default_conversation_manager.handle_chat_post_processing(
                     user_id=user_id,
                     user_message=message,
                     session_id=session_id,
@@ -307,14 +335,20 @@ class LangGraphChatbotService:
 
     async def get_conversation_history_langgraph(self, user_number: str, limit: int = 50) -> Dict[str, Any]:
         """Obtiene el historial de conversación para un usuario usando LangGraph"""
+        if not self._initialized or self.graph_system is None:
+            return {"messages": [], "error": "Service not initialized"}
         return await self.system_monitor.get_conversation_history_langgraph(self.graph_system, user_number, limit)
 
     async def get_conversation_stats(self, user_number: str) -> Dict[str, Any]:
         """Obtiene estadísticas de conversación para un usuario"""
+        if not self._initialized or self.graph_system is None:
+            return {"error": "Service not initialized"}
         return await self.system_monitor.get_conversation_stats(self.graph_system, user_number)
 
     async def get_system_health(self) -> Dict[str, Any]:
         """Obtiene el estado de salud del sistema LangGraph"""
+        if not self._initialized or self.graph_system is None:
+            return {"status": "not_initialized", "graph_system": None}
         return await self.system_monitor.get_system_health(self._initialized, self.graph_system)
 
     async def cleanup(self):

@@ -49,34 +49,24 @@ class SQLContextGenerator:
         if not results:
             return f"No se encontraron resultados para la consulta: {user_query}"
 
-        # Summarize results for embedding
-        context_prompt = f"""# CONTEXTO DE DATOS PARA AGENTE AI
-
-CONSULTA ORIGINAL: "{user_query}"
-
-RESULTADOS ENCONTRADOS: {len(results)} registros
-
-DATOS RELEVANTES:
-{json.dumps(results[:10], indent=2, default=str)}
-
-RESUMEN EJECUTIVO:
-Genera un resumen conciso y estructurado de estos datos que permita a un agente AI
-responder de manera informativa y util. Incluye:
-- Numeros clave y estadisticas
-- Patrones o tendencias importantes
-- Respuesta directa a la pregunta original
-- Contexto adicional relevante
-
-Respuesta en espanol, maximo 300 palabras:"""
+        # Build query results context
+        query_results = f"RESULTADOS ENCONTRADOS: {len(results)} registros\n\nDATOS RELEVANTES:\n{json.dumps(results[:10], indent=2, default=str)}"
 
         try:
-            # Load system prompt from YAML
+            # Load both prompts from YAML
             system_prompt = await self.prompt_manager.get_prompt(
                 PromptRegistry.TOOLS_DYNAMIC_SQL_CONTEXT_GENERATOR_SYSTEM,
             )
+            user_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.TOOLS_DYNAMIC_SQL_CONTEXT_GENERATOR_USER,
+                variables={
+                    "user_query": user_query,
+                    "query_results": query_results,
+                },
+            )
             context_summary = await self.ollama.generate_response(
                 system_prompt=system_prompt,
-                user_prompt=context_prompt,
+                user_prompt=user_prompt,
                 temperature=0.3,
             )
 

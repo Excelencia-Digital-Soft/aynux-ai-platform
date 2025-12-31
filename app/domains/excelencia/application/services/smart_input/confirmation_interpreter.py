@@ -4,9 +4,13 @@ Confirmation interpreter with LLM fallback.
 Interprets user confirmation responses and detects edit targets.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 from app.integrations.llm import OllamaLLM
+from app.prompts import PromptRegistry
 
 from .base import BaseInterpreter, InterpretationResult
 from .constants import (
@@ -16,6 +20,9 @@ from .constants import (
     EDIT_TARGET_DESCRIPTION,
     EDIT_TARGET_PRIORITY,
 )
+
+if TYPE_CHECKING:
+    from app.prompts import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +34,7 @@ class ConfirmationInterpreter(BaseInterpreter):
         self,
         message: str,
         llm: OllamaLLM | None = None,
+        prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """
         Interpret user confirmation.
@@ -71,7 +79,7 @@ class ConfirmationInterpreter(BaseInterpreter):
         if llm is None:
             return InterpretationResult(success=False, method="direct")
 
-        return await self._llm_interpret(message, llm)
+        return await self._llm_interpret(message, llm, prompt_manager)
 
     def _detect_edit_target(self, message: str) -> str | None:
         """Detect which field the user wants to edit."""
@@ -85,9 +93,10 @@ class ConfirmationInterpreter(BaseInterpreter):
         self,
         message: str,
         llm: OllamaLLM,
+        prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """LLM fallback for confirmation interpretation."""
-        prompt = f"""Analiza el siguiente mensaje y determina la intencion del usuario.
+        fallback_prompt = f"""Analiza el siguiente mensaje y determina la intencion del usuario.
 
 Mensaje: "{message}"
 
@@ -110,6 +119,13 @@ Ejemplos:
 - "olvidalo" -> cancel
 
 Responde SOLO con el formato indicado."""
+
+        prompt = await self._get_prompt_from_yaml(
+            prompt_manager,
+            PromptRegistry.EXCELENCIA_SMART_INPUT_CONFIRMATION_INTERPRET,
+            {"message": message},
+            fallback_prompt,
+        )
 
         result = await self._invoke_llm(prompt, llm)
 

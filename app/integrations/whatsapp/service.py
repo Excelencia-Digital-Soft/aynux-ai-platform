@@ -7,12 +7,20 @@ Chattigo Mode (Default):
   - All messaging goes through Chattigo API
   - Chattigo handles Meta/WhatsApp verification
   - No direct WhatsApp Graph API calls needed
+
+Multi-DID Support:
+  - When db_session and chattigo_context with 'did' are provided,
+    credentials are fetched from chattigo_credentials table
+  - Falls back to settings-based credentials if not found in DB
 """
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.config.settings import Settings, get_settings
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -27,42 +35,97 @@ class ChattigoMessagingService:
     Messaging service that uses Chattigo as the WhatsApp API intermediary.
 
     This is the primary implementation for sending messages via Chattigo API.
+
+    Multi-DID Support:
+    - If db_session and chattigo_context with 'did' are provided,
+      credentials are fetched from chattigo_credentials table.
+    - Falls back to settings-based credentials if:
+      1. No db_session provided
+      2. No 'did' in chattigo_context
+      3. No credentials found in database for the DID
     """
 
-    def __init__(self, settings: Settings, chattigo_context: dict | None = None):
+    def __init__(
+        self,
+        settings: Settings,
+        chattigo_context: dict | None = None,
+        db_session: "AsyncSession | None" = None,
+    ):
         """
         Initialize Chattigo messaging service.
 
         Args:
-            settings: Application settings with Chattigo configuration
+            settings: Application settings with Chattigo configuration (fallback)
             chattigo_context: Context from incoming webhook (did, idChat, channelId, idCampaign)
+            db_session: Optional database session for multi-DID credential lookup
         """
         self._settings = settings
         self._chattigo_context = chattigo_context or {}
+        self._db_session = db_session
         self._adapter = None
+        self._multi_did_adapter = None
+        self._use_multi_did = False
 
     async def _get_adapter(self):
-        """Get or create ChattigoAdapter instance."""
-        if self._adapter is None:
-            from app.integrations.chattigo import ChattigoAdapter
+        """
+        Get or create ChattigoAdapter instance.
 
-            self._adapter = ChattigoAdapter(self._settings)
-            await self._adapter.initialize()
+        Attempts to use multi-DID credentials from database if:
+        1. db_session is available
+        2. chattigo_context contains 'did'
+        3. Credentials exist in database for that DID
+
+        Falls back to settings-based adapter if any of the above fail.
+        """
+        # If we already have an adapter, return it
+        if self._use_multi_did and self._multi_did_adapter is not None:
+            return self._multi_did_adapter
+        if self._adapter is not None:
+            return self._adapter
+
+        # Try multi-DID first if we have db and did
+        did = self._chattigo_context.get("did")
+        if self._db_session is not None and did:
+            # Import at module level check to satisfy type checkers
+            from app.core.tenancy.tenant_credential_service import CredentialNotFoundError
+            from app.integrations.chattigo.adapter_factory import (
+                get_chattigo_adapter_factory,
+            )
+
+            try:
+                factory = get_chattigo_adapter_factory()
+                self._multi_did_adapter = await factory.get_adapter(self._db_session, did)
+                await self._multi_did_adapter.initialize()
+                self._use_multi_did = True
+                logger.info(f"Using multi-DID credentials for DID {did}")
+                return self._multi_did_adapter
+
+            except CredentialNotFoundError:
+                logger.info(
+                    f"No multi-DID credentials found for DID {did}, "
+                    "falling back to settings-based adapter"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get multi-DID adapter for DID {did}: {e}, "
+                    "falling back to settings-based adapter"
+                )
+
+        # Fallback to settings-based adapter
+        from app.integrations.chattigo import ChattigoAdapter
+
+        self._adapter = ChattigoAdapter(self._settings)
+        await self._adapter.initialize()
+        logger.info("Using settings-based Chattigo adapter")
         return self._adapter
 
     async def send_message(self, numero: str, mensaje: str) -> dict[str, Any]:
-        """Send text message via Chattigo."""
+        """Send text message via Chattigo API."""
         adapter = await self._get_adapter()
-
-        # Use context from incoming webhook or defaults
-        did = self._chattigo_context.get("did", self._settings.CHATTIGO_BOT_NAME)
-        id_chat = self._chattigo_context.get("idChat", 0)
 
         try:
             result = await adapter.send_message(
                 msisdn=numero,
-                did=did,
-                id_chat=id_chat,
                 message=mensaje,
             )
             return {"success": True, "data": result}
@@ -77,17 +140,12 @@ class ChattigoMessagingService:
         document_url: str,
         caption: str | None = None,
     ) -> dict[str, Any]:
-        """Send document via Chattigo."""
+        """Send document via Chattigo API."""
         adapter = await self._get_adapter()
-
-        did = self._chattigo_context.get("did", self._settings.CHATTIGO_BOT_NAME)
-        id_chat = self._chattigo_context.get("idChat", 0)
 
         try:
             result = await adapter.send_document(
                 msisdn=numero,
-                did=did,
-                id_chat=id_chat,
                 document_url=document_url,
                 filename=nombre,
                 caption=caption,
@@ -103,17 +161,12 @@ class ChattigoMessagingService:
         image_url: str,
         caption: str | None = None,
     ) -> dict[str, Any]:
-        """Send image via Chattigo."""
+        """Send image via Chattigo API."""
         adapter = await self._get_adapter()
-
-        did = self._chattigo_context.get("did", self._settings.CHATTIGO_BOT_NAME)
-        id_chat = self._chattigo_context.get("idChat", 0)
 
         try:
             result = await adapter.send_image(
                 msisdn=numero,
-                did=did,
-                id_chat=id_chat,
                 image_url=image_url,
                 caption=caption,
             )
@@ -181,10 +234,14 @@ class ChattigoMessagingService:
     send_template_with_document = enviar_template_con_documento
 
     async def close(self):
-        """Close adapter."""
+        """Close adapters."""
+        if self._multi_did_adapter:
+            await self._multi_did_adapter.close()
+            self._multi_did_adapter = None
         if self._adapter:
             await self._adapter.close()
             self._adapter = None
+        self._use_multi_did = False
 
 
 # ============================================================================
@@ -200,15 +257,21 @@ class WhatsAppService:
     that delegates all messaging operations to ChattigoMessagingService.
     """
 
-    def __init__(self, chattigo_context: dict | None = None):
+    def __init__(
+        self,
+        chattigo_context: dict | None = None,
+        db_session: "AsyncSession | None" = None,
+    ):
         """
         Initialize WhatsApp service.
 
         Args:
             chattigo_context: Context from Chattigo webhook (did, idChat, etc.)
+            db_session: Optional database session for multi-DID credential lookup
         """
         self.settings = get_settings()
         self._chattigo_context = chattigo_context or {}
+        self._db_session = db_session
 
         if not self.settings.CHATTIGO_ENABLED:
             raise RuntimeError(
@@ -218,7 +281,7 @@ class WhatsAppService:
 
         # Use Chattigo internally
         self._chattigo_service = ChattigoMessagingService(
-            self.settings, self._chattigo_context
+            self.settings, self._chattigo_context, self._db_session
         )
 
         logger.info("WhatsApp Service initialized (using Chattigo)")
@@ -292,6 +355,7 @@ class WhatsAppService:
 
 def get_messaging_service(
     chattigo_context: dict | None = None,
+    db_session: "AsyncSession | None" = None,
 ) -> ChattigoMessagingService:
     """
     Get the messaging service.
@@ -299,17 +363,29 @@ def get_messaging_service(
     Returns ChattigoMessagingService since Chattigo is the only
     supported messaging integration.
 
+    Multi-DID Support:
+    - When db_session and chattigo_context with 'did' are provided,
+      credentials are fetched from chattigo_credentials table.
+    - Falls back to settings-based credentials if not found in DB.
+
     Args:
         chattigo_context: Context from Chattigo webhook (did, idChat, etc.)
                          Required for proper message routing.
+        db_session: Optional database session for multi-DID credential lookup.
+                   If provided with chattigo_context containing 'did',
+                   enables multi-DID credential support.
 
     Returns:
         ChattigoMessagingService instance
 
     Example:
-        service = get_messaging_service(chattigo_context=request.state.chattigo_context)
+        # Basic usage (settings-based)
+        service = get_messaging_service(chattigo_context=ctx)
+
+        # Multi-DID usage (database credentials)
+        service = get_messaging_service(chattigo_context=ctx, db_session=db)
         await service.send_message("5491234567890", "Hello!")
     """
     settings = get_settings()
     logger.info("Creating Chattigo messaging service")
-    return ChattigoMessagingService(settings, chattigo_context)
+    return ChattigoMessagingService(settings, chattigo_context, db_session)

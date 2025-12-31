@@ -1,0 +1,1 @@
+# Chattigo integration tests

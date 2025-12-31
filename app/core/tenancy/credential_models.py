@@ -20,6 +20,54 @@ from uuid import UUID
 
 
 @dataclass(frozen=True)
+class ChattigoCredentials:
+    """
+    Decrypted Chattigo ISV credentials for a specific DID.
+
+    Attributes:
+        did: WhatsApp Business phone number (e.g., "5492644710400")
+        name: Human-readable name (e.g., "Turmedica")
+        username: Chattigo ISV username (decrypted)
+        password: Chattigo ISV password (decrypted)
+        login_url: Chattigo login endpoint
+        message_url: Chattigo message/webhook endpoint
+        bot_name: Bot display name for outbound messages
+        token_refresh_hours: Hours between token refresh
+        organization_id: Organization UUID
+        bypass_rule_id: Optional linked bypass rule UUID
+
+    Usage:
+        creds = await credential_service.get_chattigo_credentials_by_did(db, "5492644710400")
+        # Use creds.username and creds.password for authentication
+    """
+
+    did: str
+    name: str
+    username: str
+    password: str
+    login_url: str
+    message_url: str
+    bot_name: str
+    token_refresh_hours: int
+    organization_id: UUID
+    bypass_rule_id: UUID | None = None
+    enabled: bool = True
+
+    def __repr__(self) -> str:
+        """Mask sensitive credentials in repr."""
+        masked_user = f"{self.username[:4]}..." if len(self.username) > 4 else "***"
+        return (
+            f"ChattigoCredentials("
+            f"did={self.did}, "
+            f"name={self.name}, "
+            f"username={masked_user}, "
+            f"password=***, "
+            f"org_id={self.organization_id}, "
+            f"enabled={self.enabled})"
+        )
+
+
+@dataclass(frozen=True)
 class WhatsAppCredentials:
     """
     Decrypted WhatsApp Business API credentials.
@@ -158,4 +206,59 @@ class CredentialUpdateRequest:
             self.plex_api_url is not None,
             self.plex_api_user is not None,
             self.plex_api_pass is not None,
+        ])
+
+
+@dataclass(frozen=True)
+class ChattigoCredentialCreateRequest:
+    """
+    Request DTO for creating new Chattigo credentials via Admin API.
+
+    Required fields for creating a new DID credential.
+    """
+
+    did: str
+    name: str
+    username: str
+    password: str
+    organization_id: UUID
+    login_url: str | None = None
+    message_url: str | None = None
+    bot_name: str | None = None
+    token_refresh_hours: int | None = None
+    bypass_rule_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class ChattigoCredentialUpdateRequest:
+    """
+    Request DTO for updating existing Chattigo credentials via Admin API.
+
+    All fields are optional - only provided fields will be updated.
+    """
+
+    name: str | None = None
+    username: str | None = None
+    password: str | None = None
+    login_url: str | None = None
+    message_url: str | None = None
+    bot_name: str | None = None
+    token_refresh_hours: int | None = None
+    enabled: bool | None = None
+    bypass_rule_id: UUID | None = None
+
+    def has_credential_updates(self) -> bool:
+        """Check if username or password are being updated."""
+        return self.username is not None or self.password is not None
+
+    def has_config_updates(self) -> bool:
+        """Check if any configuration fields are being updated."""
+        return any([
+            self.name is not None,
+            self.login_url is not None,
+            self.message_url is not None,
+            self.bot_name is not None,
+            self.token_refresh_hours is not None,
+            self.enabled is not None,
+            self.bypass_rule_id is not None,
         ])

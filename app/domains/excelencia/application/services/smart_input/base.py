@@ -4,10 +4,16 @@ Base classes for smart input interpretation.
 Provides common functionality for LLM-backed interpreters.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from app.integrations.llm import ModelComplexity, OllamaLLM
+
+if TYPE_CHECKING:
+    from app.prompts import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +31,32 @@ class InterpretationResult:
 
 class BaseInterpreter:
     """Base class for interpreters with LLM fallback pattern."""
+
+    async def _get_prompt_from_yaml(
+        self,
+        prompt_manager: "PromptManager | None",
+        prompt_key: str,
+        variables: dict,
+        fallback_prompt: str,
+    ) -> str:
+        """
+        Get prompt from YAML template with fallback.
+
+        Args:
+            prompt_manager: PromptManager instance (can be None)
+            prompt_key: Registry key for the prompt
+            variables: Variables to render in the template
+            fallback_prompt: Fallback prompt if YAML loading fails
+
+        Returns:
+            Rendered prompt string
+        """
+        if prompt_manager:
+            try:
+                return await prompt_manager.get_prompt(prompt_key, variables=variables)
+            except Exception as e:
+                logger.warning(f"Failed to load YAML prompt {prompt_key}: {e}")
+        return fallback_prompt
 
     async def _invoke_llm(
         self,

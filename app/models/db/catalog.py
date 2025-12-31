@@ -225,13 +225,13 @@ class Product(Base, TimestampMixin):
     @hybrid_property
     def is_low_stock(self) -> bool:
         """Verifica si el producto está con stock bajo."""
-        return self.stock <= self.min_stock  # type: ignore
+        return self.stock <= self.min_stock  # type: ignore[return-value]
 
     @hybrid_property
     def discount_percentage(self) -> Optional[float]:
         """Calcula el porcentaje de descuento si aplica."""
-        if self.original_price and self.original_price > self.price:  # type: ignore
-            return ((self.original_price - self.price) / self.original_price) * 100  # type: ignore
+        if self.original_price and self.original_price > self.price:
+            return ((self.original_price - self.price) / self.original_price) * 100  # type: ignore[return-value]
         return None
 
 

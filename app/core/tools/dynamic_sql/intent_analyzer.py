@@ -55,41 +55,21 @@ class SQLIntentAnalyzer:
         Returns:
             Dictionary with intent analysis results
         """
-        intent_prompt = f"""# ANALISIS DE INTENCION PARA CONSULTA SQL
-
-CONSULTA DEL USUARIO: "{user_query}"
-
-Analiza la consulta y extrae los siguientes componentes en formato JSON:
-
-{{
-  "intent_type": "search|count|aggregate|list|comparison|trend",
-  "target_entities": ["tabla1", "tabla2"],
-  "filters": {{
-    "time_range": "last_week|last_month|yesterday|today|specific_date",
-    "locations": ["Brasil", "Argentina"],
-    "status": ["completed", "pending"],
-    "amounts": {{"min": 100, "max": 1000}},
-    "user_specific": true
-  }},
-  "aggregations": ["COUNT", "SUM", "AVG", "MAX", "MIN"],
-  "time_columns": ["created_at", "order_date", "updated_at"],
-  "grouping": ["country", "category", "month"],
-  "sorting": {{"column": "created_at", "direction": "DESC"}},
-  "limit": 100,
-  "keywords": ["ordenes", "Brasil", "semana pasada"],
-  "confidence": 0.9
-}}
-
-Responde SOLO el JSON valido:"""
-
         try:
-            # Load system prompt from YAML
+            # Load both prompts from YAML
             system_prompt = await self.prompt_manager.get_prompt(
                 PromptRegistry.TOOLS_DYNAMIC_SQL_INTENT_ANALYZER_SYSTEM,
             )
+            user_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.TOOLS_DYNAMIC_SQL_INTENT_ANALYZER_USER,
+                variables={
+                    "user_query": user_query,
+                    "schema_info": "",  # Optional - can be added if needed
+                },
+            )
             response = await self.ollama.generate_response(
                 system_prompt=system_prompt,
-                user_prompt=intent_prompt,
+                user_prompt=user_prompt,
                 temperature=0.1,
             )
 

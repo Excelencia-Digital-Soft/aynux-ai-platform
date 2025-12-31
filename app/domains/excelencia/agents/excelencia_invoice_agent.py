@@ -148,7 +148,7 @@ class ExcelenciaInvoiceAgent(BaseAgent):
                 default=None,
             )
 
-            if not ai_analysis:
+            if not ai_analysis or not isinstance(ai_analysis, dict):
                 logger.warning("ExcelenciaInvoiceAgent: JSON extraction failed, using fallback")
                 return self._create_fallback_analysis(query_type)
 
@@ -208,12 +208,17 @@ class ExcelenciaInvoiceAgent(BaseAgent):
             return ""
 
     async def _generate_response(
-        self, user_message: str, query_analysis: dict[str, Any], _state_dict: dict[str, Any]
+        self, user_message: str, query_analysis: dict[str, Any], state_dict: dict[str, Any]
     ) -> str:
         """Generate response based on query analysis."""
         query_type = query_analysis.get("query_type", "general")
         client_name = query_analysis.get("client_name")
         action = query_analysis.get("action_requested", "consultar")
+
+        # Get conversation context from state (injected by HistoryAgent)
+        conversation_summary = state_dict.get("conversation_summary", "")
+        if conversation_summary:
+            logger.info(f"ExcelenciaInvoiceAgent: Using conversation context ({len(conversation_summary)} chars)")
 
         # Search knowledge base
         rag_context = await self._search_knowledge_base(user_message)
@@ -229,6 +234,7 @@ class ExcelenciaInvoiceAgent(BaseAgent):
                     "action": action,
                     "period": query_analysis.get("period") or "No especificado",
                     "rag_context": rag_context,
+                    "conversation_summary": conversation_summary,
                 },
             )
         except Exception as e:

@@ -20,6 +20,10 @@ class PromptRenderer:
     - Validación de variables requeridas
     """
 
+    # Placeholder for escaped braces during rendering
+    _ESCAPED_OPEN = "\x00ESC_OPEN\x00"
+    _ESCAPED_CLOSE = "\x00ESC_CLOSE\x00"
+
     @staticmethod
     def render(template: str, variables: Dict[str, Any], strict: bool = True) -> str:
         """
@@ -35,13 +39,18 @@ class PromptRenderer:
 
         Raises:
             ValueError: Si strict=True y falta una variable requerida
+
+        Note:
+            Use {{ and }} to include literal braces in the template.
+            Example: {{"key": "value"}} renders as {"key": "value"}
         """
         try:
-            # Primero intentar con format para variables {variable}
-            rendered = template
+            # Pre-process: Replace escaped braces {{ and }} with placeholders
+            rendered = template.replace("{{", PromptRenderer._ESCAPED_OPEN)
+            rendered = rendered.replace("}}", PromptRenderer._ESCAPED_CLOSE)
 
-            # Encontrar todas las variables requeridas
-            required_vars = re.findall(r"\{([^}]+)\}", template)
+            # Encontrar todas las variables requeridas (now only single braces)
+            required_vars = re.findall(r"\{([^}]+)\}", rendered)
 
             # Validar que existan todas las variables requeridas
             if strict:
@@ -60,6 +69,10 @@ class PromptRenderer:
                 elif not strict:
                     # Si no es strict, dejar la variable sin reemplazar
                     logger.warning(f"Variable '{var}' not found in variables dict, leaving unreplaced")
+
+            # Post-process: Restore literal braces from placeholders
+            rendered = rendered.replace(PromptRenderer._ESCAPED_OPEN, "{")
+            rendered = rendered.replace(PromptRenderer._ESCAPED_CLOSE, "}")
 
             return rendered
 
@@ -103,11 +116,14 @@ class PromptRenderer:
                 "errors": list
             }
         """
-        result = {"is_valid": True, "required_variables": [], "errors": []}
+        result: Dict[str, Any] = {"is_valid": True, "required_variables": [], "errors": []}
 
         try:
-            # Encontrar todas las variables
-            variables = re.findall(r"\{([^}]+)\}", template)
+            # Pre-process: Remove escaped braces before finding variables
+            processed = template.replace("{{", "").replace("}}", "")
+
+            # Encontrar todas las variables (only single braces after pre-processing)
+            variables = re.findall(r"\{([^}]+)\}", processed)
             result["required_variables"] = list(set(variables))
 
             # Validar sintaxis básica
@@ -115,8 +131,10 @@ class PromptRenderer:
                 result["is_valid"] = False
                 result["errors"].append("Template is empty")
 
-            # Verificar balance de llaves
-            if template.count("{") != template.count("}"):
+            # Verificar balance de llaves (account for escaped braces)
+            single_open = template.count("{") - template.count("{{") * 2
+            single_close = template.count("}") - template.count("}}") * 2
+            if single_open != single_close:
                 result["is_valid"] = False
                 result["errors"].append("Unbalanced braces in template")
 
@@ -136,5 +154,10 @@ class PromptRenderer:
 
         Returns:
             Lista de nombres de variables encontradas
+
+        Note:
+            Escaped braces {{ and }} are ignored.
         """
-        return list(set(re.findall(r"\{([^}]+)\}", template)))
+        # Pre-process: Remove escaped braces before extracting variables
+        processed = template.replace("{{", "").replace("}}", "")
+        return list(set(re.findall(r"\{([^}]+)\}", processed)))

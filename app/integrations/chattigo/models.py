@@ -109,11 +109,52 @@ class ChattigoWebhookPayload(BaseModel):
         )
 
 
+# ============================================================================
+# WhatsApp Cloud API Models (Meta Standard)
+# ============================================================================
+
+
+class WhatsAppMessageContact(BaseModel):
+    """Contact info from WhatsApp Cloud API response."""
+
+    input: str
+    wa_id: str
+
+
+class WhatsAppMessageInfo(BaseModel):
+    """Message info from WhatsApp Cloud API response."""
+
+    id: str
+
+
+class WhatsAppMessageResponse(BaseModel):
+    """
+    Response from WhatsApp Cloud API message sending.
+
+    This is the response format from POST /{version}/{did}/messages endpoint.
+    See: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
+    """
+
+    messaging_product: str = "whatsapp"
+    contacts: list[WhatsAppMessageContact] | None = None
+    messages: list[WhatsAppMessageInfo] | None = None
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+
+
+# ============================================================================
+# Legacy Chattigo Models (Deprecated - kept for reference)
+# ============================================================================
+
+
 class ChattigoOutboundMessage(BaseModel):
     """
-    Outbound message structure for Chattigo API.
+    DEPRECATED: Legacy outbound message structure for Chattigo API.
 
-    Used when sending messages back to users via Chattigo.
+    This format is no longer used. Use WhatsApp Cloud API format instead.
+    Kept for backward compatibility and reference.
     """
 
     id: str  # Unique message ID
@@ -134,9 +175,10 @@ class ChattigoOutboundMessage(BaseModel):
 
 class ChattigoAttachmentMessage(BaseModel):
     """
-    Outbound attachment message for Chattigo API.
+    DEPRECATED: Legacy outbound attachment message for Chattigo API.
 
-    Used when sending documents, images, etc. via Chattigo.
+    This format is no longer used. Use WhatsApp Cloud API format instead.
+    Kept for backward compatibility and reference.
     """
 
     id: str

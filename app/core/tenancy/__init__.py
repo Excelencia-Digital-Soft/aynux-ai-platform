@@ -34,16 +34,28 @@ from .middleware import (
     get_tenant_dependency,
 )
 from .credential_models import (
+    ChattigoCredentialCreateRequest,
+    ChattigoCredentials,
+    ChattigoCredentialUpdateRequest,
     CredentialUpdateRequest,
     DuxCredentials,
     PlexCredentials,
     WhatsAppCredentials,
 )
-from .credential_service import (
+from .encryption_service import (
     CredentialEncryptionError,
+    CredentialEncryptionService,
+    get_encryption_service,
+)
+from .tenant_credential_service import (
     CredentialNotFoundError,
     TenantCredentialService,
-    get_credential_service,
+    get_tenant_credential_service,
+)
+from .chattigo_credential_service import (
+    ChattigoCredentialService,
+    ChattigoNotFoundError,
+    get_chattigo_credential_service,
 )
 from .pharmacy_config_service import (
     PharmacyConfig,
@@ -82,13 +94,24 @@ __all__ = [
     "PharmacyConfigService",
     "PharmacyConfig",
     "TEST_PHARMACY_ORG_ID",
-    # Credential Service
-    "TenantCredentialService",
-    "get_credential_service",
-    "CredentialNotFoundError",
+    # Encryption Service
+    "CredentialEncryptionService",
     "CredentialEncryptionError",
+    "get_encryption_service",
+    # Tenant Credential Service
+    "TenantCredentialService",
+    "get_tenant_credential_service",
+    "CredentialNotFoundError",
+    # Chattigo Credential Service
+    "ChattigoCredentialService",
+    "get_chattigo_credential_service",
+    "ChattigoNotFoundError",
+    # Credential DTOs
     "WhatsAppCredentials",
     "DuxCredentials",
     "PlexCredentials",
+    "ChattigoCredentials",
     "CredentialUpdateRequest",
+    "ChattigoCredentialCreateRequest",
+    "ChattigoCredentialUpdateRequest",
 ]

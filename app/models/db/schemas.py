@@ -24,8 +24,11 @@ CREDIT_SCHEMA = "credit"
 # Support/incidents domain schema
 SOPORTE_SCHEMA = "soporte"
 
+# Excelencia domain schema (Software Excelencia ERP)
+EXCELENCIA_SCHEMA = "excelencia"
+
 # Default search path for SQLAlchemy connections
-DEFAULT_SEARCH_PATH = f"public,{CORE_SCHEMA},{ECOMMERCE_SCHEMA},{HEALTHCARE_SCHEMA},{CREDIT_SCHEMA},{SOPORTE_SCHEMA}"
+DEFAULT_SEARCH_PATH = f"public,{CORE_SCHEMA},{ECOMMERCE_SCHEMA},{HEALTHCARE_SCHEMA},{CREDIT_SCHEMA},{SOPORTE_SCHEMA},{EXCELENCIA_SCHEMA}"
 
 # All managed schemas (for Alembic configuration)
 MANAGED_SCHEMAS = frozenset({
@@ -35,4 +38,5 @@ MANAGED_SCHEMAS = frozenset({
     HEALTHCARE_SCHEMA,
     CREDIT_SCHEMA,
     SOPORTE_SCHEMA,
+    EXCELENCIA_SCHEMA,
 })

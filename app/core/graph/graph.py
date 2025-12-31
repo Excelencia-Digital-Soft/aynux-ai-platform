@@ -64,7 +64,8 @@ class AynuxGraph:
         # Initialize integrations
         integrations_config = self._get_integrations_config()
         self.ollama = OllamaLLM()
-        self.postgres = PostgreSQLIntegration(integrations_config.get("postgres", {}))
+        # PostgreSQLIntegration uses settings.database_url by default
+        self.postgres = PostgreSQLIntegration()
 
         # Initialize factory and create agents
         self.agent_factory = AgentFactory(
@@ -170,21 +171,25 @@ class AynuxGraph:
             cast(dict[Hashable, str], supervisor_edges),
         )
 
-    def initialize(self, db_url: Optional[str] = None):
-        """Initialize and compile the graph with optional checkpointer"""
+    async def initialize(self, db_url: Optional[str] = None):
+        """Initialize and compile the graph with PostgreSQL async checkpointer"""
         try:
             checkpointer = None
-            if db_url and self.use_postgres_checkpointer:
+            if self.use_postgres_checkpointer:
                 try:
-                    # PostgresSaver.from_conn_string returns a synchronous checkpointer
-                    # For async operations, we create it differently or disable it
-                    logger.info("Skipping PostgreSQL checkpointer for now - using memory checkpointer")
-                    # checkpointer = PostgresSaver.from_conn_string(db_url)
+                    # Inicializar PostgreSQL integration si no está inicializado
+                    if not self.postgres._checkpointer:
+                        await self.postgres.initialize()
+
+                    # Obtener checkpointer async
+                    checkpointer = self.postgres.get_checkpointer()
+                    logger.info("PostgreSQL async checkpointer enabled")
                 except Exception as e:
                     logger.warning(f"Could not setup PostgreSQL checkpointer: {e}")
+                    checkpointer = None
 
             self.app = self.graph.compile(checkpointer=checkpointer)
-            logger.info("Graph compiled successfully")
+            logger.info(f"Graph compiled with checkpointer={'enabled' if checkpointer else 'disabled'}")
 
         except Exception as e:
             logger.error(f"Error initializing graph: {e}")
@@ -251,6 +256,7 @@ class AynuxGraph:
                 context = await self.history_agent.load_context(
                     conversation_id=conv_id,
                     organization_id=kwargs.get("organization_id"),
+                    pharmacy_id=kwargs.get("pharmacy_id"),
                     user_phone=kwargs.get("user_phone"),
                 )
                 logger.debug(f"Loaded context for {conv_id}: turns={context.total_turns if context else 0}")
@@ -273,6 +279,10 @@ class AynuxGraph:
                 "history_loaded": context is not None,
                 # FLOW CONTINUITY: Inject last_agent as current_agent for follow-up detection
                 "current_agent": context.last_agent if context else None,
+                # CHECKPOINTER: Reset control flags for new message (prevents early exit)
+                "is_complete": False,
+                "human_handoff_requested": False,
+                "next_agent": None,
                 **kwargs,
             }
 
@@ -390,6 +400,7 @@ class AynuxGraph:
                 context = await self.history_agent.load_context(
                     conversation_id=conv_id,
                     organization_id=kwargs.get("organization_id"),
+                    pharmacy_id=kwargs.get("pharmacy_id"),
                     user_phone=kwargs.get("user_phone"),
                 )
             except Exception as e:
@@ -411,6 +422,10 @@ class AynuxGraph:
                 "history_loaded": context is not None,
                 # FLOW CONTINUITY: Inject last_agent as current_agent for follow-up detection
                 "current_agent": context.last_agent if context else None,
+                # CHECKPOINTER: Reset control flags for new message (prevents early exit)
+                "is_complete": False,
+                "human_handoff_requested": False,
+                "next_agent": None,
                 **kwargs,
             }
 

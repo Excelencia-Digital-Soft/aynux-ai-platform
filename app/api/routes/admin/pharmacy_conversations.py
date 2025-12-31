@@ -21,10 +21,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
-from sqlalchemy import desc, distinct, func, or_, select
+from pydantic import BaseModel
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import get_current_user_db
 from app.database.async_db import get_async_db
@@ -173,12 +172,12 @@ async def get_pharmacy_customers(
 
     Returns distinct customers with their conversation metadata.
     """
-    pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
+    _ = await get_pharmacy_with_auth(pharmacy_id, db, user)  # Validates access
 
-    # Query distinct customers for this organization
+    # Query distinct customers for this specific pharmacy
     stmt = (
         select(ConversationContext)
-        .where(ConversationContext.organization_id == pharmacy.organization_id)
+        .where(ConversationContext.pharmacy_id == uuid.UUID(pharmacy_id))
         .where(ConversationContext.user_phone.isnot(None))
     )
 
@@ -232,11 +231,11 @@ async def get_pharmacy_timeline(
 
     Returns paginated messages with optional filters.
     """
-    pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
+    _ = await get_pharmacy_with_auth(pharmacy_id, db, user)  # Validates access
 
-    # Get conversations for this organization
+    # Get conversations for this specific pharmacy
     conv_stmt = select(ConversationContext.conversation_id).where(
-        ConversationContext.organization_id == pharmacy.organization_id
+        ConversationContext.pharmacy_id == uuid.UUID(pharmacy_id)
     )
     conv_result = await db.execute(conv_stmt)
     conversation_ids = [row[0] for row in conv_result.fetchall()]
@@ -328,13 +327,13 @@ async def get_pharmacy_conversation(
 
     Returns messages with conversation context.
     """
-    pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
+    _ = await get_pharmacy_with_auth(pharmacy_id, db, user)  # Validates access
 
-    # Get conversation context
+    # Get conversation context for this specific pharmacy
     ctx_stmt = (
         select(ConversationContext)
         .where(ConversationContext.conversation_id == conversation_id)
-        .where(ConversationContext.organization_id == pharmacy.organization_id)
+        .where(ConversationContext.pharmacy_id == uuid.UUID(pharmacy_id))
     )
     ctx_result = await db.execute(ctx_stmt)
     context = ctx_result.scalar_one_or_none()
@@ -391,16 +390,16 @@ async def get_pharmacy_stats(
 
     Returns aggregated metrics about customer interactions.
     """
-    pharmacy = await get_pharmacy_with_auth(pharmacy_id, db, user)
+    _ = await get_pharmacy_with_auth(pharmacy_id, db, user)  # Validates access
 
     now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=7)
     day_ago = now - timedelta(hours=24)
 
-    # Get all conversations for this org
+    # Get all conversations for this specific pharmacy
     conv_stmt = select(ConversationContext).where(
-        ConversationContext.organization_id == pharmacy.organization_id
+        ConversationContext.pharmacy_id == uuid.UUID(pharmacy_id)
     )
     conv_result = await db.execute(conv_stmt)
     conversations = conv_result.scalars().all()

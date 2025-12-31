@@ -258,3 +258,56 @@ class ChatGraphResponse(BaseModel):
     edges: list[ChatGraphEdge] = Field(default_factory=list, description="Graph edges")
     current_node: Optional[str] = Field(None, description="Currently active node")
     visited_nodes: list[str] = Field(default_factory=list, description="Nodes visited in execution")
+
+
+# ============================================================
+# WEBHOOK SIMULATION MODELS (for Chat Visualizer)
+# ============================================================
+
+
+class WebhookSimulationRequest(BaseModel):
+    """
+    Request model for simulating WhatsApp webhook from web UI.
+
+    Uses the same flow as production WhatsApp webhooks (process_webhook_message)
+    but with configurable test data from the Chat Visualizer frontend.
+    """
+
+    message: str = Field(
+        ...,
+        description="Message to send (simulates WhatsApp text message)",
+        min_length=1,
+        max_length=5000,
+    )
+    phone_number: str = Field(
+        default="web_5491100001234",
+        description="Simulated phone number (prefixed with 'web_' for identification)",
+    )
+    user_name: str = Field(
+        default="Web Tester",
+        description="Simulated user name for the Contact profile",
+    )
+    business_domain: Literal["excelencia", "ecommerce", "healthcare", "credit"] = Field(
+        default="excelencia",
+        description="Business domain for processing (only 'excelencia' is active in production)",
+    )
+    session_id: Optional[str] = Field(
+        None,
+        description="Existing session ID to continue conversation",
+    )
+    debug: bool = Field(
+        default=True,
+        description="Enable debug mode for detailed execution info",
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "Hola, quiero consultar una factura",
+                "phone_number": "web_5491100001234",
+                "user_name": "Web Tester",
+                "business_domain": "excelencia",
+                "session_id": None,
+                "debug": True,
+            }
+        }

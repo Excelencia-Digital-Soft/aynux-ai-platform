@@ -36,6 +36,7 @@ class ConversationContextModel(BaseModel):
 
     conversation_id: str
     organization_id: str | None = None
+    pharmacy_id: str | None = None
     user_phone: str | None = None
 
     # Context data

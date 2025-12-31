@@ -24,6 +24,7 @@ from app.api.routes.admin import (
     ai_models,
     bypass_rules,
     chat_admin,
+    chattigo_credentials,
     modules as modules_admin,
     org_users,
     organizations,
@@ -180,4 +181,11 @@ api_router.include_router(
     pharmacy_conversations.router,
     prefix="/admin/pharmacy-config",
     tags=["Pharmacy Conversations"],
+)
+
+# Admin routes - Chattigo Credentials (Multi-DID support for Chattigo ISV)
+api_router.include_router(
+    chattigo_credentials.router,
+    prefix="/admin",
+    tags=["Chattigo Credentials"],
 )

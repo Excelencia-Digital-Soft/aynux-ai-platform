@@ -62,15 +62,25 @@ class Settings(BaseSettings):
     # Chattigo is a WhatsApp Business API intermediary that handles Meta verification
     # ISV mode: Chattigo manages credentials, we only need endpoint configuration
     CHATTIGO_ENABLED: bool = Field(True, description="Enable Chattigo integration")
-    CHATTIGO_BASE_URL: str = Field(
-        "https://channels.chattigo.com/bsp-cloud-chattigo-isv",
-        description="Chattigo API base URL",
+    CHATTIGO_LOGIN_URL: str = Field(
+        "https://channels.chattigo.com/bsp-cloud-chattigo-isv/login",
+        description="Chattigo login endpoint",
+    )
+    CHATTIGO_MESSAGE_URL: str = Field(
+        "https://channels.chattigo.com/bsp-cloud-chattigo-isv/webhooks/inbound",
+        description="Chattigo message sending endpoint",
     )
     CHATTIGO_USERNAME: str = Field("apimasive@munitintina", description="Chattigo API username")
     CHATTIGO_PASSWORD: str = Field("api@2025", description="Chattigo API password")
+    CHATTIGO_DID: str = Field("5492644710400", description="WhatsApp Business number (Device ID)")
+    CHATTIGO_BOT_NAME: str = Field("Aynux", description="Bot name shown in messages")
+    # Legacy settings (kept for backward compatibility)
+    CHATTIGO_BASE_URL: str = Field(
+        "https://channels.chattigo.com/bsp-cloud-chattigo-isv",
+        description="Legacy Chattigo API base URL (for webhook registration)",
+    )
     CHATTIGO_CHANNEL_ID: int = Field(12676, description="Chattigo channel ID")
     CHATTIGO_CAMPAIGN_ID: str = Field("7883", description="Chattigo campaign ID")
-    CHATTIGO_BOT_NAME: str = Field("Aynux", description="Bot name shown in messages")
 
     # PostgreSQL Database Settings
     DB_HOST: str = Field("localhost", description="Host de PostgreSQL")
@@ -263,6 +273,12 @@ class Settings(BaseSettings):
     LANGSMITH_AUTO_EVAL: bool = Field(False, description="Enable automatic evaluation of traces")
     LANGSMITH_METRICS_ENABLED: bool = Field(True, description="Enable metrics collection")
     LANGSMITH_DATASET_NAME: str = Field("aynux-evals", description="Dataset name for evaluations")
+
+    # Credential Encryption (pgcrypto)
+    CREDENTIAL_ENCRYPTION_KEY: str | None = Field(
+        None,
+        description="32-byte key for encrypting credentials at rest (generate with secrets.token_urlsafe(32))",
+    )
 
     model_config = SettingsConfigDict(
         case_sensitive=True,

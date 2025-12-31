@@ -9,6 +9,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
 from app.integrations.llm import OllamaLLM
+from app.prompts.manager import PromptManager
+from app.prompts.registry import PromptRegistry
 from ..models import UserIntent
 
 
@@ -20,16 +22,23 @@ class BaseResponseGenerator(ABC):
     and generates responses optimized for that source's result characteristics.
     """
 
-    def __init__(self, ollama: OllamaLLM, config: dict[str, Any]):
+    def __init__(
+        self,
+        ollama: OllamaLLM,
+        config: dict[str, Any],
+        prompt_manager: PromptManager | None = None,
+    ):
         """
         Initialize response generator.
 
         Args:
             ollama: OllamaLLM instance for AI inference
             config: Generator-specific configuration
+            prompt_manager: Optional PromptManager for YAML template loading
         """
         self.ollama = ollama
         self.config = config
+        self.prompt_manager = prompt_manager
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     @abstractmethod
@@ -73,7 +82,7 @@ class BaseResponseGenerator(ABC):
         """
         pass
 
-    def _build_prompt(
+    async def _build_prompt(
         self, products: List[Dict[str, Any]], message: str, intent: UserIntent, metadata: Dict[str, Any]
     ) -> str:
         """
@@ -91,11 +100,27 @@ class BaseResponseGenerator(ABC):
         Returns:
             Formatted prompt for AI
         """
-        # Default implementation - subclasses should override
         product_info = self._format_products_for_prompt(products)
         intent_info = self._format_intent_for_prompt(intent)
+        metadata_info = self._format_metadata_for_prompt(metadata)
 
-        prompt = f"""# E-COMMERCE PRODUCT SEARCH ASSISTANT
+        # Try to load from YAML template
+        if self.prompt_manager:
+            try:
+                return await self.prompt_manager.get_prompt(
+                    PromptRegistry.ECOMMERCE_PRODUCT_BASE_RESPONSE,
+                    variables={
+                        "message": message,
+                        "product_info": product_info,
+                        "intent_info": intent_info,
+                        "metadata_info": metadata_info,
+                    },
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to load YAML prompt: {e}, using fallback")
+
+        # Fallback to inline prompt
+        return f"""# E-COMMERCE PRODUCT SEARCH ASSISTANT
 
 ## USER MESSAGE
 "{message}"
@@ -114,7 +139,7 @@ IMPORTANT: Detect the language of the user's query and respond in the SAME langu
 {product_info}
 
 ## SEARCH METADATA
-{self._format_metadata_for_prompt(metadata)}
+{metadata_info}
 
 ## INSTRUCTIONS
 Generate a natural, conversational response that:
@@ -126,8 +151,6 @@ Generate a natural, conversational response that:
 6. Consider user intent (category, brand, price range) when emphasizing products
 
 Generate your response now:"""
-
-        return prompt
 
     def _format_products_for_prompt(self, products: List[Dict[str, Any]]) -> str:
         """

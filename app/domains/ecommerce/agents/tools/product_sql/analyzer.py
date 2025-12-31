@@ -26,40 +26,21 @@ class QueryComplexityAnalyzer:
         """
         Analiza la complejidad de la consulta para optimizar la generación de SQL.
         """
-        complexity_prompt = f"""# ANÁLISIS DE COMPLEJIDAD DE CONSULTA
-
-CONSULTA: "{user_query}"
-
-INTENCIÓN DETECTADA:
-{json.dumps(intent, indent=2)}
-
-Analiza la complejidad y responde en JSON:
-
-{{
-  "complexity_level": "simple|medium|complex|very_complex",
-  "requires_joins": bool,
-  "requires_aggregation": bool,
-  "requires_subqueries": bool,
-  "requires_full_text_search": bool,
-  "tables_needed": ["products", "categories", "brands"],
-  "estimated_query_type": "simple_select|filtered_search|aggregated_report|complex_analysis",
-  "optimization_hints": ["índice_sugerido", "join_order"]
-}}
-
-CRITERIOS:
-- simple: búsqueda básica por nombre/categoría
-- medium: filtros múltiples, joins básicos
-- complex: agregaciones, subqueries, full-text search
-- very_complex: múltiples joins, queries anidadas, análisis estadístico"""
-
         try:
-            # Load system prompt from YAML
+            # Load both prompts from YAML
             system_prompt = await self.prompt_manager.get_prompt(
                 PromptRegistry.ECOMMERCE_PRODUCT_SQL_ANALYZER_SYSTEM,
             )
+            user_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.ECOMMERCE_PRODUCT_SQL_COMPLEXITY_ANALYSIS,
+                variables={
+                    "user_query": user_query,
+                    "intent_json": json.dumps(intent, indent=2),
+                },
+            )
             response = await self.ollama.generate_response(
                 system_prompt=system_prompt,
-                user_prompt=complexity_prompt,
+                user_prompt=user_prompt,
                 temperature=0.2,
             )
 

@@ -4,11 +4,18 @@ Description quality checker with LLM fallback.
 Validates problem descriptions for sufficient detail.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 from app.integrations.llm import OllamaLLM
+from app.prompts import PromptRegistry
 
 from .base import BaseInterpreter
+
+if TYPE_CHECKING:
+    from app.prompts import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +27,15 @@ class DescriptionQualityChecker(BaseInterpreter):
         self,
         description: str,
         llm: OllamaLLM,
+        prompt_manager: "PromptManager | None" = None,
     ) -> tuple[bool, str | None]:
         """
         Evaluate the quality of the problem description.
+
+        Args:
+            description: The problem description to evaluate
+            llm: OllamaLLM instance for LLM calls
+            prompt_manager: Optional PromptManager for YAML templates
 
         Returns:
             (is_acceptable, improvement_suggestion)
@@ -38,7 +51,7 @@ class DescriptionQualityChecker(BaseInterpreter):
 
         if word_count < 8:
             # LLM to evaluate if sufficient
-            return await self._llm_check(description, llm)
+            return await self._llm_check(description, llm, prompt_manager)
 
         # Description is long enough
         return True, None
@@ -47,9 +60,10 @@ class DescriptionQualityChecker(BaseInterpreter):
         self,
         description: str,
         llm: OllamaLLM,
+        prompt_manager: "PromptManager | None" = None,
     ) -> tuple[bool, str | None]:
         """Evaluate description with LLM."""
-        prompt = f"""Evalua si la siguiente descripcion de un problema tecnico es suficientemente clara.
+        fallback_prompt = f"""Evalua si la siguiente descripcion de un problema tecnico es suficientemente clara.
 
 Descripcion: "{description}"
 
@@ -66,6 +80,13 @@ Ejemplos:
 - "no funciona" -> no|Podrias indicar que parte del sistema no funciona y que mensaje de error ves?
 - "El modulo de facturacion da error al generar CFDI" -> yes|
 - "pantalla azul" -> no|Podrias describir cuando aparece el problema y que estabas haciendo?"""
+
+        prompt = await self._get_prompt_from_yaml(
+            prompt_manager,
+            PromptRegistry.EXCELENCIA_SMART_INPUT_DESCRIPTION_CHECK,
+            {"description": description},
+            fallback_prompt,
+        )
 
         result = await self._invoke_llm(prompt, llm, temperature=0.3)
 

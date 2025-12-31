@@ -19,6 +19,7 @@ from .support_ticket import SupportTicket
 from .user import UserDB
 from .conversation_history import ConversationContext, ConversationMessage
 from .ai_model import AIModel, ModelProvider, ModelType
+from .software_module import ModuleCategory, ModuleStatus, SoftwareModule
 
 # Soporte schema models
 from .soporte import (
@@ -86,4 +87,8 @@ __all__ = [
     "AIModel",
     "ModelProvider",
     "ModelType",
+    # Software Modules (Excelencia)
+    "SoftwareModule",
+    "ModuleStatus",
+    "ModuleCategory",
 ]

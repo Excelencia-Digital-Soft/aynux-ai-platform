@@ -1,8 +1,9 @@
 """
 Excelencia Infrastructure Repositories
 
-Note: Module and Demo repositories have been removed.
-Software catalog data is now managed via company_knowledge table.
+Software Module repository for database-backed module management.
 """
 
-__all__: list[str] = []
+from .software_module_repository import SoftwareModuleRepository
+
+__all__ = ["SoftwareModuleRepository"]

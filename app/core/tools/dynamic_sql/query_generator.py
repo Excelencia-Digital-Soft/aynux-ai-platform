@@ -50,58 +50,25 @@ class SQLQueryGenerator:
         """
         # Build comprehensive prompt with schemas and examples
         schema_info = self._schema_inspector.format_schema_for_prompt(context.table_schemas)
-
-        sql_prompt = f"""# GENERACION DE CONSULTA SQL DINAMICA
-
-## CONSULTA DEL USUARIO:
-"{context.user_query}"
-
-## ESQUEMAS DE TABLAS DISPONIBLES:
-{schema_info}
-
-## RESTRICCIONES DE SEGURIDAD:
-{chr(10).join(f"- {constraint}" for constraint in context.safety_constraints)}
-
-## INSTRUCCIONES:
-1. Genera UNA consulta SQL valida que responda exactamente a la pregunta del usuario
-2. USA SOLO operaciones SELECT
-3. Incluye las clausulas WHERE apropiadas para filtros especificos del usuario
-4. Usa JOINs cuando sea necesario para relacionar tablas
-5. Incluye LIMIT {context.max_results} para evitar resultados masivos
-6. Maneja fechas y rangos de tiempo correctamente
-7. Usa nombres de columnas exactos del esquema
-
-## EJEMPLOS DE CONSULTAS VALIDAS:
-
-Pregunta: "Cuantos pedidos se hicieron la semana pasada?"
-SQL: SELECT COUNT(*) as total_orders FROM orders WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY);
-
-Pregunta: "Muestra mis ultimos 5 pedidos"
-SQL: SELECT o.*, p.name as product_name FROM orders o
-    LEFT JOIN products p ON o.product_id = p.id ORDER BY o.created_at DESC LIMIT 5;
-
-Pregunta: "Cuantos productos tenemos en total?"
-SQL: SELECT COUNT(*) as total_products FROM products;
-
-Pregunta: "Cuales son los productos mas vendidos en Brasil?"
-SQL: SELECT p.name, COUNT(o.id) as sales_count FROM products p
-    JOIN orders o ON p.id = o.product_id WHERE o.country = 'Brasil'
-    GROUP BY p.id, p.name ORDER BY sales_count DESC LIMIT 10;
-
-## RESPUESTA:
-Genera SOLO la consulta SQL valida. NO incluyas explicaciones, comentarios o notas.
-FORMATO: SELECT ... FROM ... WHERE ... LIMIT N;
-
-SQL:"""
+        safety_constraints = "\n".join(f"- {constraint}" for constraint in context.safety_constraints)
 
         try:
-            # Load system prompt from YAML
+            # Load both prompts from YAML
             system_prompt = await self.prompt_manager.get_prompt(
                 PromptRegistry.TOOLS_DYNAMIC_SQL_QUERY_GENERATOR_SYSTEM,
             )
+            user_prompt = await self.prompt_manager.get_prompt(
+                PromptRegistry.TOOLS_DYNAMIC_SQL_QUERY_GENERATOR_USER,
+                variables={
+                    "user_query": context.user_query,
+                    "schema_info": schema_info,
+                    "safety_constraints": safety_constraints,
+                    "max_results": str(context.max_results),
+                },
+            )
             response = await self.ollama.generate_response(
                 system_prompt=system_prompt,
-                user_prompt=sql_prompt,
+                user_prompt=user_prompt,
                 temperature=0.1,
             )
 

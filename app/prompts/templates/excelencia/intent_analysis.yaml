@@ -1,0 +1,103 @@
+# Excelencia Domain - Intent Analysis Prompts
+# Purpose: Analyze user queries to determine intent, query type, and urgency
+
+prompts:
+  # =============================================================================
+  # INTENT ANALYSIS - For query classification and intent detection
+  # =============================================================================
+  - key: excelencia.intent.analysis
+    name: Excelencia Intent Analysis
+    description: Analyzes user queries to determine intent, query type, modules, and urgency
+    version: "1.0.0"
+    template: |
+      Analiza la siguiente consulta sobre el Software Excelencia:
+      {context_section}
+      CONSULTA ACTUAL: "{message}"
+
+      Responde SOLO con un objeto JSON valido. Los valores posibles son:
+      - query_type: elegir UNO de estos valores exactos: "demo", "modules", "training", "support", "products", "general"
+      - user_intent: texto breve describiendo lo que busca el usuario (considera el contexto previo si existe)
+      - specific_modules: lista de modulos mencionados o referenciados (puede estar vacia)
+      - requires_demo: true o false (booleano, no texto)
+      - urgency: "low", "medium" o "high"
+
+      Ejemplo de respuesta valida:
+      {{"query_type": "support", "user_intent": "consulta sobre facturacion", "specific_modules": [], "requires_demo": false, "urgency": "medium"}}
+
+      Responde SOLO con el JSON, sin explicaciones ni texto adicional.
+    metadata:
+      temperature: 0.3
+      max_tokens: 200
+      tags:
+        - excelencia
+        - intent
+        - analysis
+        - classification
+      variables:
+        required:
+          - message
+        optional:
+          - context_section
+      sections:
+        context_section:
+          description: "Previous conversation context for reference continuity"
+          example: |
+            CONTEXTO DE CONVERSACION ANTERIOR:
+            El usuario pregunto sobre modulo de facturacion y sus caracteristicas.
+
+            Considera este contexto al interpretar la consulta actual.
+
+  # =============================================================================
+  # RESPONSE GENERATION - For generating AI responses
+  # =============================================================================
+  - key: excelencia.response.generation
+    name: Excelencia Response Generator
+    description: Generates contextual responses for Excelencia queries using full context
+    version: "1.0.0"
+    template: |
+      Eres un asistente especializado en el Software Excelencia.
+      {conversation_context}
+      ## CONSULTA ACTUAL DEL USUARIO:
+      "{user_message}"
+
+      ## ANALISIS:
+      - Tipo de consulta: {query_type}
+      - Intencion: {user_intent}
+      - Requiere demo: {requires_demo}
+      {modules_context}
+      {rag_context}
+
+      ## INFORMACION GENERAL SOBRE EXCELENCIA:
+      Excelencia es un ERP modular especializado en diferentes verticales de negocio.
+
+      Principales modulos disponibles:
+      {modules_list}
+
+      ## INSTRUCCIONES:
+      1. Responde de manera amigable y profesional
+      2. Si hay contexto de conversacion anterior, usalo para dar continuidad
+      3. Si hay informacion en Knowledge Base, usala como fuente principal
+      4. Usa maximo 6-7 lineas
+      5. Usa 1-2 emojis apropiados
+      6. NO inventes informacion
+
+      Genera tu respuesta ahora:
+    metadata:
+      temperature: 0.7
+      max_tokens: 400
+      model: "llama3.1"
+      tags:
+        - excelencia
+        - response
+        - generation
+      variables:
+        required:
+          - user_message
+          - query_type
+        optional:
+          - user_intent
+          - requires_demo
+          - modules_context
+          - rag_context
+          - conversation_context
+          - modules_list

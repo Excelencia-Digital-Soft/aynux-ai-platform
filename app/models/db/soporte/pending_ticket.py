@@ -136,14 +136,14 @@ class PendingTicket(Base):
         """Set description and advance to next step."""
         data = cast(dict[str, Any], self.collected_data) if self.collected_data else {}
         data["description"] = description
-        self.collected_data = data  # type: ignore[assignment]
+        self.collected_data = data
         self.current_step = "priority"
 
     def set_priority(self, priority: str) -> None:
         """Set priority and advance to confirmation step."""
         data = cast(dict[str, Any], self.collected_data) if self.collected_data else {}
         data["priority"] = priority
-        self.collected_data = data  # type: ignore[assignment]
+        self.collected_data = data
         self.current_step = "confirmation"
 
     def reset_to_description(self) -> None:
