@@ -52,31 +52,30 @@ jobs:
           # Write environment file
           echo "${{ secrets.PROD_ENV_FILE }}" > .env
 
-          # Enable Docker BuildKit for faster builds with better caching
+          # Enable Docker BuildKit for faster builds
           export DOCKER_BUILDKIT=1
           export COMPOSE_DOCKER_CLI_BUILD=1
 
-          # Pre-pull base images (avoids download during build)
-          echo "📦 Pre-pulling base images..."
-          docker pull python:3.12-slim || true
-          docker pull postgres:15-alpine || true
-          docker pull redis:7-alpine || true
-
-          # Stop and remove existing app containers to free port
-          echo "🛑 Stopping existing containers..."
+          # Stop existing containers
+          echo "[1/5] Stopping existing containers..."
           docker compose -f docker-compose.yml -f docker-compose.prod.yml stop app 2>/dev/null || true
           docker compose -f docker-compose.yml -f docker-compose.prod.yml rm -f app 2>/dev/null || true
 
-          # Build step (separate for better visibility and caching)
-          echo "🔨 Building app image..."
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml build --pull app
+          # Build with progress output (prevents SSH timeout)
+          echo "[2/5] Building app image (this may take a few minutes)..."
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml build --progress=plain --pull app 2>&1
 
-          # Deploy step (faster since image is already built)
-          echo "🚀 Deploying services..."
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans postgres redis app
+          # Deploy services
+          echo "[3/5] Starting services..."
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans postgres redis app 2>&1
 
-          # Cleanup unused images
-          echo "🧹 Cleaning up..."
+          # Wait and verify
+          echo "[4/5] Waiting for services to be healthy..."
+          sleep 10
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+
+          # Cleanup
+          echo "[5/5] Cleaning up unused images..."
           docker image prune -f
 
-          echo "✅ Deploy completed!"
+          echo "Deploy completed successfully!"
