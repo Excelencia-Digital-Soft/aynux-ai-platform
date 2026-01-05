@@ -100,6 +100,7 @@ class LangGraphChatbotService:
         organization_id: "UUID | None" = None,
         pharmacy_id: "UUID | None" = None,
         chattigo_context: dict | None = None,
+        bypass_target_agent: str | None = None,
     ) -> BotResponse:
         """
         Procesa un mensaje de WhatsApp usando el sistema multi-agente refactorizado.
@@ -113,6 +114,7 @@ class LangGraphChatbotService:
             pharmacy_id: UUID de farmacia (from bypass routing, for pharmacy config lookup)
             chattigo_context: Contexto de Chattigo (did, idChat, etc.) para seleccionar
                             credenciales correctas de la base de datos.
+            bypass_target_agent: Target agent from bypass routing (for direct routing)
 
         Returns:
             Respuesta estructurada del bot
@@ -146,7 +148,7 @@ class LangGraphChatbotService:
                 session_id, message_text, {"channel": "whatsapp"}
             )
 
-            # 5. Procesar con el sistema LangGraph (incluir business_domain y tenant IDs)
+            # 5. Procesar con el sistema LangGraph (incluir business_domain, tenant IDs, and bypass routing)
             assert self.graph_system is not None  # Guaranteed after initialize()
             response_data = await self.message_processor.process_with_langgraph(
                 graph_system=self.graph_system,
@@ -159,6 +161,7 @@ class LangGraphChatbotService:
                 organization_id=organization_id,
                 pharmacy_id=pharmacy_id,
                 user_phone=user_number,
+                bypass_target_agent=bypass_target_agent,
             )
 
             # Crear ConversationManager con contexto de Chattigo para selección de credenciales

@@ -82,6 +82,36 @@ class OrchestratorAgent(BaseAgent):
                     "routing_attempts": state_dict.get("routing_attempts", 0) + 1,
                 }
 
+            # ================================================================
+            # CHECK FOR BYPASS ROUTING
+            # Before intent analysis, check if there's a bypass rule that
+            # should route directly to a specific agent. This bypasses
+            # the LLM/spaCy intent analysis entirely.
+            # ================================================================
+            bypass_agent = self._check_bypass_routing(state_dict)
+            if bypass_agent:
+                logger.info(f"[BYPASS] Pre-routed bypass detected, routing directly to: {bypass_agent}")
+                return {
+                    "next_agent": bypass_agent,
+                    "routing_decision": {
+                        "intent": "bypass_routing",
+                        "confidence": 1.0,
+                        "target_agent": bypass_agent,
+                        "reason": "Bypass rule matched - direct routing",
+                        "routing_strategy": "bypass",
+                    },
+                    "orchestrator_analysis": {
+                        "message": message,
+                        "detected_intent": "bypass_routing",
+                        "confidence_score": 1.0,
+                        "routing_path": [self.name, bypass_agent],
+                        "analysis_timestamp": self.get_current_timestamp(),
+                        "bypass_applied": True,
+                    },
+                    "needs_processing": True,
+                    "routing_attempts": state_dict.get("routing_attempts", 0) + 1,
+                }
+
             # Obtener contexto de la conversación
             conversation_history = state_dict.get("messages", [])
             customer_data = state_dict.get("customer_data", {})
@@ -260,6 +290,34 @@ class OrchestratorAgent(BaseAgent):
 
         except Exception as e:
             logger.warning(f"Error checking active flows: {e}")
+            return None
+
+    def _check_bypass_routing(self, state_dict: Dict[str, Any]) -> Optional[str]:
+        """
+        Check if bypass routing should apply based on state.
+
+        The bypass_target_agent is set by ProcessWebhookUseCase when a bypass
+        rule matches, and propagated through the graph state.
+
+        Bypass routing has priority over intent analysis, allowing messages
+        to be routed directly to a specific agent without LLM/spaCy analysis.
+
+        Args:
+            state_dict: Current conversation state
+
+        Returns:
+            Agent name if bypass applies, None otherwise
+        """
+        try:
+            bypass_agent = state_dict.get("bypass_target_agent")
+            if bypass_agent:
+                logger.info(f"[BYPASS] Found bypass_target_agent in state: {bypass_agent}")
+                return bypass_agent
+
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error checking bypass routing: {e}")
             return None
 
     def _get_last_bot_message(self, messages: List[Dict[str, Any]]) -> Optional[str]:
