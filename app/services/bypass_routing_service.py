@@ -80,8 +80,14 @@ class BypassRoutingService:
             BypassMatch if a rule matches, None otherwise
         """
         try:
+            logger.debug(
+                f"[BYPASS] Evaluating rules with wa_id={wa_id}, "
+                f"whatsapp_phone_number_id={whatsapp_phone_number_id}"
+            )
+
             # Load all enabled rules ordered by priority
             rules = await self._load_active_rules()
+            logger.debug(f"[BYPASS] Loaded {len(rules)} active bypass rules")
 
             for rule, org, tenant_config in rules:
                 if rule.matches(wa_id, whatsapp_phone_number_id):
@@ -103,6 +109,12 @@ class BypassRoutingService:
                         pharmacy_id=cast(UUID | None, rule.pharmacy_id),
                     )
 
+            # No rule matched
+            logger.debug(
+                f"[BYPASS] No rule matched for wa_id={wa_id}, "
+                f"whatsapp_phone_number_id={whatsapp_phone_number_id}, "
+                f"evaluated {len(rules)} rules"
+            )
             return None
 
         except Exception as e:

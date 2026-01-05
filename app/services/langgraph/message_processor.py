@@ -72,6 +72,7 @@ class MessageProcessor:
         organization_id: UUID | None = None,
         pharmacy_id: UUID | None = None,
         user_phone: str | None = None,
+        bypass_target_agent: str | None = None,
     ) -> Dict[str, Any]:
         """
         Procesa el mensaje usando el sistema LangGraph multi-agente.
@@ -87,12 +88,13 @@ class MessageProcessor:
             organization_id: UUID de organización (for multi-tenant context)
             pharmacy_id: UUID de farmacia (for pharmacy config lookup in PaymentLinkNode)
             user_phone: Número de teléfono del usuario (for conversation context)
+            bypass_target_agent: Target agent from bypass routing (for direct routing)
 
         Returns:
             Diccionario con respuesta del graph y metadatos
         """
         try:
-            # Procesar con el graph multi-agente (incluir business_domain y tenant IDs)
+            # Procesar con el graph multi-agente (incluir business_domain, tenant IDs, and bypass routing)
             result = await graph_system.invoke(
                 message=message_text,
                 conversation_id=session_id,
@@ -103,6 +105,7 @@ class MessageProcessor:
                 organization_id=str(organization_id) if organization_id else None,
                 pharmacy_id=str(pharmacy_id) if pharmacy_id else None,
                 user_phone=user_phone,
+                bypass_target_agent=bypass_target_agent,
             )
 
             # Extraer la respuesta del último mensaje AI

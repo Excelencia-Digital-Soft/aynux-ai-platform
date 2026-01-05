@@ -162,7 +162,7 @@ class ProcessWebhookUseCase:
         # Step 2: Load tenant registry if multi-tenant mode
         _, mode = await self._load_tenant_registry(bypass_result.organization_id, bypass_result.target_agent)
 
-        # Step 3: Process message (pass organization_id and pharmacy_id for multi-tenant context)
+        # Step 3: Process message (pass organization_id, pharmacy_id, and bypass_target_agent for multi-tenant context)
         try:
             result = await self._process_message(
                 message,
@@ -170,6 +170,7 @@ class ProcessWebhookUseCase:
                 domain,
                 organization_id=bypass_result.organization_id,
                 pharmacy_id=bypass_result.pharmacy_id,
+                bypass_target_agent=bypass_result.target_agent,
             )
 
             logger.info(f"Message processed successfully: {result.status}")
@@ -304,6 +305,7 @@ class ProcessWebhookUseCase:
         domain: str,
         organization_id: UUID | None = None,
         pharmacy_id: UUID | None = None,
+        bypass_target_agent: str | None = None,
     ) -> BotResponse:
         """
         Process message via LangGraph service.
@@ -314,6 +316,7 @@ class ProcessWebhookUseCase:
             domain: Business domain
             organization_id: Organization UUID (from bypass routing)
             pharmacy_id: Pharmacy UUID (from bypass routing, for config lookup)
+            bypass_target_agent: Target agent from bypass routing (for direct routing)
 
         Returns:
             BotResponse from LangGraph
@@ -326,6 +329,7 @@ class ProcessWebhookUseCase:
             organization_id=organization_id,
             pharmacy_id=pharmacy_id,
             chattigo_context=self._chattigo_context,
+            bypass_target_agent=bypass_target_agent,
         )
 
     async def _attempt_fallback(

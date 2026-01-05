@@ -112,6 +112,8 @@ class ConversationContextMiddleware:
             "is_complete": False,
             "human_handoff_requested": False,
             "next_agent": None,
+            # BYPASS ROUTING: Target agent from bypass rules (for direct routing)
+            "bypass_target_agent": kwargs.get("bypass_target_agent"),
             **kwargs,
         }
 
