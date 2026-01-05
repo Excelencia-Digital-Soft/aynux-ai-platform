@@ -37,7 +37,7 @@ class TestOrganizationResolverService:
     def resolver(self, mock_db, mock_credential_service):
         """Create resolver with mocked dependencies."""
         with patch(
-            "app.services.organization_resolver_service.get_credential_service",
+            "app.services.organization_resolver_service.get_tenant_credential_service",
             return_value=mock_credential_service,
         ):
             return OrganizationResolverService(mock_db)
@@ -88,7 +88,7 @@ class TestOrganizationResolverService:
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         with patch(
-            "app.services.organization_resolver_service.get_credential_service",
+            "app.services.organization_resolver_service.get_tenant_credential_service",
             return_value=mock_credential_service,
         ):
             resolver = OrganizationResolverService(mock_db)
@@ -104,7 +104,7 @@ class TestOrganizationResolverService:
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         with patch(
-            "app.services.organization_resolver_service.get_credential_service",
+            "app.services.organization_resolver_service.get_tenant_credential_service",
             return_value=mock_credential_service,
         ):
             resolver = OrganizationResolverService(mock_db)
@@ -162,7 +162,7 @@ class TestGetDefaultOrganization:
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         with patch(
-            "app.services.organization_resolver_service.get_credential_service",
+            "app.services.organization_resolver_service.get_tenant_credential_service",
             return_value=mock_credential_service,
         ):
             resolver = OrganizationResolverService(mock_db)
@@ -190,7 +190,7 @@ class TestGetDefaultOrganization:
         mock_db.execute = AsyncMock(side_effect=[mock_result_none, mock_result_system])
 
         with patch(
-            "app.services.organization_resolver_service.get_credential_service",
+            "app.services.organization_resolver_service.get_tenant_credential_service",
             return_value=mock_credential_service,
         ):
             resolver = OrganizationResolverService(mock_db)
@@ -207,7 +207,7 @@ class TestGetDefaultOrganization:
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         with patch(
-            "app.services.organization_resolver_service.get_credential_service",
+            "app.services.organization_resolver_service.get_tenant_credential_service",
             return_value=mock_credential_service,
         ):
             resolver = OrganizationResolverService(mock_db)
@@ -237,7 +237,7 @@ class TestGetVerifyToken:
         mock_credential_service.get_whatsapp_credentials = AsyncMock(return_value=mock_creds)
 
         with patch(
-            "app.services.organization_resolver_service.get_credential_service",
+            "app.services.organization_resolver_service.get_tenant_credential_service",
             return_value=mock_credential_service,
         ):
             resolver = OrganizationResolverService(mock_db)
@@ -254,7 +254,7 @@ class TestFactoryFunction:
         """Test that factory function creates resolver instance."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        with patch("app.services.organization_resolver_service.get_credential_service"):
+        with patch("app.services.organization_resolver_service.get_tenant_credential_service"):
             resolver = get_organization_resolver(mock_db)
 
         assert isinstance(resolver, OrganizationResolverService)

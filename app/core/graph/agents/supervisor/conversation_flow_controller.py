@@ -50,6 +50,11 @@ class ConversationFlowController:
         """
         Determine the next step in conversation flow.
 
+        Uses intelligent evaluation from ResponseQualityEvaluator including:
+        - suggested_action: "accept", "re_route", or "stop_retry"
+        - category: Response category (complete_with_data, fallback, etc.)
+        - rag_had_results: Whether RAG returned any results
+
         Args:
             quality_evaluation: Quality evaluation results
             state_dict: Current conversation state
@@ -58,9 +63,11 @@ class ConversationFlowController:
             Dictionary with flow decision
         """
         overall_score = quality_evaluation.get("overall_score", 0.0)
-        retry_count = state_dict.get("supervisor_retry_count", 0)
+        suggested_action = quality_evaluation.get("suggested_action", "accept")
+        category = quality_evaluation.get("category", "partial_info")
+        rag_had_results = quality_evaluation.get("rag_had_results", True)
 
-        # Check if needs human handoff
+        # Check if needs human handoff first
         if self._needs_human_handoff(quality_evaluation, state_dict):
             return {
                 "decision_type": "human_handoff",
@@ -69,7 +76,43 @@ class ConversationFlowController:
                 "reason": "Response quality below threshold or user frustration detected",
             }
 
-        # Check if response is satisfactory (high quality)
+        # Use suggested action from intelligent evaluator
+        # Note: "enhance" is treated as "accept" when score >= 0.65 because:
+        # 1. Enhancement feature is disabled by default
+        # 2. A score of 0.65+ indicates a reasonably good response
+        # 3. Prevents unnecessary loops when LLM suggests enhancement
+        if suggested_action in ("accept", "stop_retry", "enhance"):
+            reason = f"Category: {category}, Action: {suggested_action}, Score: {overall_score:.2f}"
+            if suggested_action == "stop_retry":
+                reason += " (re-routing would not help)"
+            if suggested_action == "enhance":
+                reason += " (treated as accept - enhancement disabled)"
+            logger.info(f"Flow decision: complete - {reason}")
+            return {
+                "decision_type": "conversation_complete",
+                "should_end": True,
+                "reason": reason,
+            }
+
+        if suggested_action == "re_route":
+            # Double-check that re-routing makes sense
+            if not self._should_reroute(state_dict, rag_had_results):
+                logger.info("Flow decision: skipping re-route (would not help)")
+                return {
+                    "decision_type": "conversation_complete",
+                    "should_end": True,
+                    "reason": f"Re-routing would not help (category: {category})",
+                }
+
+            logger.info(f"Flow decision: re-route - category: {category}, score: {overall_score:.2f}")
+            return {
+                "decision_type": "re_route",
+                "should_end": False,
+                "needs_re_routing": True,
+                "reason": f"Low quality ({category}), attempting re-route",
+            }
+
+        # Fallback to legacy logic for high quality responses
         if overall_score >= self.quality_threshold:
             return {
                 "decision_type": "conversation_complete",
@@ -77,30 +120,37 @@ class ConversationFlowController:
                 "reason": f"High quality response (score: {overall_score:.2f})",
             }
 
-        # Check if response is acceptable (medium quality - sufficient for user)
-        # Accept on first pass too, not just after retries
-        if overall_score >= 0.5:
-            return {
-                "decision_type": "acceptable_response",
-                "should_end": True,
-                "reason": f"Acceptable response (score: {overall_score:.2f})",
-            }
-
-        # Check if needs re-routing (low quality and retries available)
-        if self.enable_re_routing and retry_count < self.max_retries and overall_score < 0.5:
-            return {
-                "decision_type": "re_route",
-                "should_end": False,
-                "needs_re_routing": True,
-                "reason": f"Low quality response (score: {overall_score:.2f}), attempting re-route",
-            }
-
-        # Cannot improve further, end conversation
+        # Default: end conversation
         return {
             "decision_type": "conversation_end",
             "should_end": True,
-            "reason": "Max retries reached or quality cannot be improved further",
+            "reason": f"Default end (score: {overall_score:.2f}, category: {category})",
         }
+
+    def _should_reroute(
+        self,
+        state_dict: dict[str, Any],
+        rag_had_results: bool,
+    ) -> bool:
+        """
+        Check if re-routing would actually help.
+
+        Re-routing is useless when:
+        - RAG returned no results (can't create data magically)
+        - Same agent already tried multiple times (agent loop)
+        """
+        # RAG empty → re-routing won't create data
+        if not rag_had_results:
+            logger.info("Skipping re-route: RAG returned no results")
+            return False
+
+        # Same agent tried multiple times → avoid agent loops
+        agent_history = state_dict.get("agent_history", [])
+        if len(agent_history) >= 2 and agent_history[-1] == agent_history[-2]:
+            logger.info(f"Skipping re-route: Same agent ({agent_history[-1]}) already tried")
+            return False
+
+        return True
 
     def should_provide_final_response(
         self,

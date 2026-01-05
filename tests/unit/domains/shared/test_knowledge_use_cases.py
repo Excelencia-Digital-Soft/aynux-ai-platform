@@ -197,7 +197,7 @@ async def test_search_knowledge_success(
 
     use_case = SearchKnowledgeUseCase(
         db=mock_db_session,
-        repository=mock_knowledge_repository,
+        search_repository=mock_knowledge_repository,
         embedding_service=mock_embedding_service,
     )
 
@@ -225,7 +225,7 @@ async def test_search_knowledge_query_too_short(
     # Arrange
     use_case = SearchKnowledgeUseCase(
         db=mock_db_session,
-        repository=mock_knowledge_repository,
+        search_repository=mock_knowledge_repository,
     )
 
     # Act

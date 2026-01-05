@@ -11,6 +11,7 @@ from .customers import Customer
 from .inquiries import ProductInquiry
 from .agent_knowledge import AgentKnowledge
 from .knowledge_base import CompanyKnowledge
+from .rag_query_log import RagQueryLog
 from .orders import Order, OrderItem
 from .promotions import Promotion
 from .prompts import Prompt, PromptVersion
@@ -18,6 +19,7 @@ from .reviews import ProductReview
 from .support_ticket import SupportTicket
 from .user import UserDB
 from .conversation_history import ConversationContext, ConversationMessage
+from .agent import Agent, AgentType
 from .ai_model import AIModel, ModelProvider, ModelType
 from .software_module import ModuleCategory, ModuleStatus, SoftwareModule
 
@@ -69,6 +71,7 @@ __all__ = [
     # Knowledge Base
     "AgentKnowledge",
     "CompanyKnowledge",
+    "RagQueryLog",
     # Support Tickets
     "SupportTicket",
     # Authentication
@@ -83,6 +86,9 @@ __all__ = [
     "IncidentHistory",
     "JiraConfig",
     "PendingTicket",
+    # Agents
+    "Agent",
+    "AgentType",
     # AI Models
     "AIModel",
     "ModelProvider",

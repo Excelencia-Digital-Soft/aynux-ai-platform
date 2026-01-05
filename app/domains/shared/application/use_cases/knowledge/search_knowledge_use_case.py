@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import get_settings
 from app.integrations.vector_stores import KnowledgeEmbeddingService
-from app.repositories.knowledge_repository import KnowledgeRepository
+from app.repositories.knowledge import KnowledgeSearchRepository
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -34,7 +34,7 @@ class SearchKnowledgeUseCase:
     def __init__(
         self,
         db: AsyncSession,
-        repository: KnowledgeRepository | None = None,
+        search_repository: KnowledgeSearchRepository | None = None,
         embedding_service: KnowledgeEmbeddingService | None = None,
     ):
         """
@@ -42,11 +42,11 @@ class SearchKnowledgeUseCase:
 
         Args:
             db: Async database session
-            repository: Knowledge repository (injected for testability)
+            search_repository: Knowledge search repository (injected for testability)
             embedding_service: Embedding service for vector search
         """
         self.db = db
-        self.repository = repository or KnowledgeRepository(db)
+        self.search_repository = search_repository or KnowledgeSearchRepository(db)
         self.embedding_service = embedding_service or KnowledgeEmbeddingService()
 
     async def execute(
@@ -107,7 +107,7 @@ class SearchKnowledgeUseCase:
             # Fallback to SQL search if no results from vector search
             if not results:
                 try:
-                    sql_results = await self.repository.search_by_text(
+                    sql_results = await self.search_repository.search_by_text(
                         query_text=query,
                         max_results=max_results,
                         document_type=document_type,

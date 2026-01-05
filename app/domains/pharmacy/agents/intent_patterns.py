@@ -17,7 +17,7 @@ CONFIDENCE_CONTAINS = 0.85
 
 # Valid pharmacy intents
 VALID_INTENTS = frozenset(
-    {"debt_query", "confirm", "reject", "invoice", "register", "greeting", "summary", "data_query", "unknown"}
+    {"debt_query", "confirm", "reject", "invoice", "register", "greeting", "summary", "data_query", "info_query", "unknown"}
 )
 
 # Pharmacy domain capabilities
@@ -26,6 +26,7 @@ PHARMACY_CAPABILITIES = [
     "confirmar deuda para pago",
     "generar recibo/factura",
     "registrarse como cliente nuevo",
+    "consultar información de la farmacia (dirección, teléfono, horario)",
 ]
 
 # Confirmation/rejection patterns (single source of truth)
@@ -45,6 +46,11 @@ KEYWORD_PATTERNS: dict[str, list[str]] = {
     "debt_query": ["deuda", "saldo", "debo", "cuenta", "pendiente"],
     "invoice": ["factura", "recibo", "pagar", "pago", "comprobante"],
     "greeting": ["hola", "buenos días", "buenas tardes", "buenas noches", "buenas"],
+    "info_query": [
+        "direccion", "dirección", "donde queda", "dónde queda", "ubicacion",
+        "ubicación", "telefono", "teléfono", "horario", "hora", "abierto",
+        "cierran", "abren", "email", "correo", "web", "pagina", "página",
+    ],
 }
 
 # Greeting patterns for priority detection (exact match or prefix)
@@ -183,5 +189,46 @@ INTENT_PATTERNS: dict[str, dict[str, Any]] = {
             "cuántos medicamentos",
         ],
         "weight": 1.2,  # Priority over debt_query when overlap
+    },
+    "info_query": {
+        "lemmas": {
+            "direccion",
+            "ubicar",
+            "ubicacion",
+            "telefono",
+            "horario",
+            "hora",
+            "abrir",
+            "cerrar",
+            "email",
+            "correo",
+            "web",
+            "pagina",
+        },
+        "phrases": [
+            "donde queda",
+            "dónde queda",
+            "donde esta",
+            "dónde está",
+            "donde estan",
+            "dónde están",
+            "cual es la direccion",
+            "cuál es la dirección",
+            "a que hora abren",
+            "a qué hora abren",
+            "a que hora cierran",
+            "a qué hora cierran",
+            "estan abiertos",
+            "están abiertos",
+            "telefono de la farmacia",
+            "teléfono de la farmacia",
+            "horario de atencion",
+            "horario de atención",
+            "pagina web",
+            "página web",
+            "como los contacto",
+            "cómo los contacto",
+        ],
+        "weight": 1.0,
     },
 }

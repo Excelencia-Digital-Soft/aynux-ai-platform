@@ -231,8 +231,9 @@ class PromptRegistry:
     CORE_CIRCUIT_BREAKER_HEALTH_CHECK_SYSTEM = "core.circuit_breaker.health_check_system"
     CORE_CIRCUIT_BREAKER_HEALTH_CHECK_USER = "core.circuit_breaker.health_check_user"
 
-    # === AGENTS - SUPERVISOR FALLBACK ===
+    # === AGENTS - SUPERVISOR ===
     AGENTS_SUPERVISOR_ENHANCEMENT_FALLBACK = "agents.supervisor.enhancement_fallback"
+    AGENTS_SUPERVISOR_ANALYSIS = "agents.supervisor.analysis"
 
     # === EXCELENCIA - INCIDENT ERROR ===
     EXCELENCIA_INCIDENT_ERROR_CREATION = "excelencia.incident.error_creation"

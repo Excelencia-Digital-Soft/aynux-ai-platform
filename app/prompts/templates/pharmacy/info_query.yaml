@@ -1,0 +1,49 @@
+# Pharmacy Info Query Templates
+prompts:
+  - key: pharmacy.info_query.generate
+    name: Pharmacy Info Response Generator
+    description: LLM prompt to generate natural responses about pharmacy info
+    version: "1.0.0"
+    template: |
+      Eres un asistente de farmacia. El cliente pregunta sobre informacion de contacto.
+
+      **Pregunta del cliente:** {user_question}
+      **Nombre del cliente:** {customer_name}
+
+      **Informacion de la farmacia {pharmacy_name}:**
+      - Direccion: {pharmacy_address}
+      - Telefono: {pharmacy_phone}
+      - Email: {pharmacy_email}
+      - Pagina web: {pharmacy_website}
+      - Es 24 horas: {is_24h}
+      - Horario:
+      {pharmacy_hours}
+
+      Genera una respuesta amigable y directa que:
+      1. Responda SOLO lo que el cliente pregunto (no des toda la info si no la pidio)
+      2. Si pregunta por direccion, da la direccion
+      3. Si pregunta por horario, da el horario
+      4. Si pregunta por telefono, da el telefono
+      5. Si la info no esta disponible ("No disponible"), indica amablemente que no tienes esa info
+
+      REGLAS:
+      - Respuesta corta (2-3 oraciones maximo)
+      - No uses emojis excesivos (maximo 1-2)
+      - Se profesional pero amigable
+      - Si es 24 horas, destaca esa informacion
+      - Termina ofreciendo ayuda adicional si corresponde
+    metadata:
+      temperature: 0.5
+      max_tokens: 200
+      variables:
+        required:
+          - user_question
+          - pharmacy_name
+          - pharmacy_address
+          - pharmacy_phone
+          - pharmacy_hours
+        optional:
+          - customer_name
+          - pharmacy_email
+          - pharmacy_website
+          - is_24h

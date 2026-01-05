@@ -20,12 +20,20 @@ from app.config.agent_capabilities import (
     format_service_list,
     get_service_names,
 )
+from app.config.settings import get_settings
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
+from app.domains.excelencia.application.services.support_response import (
+    KnowledgeBaseSearch,
+    RagQueryLogger,
+    SearchMetrics,
+)
 from app.integrations.llm import OllamaLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
+
+settings = get_settings()
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +60,14 @@ class FallbackAgent(BaseAgent):
         # Initialize PromptManager for YAML-based prompts
         self.prompt_manager = PromptManager()
 
-        logger.debug(f"FallbackAgent initialized with enabled_agents: {self.enabled_agents}")
+        # Initialize KnowledgeBaseSearch for RAG integration
+        # Searches all knowledge sources: agent_knowledge, company_knowledge, software_modules
+        self._knowledge_enabled = getattr(settings, "KNOWLEDGE_BASE_ENABLED", True)
+        self._knowledge_search = KnowledgeBaseSearch(agent_key="fallback_agent", max_results=3)
+        self._rag_logger = RagQueryLogger(agent_key="fallback_agent")
+        self._last_search_metrics: SearchMetrics | None = None
+
+        logger.debug(f"FallbackAgent initialized with enabled_agents: {self.enabled_agents}, RAG enabled: {self._knowledge_enabled}")
 
     @trace_async_method(
         name="fallback_agent_process",
@@ -63,6 +78,8 @@ class FallbackAgent(BaseAgent):
     async def _process_internal(self, message: str, state_dict: dict[str, Any]) -> dict[str, Any]:
         """
         Procesa mensajes no reconocidos y guia al usuario.
+
+        Now includes RAG search to provide context-aware responses.
 
         Args:
             message: Mensaje del usuario
@@ -75,15 +92,48 @@ class FallbackAgent(BaseAgent):
         detected_language = state_dict.get("detected_language", "es")
         lang: SupportedLanguage = detected_language if detected_language in ("es", "en", "pt") else "es"
 
+        # RAG metrics for visualization
+        rag_metrics: dict[str, Any] = {
+            "used": False,
+            "query": message[:100],
+            "agent": self.name,
+            "results_count": 0,
+            "sources": [],
+        }
+
         try:
-            # Generate helpful response with dynamic services
-            response_text = await self._generate_helpful_response(message, lang)
+            # Search knowledge base for relevant context (RAG)
+            rag_context = ""
+            self._last_search_metrics = None
+            if self._knowledge_enabled:
+                try:
+                    search_result = await self._knowledge_search.search(message, "general")
+                    rag_context = search_result.context
+                    self._last_search_metrics = search_result.metrics
+                    if rag_context:
+                        rag_metrics["used"] = True
+                        rag_metrics["results_count"] = search_result.metrics.result_count
+                        logger.info(f"FallbackAgent RAG found context ({rag_metrics['results_count']} sources)")
+                except Exception as rag_err:
+                    logger.warning(f"RAG search failed, continuing without context: {rag_err}")
+
+            # Generate helpful response with dynamic services and RAG context
+            response_text = await self._generate_helpful_response(message, lang, rag_context)
+
+            # Log RAG query with response (fire-and-forget)
+            if self._last_search_metrics and self._last_search_metrics.result_count > 0:
+                self._rag_logger.log_async(
+                    query=message,
+                    metrics=self._last_search_metrics,
+                    response=response_text,
+                )
 
             return {
                 "messages": [{"role": "assistant", "content": response_text}],
                 "current_agent": self.name,
                 "agent_history": [self.name],
                 "is_complete": True,
+                "rag_metrics": rag_metrics,
             }
 
         except Exception as e:
@@ -96,19 +146,24 @@ class FallbackAgent(BaseAgent):
                 "messages": [{"role": "assistant", "content": error_response}],
                 "error_count": state_dict.get("error_count", 0) + 1,
                 "current_agent": self.name,
+                "rag_metrics": rag_metrics,
             }
 
     async def _generate_helpful_response(
         self,
         message: str,
         language: SupportedLanguage = "es",
+        rag_context: str = "",
     ) -> str:
         """
         Generate a helpful response for unrecognized queries with dynamic services.
 
+        Now supports RAG context for more informed responses.
+
         Args:
             message: User message that wasn't recognized
             language: Target language for response
+            rag_context: Optional RAG context from knowledge base search
 
         Returns:
             Helpful response suggesting available services
@@ -117,10 +172,10 @@ class FallbackAgent(BaseAgent):
         service_names = get_service_names(self.enabled_agents, language)
         services_str = ", ".join(service_names) if service_names else "asistencia general"
 
-        logger.debug(f"Generating fallback response with services: {services_str}")
+        logger.debug(f"Generating fallback response with services: {services_str}, RAG: {bool(rag_context)}")
 
         # Build dynamic LLM prompt based on language using YAML
-        prompt = await self._build_dynamic_prompt(message, services_str, language)
+        prompt = await self._build_dynamic_prompt(message, services_str, language, rag_context)
 
         try:
             # Use configured model for user-facing responses
@@ -136,14 +191,16 @@ class FallbackAgent(BaseAgent):
         message: str,
         services_str: str,
         language: SupportedLanguage,
+        rag_context: str = "",
     ) -> str:
         """
-        Build LLM prompt with available services only using YAML.
+        Build LLM prompt with available services and RAG context.
 
         Args:
             message: User message
             services_str: Comma-separated list of available services
             language: Target language
+            rag_context: Optional RAG context from knowledge base
 
         Returns:
             Prompt string for LLM
@@ -158,17 +215,30 @@ class FallbackAgent(BaseAgent):
         prompt_key = lang_key_map.get(language, PromptRegistry.AGENTS_FALLBACK_DYNAMIC_ES)
 
         try:
-            return await self.prompt_manager.get_prompt(
+            base_prompt = await self.prompt_manager.get_prompt(
                 prompt_key,
                 variables={"message": message, "services_str": services_str},
             )
+
+            # Append RAG context if available
+            if rag_context:
+                rag_instruction = (
+                    "\n\n## INFORMACION RELEVANTE (usa esto para responder):\n"
+                    if language == "es"
+                    else "\n\n## RELEVANT INFORMATION (use this to answer):\n"
+                )
+                base_prompt = f"{base_prompt}{rag_instruction}{rag_context}"
+
+            return base_prompt
         except Exception as e:
             logger.warning(f"Failed to load YAML prompt: {e}")
-            # Fallback to simple prompt
+            # Fallback to simple prompt with RAG context
+            rag_section = f"\n\nInformacion relevante:\n{rag_context}" if rag_context else ""
             return (
                 f'El usuario escribio: "{message}"\n\n'
-                f"Servicios disponibles: {services_str}\n\n"
-                "Responde de forma amable."
+                f"Servicios disponibles: {services_str}"
+                f"{rag_section}\n\n"
+                "Responde de forma amable usando la informacion disponible."
             )
 
     async def _get_default_response(self, language: SupportedLanguage = "es") -> str:

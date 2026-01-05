@@ -20,6 +20,23 @@ from app.core.tenancy.agent_factory import (
 )
 from app.core.tenancy.context import TenantContext, set_tenant_context
 
+# Default agents for testing (simulates what would be in agent_cache)
+TEST_GLOBAL_AGENTS = [
+    "greeting_agent",
+    "fallback_agent",
+    "support_agent",
+    "farewell_agent",
+    "excelencia_agent",
+]
+
+
+@pytest.fixture(autouse=True)
+def mock_agent_cache():
+    """Mock agent_cache to provide test agents for all tests in this module."""
+    with patch("app.core.cache.agent_cache.agent_cache") as mock_cache:
+        mock_cache.get_cached_keys.return_value = TEST_GLOBAL_AGENTS
+        yield mock_cache
+
 
 class TestTenantAgentFactoryUnit:
     """Unit tests for TenantAgentFactory."""

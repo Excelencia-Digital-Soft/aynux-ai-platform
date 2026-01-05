@@ -54,6 +54,12 @@ def pharmacy_to_response(
         pharmacy_address=config.pharmacy_address,
         pharmacy_phone=config.pharmacy_phone,
         pharmacy_logo_path=config.pharmacy_logo_path,
+        # Contact and hours info
+        pharmacy_email=config.pharmacy_email,
+        pharmacy_website=config.pharmacy_website,
+        pharmacy_hours=config.pharmacy_hours,
+        pharmacy_is_24h=config.pharmacy_is_24h,
+        # Mercado Pago
         mp_enabled=config.mp_enabled,
         mp_sandbox=config.mp_sandbox,
         mp_timeout=config.mp_timeout,

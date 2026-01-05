@@ -92,3 +92,91 @@ class MissingEmbeddingsResponse(BaseModel):
         description="List of documents without embeddings",
     )
     total: int = Field(..., description="Total count of documents without embeddings")
+
+
+# ============================================================================
+# RAG Analytics Schemas
+# ============================================================================
+
+
+class RagQueryLogResponse(BaseModel):
+    """Single RAG query log entry."""
+
+    id: str = Field(..., description="Query log UUID")
+    query: str = Field(..., description="The user query text")
+    context_used: list[str] = Field(
+        default_factory=list,
+        description="Document IDs or titles used as context",
+    )
+    response: str = Field(..., description="The generated response")
+    token_count: int = Field(default=0, description="Number of tokens used")
+    latency_ms: int = Field(default=0, description="Response latency in milliseconds")
+    relevance_score: Optional[float] = Field(
+        None,
+        description="Relevance score between 0 and 1",
+    )
+    user_feedback: Optional[str] = Field(
+        None,
+        description="User feedback: 'positive' or 'negative'",
+    )
+    created_at: datetime = Field(..., description="When the query was made")
+
+
+class RagQueryLogsListResponse(BaseModel):
+    """Paginated RAG query logs response."""
+
+    logs: list[RagQueryLogResponse] = Field(
+        default_factory=list,
+        description="List of query logs",
+    )
+    total: int = Field(..., description="Total count of logs")
+
+
+class DocumentTypeCount(BaseModel):
+    """Document type with count for analytics."""
+
+    type: str = Field(..., description="Document type name")
+    count: int = Field(..., description="Number of occurrences")
+
+
+class LatencyDistribution(BaseModel):
+    """Latency distribution bucket."""
+
+    range: str = Field(..., description="Latency range (e.g., '0-100ms')")
+    count: int = Field(..., description="Number of queries in this range")
+
+
+class RagMetricsResponse(BaseModel):
+    """RAG metrics for dashboard."""
+
+    total_queries: int = Field(..., description="Total number of queries")
+    avg_latency_ms: float = Field(..., description="Average latency in milliseconds")
+    avg_token_count: float = Field(..., description="Average token count per response")
+    avg_relevance_score: float = Field(..., description="Average relevance score")
+    positive_feedback_rate: float = Field(
+        ...,
+        description="Rate of positive feedback (0-1)",
+    )
+    queries_by_day: dict[str, int] = Field(
+        default_factory=dict,
+        description="Query count by day (YYYY-MM-DD: count)",
+    )
+    queries_by_hour: dict[str, int] = Field(
+        default_factory=dict,
+        description="Query count by hour (0-23: count)",
+    )
+    top_document_types: list[DocumentTypeCount] = Field(
+        default_factory=list,
+        description="Top document types used as context",
+    )
+    latency_distribution: list[LatencyDistribution] = Field(
+        default_factory=list,
+        description="Distribution of latencies by range",
+    )
+
+
+class TimeSeriesPoint(BaseModel):
+    """Single time series data point."""
+
+    timestamp: str = Field(..., description="ISO timestamp")
+    value: float = Field(..., description="Metric value")

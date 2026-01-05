@@ -38,7 +38,7 @@ class CompanyKnowledge(Base, TimestampMixin):
     Corporate knowledge base with vector embeddings for semantic search.
 
     Stores company information across different categories with support for:
-    - Semantic search using pgvector (1024-dimensional embeddings)
+    - Semantic search using pgvector (768-dimensional embeddings via nomic-embed-text)
     - Full-text search using PostgreSQL TSVECTOR
     - Flexible metadata storage
     - Tagging system for categorization

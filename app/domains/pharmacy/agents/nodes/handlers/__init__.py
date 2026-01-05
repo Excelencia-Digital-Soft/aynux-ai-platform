@@ -9,6 +9,7 @@ from .base_handler import BasePharmacyHandler
 from .data_query_handler import DataQueryHandler
 from .fallback_handler import FallbackHandler
 from .greeting_handler import GreetingHandler
+from .pharmacy_info_handler import PharmacyInfoHandler
 from .summary_handler import SummaryHandler
 
 __all__ = [
@@ -16,5 +17,6 @@ __all__ = [
     "DataQueryHandler",
     "FallbackHandler",
     "GreetingHandler",
+    "PharmacyInfoHandler",
     "SummaryHandler",
 ]

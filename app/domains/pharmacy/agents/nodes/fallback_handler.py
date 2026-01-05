@@ -23,6 +23,7 @@ from .handlers import (
     DataQueryHandler,
     FallbackHandler,
     GreetingHandler,
+    PharmacyInfoHandler,
     SummaryHandler,
 )
 
@@ -48,6 +49,7 @@ class PharmacyFallbackHandler:
         self._greeting = GreetingHandler(pm)
         self._summary = SummaryHandler(pm)
         self._data_query = DataQueryHandler(pm)
+        self._info = PharmacyInfoHandler(pm)
         self._fallback = FallbackHandler(pm)
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
@@ -74,6 +76,14 @@ class PharmacyFallbackHandler:
     ) -> dict[str, Any]:
         """Handle data analysis query."""
         return await self._data_query.handle(message, state)
+
+    async def handle_info_query(
+        self,
+        message: str,
+        state: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Handle pharmacy info query (address, phone, hours, etc.)."""
+        return await self._info.handle(message, state)
 
     async def handle_unknown(
         self,

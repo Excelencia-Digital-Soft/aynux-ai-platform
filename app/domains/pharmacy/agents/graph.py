@@ -63,7 +63,7 @@ INTENT_NODE_MAP: dict[str, str] = {
 }
 
 # Intents handled by fallback handler
-FALLBACK_INTENTS = frozenset({"greeting", "reject", "unknown", "summary", "data_query"})
+FALLBACK_INTENTS = frozenset({"greeting", "reject", "unknown", "summary", "data_query", "info_query"})
 
 
 class PharmacyGraph:
@@ -375,7 +375,7 @@ class PharmacyGraph:
             return error_response
 
     async def _handle_fallback_intent(self, intent: str, message: str, state: PharmacyState) -> dict[str, Any]:
-        """Handle fallback intents (greeting, reject, unknown, summary, data_query)."""
+        """Handle fallback intents (greeting, reject, unknown, summary, data_query, info_query)."""
         state_dict = dict(state)
         if intent == "greeting":
             return await self._fallback_handler.handle_greeting(message, state_dict)
@@ -385,6 +385,8 @@ class PharmacyGraph:
             return await self._fallback_handler.handle_summary(message, state_dict)
         if intent == "data_query":
             return await self._fallback_handler.handle_data_query(message, state_dict)
+        if intent == "info_query":
+            return await self._fallback_handler.handle_info_query(message, state_dict)
         return await self._fallback_handler.handle_unknown(message, state_dict)
 
     def _get_next_node(self, state: PharmacyState) -> str:

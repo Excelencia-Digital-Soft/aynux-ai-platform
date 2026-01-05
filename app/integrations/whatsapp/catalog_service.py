@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.config.settings import get_settings
-from app.integrations.whatsapp.service import WhatsAppService
+from app.integrations.whatsapp.messenger import WhatsAppMessenger
 from app.models.whatsapp_advanced import (
     WhatsAppApiResponse,
 )
@@ -66,7 +66,7 @@ class WhatsAppCatalogService:
 
     def __init__(
         self,
-        whatsapp_service: Optional[WhatsAppService] = None,
+        whatsapp_service: Optional[WhatsAppMessenger] = None,
         catalog_repository: Optional[ICatalogRepository] = None,
         decision_engine: Optional[ICatalogDecisionEngine] = None,
     ):
@@ -74,12 +74,12 @@ class WhatsAppCatalogService:
         Initialize with dependency injection (Dependency Inversion Principle)
 
         Args:
-            whatsapp_service: WhatsApp service for API calls
+            whatsapp_service: WhatsApp messenger for API calls
             catalog_repository: Repository for product data access
             decision_engine: Engine for catalog display decisions
         """
         self.settings = get_settings()
-        self.whatsapp_service = whatsapp_service or WhatsAppService()
+        self.whatsapp_service = whatsapp_service or WhatsAppMessenger()
         self.catalog_repository = catalog_repository
         self.decision_engine = decision_engine
 

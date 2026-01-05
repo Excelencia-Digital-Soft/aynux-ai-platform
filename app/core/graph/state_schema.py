@@ -28,6 +28,15 @@ def add_agent_history(left: List[str], right: List[str]) -> List[str]:
     return left + right
 
 
+def take_latest_non_none(left: Optional[str], right: Optional[str]) -> Optional[str]:
+    """Reducer for next_agent: keep the latest non-None value.
+
+    This prevents next_agent from being lost during state merges when
+    some nodes don't explicitly set it.
+    """
+    return right if right is not None else left
+
+
 def add_cache_keys(left: List[str], right: List[str]) -> List[str]:
     """Reducer personalizado para claves de cache sin duplicados"""
     return list(set(left + right))
@@ -69,7 +78,7 @@ class LangGraphState(TypedDict):
 
     # Estado del flujo de agentes
     current_agent: Optional[str]
-    next_agent: Optional[str]  # Agente al que debe enrutarse a continuación
+    next_agent: Annotated[Optional[str], take_latest_non_none]  # Agente al que debe enrutarse a continuación
     agent_history: Annotated[List[str], add_agent_history]
 
     # Respuestas y datos recopilados

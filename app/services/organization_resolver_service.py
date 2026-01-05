@@ -13,9 +13,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.tenancy.credential_service import (
+from app.core.tenancy import (
     CredentialNotFoundError,
-    get_credential_service,
+    get_tenant_credential_service,
 )
 from app.models.db.tenancy import Organization
 
@@ -49,7 +49,7 @@ class OrganizationResolverService:
             db: Async database session
         """
         self._db = db
-        self._credential_service = get_credential_service()
+        self._credential_service = get_tenant_credential_service()
 
     async def resolve_organization(
         self,

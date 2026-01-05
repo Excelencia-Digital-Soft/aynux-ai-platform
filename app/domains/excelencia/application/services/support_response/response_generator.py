@@ -46,12 +46,17 @@ class SupportResponseGenerator:
         urgency = query_analysis.get("urgency", "medium")
 
         # Get RAG context
-        rag_context = await self._knowledge.search(message, query_type)
+        search_result = await self._knowledge.search(message, query_type)
+
+        # CRITICAL: Check for empty RAG results before LLM call
+        if search_result.is_empty():
+            logger.info(f"No RAG context found for query: {message[:50]}...")
+            return await self.generate_fallback(query_type, module)
 
         # Format conversation history
         history = self._format_history(state_dict)
 
-        # Build prompt
+        # Build prompt with validated context
         try:
             prompt = await self._pm.get_prompt(
                 PromptRegistry.EXCELENCIA_SUPPORT_RESPONSE,
@@ -60,7 +65,7 @@ class SupportResponseGenerator:
                     "query_type": query_type,
                     "modules": module or "No especificado",
                     "urgency": urgency,
-                    "rag_context": rag_context,
+                    "rag_context": search_result.context,
                     "conversation_history": history,
                 },
             )

@@ -23,6 +23,14 @@ class PharmacyConfigCreate(BaseModel):
     pharmacy_phone: str | None = Field(None, max_length=50, description="Pharmacy phone")
     pharmacy_logo_path: str | None = Field(None, max_length=500, description="Logo image path")
 
+    # Contact and info fields
+    pharmacy_email: str | None = Field(None, max_length=255, description="Contact email")
+    pharmacy_website: str | None = Field(None, max_length=500, description="Website URL")
+    pharmacy_hours: dict[str, str] | None = Field(
+        None, description="Operating hours by day (e.g., {'lun-vie': '08:00-20:00'})"
+    )
+    pharmacy_is_24h: bool = Field(default=False, description="24-hour pharmacy flag")
+
     # Mercado Pago config
     mp_enabled: bool = Field(default=False, description="Enable Mercado Pago integration")
     mp_access_token: str | None = Field(None, max_length=500, description="MP Access Token")
@@ -50,6 +58,12 @@ class PharmacyConfigUpdate(BaseModel):
     pharmacy_phone: str | None = Field(None, max_length=50)
     pharmacy_logo_path: str | None = Field(None, max_length=500)
 
+    # Contact and info fields
+    pharmacy_email: str | None = Field(None, max_length=255)
+    pharmacy_website: str | None = Field(None, max_length=500)
+    pharmacy_hours: dict[str, str] | None = None
+    pharmacy_is_24h: bool | None = None
+
     # Mercado Pago config
     mp_enabled: bool | None = None
     mp_access_token: str | None = Field(None, max_length=500)
@@ -76,6 +90,12 @@ class PharmacyConfigResponse(BaseModel):
     pharmacy_address: str | None
     pharmacy_phone: str | None
     pharmacy_logo_path: str | None
+
+    # Contact and info fields
+    pharmacy_email: str | None = None
+    pharmacy_website: str | None = None
+    pharmacy_hours: dict[str, str] | None = None
+    pharmacy_is_24h: bool = False
 
     # Mercado Pago (secrets masked)
     mp_enabled: bool

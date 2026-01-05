@@ -7,21 +7,30 @@ Este agente puede:
 3. Ejecutar consultas de forma segura
 4. Convertir resultados en embeddings para contexto
 5. Proporcionar respuestas inteligentes basadas en datos
+
+Uses RAG (Knowledge Base Search) for context-aware responses.
 """
 
 import json
 import logging
 from typing import Any
 
+from app.config.settings import get_settings
 from app.core.agents import BaseAgent
 from app.core.tools import DynamicSQLTool, SQLExecutionResult
 from app.core.utils.tracing import trace_async_method
+from app.domains.excelencia.application.services.support_response import (
+    KnowledgeBaseSearch,
+    RagQueryLogger,
+    SearchMetrics,
+)
 from app.integrations.llm import OllamaLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 class DataInsightsAgent(BaseAgent):
@@ -52,6 +61,15 @@ class DataInsightsAgent(BaseAgent):
         # Initialize PromptManager for YAML-based prompts
         self.prompt_manager = PromptManager()
 
+        # RAG integration for knowledge-based responses
+        self._knowledge_search = KnowledgeBaseSearch(
+            agent_key="data_insights_agent",
+            max_results=3,
+        )
+        self._rag_logger = RagQueryLogger(agent_key="data_insights_agent")
+        self._last_search_metrics: SearchMetrics | None = None
+        self.use_rag = getattr(settings, "KNOWLEDGE_BASE_ENABLED", True)
+
         # Patrones de consultas que puede manejar
         self.supported_patterns = {
             "analytics": ["cuantos", "cuantas", "total", "suma", "promedio", "estadisticas"],
@@ -60,6 +78,8 @@ class DataInsightsAgent(BaseAgent):
             "trends": ["tendencia", "ultimos", "semana", "mes", "ano", "crecimiento"],
             "user_specific": ["mis", "mi", "personal", "propio", "historial"],
         }
+
+        logger.info("DataInsightsAgent initialized (RAG enabled: %s)", self.use_rag)
 
     @trace_async_method(
         name="data_insights_agent_process",
@@ -87,7 +107,12 @@ class DataInsightsAgent(BaseAgent):
             # 2. Obtener contexto del usuario
             user_id = self._extract_user_id(state_dict)
 
-            # 3. Ejecutar consulta SQL dinamica
+            # 3. Get RAG context for knowledge-based response
+            rag_context = await self._get_rag_context(message)
+            if rag_context:
+                state_dict["rag_context"] = rag_context
+
+            # 4. Ejecutar consulta SQL dinamica
             sql_result = await self._execute_dynamic_query(message, user_id, state_dict)
 
             # 5. Generar respuesta inteligente basada en resultados
@@ -95,6 +120,14 @@ class DataInsightsAgent(BaseAgent):
                 ai_response = await self._generate_intelligent_response(message, sql_result, user_id, state_dict)
             else:
                 ai_response = await self._handle_query_error(message, sql_result)
+
+            # 6. Log RAG query with response (fire-and-forget)
+            if self._last_search_metrics and self._last_search_metrics.result_count > 0:
+                self._rag_logger.log_async(
+                    query=message,
+                    metrics=self._last_search_metrics,
+                    response=ai_response,
+                )
 
             return {
                 "messages": [{"role": "assistant", "content": ai_response}],
@@ -118,6 +151,31 @@ class DataInsightsAgent(BaseAgent):
                 "error_count": state_dict.get("error_count", 0) + 1,
                 "current_agent": self.name,
             }
+
+    async def _get_rag_context(self, message: str) -> str:
+        """
+        Get RAG context from knowledge base.
+
+        Args:
+            message: User message
+
+        Returns:
+            Formatted context string or empty string
+        """
+        self._last_search_metrics = None
+
+        if not self.use_rag:
+            return ""
+
+        try:
+            search_result = await self._knowledge_search.search(message, "analytics")
+            self._last_search_metrics = search_result.metrics
+            if search_result.context:
+                logger.info(f"RAG context found for data insights query: {len(search_result.context)} chars")
+            return search_result.context
+        except Exception as e:
+            logger.warning(f"RAG search failed: {e}")
+            return ""
 
     async def _is_data_query(self, message: str) -> bool:
         """Determina si la consulta es apropiada para analisis de datos usando YAML prompt."""

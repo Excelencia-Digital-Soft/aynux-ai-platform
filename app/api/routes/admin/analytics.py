@@ -13,7 +13,8 @@ without embeddings, and tracking embedding statistics across knowledge bases.
 
 import logging
 from enum import Enum
-from typing import Annotated, Optional
+from datetime import datetime, timedelta
+from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
@@ -22,10 +23,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.async_db import get_async_db
 from app.models.analytics_schemas import (
     AgentKnowledgeStats,
+    DocumentTypeCount,
     EmbeddingStatsResponse,
+    LatencyDistribution,
     MissingEmbeddingDocument,
     MissingEmbeddingsResponse,
+    RagMetricsResponse,
+    RagQueryLogResponse,
+    RagQueryLogsListResponse,
     SourceStats,
+    TimeSeriesPoint,
 )
 
 logger = logging.getLogger(__name__)
@@ -457,3 +464,319 @@ async def _get_missing_embeddings_combined(
     ]
 
     return documents, total
+
+
+# ============================================================================
+# RAG Analytics Endpoints
+# ============================================================================
+
+
+@router.get(
+    "/rag/metrics",
+    response_model=RagMetricsResponse,
+    summary="Get RAG metrics",
+    description="Retrieve aggregated RAG analytics metrics for the dashboard",
+)
+async def get_rag_metrics(
+    db: Annotated[AsyncSession, Depends(get_async_db)],
+    days: Annotated[int, Query(ge=1, le=365, description="Number of days to include")] = 30,
+) -> RagMetricsResponse:
+    """
+    Get comprehensive RAG metrics for the analytics dashboard.
+
+    Returns:
+    - Total queries and averages (latency, tokens, relevance)
+    - Feedback rate
+    - Queries grouped by day and hour
+    - Top document types used as context
+    - Latency distribution
+    """
+    try:
+        start_dt = datetime.utcnow() - timedelta(days=days)
+
+        # Main aggregation query
+        main_query = text("""
+            SELECT
+                COUNT(*)::int as total_queries,
+                COALESCE(AVG(latency_ms), 0)::float as avg_latency_ms,
+                COALESCE(AVG(token_count), 0)::float as avg_token_count,
+                COALESCE(AVG(relevance_score), 0)::float as avg_relevance_score,
+                COALESCE(
+                    SUM(CASE WHEN user_feedback = 'positive' THEN 1 ELSE 0 END)::float /
+                    NULLIF(SUM(CASE WHEN user_feedback IS NOT NULL THEN 1 ELSE 0 END), 0),
+                    0
+                )::float as positive_feedback_rate
+            FROM core.rag_query_logs
+            WHERE created_at >= :start_dt
+        """)
+
+        result = await db.execute(main_query, {"start_dt": start_dt})
+        row = result.fetchone()
+
+        # Default values if no data
+        total_queries = 0
+        avg_latency_ms = 0.0
+        avg_token_count = 0.0
+        avg_relevance_score = 0.0
+        positive_feedback_rate = 0.0
+
+        if row:
+            total_queries = row.total_queries or 0
+            avg_latency_ms = row.avg_latency_ms or 0.0
+            avg_token_count = row.avg_token_count or 0.0
+            avg_relevance_score = row.avg_relevance_score or 0.0
+            positive_feedback_rate = row.positive_feedback_rate or 0.0
+
+        # Queries by day
+        by_day_query = text("""
+            SELECT
+                TO_CHAR(created_at, 'YYYY-MM-DD') as day,
+                COUNT(*)::int as count
+            FROM core.rag_query_logs
+            WHERE created_at >= :start_dt
+            GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+            ORDER BY day
+        """)
+        by_day_result = await db.execute(by_day_query, {"start_dt": start_dt})
+        queries_by_day = {r.day: r.count for r in by_day_result.fetchall()}
+
+        # Queries by hour (0-23)
+        by_hour_query = text("""
+            SELECT
+                EXTRACT(HOUR FROM created_at)::int as hour,
+                COUNT(*)::int as count
+            FROM core.rag_query_logs
+            WHERE created_at >= :start_dt
+            GROUP BY EXTRACT(HOUR FROM created_at)
+            ORDER BY hour
+        """)
+        by_hour_result = await db.execute(by_hour_query, {"start_dt": start_dt})
+        queries_by_hour = {str(int(r.hour)): r.count for r in by_hour_result.fetchall()}
+
+        # Top document types (from context_used JSONB)
+        doc_types_query = text("""
+            SELECT
+                doc_type as type,
+                COUNT(*)::int as count
+            FROM core.rag_query_logs,
+                 LATERAL jsonb_array_elements_text(context_used) as doc_type
+            WHERE created_at >= :start_dt
+            GROUP BY doc_type
+            ORDER BY count DESC
+            LIMIT 10
+        """)
+        doc_types_result = await db.execute(doc_types_query, {"start_dt": start_dt})
+        top_document_types = [
+            DocumentTypeCount(type=r.type, count=r.count)
+            for r in doc_types_result.fetchall()
+        ]
+
+        # Latency distribution
+        latency_query = text("""
+            SELECT
+                CASE
+                    WHEN latency_ms < 100 THEN '0-100ms'
+                    WHEN latency_ms < 500 THEN '100-500ms'
+                    WHEN latency_ms < 1000 THEN '500-1000ms'
+                    ELSE '1000ms+'
+                END as range,
+                COUNT(*)::int as count
+            FROM core.rag_query_logs
+            WHERE created_at >= :start_dt
+            GROUP BY
+                CASE
+                    WHEN latency_ms < 100 THEN '0-100ms'
+                    WHEN latency_ms < 500 THEN '100-500ms'
+                    WHEN latency_ms < 1000 THEN '500-1000ms'
+                    ELSE '1000ms+'
+                END
+            ORDER BY MIN(latency_ms)
+        """)
+        latency_result = await db.execute(latency_query, {"start_dt": start_dt})
+        latency_distribution = [
+            LatencyDistribution(range=r.range, count=r.count)
+            for r in latency_result.fetchall()
+        ]
+
+        return RagMetricsResponse(
+            total_queries=total_queries,
+            avg_latency_ms=avg_latency_ms,
+            avg_token_count=avg_token_count,
+            avg_relevance_score=avg_relevance_score,
+            positive_feedback_rate=positive_feedback_rate,
+            queries_by_day=queries_by_day,
+            queries_by_hour=queries_by_hour,
+            top_document_types=top_document_types,
+            latency_distribution=latency_distribution,
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting RAG metrics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve RAG metrics",
+        ) from e
+
+
+@router.get(
+    "/rag/timeseries",
+    response_model=list[TimeSeriesPoint],
+    summary="Get RAG time series data",
+    description="Retrieve time series data for a specific RAG metric",
+)
+async def get_rag_timeseries(
+    db: Annotated[AsyncSession, Depends(get_async_db)],
+    metric: Annotated[
+        Literal["latency", "token_count", "relevance"],
+        Query(description="Metric to retrieve"),
+    ],
+    granularity: Annotated[
+        Literal["hour", "day", "week"],
+        Query(description="Time granularity"),
+    ] = "day",
+    days: Annotated[int, Query(ge=1, le=365, description="Number of days")] = 30,
+) -> list[TimeSeriesPoint]:
+    """
+    Get time series data for a specific RAG metric.
+
+    Parameters:
+    - metric: 'latency', 'token_count', or 'relevance'
+    - granularity: 'hour', 'day', or 'week'
+    - days: Number of days to include
+    """
+    try:
+        start_dt = datetime.utcnow() - timedelta(days=days)
+
+        # Map metric to SQL column
+        metric_column = {
+            "latency": "AVG(latency_ms)",
+            "token_count": "AVG(token_count)",
+            "relevance": "AVG(relevance_score)",
+        }.get(metric, "AVG(latency_ms)")
+
+        # Map granularity to SQL date_trunc
+        granularity_sql = {
+            "hour": "date_trunc('hour', created_at)",
+            "day": "date_trunc('day', created_at)",
+            "week": "date_trunc('week', created_at)",
+        }.get(granularity, "date_trunc('day', created_at)")
+
+        query = text(f"""
+            SELECT
+                {granularity_sql} as timestamp,
+                {metric_column}::float as value
+            FROM core.rag_query_logs
+            WHERE created_at >= :start_dt
+            GROUP BY {granularity_sql}
+            ORDER BY timestamp
+        """)
+
+        result = await db.execute(query, {"start_dt": start_dt})
+        rows = result.fetchall()
+
+        return [
+            TimeSeriesPoint(
+                timestamp=row.timestamp.isoformat() if row.timestamp else "",
+                value=round(row.value or 0, 2),
+            )
+            for row in rows
+        ]
+
+    except Exception as e:
+        logger.error(f"Error getting RAG time series: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve RAG time series",
+        ) from e
+
+
+@router.get(
+    "/rag/queries",
+    response_model=RagQueryLogsListResponse,
+    summary="Get RAG query logs",
+    description="Retrieve paginated RAG query logs",
+)
+async def get_rag_query_logs(
+    db: Annotated[AsyncSession, Depends(get_async_db)],
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 25,
+    start_date: Annotated[Optional[str], Query(description="Start date (ISO format)")] = None,
+    end_date: Annotated[Optional[str], Query(description="End date (ISO format)")] = None,
+) -> RagQueryLogsListResponse:
+    """
+    Get paginated RAG query logs.
+
+    Parameters:
+    - page: Page number (starts at 1)
+    - page_size: Number of items per page (max 100)
+    - start_date: Optional start date filter (ISO format)
+    - end_date: Optional end date filter (ISO format)
+    """
+    try:
+        offset = (page - 1) * page_size
+
+        # Build date filter
+        date_filter = ""
+        params: dict = {"limit": page_size, "offset": offset}
+
+        if start_date:
+            date_filter += " AND created_at >= :start_date"
+            params["start_date"] = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+
+        if end_date:
+            date_filter += " AND created_at <= :end_date"
+            params["end_date"] = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+
+        # Count total
+        count_query = text(f"""
+            SELECT COUNT(*)::int as total
+            FROM core.rag_query_logs
+            WHERE 1=1 {date_filter}
+        """)
+        count_result = await db.execute(count_query, params)
+        total = count_result.scalar() or 0
+
+        # Get logs
+        logs_query = text(f"""
+            SELECT
+                id::text,
+                query,
+                context_used,
+                response,
+                token_count,
+                latency_ms,
+                relevance_score,
+                user_feedback,
+                created_at
+            FROM core.rag_query_logs
+            WHERE 1=1 {date_filter}
+            ORDER BY created_at DESC
+            LIMIT :limit OFFSET :offset
+        """)
+
+        result = await db.execute(logs_query, params)
+        rows = result.fetchall()
+
+        logs = [
+            RagQueryLogResponse(
+                id=row.id,
+                query=row.query,
+                context_used=row.context_used if isinstance(row.context_used, list) else [],
+                response=row.response,
+                token_count=row.token_count or 0,
+                latency_ms=row.latency_ms or 0,
+                relevance_score=float(row.relevance_score) if row.relevance_score else None,
+                user_feedback=row.user_feedback,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
+
+        return RagQueryLogsListResponse(logs=logs, total=total)
+
+    except Exception as e:
+        logger.error(f"Error getting RAG query logs: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve RAG query logs",
+        ) from e

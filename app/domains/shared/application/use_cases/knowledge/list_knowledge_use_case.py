@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.shared.application.use_cases.knowledge._common import knowledge_to_dict
-from app.repositories.knowledge_repository import KnowledgeRepository
+from app.repositories.knowledge import KnowledgeRepository
 
 logger = logging.getLogger(__name__)
 

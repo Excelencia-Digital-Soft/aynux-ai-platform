@@ -48,18 +48,26 @@ class ProductEmbeddingManager:
         self._text_builder = EmbeddingTextBuilder()
 
     @trace_integration("pgvector_generate_embedding")
-    async def generate_embedding(self, text: str) -> list[float]:
+    async def generate_embedding(self, text: str, max_chars: int = 6000) -> list[float]:
         """
         Generate embedding for given text.
 
         Args:
             text: Text to embed
+            max_chars: Maximum characters to use for embedding (default 6000)
 
         Returns:
             List of floats representing the embedding vector
         """
         try:
             import asyncio
+
+            # Truncate text if too long to avoid exceeding model's context length
+            if len(text) > max_chars:
+                logger.warning(
+                    f"Text too long ({len(text)} chars), truncating to {max_chars} chars"
+                )
+                text = text[:max_chars]
 
             embeddings = self.ollama.get_embeddings(model=self.embedding_model)
             embedding_result = await asyncio.to_thread(embeddings.embed_query, text)

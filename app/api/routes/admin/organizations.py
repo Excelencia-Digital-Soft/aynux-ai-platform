@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,6 +30,7 @@ from app.api.dependencies import (
 )
 from app.database.async_db import get_async_db
 from app.models.db.tenancy import Organization, OrganizationUser, TenantConfig
+from app.models.db.tenancy.tenant_document import TenantDocument
 from app.models.db.user import UserDB
 
 router = APIRouter(tags=["Organizations"])
@@ -105,6 +106,18 @@ class SwitchOrganizationResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     organization: OrganizationResponse
+
+
+class OrganizationStatsResponse(BaseModel):
+    """Schema for organization statistics response."""
+
+    total_users: int
+    active_users: int
+    total_documents: int
+    total_messages: int = 0
+    storage_used_mb: float = 0.0
+    api_calls_today: int = 0
+    api_calls_month: int = 0
 
 
 # ============================================================
@@ -359,4 +372,37 @@ async def switch_organization(
         access_token=access_token,
         refresh_token=refresh_token,
         organization=OrganizationResponse(**org_dict),
+    )
+
+
+@router.get("/{org_id}/stats", response_model=OrganizationStatsResponse)
+async def get_organization_stats(
+    membership: OrganizationUser = Depends(require_admin),
+    org: Organization = Depends(get_organization_by_id),
+    db: AsyncSession = Depends(get_async_db),
+) -> OrganizationStatsResponse:
+    """
+    Get organization statistics.
+
+    Returns counts of users, documents, and usage metrics.
+    Requires admin or owner role.
+    """
+    # Count users in organization
+    user_count = await db.scalar(
+        select(func.count(OrganizationUser.id)).where(OrganizationUser.organization_id == org.id)
+    )
+
+    # Count documents in organization
+    doc_count = await db.scalar(
+        select(func.count(TenantDocument.id)).where(TenantDocument.organization_id == org.id)
+    )
+
+    return OrganizationStatsResponse(
+        total_users=user_count or 0,
+        active_users=user_count or 0,  # MVP: same as total
+        total_documents=doc_count or 0,
+        total_messages=0,  # Placeholder for future implementation
+        storage_used_mb=0.0,  # Placeholder for future implementation
+        api_calls_today=0,  # Placeholder for future implementation
+        api_calls_month=0,  # Placeholder for future implementation
     )

@@ -98,19 +98,13 @@ class NodeExecutor:
             result = await supervisor._process_internal(message=user_message, state_dict=state_dict)
 
             # Prepare updates
-            # IMPORTANT: Preserve is_complete from agent if already True
-            # This prevents the supervisor from overriding agent completion status
-            agent_already_complete = state.get("is_complete", False)
-
             updates = {
                 "current_agent": "supervisor",
                 "supervisor_evaluation": result.get("supervisor_evaluation", {}),
                 "conversation_flow": result.get("conversation_flow", {}),
                 "supervisor_analysis": result.get("supervisor_analysis", {}),
-                # Preserve is_complete if agent already marked it True
-                "is_complete": agent_already_complete or result.get("is_complete", False),
-                # Don't re-route if already complete
-                "needs_re_routing": False if agent_already_complete else result.get("needs_re_routing", False),
+                "is_complete": result.get("is_complete", False),
+                "needs_re_routing": result.get("needs_re_routing", False),
                 "human_handoff_requested": result.get("human_handoff_requested", False),
                 "supervisor_retry_count": state.get("supervisor_retry_count", 0) + 1,
                 "agent_history": ["supervisor"],  # Reducer will concatenate
@@ -195,8 +189,8 @@ class NodeExecutor:
                 updates["messages"] = [AIMessage(content=response_text)]
                 logger.debug(f"Converted 'response' field to messages for {agent_name}")
 
-            # Copy other fields
-            for key in ["retrieved_data", "is_complete", "error_count"]:
+            # Copy other fields including RAG metrics for graph visualization
+            for key in ["retrieved_data", "is_complete", "error_count", "rag_metrics"]:
                 if key in result:
                     updates[key] = result[key]
 
@@ -263,6 +257,8 @@ class NodeExecutor:
                 "supervisor_retry_count": state.get("supervisor_retry_count", 0),
                 "agent_responses": state.get("agent_responses", []),
                 "retrieved_data": state.get("retrieved_data", {}),
+                # RAG metrics for intelligent re-routing decisions
+                "rag_metrics": state.get("rag_metrics", {}),
             }
         )
         return base_state

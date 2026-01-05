@@ -166,6 +166,18 @@ class ResponseGenerationHandler(BaseExcelenciaHandler):
                 "En que mas puedo ayudarte?"
             )
 
+        if query_type == "corporate":
+            return (
+                "🏢 **Información Corporativa**\n\n"
+                "Excelencia Soluciones Informáticas S.R.L. es una empresa argentina "
+                "fundada hace más de 28 años, especializada en software para el sector salud.\n\n"
+                "Para información específica sobre nuestro equipo directivo o datos corporativos, "
+                "te recomendamos:\n"
+                "- Visitar nuestra página web oficial\n"
+                "- Contactar a tu ejecutivo de cuenta\n\n"
+                "En qué más puedo ayudarte?"
+            )
+
         # Default general response
         module_lines = [f"• {info['name']}" for _, info in list(all_modules.items())[:6]]
         modules_text = "\n".join(module_lines) if module_lines else "Multiples soluciones disponibles"

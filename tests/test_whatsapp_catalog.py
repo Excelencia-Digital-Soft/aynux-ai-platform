@@ -10,7 +10,7 @@ import pytest
 from app.integrations.whatsapp import (
     DefaultCatalogDecisionEngine,
     WhatsAppCatalogService,
-    WhatsAppService,
+    WhatsAppMessenger,
 )
 from app.models.whatsapp_advanced import (
     CatalogConfiguration,
@@ -99,13 +99,19 @@ class TestWhatsAppModels:
         assert error_response.status_code == 400
 
 
-class TestWhatsAppService:
-    """Tests for WhatsApp service catalog methods"""
+class TestWhatsAppMessenger:
+    """Tests for WhatsApp messenger catalog methods"""
 
     @pytest.fixture
-    def whatsapp_service(self):
-        """Create WhatsApp service instance for testing"""
-        return WhatsAppService()
+    def whatsapp_messenger(self):
+        """Create WhatsApp messenger instance for testing"""
+        mock_http_client = MagicMock()
+        mock_http_client.post = AsyncMock()
+        return WhatsAppMessenger(
+            http_client=mock_http_client,
+            catalog_id="1561483558155324",
+            is_development=True,
+        )
 
     def _get_mock_settings(self):
         """Get mock settings for testing"""
@@ -117,26 +123,17 @@ class TestWhatsAppService:
         settings_mock.is_development = True
         return settings_mock
 
-    @patch('app.integrations.whatsapp.service.get_settings')
-    @patch('app.integrations.whatsapp.http_client.httpx.AsyncClient')
-    async def test_send_product_list_success(self, mock_client, mock_get_settings, whatsapp_service):
+    async def test_send_product_list_success(self, whatsapp_messenger):
         """Test successful product list sending"""
-        # Mock settings
-        mock_get_settings.return_value = self._get_mock_settings()
-
-        # Mock HTTP response
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "messaging_product": "whatsapp",
-            "contacts": [{"input": "5491123456789", "wa_id": "5491123456789"}],
-            "messages": [{"id": "msg_123"}]
+        # Mock HTTP response on the messenger's client (returns dict)
+        mock_response = {
+            "success": True,
+            "data": {"message_id": "msg_123"}
         }
-
-        mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+        whatsapp_messenger._client.post = AsyncMock(return_value=mock_response)
 
         # Test the method
-        response = await whatsapp_service.send_product_list(
+        response = await whatsapp_messenger.send_product_list(
             numero="5491123456789",
             body_text="Check out our products!"
         )
@@ -144,25 +141,18 @@ class TestWhatsAppService:
         assert response.success is True
         assert response.data is not None
 
-    @patch('app.integrations.whatsapp.service.get_settings')
-    @patch('app.integrations.whatsapp.http_client.httpx.AsyncClient')
-    async def test_send_product_list_error(self, mock_client, mock_get_settings, whatsapp_service):
+    async def test_send_product_list_error(self, whatsapp_messenger):
         """Test product list sending error handling"""
-        # Mock settings
-        mock_get_settings.return_value = self._get_mock_settings()
-
-        # Mock HTTP error response
-        mock_response = MagicMock()
-        mock_response.status_code = 400
-        mock_response.text = "Invalid catalog ID"
-        mock_response.json.return_value = {
-            "error": {"message": "Invalid catalog ID"}
+        # Mock HTTP error response (returns dict)
+        mock_response = {
+            "success": False,
+            "error": "Invalid catalog ID",
+            "status_code": 400
         }
-
-        mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+        whatsapp_messenger._client.post = AsyncMock(return_value=mock_response)
 
         # Test the method
-        response = await whatsapp_service.send_product_list(
+        response = await whatsapp_messenger.send_product_list(
             numero="5491123456789",
             body_text="Check out our products!"
         )
@@ -170,10 +160,10 @@ class TestWhatsAppService:
         assert response.success is False
         assert "Invalid catalog ID" in response.error
 
-    async def test_send_product_list_validation(self, whatsapp_service):
+    async def test_send_product_list_validation(self, whatsapp_messenger):
         """Test input validation for product list"""
         # Test missing phone number
-        response = await whatsapp_service.send_product_list(
+        response = await whatsapp_messenger.send_product_list(
             numero="",
             body_text="Check out our products!"
         )
@@ -181,37 +171,30 @@ class TestWhatsAppService:
         assert "required" in response.error.lower()
 
         # Test missing body text
-        response = await whatsapp_service.send_product_list(
+        response = await whatsapp_messenger.send_product_list(
             numero="5491123456789",
             body_text=""
         )
         assert response.success is False
         assert "required" in response.error.lower()
 
-    def test_catalog_configuration(self, whatsapp_service):
-        """Test catalog configuration creation"""
-        config = whatsapp_service.get_catalog_configuration()
-
-        assert isinstance(config, CatalogConfiguration)
-        assert config.catalog_id == whatsapp_service.catalog_id
-        assert config.phone_number_id == whatsapp_service.phone_number_id
-        assert config.access_token == whatsapp_service.access_token
-
 
 class TestWhatsAppCatalogService:
     """Tests for WhatsApp catalog service"""
 
     @pytest.fixture
-    def mock_whatsapp_service(self):
-        """Mock WhatsApp service"""
-        mock = MagicMock(spec=WhatsAppService)
+    def mock_whatsapp_messenger(self):
+        """Mock WhatsApp messenger"""
+        mock = MagicMock(spec=WhatsAppMessenger)
         mock.send_product_list = AsyncMock()
+        mock.get_catalog_products = AsyncMock()
+        mock.get_catalog_configuration = MagicMock()
         return mock
 
     @pytest.fixture
-    def catalog_service(self, mock_whatsapp_service):
+    def catalog_service(self, mock_whatsapp_messenger):
         """Create catalog service with mocked dependencies"""
-        return WhatsAppCatalogService(whatsapp_service=mock_whatsapp_service)
+        return WhatsAppCatalogService(whatsapp_service=mock_whatsapp_messenger)
 
     async def test_should_show_catalog_display_with_sufficient_products(self, catalog_service):
         """Test catalog display decision with sufficient products"""
@@ -408,16 +391,16 @@ class TestDefaultCatalogDecisionEngine:
 class TestCatalogIntegration:
     """Integration tests for catalog functionality"""
 
-    @patch('app.integrations.whatsapp.catalog_service.WhatsAppService')
-    async def test_end_to_end_catalog_flow(self, mock_whatsapp_service_class):
+    @patch('app.integrations.whatsapp.catalog_service.WhatsAppMessenger')
+    async def test_end_to_end_catalog_flow(self, mock_whatsapp_messenger_class):
         """Test complete catalog flow from intent to sending"""
         # Setup mocks - use AsyncMock for async methods
-        mock_service = MagicMock()
-        mock_service.send_product_list = AsyncMock(return_value=WhatsAppApiResponse(
+        mock_messenger = MagicMock()
+        mock_messenger.send_product_list = AsyncMock(return_value=WhatsAppApiResponse(
             success=True,
             data={"message_id": "msg_123"}
         ))
-        mock_whatsapp_service_class.return_value = mock_service
+        mock_whatsapp_messenger_class.return_value = mock_messenger
 
         # Create catalog service
         catalog_service = WhatsAppCatalogService()
