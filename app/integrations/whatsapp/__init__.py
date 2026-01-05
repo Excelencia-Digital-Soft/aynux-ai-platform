@@ -25,6 +25,7 @@ from app.integrations.whatsapp.flows_service import (
     InMemoryFlowRepository,
     WhatsAppFlowsService,
 )
+from app.integrations.whatsapp.messenger import WhatsAppMessenger
 from app.integrations.whatsapp.service import (
     ChattigoMessagingService,
     WhatsAppService,
@@ -34,6 +35,7 @@ from app.integrations.whatsapp.service import (
 __all__ = [
     # Core Service
     "WhatsAppService",
+    "WhatsAppMessenger",
     # Chattigo Support
     "ChattigoMessagingService",
     "get_messaging_service",

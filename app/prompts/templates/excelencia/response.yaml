@@ -82,6 +82,60 @@ prompts:
             ### 1. Misión y Visión de Excelencia
             [Content from knowledge base...]
 
+  # Key used by ResponseGenerationHandler - main response generation with RAG
+  - key: excelencia.response.generation
+    name: Excelencia Response Generation with RAG
+    description: Main response generator that MUST use RAG context when available
+    version: "2.0.0"
+    template: |
+      Eres un asistente especializado en el Software Excelencia.
+      {conversation_context}
+      ## CONSULTA DEL USUARIO:
+      "{user_message}"
+
+      ## ANÁLISIS:
+      - Tipo de consulta: {query_type}
+      - Intención: {user_intent}
+      - Requiere demo: {requires_demo}
+      {modules_context}
+
+      ## INFORMACIÓN DE LA BASE DE CONOCIMIENTO:
+      {rag_context}
+
+      ## MÓDULOS DISPONIBLES:
+      {modules_list}
+
+      ## INSTRUCCIONES CRÍTICAS:
+      1. **PRIORIDAD MÁXIMA**: Si hay información en "INFORMACIÓN DE SOPORTE (Knowledge Base)" arriba, DEBES usarla para responder. Esta es información VERIFICADA de la empresa.
+      2. **NUNCA digas** que no tienes información si hay datos en la Knowledge Base arriba
+      3. Si preguntan sobre CEO, misión, visión, equipo directivo, historia: USA la información de Knowledge Base
+      4. Responde de manera amigable y profesional
+      5. Usa máximo 6-7 líneas
+      6. Usa 1-2 emojis apropiados
+      7. NO inventes información - usa SOLO el contexto proporcionado
+
+      Genera tu respuesta basándote en la información proporcionada:
+    metadata:
+      temperature: 0.7
+      max_tokens: 500
+      model: "gemma2"
+      tags:
+        - excelencia
+        - response_generation
+        - rag
+        - corporate
+      variables:
+        required:
+          - user_message
+          - query_type
+          - user_intent
+          - requires_demo
+        optional:
+          - modules_context
+          - rag_context
+          - conversation_context
+          - modules_list
+
   - key: excelencia.demo.request
     name: Demo Request Response
     description: Friendly response for demo requests with module options

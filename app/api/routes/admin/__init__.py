@@ -16,6 +16,7 @@ Includes:
 from . import (
     agent_flow,
     agent_knowledge,
+    agents,
     ai_models,
     bypass_rules,
     chattigo_credentials,
@@ -40,6 +41,7 @@ __all__ = [
     "tenant_prompts",
     "tenant_documents",
     "agent_knowledge",
+    "agents",
     "prompts",
     "bypass_rules",
     "ai_models",

@@ -14,7 +14,7 @@ Provides endpoints for fetching agent flow visualization data including:
 - Domain groupings
 
 Supports dual-mode operation:
-- Global Mode: Returns agents from ENABLED_AGENTS env var, no bypass rules
+- Global Mode: Returns agents from core.agents database table, no bypass rules
 - Multi-tenant Mode: Returns per-organization agent config and bypass rules
 """
 
@@ -279,20 +279,24 @@ def build_domain_groups() -> list[DomainGroup]:
 
 
 @router.get("/agent-flow/visualization", response_model=AgentFlowVisualization)
-async def get_global_visualization():
+async def get_global_visualization(
+    db: AsyncSession = Depends(get_async_db),
+):
     """
     Get agent flow visualization data for Global Mode.
 
     Returns:
-    - Agents from ENABLED_AGENTS environment variable
+    - Agents from core.agents database table
     - Empty bypass_rules (not applicable in global mode)
     - Orchestrator routes from DEFAULT_AGENT_SCHEMA
     - Intent mappings from DEFAULT_AGENT_SCHEMA
 
     This endpoint is used when MULTI_TENANT_MODE=false.
     """
-    # Get enabled agents from settings
-    enabled_agents = settings.effective_enabled_agents
+    # Get enabled agents from database
+    from app.services.agent_service import AgentService
+    agent_service = AgentService.with_session(db)
+    enabled_agents = await agent_service.get_enabled_keys()
 
     # Build agent visualizations
     agents = []
@@ -355,7 +359,7 @@ async def get_tenant_visualization(
     Get agent flow visualization data for a specific organization.
 
     Returns:
-    - Agents: BOTH global (from ENABLED_AGENTS) AND organization-specific (from tenant_agents)
+    - Agents: BOTH global (from core.agents table) AND organization-specific (from tenant_agents)
     - Bypass rules for this organization
     - Orchestrator routes from DEFAULT_AGENT_SCHEMA
     - Intent mappings from DEFAULT_AGENT_SCHEMA
@@ -386,8 +390,10 @@ async def get_tenant_visualization(
     enabled_agent_keys = []
     tenant_agent_keys = {ta.agent_key for ta in tenant_agents}
 
-    # 1. Add GLOBAL agents from ENABLED_AGENTS (that are NOT overridden by tenant)
-    global_enabled_agents = settings.effective_enabled_agents
+    # 1. Add GLOBAL agents from database (that are NOT overridden by tenant)
+    from app.services.agent_service import AgentService
+    agent_service = AgentService.with_session(db)
+    global_enabled_agents = await agent_service.get_enabled_keys()
     for agent_key in global_enabled_agents:
         if agent_key not in tenant_agent_keys:
             # Add global agent (not customized by tenant)

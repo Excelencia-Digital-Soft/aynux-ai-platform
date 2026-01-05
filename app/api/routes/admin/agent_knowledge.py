@@ -21,7 +21,6 @@ from app.api.schemas.agent_knowledge import (
     AgentKnowledgeUpdate,
     AvailableAgentsResponse,
 )
-from app.config.settings import get_settings
 from app.database.async_db import get_async_db
 from app.domains.shared.application.use_cases.agent_knowledge_use_cases import (
     CreateAgentKnowledgeUseCase,
@@ -35,19 +34,22 @@ from app.domains.shared.application.use_cases.agent_knowledge_use_cases import (
 from app.domains.shared.infrastructure.repositories.agent_knowledge_repository import (
     AgentKnowledgeRepository,
 )
+from app.services.agent_service import AgentService
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 router = APIRouter(prefix="/agents", tags=["Agent Knowledge"])
 
 
 @router.get("/available", response_model=AvailableAgentsResponse)
-async def get_available_agents() -> AvailableAgentsResponse:
+async def get_available_agents(
+    db: AsyncSession = Depends(get_async_db),
+) -> AvailableAgentsResponse:
     """
-    Get list of available agents from ENABLED_AGENTS setting.
+    Get list of available agents from database.
     """
-    enabled = settings.ENABLED_AGENTS or []
+    service = AgentService.with_session(db)
+    enabled = await service.get_enabled_keys()
     return AvailableAgentsResponse(agents=enabled, total=len(enabled))
 
 

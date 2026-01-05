@@ -78,17 +78,26 @@ class KnowledgeEmbeddingService:
 
         return "\n".join(content_parts)
 
-    async def generate_embedding(self, text: str) -> List[float]:
+    async def generate_embedding(self, text: str, max_chars: int = 6000) -> List[float]:
         """
         Generate embedding vector for a given text.
 
         Args:
             text: Text to generate embedding for
+            max_chars: Maximum characters to use for embedding (default 6000 to fit
+                      within nomic-embed-text's ~8192 token context window)
 
         Returns:
-            List of floats representing the embedding vector (1024 dimensions)
+            List of floats representing the embedding vector (768 dimensions for nomic-embed-text)
         """
         try:
+            # Truncate text if too long to avoid exceeding model's context length
+            if len(text) > max_chars:
+                logger.warning(
+                    f"Text too long ({len(text)} chars), truncating to {max_chars} chars for embedding"
+                )
+                text = text[:max_chars]
+
             # OllamaEmbeddings.embed_query returns the embedding vector
             embedding = await self.embeddings.aembed_query(text)
             return embedding

@@ -11,6 +11,7 @@ from app.api.routes import (
     dux_sync_admin,
     jira_webhook,
     knowledge_admin,
+    knowledge_unified,
     langsmith_status,
     mercadopago_webhook,
     phone_normalization,
@@ -21,6 +22,7 @@ from app.api.routes import (
 from app.api.routes.admin import (
     agent_flow,
     agent_knowledge,
+    agents as agents_catalog,
     ai_models,
     bypass_rules,
     chat_admin,
@@ -62,6 +64,7 @@ api_router.include_router(agents_admin.router, tags=["agents-admin"])
 api_router.include_router(domain_admin.router, tags=["domain-admin"])
 api_router.include_router(langsmith_status.router, prefix="/admin", tags=["monitoring"])
 api_router.include_router(knowledge_admin.router, tags=["Knowledge Base"])
+api_router.include_router(knowledge_unified.router, tags=["Unified Knowledge"])
 api_router.include_router(document_upload.router, tags=["Document Upload"])
 api_router.include_router(agent_config.router, tags=["Agent Configuration"])
 api_router.include_router(whatsapp_catalog.router, tags=["WhatsApp Catalog & Flows"])
@@ -154,6 +157,13 @@ api_router.include_router(
     ai_models.router,
     prefix="/admin/ai-models",
     tags=["AI Models"],
+)
+
+# Admin routes - Agent Catalog Management (replaces ENABLED_AGENTS env var)
+api_router.include_router(
+    agents_catalog.router,
+    prefix="/admin/agents",
+    tags=["Agent Catalog"],
 )
 
 # Admin routes - Pharmacy Testing (public - for Vue.js testing interface)

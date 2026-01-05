@@ -116,7 +116,7 @@ async def health_check(
             message="Knowledge Base API is operational",
             success=True,
             details={
-                "active_documents": stats["database"]["total_active"],
+                "active_documents": stats["total_active"],
                 "embedding_model": stats["embedding_model"],
             },
         )

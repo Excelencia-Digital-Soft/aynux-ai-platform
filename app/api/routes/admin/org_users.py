@@ -4,6 +4,7 @@ Organization Users Admin API - Manage users within organizations.
 Provides endpoints for inviting users, managing roles, and removing members.
 """
 
+import secrets
 import uuid
 from datetime import UTC, datetime
 from typing import Literal
@@ -19,6 +20,7 @@ from app.api.dependencies import (
     get_organization_by_id,
     require_admin,
     require_owner,
+    token_service,
 )
 from app.database.async_db import get_async_db
 from app.models.db.tenancy import Organization, OrganizationUser
@@ -74,6 +76,18 @@ class InviteResponse(BaseModel):
     message: str
     user_id: str
     role: str
+
+
+class InvitesListResponse(BaseModel):
+    """Schema for invites list response (MVP: returns empty list)."""
+
+    invites: list = []
+
+
+class ResetPasswordResponse(BaseModel):
+    """Schema for reset password response."""
+
+    temp_password: str
 
 
 # ============================================================
@@ -336,3 +350,66 @@ async def remove_user(
 
     await db.delete(target_membership)
     await db.commit()
+
+
+@router.get("/{org_id}/invites", response_model=InvitesListResponse)
+async def get_organization_invites(
+    org_id: uuid.UUID = Path(..., description="Organization ID"),
+    membership: OrganizationUser = Depends(require_admin),
+) -> InvitesListResponse:
+    """
+    Get pending invitations for an organization.
+
+    MVP: Returns empty list (invite system not yet implemented).
+    Requires admin or owner role.
+    """
+    return InvitesListResponse(invites=[])
+
+
+@router.post("/{org_id}/users/{user_id}/reset-password", response_model=ResetPasswordResponse)
+async def reset_user_password(
+    org_id: uuid.UUID = Path(..., description="Organization ID"),
+    user_id: uuid.UUID = Path(..., description="User ID"),
+    membership: OrganizationUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_async_db),
+) -> ResetPasswordResponse:
+    """
+    Reset a user's password and return a temporary password.
+
+    Requires admin or owner role.
+    """
+    # Verify user belongs to organization
+    stmt = select(OrganizationUser).where(
+        OrganizationUser.organization_id == org_id,
+        OrganizationUser.user_id == user_id,
+    )
+    result = await db.execute(stmt)
+    org_user = result.scalar_one_or_none()
+
+    if not org_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado en esta organización",
+        )
+
+    # Get the user record
+    user_stmt = select(UserDB).where(UserDB.id == user_id)
+    user_result = await db.execute(user_stmt)
+    user = user_result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado",
+        )
+
+    # Generate temporary password
+    temp_password = secrets.token_urlsafe(12)
+
+    # Update password hash
+    user.password_hash = token_service.get_password_hash(temp_password)
+    user.updated_at = datetime.now(UTC)
+
+    await db.commit()
+
+    return ResetPasswordResponse(temp_password=temp_password)

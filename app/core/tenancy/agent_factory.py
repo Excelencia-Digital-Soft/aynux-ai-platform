@@ -11,7 +11,7 @@ Extends agent filtering to respect per-tenant configuration from TenantConfig.
 When TenantContext is active, filters enabled agents based on enabled_agent_types.
 
 Features:
-- Falls back to global ENABLED_AGENTS when no tenant context
+- Loads global enabled agents from database (core.agents table)
 - Respects tenant's enabled_agent_types configuration
 - Empty enabled_agent_types = all global agents enabled
 - Provides intersection of global and tenant-enabled agents
@@ -119,8 +119,24 @@ class TenantAgentFactory:
 
     @property
     def global_enabled_agents(self) -> list[str]:
-        """Get global enabled agents from settings."""
-        return list(self._settings.ENABLED_AGENTS)
+        """Get global enabled agents from database cache.
+
+        Uses the AgentCache which stores enabled agents from core.agents table.
+        Falls back to cached (potentially stale) data if no DB session available.
+        """
+        from app.core.cache.agent_cache import agent_cache
+
+        # Return cached keys (may be stale if cache expired and no DB to refresh)
+        cached_keys = agent_cache.get_cached_keys()
+        if cached_keys:
+            return cached_keys
+
+        # If cache is empty, log warning - migration may not have run yet
+        logger.warning(
+            "Agent cache is empty. Run migration to seed agents from BUILTIN_AGENT_DEFAULTS. "
+            "Use: alembic upgrade head && POST /api/v1/admin/agents/seed/builtin"
+        )
+        return []
 
     @property
     def tenant_enabled_agents(self) -> list[str] | None:
@@ -232,6 +248,24 @@ class TenantAgentFactory:
     # =========================================================================
     # Async methods for full registry support (require db session)
     # =========================================================================
+
+    async def refresh_global_agents_cache(self) -> list[str]:
+        """Refresh the global agents cache from database.
+
+        Requires db session to be provided.
+
+        Returns:
+            Updated list of enabled agent keys.
+
+        Raises:
+            ValueError: If no database session available.
+        """
+        if self._db is None:
+            raise ValueError("Database session required for refresh_global_agents_cache()")
+
+        from app.core.cache.agent_cache import agent_cache
+
+        return await agent_cache.get_enabled_keys(self._db)
 
     async def get_agent_registry(self) -> TenantAgentRegistry:
         """

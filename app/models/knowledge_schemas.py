@@ -308,21 +308,43 @@ class KnowledgeListResponse(BaseModel):
 
 
 class KnowledgeStats(BaseModel):
-    """Schema for knowledge base statistics (pgvector only)."""
+    """Schema for knowledge base statistics."""
 
-    database: Dict[str, Any] = Field(
+    total_documents: int = Field(
         ...,
-        description="Database and pgvector statistics",
-        examples=[
-            {
-                "total_active": 50,
-                "total_inactive": 5,
-                "missing_embeddings": 2,
-                "embedding_coverage": 96.0,
-            }
-        ],
+        description="Total number of documents",
+        examples=[50],
     )
-    embedding_model: str = Field(..., description="Embedding model name", examples=["nomic-embed-text"])
+    total_active: int = Field(
+        ...,
+        description="Number of active documents",
+        examples=[45],
+    )
+    total_inactive: int = Field(
+        ...,
+        description="Number of inactive documents",
+        examples=[5],
+    )
+    documents_by_type: Dict[str, int] = Field(
+        ...,
+        description="Document count grouped by document_type",
+        examples=[{"faq": 20, "software_catalog": 15, "support_guide": 10}],
+    )
+    documents_with_embedding: int = Field(
+        ...,
+        description="Number of documents with embeddings",
+        examples=[48],
+    )
+    documents_without_embedding: int = Field(
+        ...,
+        description="Number of documents without embeddings",
+        examples=[2],
+    )
+    embedding_model: str = Field(
+        ...,
+        description="Embedding model name",
+        examples=["nomic-embed-text"],
+    )
 
 
 class MessageResponse(BaseModel):

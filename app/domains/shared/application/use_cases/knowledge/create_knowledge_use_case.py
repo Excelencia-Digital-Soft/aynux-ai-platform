@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.settings import get_settings
 from app.domains.shared.application.use_cases.knowledge._common import knowledge_to_dict
 from app.integrations.vector_stores import KnowledgeEmbeddingService
-from app.repositories.knowledge_repository import KnowledgeRepository
+from app.repositories.knowledge import KnowledgeRepository
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

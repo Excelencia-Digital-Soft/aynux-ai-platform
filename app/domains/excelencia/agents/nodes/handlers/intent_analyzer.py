@@ -71,7 +71,10 @@ class IntentAnalysisHandler(BaseExcelenciaHandler):
         "training": ["capacitacion", "curso", "entrenamiento", "aprender", "formacion"],
         "support": ["soporte", "ayuda", "problema", "error", "consulta tecnica"],
         "products": ["producto", "sistema", "software", "solucion", "vertical"],
-        "corporate": ["mision", "vision", "valores", "empresa", "quienes somos", "contacto", "redes"],
+        "corporate": [
+            "mision", "vision", "valores", "empresa", "quienes somos", "contacto", "redes",
+            "ceo", "director", "fundador", "dueño", "propietario", "quien es el", "quién es"
+        ],
         "clients": ["cliente", "caso", "exito", "referencia", "implementacion"],
         "general": ["excelencia", "erp", "informacion", "que es"],
         "incident": ["reportar", "incidencia", "levantar ticket", "falla grave", "bug", "no funciona", "se cayo"],
@@ -107,10 +110,17 @@ class IntentAnalysisHandler(BaseExcelenciaHandler):
         try:
             ai_result = await self._analyze_with_llm(message, state_dict)
             if ai_result:
+                # Ensure specific_modules is a list (LLM might return string)
+                specific_modules = ai_result.get("specific_modules", [])
+                if isinstance(specific_modules, str):
+                    specific_modules = [specific_modules] if specific_modules else []
+                elif not isinstance(specific_modules, list):
+                    specific_modules = []
+
                 return IntentResult(
                     query_type=ai_result.get("query_type", query_type),
                     user_intent=ai_result.get("user_intent", ""),
-                    modules=list(set(mentioned_modules + ai_result.get("specific_modules", []))),
+                    modules=list(set(mentioned_modules + specific_modules)),
                     requires_demo=ai_result.get("requires_demo", False),
                     urgency=ai_result.get("urgency", "medium"),
                 )

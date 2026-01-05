@@ -296,8 +296,9 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
         ),
         IntentType.EXCELENCIA: IntentDefinition(
             intent=IntentType.EXCELENCIA,
-            description="Queries about Excelencia Software system: demos, modules, training, vertical products",
+            description="Queries about Excelencia Software system: demos, modules, training, vertical products, AND company info (CEO, mission, vision, team)",
             examples=[
+                # Software queries
                 "qué es excelencia?",
                 "demo de historia clínica",
                 "módulos de excelencia",
@@ -312,6 +313,17 @@ DEFAULT_AGENT_SCHEMA = AgentSchema(
                 "hotel software",
                 "clinic software",
                 "medical appointments system",
+                # Corporate info queries
+                "quién es el CEO de Excelencia",
+                "director de Excelencia",
+                "información de la empresa Excelencia",
+                "misión de Excelencia",
+                "visión de Excelencia",
+                "historia de Excelencia",
+                "equipo directivo de Excelencia",
+                "contacto de Excelencia",
+                "about Excelencia company",
+                "who founded Excelencia",
             ],
             target_agent=AgentType.EXCELENCIA_AGENT,
             confidence_threshold=0.75,

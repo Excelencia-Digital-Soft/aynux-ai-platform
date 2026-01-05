@@ -237,27 +237,9 @@ class Settings(BaseSettings):
     PRODUCT_AGENT_DATA_SOURCE: str = Field("database", description="ProductAgent siempre usa 'database' (PostgreSQL)")
 
     # Agent Enablement Configuration
-    # Note: product_agent, tracking_agent, promotions_agent, invoice_agent are now
-    # internal nodes of ecommerce_agent (subgraph) - they should NOT be listed here
-    # NoDecode prevents pydantic-settings from trying json.loads() - we parse manually
-    ENABLED_AGENTS: Annotated[list[str], NoDecode] = Field(
-        default=[
-            "greeting_agent",
-            "support_agent",
-            "fallback_agent",
-            "farewell_agent",
-            "excelencia_agent",
-            "excelencia_invoice_agent",
-            "excelencia_promotions_agent",
-            "excelencia_support_agent",
-            "data_insights_agent",
-        ],
-        description=(
-            "List of enabled top-level agent names (from AgentType enum). "
-            "Orchestrator and Supervisor are always enabled. "
-            "E-commerce nodes (product, tracking, promotions, invoice) are internal to ecommerce_agent."
-        ),
-    )
+    # NOTE: Agents are now managed via database (core.agents table)
+    # Use the Admin API: /api/v1/admin/agents for CRUD operations
+    # The old ENABLED_AGENTS env var has been removed - run migration to seed agents
 
     # LangSmith Configuration
     LANGSMITH_TRACING: bool = Field(False, description="Enable LangSmith tracing")
@@ -301,12 +283,6 @@ class Settings(BaseSettings):
     @classmethod
     def parse_allowed_extensions(cls, v: Any) -> list[str]:
         """Parse ALLOWED_EXTENSIONS from JSON array or comma-separated string."""
-        return parse_str_list(v)
-
-    @field_validator("ENABLED_AGENTS", mode="before")
-    @classmethod
-    def parse_enabled_agents(cls, v: Any) -> list[str]:
-        """Parse ENABLED_AGENTS from JSON array or comma-separated string."""
         return parse_str_list(v)
 
     @field_validator("DUX_SYNC_HOURS", mode="before")
@@ -379,20 +355,6 @@ class Settings(BaseSettings):
             "openai": "https://api.openai.com/v1",
         }
         return provider_urls.get(self.EXTERNAL_LLM_PROVIDER, "https://api.deepseek.com/v1")
-
-    @computed_field
-    @property
-    def effective_enabled_agents(self) -> list[str]:
-        """
-        Lista efectiva de agentes habilitados.
-
-        Excluye automáticamente product_agent si DUX_SYNC_ENABLED=False,
-        ya que el agente no tendría datos útiles sin la sincronización DUX.
-        """
-        agents = list(self.ENABLED_AGENTS)
-        if not self.DUX_SYNC_ENABLED and "product_agent" in agents:
-            agents.remove("product_agent")
-        return agents
 
     @computed_field
     @property

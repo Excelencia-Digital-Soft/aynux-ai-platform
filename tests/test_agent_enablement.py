@@ -240,6 +240,15 @@ class TestAynuxGraphAgentManagement:
             graph.agent_factory = mock_factory_instance
             graph.agents = mock_factory_instance.initialize_all_agents()
 
+            # Initialize status_manager (required after SRP refactoring)
+            from app.core.graph.factories.agent_status_manager import AgentStatusManager
+
+            graph.status_manager = AgentStatusManager(
+                enabled_agents=graph.enabled_agents,
+                agents=graph.agents,
+                agent_factory=graph.agent_factory,
+            )
+
             return graph
 
     def test_graph_is_agent_enabled(self, mock_graph):

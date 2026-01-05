@@ -3,12 +3,14 @@ Credit Agent for Credit Domain
 
 Clean architecture agent that delegates to use cases.
 Follows SOLID principles and implements IAgent interface.
+Uses RAG (Knowledge Base Search) for context-aware responses.
 """
 
 import logging
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
+from app.config.settings import get_settings
 from app.core.interfaces.agent import AgentType, IAgent
 from app.core.interfaces.llm import ILLM
 from app.core.interfaces.repository import IRepository
@@ -20,10 +22,16 @@ from app.domains.credit.application.use_cases import (
     ProcessPaymentRequest,
     ProcessPaymentUseCase,
 )
+from app.domains.excelencia.application.services.support_response import (
+    KnowledgeBaseSearch,
+    RagQueryLogger,
+    SearchMetrics,
+)
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 class CreditAgent(IAgent):
@@ -39,7 +47,7 @@ class CreditAgent(IAgent):
         credit_account_repository: IRepository,
         payment_repository: IRepository,
         llm: ILLM,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
     ):
         """
         Initialize agent with dependencies.
@@ -66,7 +74,16 @@ class CreditAgent(IAgent):
         )
         self._schedule_use_case = GetPaymentScheduleUseCase(credit_account_repository=credit_account_repository)
 
-        logger.info("CreditAgent initialized with use cases and prompt manager")
+        # RAG integration for knowledge-based responses
+        self._knowledge_search = KnowledgeBaseSearch(
+            agent_key="credit_agent",
+            max_results=3,
+        )
+        self._rag_logger = RagQueryLogger(agent_key="credit_agent")
+        self._last_search_metrics: SearchMetrics | None = None
+        self.use_rag = getattr(settings, "KNOWLEDGE_BASE_ENABLED", True)
+
+        logger.info("CreditAgent initialized (RAG enabled: %s)", self.use_rag)
 
     @property
     def agent_type(self) -> AgentType:
@@ -78,7 +95,7 @@ class CreditAgent(IAgent):
         """Agent name"""
         return "credit_agent"
 
-    async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Execute agent logic.
 
@@ -100,6 +117,11 @@ class CreditAgent(IAgent):
             if not account_id:
                 return self._error_response("No credit account found", state)
 
+            # Get RAG context for knowledge-based response
+            rag_context = await self._get_rag_context(user_message)
+            if rag_context:
+                state["rag_context"] = rag_context
+
             # Analyze intent
             intent = await self._analyze_intent(user_message)
             logger.info(f"Detected credit intent: {intent}")
@@ -114,13 +136,51 @@ class CreditAgent(IAgent):
             else:
                 response = await self._handle_balance(account_id, state)  # Default
 
+            # Log RAG query with response (fire-and-forget)
+            if self._last_search_metrics and self._last_search_metrics.result_count > 0:
+                # Extract response text from handler result
+                messages = response.get("messages", [])
+                if messages:
+                    response_text = messages[-1].get("content", "")
+                    if response_text:
+                        self._rag_logger.log_async(
+                            query=user_message,
+                            metrics=self._last_search_metrics,
+                            response=response_text,
+                        )
+
             return response
 
         except Exception as e:
             logger.error(f"Error in CreditAgent.execute: {e}", exc_info=True)
             return self._error_response(str(e), state)
 
-    async def validate_input(self, state: Dict[str, Any]) -> bool:
+    async def _get_rag_context(self, message: str) -> str:
+        """
+        Get RAG context from knowledge base.
+
+        Args:
+            message: User message
+
+        Returns:
+            Formatted context string or empty string
+        """
+        self._last_search_metrics = None
+
+        if not self.use_rag:
+            return ""
+
+        try:
+            search_result = await self._knowledge_search.search(message, "credit")
+            self._last_search_metrics = search_result.metrics
+            if search_result.context:
+                logger.info(f"RAG context found for credit query: {len(search_result.context)} chars")
+            return search_result.context
+        except Exception as e:
+            logger.warning(f"RAG search failed: {e}")
+            return ""
+
+    async def validate_input(self, state: dict[str, Any]) -> bool:
         """
         Validate input state.
 
@@ -173,7 +233,7 @@ class CreditAgent(IAgent):
             logger.warning(f"Error analyzing intent: {e}")
             return "balance"
 
-    async def _handle_balance(self, account_id: str, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_balance(self, account_id: str, state: dict[str, Any]) -> dict[str, Any]:
         """Handle balance inquiry"""
         try:
             request = GetCreditBalanceRequest(account_id=account_id)
@@ -202,7 +262,7 @@ class CreditAgent(IAgent):
             logger.error(f"Error in balance handler: {e}", exc_info=True)
             return self._error_response(str(e), state)
 
-    async def _handle_payment(self, message: str, account_id: str, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_payment(self, message: str, account_id: str, state: dict[str, Any]) -> dict[str, Any]:
         """Handle payment processing"""
         try:
             # Extract payment amount (simplified - should use NLP)
@@ -241,7 +301,7 @@ class CreditAgent(IAgent):
             logger.error(f"Error in payment handler: {e}", exc_info=True)
             return self._error_response(str(e), state)
 
-    async def _handle_schedule(self, account_id: str, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_schedule(self, account_id: str, state: dict[str, Any]) -> dict[str, Any]:
         """Handle payment schedule request"""
         try:
             request = GetPaymentScheduleRequest(account_id=account_id, months_ahead=6)
@@ -363,11 +423,11 @@ class CreditAgent(IAgent):
         # For now, return default amount
         return Decimal("2500.00")
 
-    def _extract_account_id(self, state: Dict[str, Any]) -> Optional[str]:
+    def _extract_account_id(self, state: dict[str, Any]) -> Optional[str]:
         """Extract credit account ID from state"""
         return state.get("credit_account_id") or state.get("user_id")
 
-    def _error_response(self, error: str, state: Dict[str, Any]) -> Dict[str, Any]:
+    def _error_response(self, error: str, state: dict[str, Any]) -> dict[str, Any]:
         """Generate error response"""
         return {
             "messages": [

@@ -7,6 +7,8 @@ from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 
+from app.core.tenancy.agent_factory import TenantAgentFactory
+
 from .agents import (
     AgentConfig,
     IntegrationConfig,
@@ -73,15 +75,22 @@ class LangGraphConfig(BaseModel):
     @classmethod
     def from_env(cls) -> "LangGraphConfig":
         """Crea configuración desde variables de entorno"""
-        from .settings import get_settings
-
-        settings = get_settings()
-
         return cls(
             environment=os.getenv("ENVIRONMENT", "development"),
             debug_mode=os.getenv("DEBUG", "false").lower() == "true",
             use_checkpointing=os.getenv("USE_CHECKPOINTING", "true").lower() == "true",
-            enabled_agents=settings.effective_enabled_agents,  # Uses computed field that excludes product_agent when DUX disabled
+            # Get enabled agents from database cache (core.agents table)
+            # Falls back to hardcoded defaults if cache is empty
+            enabled_agents=TenantAgentFactory().global_enabled_agents or [
+                "greeting_agent",
+                "support_agent",
+                "fallback_agent",
+                "farewell_agent",
+                "excelencia_agent",
+                "excelencia_invoice_agent",
+                "excelencia_promotions_agent",
+                "data_insights_agent",
+            ],
             integrations=IntegrationConfig(
                 ollama_url=os.getenv("OLLAMA_API_URL", "http://localhost:11434"),
                 ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1:8b"),

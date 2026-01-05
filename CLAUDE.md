@@ -393,6 +393,68 @@ app/
 └── prompts/templates/         # YAML prompt templates
 ```
 
+## PostgreSQL Connection (Docker)
+
+### Connection Details
+
+| Context | Host | Port | User | Password | Database |
+|---------|------|------|------|----------|----------|
+| **From host** | `localhost` | `5432` | `enzo` | `aynux_dev` | `aynux` |
+| **From Docker containers** | `postgres` | `5432` | `enzo` | `aynux_dev` | `aynux` |
+
+### Quick Connect Commands
+
+```bash
+# From host machine (psql)
+PGPASSWORD=aynux_dev psql -h localhost -p 5432 -U enzo -d aynux
+
+# Via docker exec (direct to container)
+docker exec -it aynux-postgres psql -U enzo -d aynux
+
+# Connection string (from host)
+postgresql://enzo:aynux_dev@localhost:5432/aynux
+
+# Connection string (from Docker network)
+postgresql://enzo:aynux_dev@postgres:5432/aynux
+```
+
+### Docker Container Info
+- **Container**: `aynux-postgres`
+- **Image**: `pgvector/pgvector:pg18` (PostgreSQL 18 with pgvector)
+- **Network**: `aynux-network`
+- **Volume**: `aynux-postgres-data`
+
+## Redis Connection (Docker)
+
+### Connection Details
+
+| Context | Host | Port | Password | Database |
+|---------|------|------|----------|----------|
+| **From host** | `localhost` | `6379` | `Excelenci@5948` | `0` |
+| **From Docker containers** | `redis` | `6379` | `Excelenci@5948` | `0` |
+
+### Quick Connect Commands
+
+```bash
+# Via docker exec (recommended - no local redis-cli needed)
+docker exec aynux-redis redis-cli -a 'Excelenci@5948' ping
+
+# Interactive session
+docker exec -it aynux-redis redis-cli -a 'Excelenci@5948'
+
+# Connection URL (from host)
+redis://:Excelenci@5948@localhost:6379/0
+
+# Connection URL (from Docker network)
+redis://:Excelenci@5948@redis:6379/0
+```
+
+### Docker Container Info
+- **Container**: `aynux-redis`
+- **Image**: `redis:7-alpine`
+- **Network**: `aynux-network`
+- **Volume**: `aynux-redis-data`
+
 ## Deployment
 
 ### Required Services

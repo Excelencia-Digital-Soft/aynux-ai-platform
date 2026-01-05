@@ -98,7 +98,7 @@ def sample_promotion_model():
     model.discount_amount = None
     model.min_purchase_amount = Decimal("50.00")
     model.valid_from = datetime(2024, 1, 1, tzinfo=UTC)  # Real datetime
-    model.valid_until = datetime(2025, 12, 31, tzinfo=UTC)  # Real datetime
+    model.valid_until = datetime(2030, 12, 31, tzinfo=UTC)  # Future date to ensure validity
     model.active = True  # active, not is_active
     model.max_uses = 1000
     model.current_uses = 50

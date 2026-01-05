@@ -11,17 +11,26 @@ Este agente esta especializado en:
 - Soporte general de e-commerce (pagos, envios, devoluciones)
 - Soporte especializado de software Excelencia Software
 - Incidencias de modulos, capacitaciones, tickets
+
+Uses RAG (Knowledge Base Search) for context-aware responses.
 """
 
 import logging
 from typing import Any
 
+from app.config.settings import get_settings
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
+from app.domains.excelencia.application.services.support_response import (
+    KnowledgeBaseSearch,
+    RagQueryLogger,
+    SearchMetrics,
+)
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 class SupportAgent(BaseAgent):
@@ -98,6 +107,15 @@ class SupportAgent(BaseAgent):
         # FAQ comun (e-commerce + Excelencia) - loaded from YAML
         self.faq_responses = self._load_faq_responses()
 
+        # RAG integration for knowledge-based responses
+        self._knowledge_search = KnowledgeBaseSearch(
+            agent_key="support_agent",
+            max_results=3,
+        )
+        self._rag_logger = RagQueryLogger(agent_key="support_agent")
+        self._last_search_metrics: SearchMetrics | None = None
+        self.use_rag = getattr(settings, "KNOWLEDGE_BASE_ENABLED", True)
+
     @trace_async_method(
         name="support_agent_process",
         run_type="chain",
@@ -116,8 +134,21 @@ class SupportAgent(BaseAgent):
             if faq_response:
                 response_text = faq_response
             else:
-                # Generar respuesta personalizada
-                response_text = await self._generate_support_response(message, problem_type)
+                # Get RAG context for knowledge-based response
+                rag_context = await self._get_rag_context(message, problem_type)
+
+                # Generar respuesta personalizada con contexto RAG
+                response_text = await self._generate_support_response(
+                    message, problem_type, rag_context
+                )
+
+                # Log RAG query with response (fire-and-forget)
+                if self._last_search_metrics and self._last_search_metrics.result_count > 0:
+                    self._rag_logger.log_async(
+                        query=message,
+                        metrics=self._last_search_metrics,
+                        response=response_text,
+                    )
 
             # Determinar si necesita escalacion
             requires_human = self._needs_human_intervention(message, problem_type)
@@ -214,7 +245,35 @@ class SupportAgent(BaseAgent):
 
         return None
 
-    async def _generate_support_response(self, message: str, problem_type: str) -> str:
+    async def _get_rag_context(self, message: str, problem_type: str) -> str:
+        """
+        Get RAG context from knowledge base.
+
+        Args:
+            message: User message
+            problem_type: Detected problem type
+
+        Returns:
+            Formatted context string or empty string
+        """
+        self._last_search_metrics = None
+
+        if not self.use_rag:
+            return ""
+
+        try:
+            search_result = await self._knowledge_search.search(message, problem_type)
+            self._last_search_metrics = search_result.metrics
+            if search_result.context:
+                logger.info(f"RAG context found for support query: {len(search_result.context)} chars")
+            return search_result.context
+        except Exception as e:
+            logger.warning(f"RAG search failed: {e}")
+            return ""
+
+    async def _generate_support_response(
+        self, message: str, problem_type: str, rag_context: str = ""
+    ) -> str:
         """Genera respuesta de soporte personalizada usando YAML prompts."""
         # Check if it's an Excelencia module issue
         if problem_type.startswith("excelencia_"):

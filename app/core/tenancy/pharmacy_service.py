@@ -119,6 +119,12 @@ class PharmacyService:
             pharmacy_address=data.pharmacy_address,
             pharmacy_phone=data.pharmacy_phone,
             pharmacy_logo_path=data.pharmacy_logo_path,
+            # Contact and hours info
+            pharmacy_email=data.pharmacy_email,
+            pharmacy_website=data.pharmacy_website,
+            pharmacy_hours=data.pharmacy_hours,
+            pharmacy_is_24h=data.pharmacy_is_24h,
+            # Mercado Pago
             mp_enabled=data.mp_enabled,
             mp_access_token=data.mp_access_token,
             mp_public_key=data.mp_public_key,

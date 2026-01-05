@@ -65,6 +65,67 @@ prompts:
           pt: "IMPORTANT: You MUST answer ONLY in PORTUGUESE language."
 
   # ==========================================================================
+  # LLM Response Analysis Prompt (Fast quality evaluation with COMPLEX model)
+  # ==========================================================================
+  - key: agents.supervisor.analysis
+    name: Supervisor LLM Response Analysis
+    description: Fast analysis of agent response quality using COMPLEX model (gemma2)
+    version: "2.1.0"
+    template: |
+      Analyze this customer service response. Answer ONLY in JSON.
+
+      USER QUESTION: {user_message}
+
+      AGENT RESPONSE (from {agent_name}): {agent_response}
+
+      CONVERSATION CONTEXT:
+      {conversation_summary}
+
+      RAG CONTEXT (had results: {rag_had_results}):
+      {rag_context}
+
+      Evaluate these 2 critical points:
+      1. Does it DIRECTLY answer the specific question asked? (not just related info)
+      2. Is there any INVENTED information not supported by RAG context?
+
+      ```json
+      {{
+        "quality": "excellent|good|partial|insufficient",
+        "overall_score": 0.0-1.0,
+        "recommended_action": "accept|enhance|reroute",
+        "answers_question": true/false,
+        "hallucination_risk": "none|low|medium|high",
+        "reasoning": "One sentence explanation"
+      }}
+      ```
+
+      Scoring guide:
+      - excellent (0.9+): Directly answers, complete, no hallucinations
+      - good (0.7-0.9): Mostly answers, minor gaps
+      - partial (0.5-0.7): Partially answers or has concerns
+      - insufficient (<0.5): Does not answer or high hallucination risk
+
+      JSON only, no other text:
+    metadata:
+      temperature: 0.1
+      max_tokens: 300
+      model_complexity: COMPLEX
+      tags:
+        - supervisor
+        - analysis
+        - quality
+        - fast
+      variables:
+        required:
+          - user_message
+          - agent_response
+        optional:
+          - agent_name
+          - conversation_summary
+          - rag_context
+          - rag_had_results
+
+  # ==========================================================================
   # FALLBACK: Simple Enhancement Prompt
   # ==========================================================================
   - key: agents.supervisor.enhancement_fallback

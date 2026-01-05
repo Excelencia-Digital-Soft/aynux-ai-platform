@@ -54,23 +54,29 @@ class GetAgentConfigUseCase:
         """
         try:
             # Import Excelencia agent to get current configuration
+            from app.config.settings import get_settings
             from app.domains.excelencia.agents.nodes.excelencia_node import (
-                _FALLBACK_MODULES,
                 ExcelenciaNode as ExcelenciaAgent,
             )
+            from app.domains.excelencia.agents.nodes.handlers.intent_analyzer import (
+                IntentAnalysisHandler,
+            )
+            from app.domains.shared.agents.excelencia_agent import _FALLBACK_MODULES
 
-            # Create temporary instance to get settings
+            settings = get_settings()
+
+            # Create temporary instance to get use_rag flag
             temp_agent = ExcelenciaAgent()
 
             config = {
                 "modules": _FALLBACK_MODULES,
-                "query_types": temp_agent.QUERY_TYPES, # Assuming QUERY_TYPES is meant here, not _FALLBACK_MODULES again
+                "query_types": IntentAnalysisHandler.QUERY_TYPES,
                 "settings": {
-                    "model": temp_agent.model,
-                    "temperature": temp_agent.temperature,
-                    "max_response_length": temp_agent.max_response_length,
+                    "model": getattr(settings, "OLLAMA_API_MODEL_COMPLEX", "gemma2"),
+                    "temperature": 0.7,
+                    "max_response_length": 500,
                     "use_rag": temp_agent.use_rag,
-                    "rag_max_results": temp_agent.rag_max_results,
+                    "rag_max_results": getattr(settings, "RAG_MAX_RESULTS", 5),
                 },
                 "available_document_types": [
                     "mission_vision",

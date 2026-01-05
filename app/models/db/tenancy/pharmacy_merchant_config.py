@@ -19,7 +19,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from ..base import Base, TimestampMixin
@@ -93,6 +93,32 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
         String(500),
         nullable=True,
         comment="Path to pharmacy logo image for PDF receipts",
+    )
+
+    # Pharmacy contact and info fields
+    pharmacy_email = Column(
+        String(255),
+        nullable=True,
+        comment="Pharmacy contact email address",
+    )
+
+    pharmacy_website = Column(
+        String(500),
+        nullable=True,
+        comment="Pharmacy website URL",
+    )
+
+    pharmacy_hours = Column(
+        JSONB,
+        nullable=True,
+        comment="Pharmacy operating hours by day (JSONB format)",
+    )
+
+    pharmacy_is_24h = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="Whether pharmacy operates 24 hours",
     )
 
     # Mercado Pago credentials
@@ -187,6 +213,10 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
             "pharmacy_address": self.pharmacy_address,
             "pharmacy_phone": self.pharmacy_phone,
             "pharmacy_logo_path": self.pharmacy_logo_path,
+            "pharmacy_email": self.pharmacy_email,
+            "pharmacy_website": self.pharmacy_website,
+            "pharmacy_hours": self.pharmacy_hours,
+            "pharmacy_is_24h": self.pharmacy_is_24h,
             "mp_enabled": self.mp_enabled,
             "mp_sandbox": self.mp_sandbox,
             "mp_timeout": self.mp_timeout,
