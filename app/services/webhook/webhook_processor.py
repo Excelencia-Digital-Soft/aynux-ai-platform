@@ -155,6 +155,10 @@ class WebhookProcessor:
         # Extract phone number ID and DID for routing
         phone_number_id = extract_phone_number_id(wa_request)
         display_phone_number = extract_display_phone_number(wa_request)
+        logger.debug(
+            f"[WEBHOOK] WhatsApp format - phone_number_id={phone_number_id}, "
+            f"display_phone_number={display_phone_number}"
+        )
 
         # Build chattigo context for credential lookup
         chattigo_context = {"did": display_phone_number} if display_phone_number else None
@@ -170,7 +174,9 @@ class WebhookProcessor:
         result = await use_case.execute(
             message=message,
             contact=contact,
-            whatsapp_phone_number_id=phone_number_id,
+            # Use display_phone_number for bypass rule matching (not Meta's internal phone_number_id)
+            # Bypass rules are configured with the actual phone number (e.g., "5492646715777")
+            whatsapp_phone_number_id=display_phone_number,
             chattigo_context=chattigo_context,
         )
 
