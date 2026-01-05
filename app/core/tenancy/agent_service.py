@@ -36,6 +36,9 @@ TenantConfigCache = object  # Placeholder type
 
 logger = logging.getLogger(__name__)
 
+# UUID for system/global organization (fallback mode)
+SYSTEM_ORG_ID = UUID("00000000-0000-0000-0000-000000000000")
+
 
 class TenantAgentService:
     """
@@ -76,12 +79,20 @@ class TenantAgentService:
         3. Build intent and keyword indexes
         4. Cache result
 
+        Special case: For system org (UUID zeros), loads from global
+        catalog (core.agents) instead of tenant_agents.
+
         Args:
             org_id: Organization ID
 
         Returns:
             TenantAgentRegistry with all agents and indexes
         """
+        # Special case: System org uses global catalog (core.agents)
+        if org_id == SYSTEM_ORG_ID:
+            logger.info("Loading global catalog for system organization")
+            return await self._load_global_catalog_registry()
+
         cache_key = f"agent_registry:{org_id}"
 
         # Try cache first
@@ -352,6 +363,59 @@ class TenantAgentService:
         logger.info(f"Deleted agent {agent.agent_key} for org {org_id}")
 
         return True
+
+    async def _load_global_catalog_registry(self) -> TenantAgentRegistry:
+        """
+        Load agents from global catalog (core.agents) for system org.
+
+        Used when organization_id is the system UUID (all zeros).
+        This allows using the agent catalog managed via /agent-catalog UI.
+
+        Returns:
+            TenantAgentRegistry with agents from global catalog
+        """
+        from app.models.db.agent import Agent
+
+        # Load only enabled agents from global catalog
+        stmt = select(Agent).where(Agent.enabled == True)  # noqa: E712
+        result = await self._db.execute(stmt)
+        db_agents = result.scalars().all()
+
+        agents: dict[str, AgentConfig] = {}
+        for db_agent in db_agents:
+            # Use model's to_config_dict() and convert intent_patterns
+            config_dict = db_agent.to_config_dict()
+
+            # Convert intent_patterns to IntentPattern objects
+            intent_patterns = [
+                IntentPattern(**p)
+                for p in config_dict.get("intent_patterns", [])
+                if isinstance(p, dict)
+            ]
+
+            config = AgentConfig(
+                id=db_agent.id,
+                agent_key=config_dict["agent_key"],
+                agent_type=config_dict.get("agent_type", "builtin"),
+                display_name=config_dict["display_name"],
+                description=config_dict.get("description"),
+                enabled=config_dict.get("enabled", True),
+                priority=config_dict.get("priority", 50),
+                domain_key=config_dict.get("domain_key"),
+                keywords=config_dict.get("keywords", []),
+                intent_patterns=intent_patterns,
+                config=config_dict.get("config", {}),
+            )
+            agents[config.agent_key] = config
+
+        registry = TenantAgentRegistry(
+            organization_id=SYSTEM_ORG_ID,
+            agents=agents,
+        )
+        registry.rebuild_indexes()
+
+        logger.info(f"Loaded global catalog for system org: {len(agents)} agents")
+        return registry
 
     async def _load_agents_from_db(self, org_id: UUID) -> list[TenantAgent]:
         """Load all agents from database for an organization."""

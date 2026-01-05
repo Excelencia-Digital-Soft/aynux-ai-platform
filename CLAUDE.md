@@ -115,6 +115,29 @@ modules = ["Inventario", "Facturación"]  # Never hardcode!
 | `TenantPromptManager` | `app/core/tenancy/prompt_manager.py` | 4-level prompt hierarchy |
 | `TenantAgentFactory` | `app/core/tenancy/agent_factory.py` | Per-org agent filtering |
 
+### Agent Tables Architecture
+
+| Table | UI Management | Purpose |
+|-------|---------------|---------|
+| `core.agents` | `/agent-catalog` | Global agent catalog (all available agents) |
+| `core.tenant_agents` | `TenantAgentSelection` | Per-organization agent configuration |
+
+**System Organization UUID**: `00000000-0000-0000-0000-000000000000`
+
+When webhook receives this UUID, it uses `core.agents` (global catalog) instead of `tenant_agents`.
+
+```python
+# In TenantAgentService.get_agent_registry()
+SYSTEM_ORG_ID = UUID("00000000-0000-0000-0000-000000000000")
+
+if org_id == SYSTEM_ORG_ID:
+    # Load from core.agents (global catalog)
+    return await self._load_global_catalog_registry()
+else:
+    # Load from tenant_agents (per-org config)
+    return await self._load_agents_from_db(org_id)
+```
+
 ## Development Commands
 
 ```bash
