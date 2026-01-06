@@ -44,7 +44,7 @@ from app.core.tenancy.prompt_manager import TenantPromptManager
 from app.core.tenancy.vector_store import TenantVectorStore
 from app.database.async_db import get_async_db_context
 from app.integrations.databases.redis import get_redis_client
-from app.integrations.llm import create_ollama_llm
+from app.integrations.llm import create_vllm_llm
 from app.models.db.tenancy import TenantConfig
 
 if TYPE_CHECKING:
@@ -366,13 +366,12 @@ class TenantDependencyContainer:
         """
         Get LLM configured for this tenant.
 
-        Uses tenant's LLM settings (model, temperature) from TenantContext.
+        Uses vLLM with tenant's temperature setting from TenantContext.
 
         Returns:
-            ILLM instance configured for tenant.
+            ILLM instance (VllmLLM) configured for tenant.
         """
-        return create_ollama_llm(
-            model_name=self.ctx.llm_model,
+        return create_vllm_llm(
             temperature=self.ctx.llm_temperature,
         )
 

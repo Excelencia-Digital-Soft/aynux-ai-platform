@@ -1,6 +1,6 @@
 # ============================================================================
 # SCOPE: GLOBAL
-# Description: Registro global de modelos de IA disponibles. Soporta Ollama
+# Description: Registro global de modelos de IA disponibles. Soporta vLLM
 #              (local) y proveedores externos (OpenAI, Anthropic, DeepSeek).
 #              Administradores controlan qué modelos están habilitados para usuarios.
 # Tenant-Aware: No - modelos disponibles globalmente, visibilidad controlada
@@ -10,12 +10,12 @@
 AIModel model - AI model registry for dynamic model management.
 
 Stores metadata about available AI models from various providers:
-- Ollama (local)
+- vLLM (local) - OpenAI-compatible API
 - OpenAI (external)
 - Anthropic (external)
 - DeepSeek (external)
 
-Models can be synced from Ollama /api/tags or seeded manually.
+Models can be seeded manually or via admin API.
 Administrators control visibility via is_enabled flag.
 """
 
@@ -33,7 +33,8 @@ from .schemas import CORE_SCHEMA
 class ModelProvider(str, Enum):
     """Supported AI model providers."""
 
-    OLLAMA = "ollama"
+    VLLM = "vllm"  # Local vLLM server (OpenAI-compatible)
+    OLLAMA = "ollama"  # Legacy - kept for backward compatibility
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     DEEPSEEK = "deepseek"
@@ -53,17 +54,17 @@ class AIModel(Base, TimestampMixin):
     AI Model registry entry.
 
     Stores information about available AI models from all providers.
-    Supports both local (Ollama) and external (OpenAI, Anthropic) models.
+    Supports both local (vLLM) and external (OpenAI, Anthropic) models.
 
     Attributes:
         id: Unique identifier
-        model_id: Provider-specific model identifier (e.g., "gpt-4", "llama3.2:3b")
-        provider: Model provider (ollama, openai, anthropic, deepseek)
+        model_id: Provider-specific model identifier (e.g., "gpt-4", "qwen-3b")
+        provider: Model provider (vllm, openai, anthropic, deepseek)
         model_type: Type (llm or embedding)
         display_name: Human-readable name for UI
         description: Model description
-        family: Model family (e.g., "llama", "gpt", "claude")
-        parameter_size: Model size (e.g., "8B", "70B", "unknown")
+        family: Model family (e.g., "qwen", "gpt", "claude")
+        parameter_size: Model size (e.g., "3B", "70B", "unknown")
         context_window: Maximum context window size
         max_output_tokens: Maximum output tokens
         supports_streaming: Whether model supports streaming
@@ -73,7 +74,7 @@ class AIModel(Base, TimestampMixin):
         is_default: Whether this is a default model
         sort_order: Display order in UI (lower = first)
         capabilities: Additional capabilities (JSONB)
-        sync_source: How this model was added (manual, ollama_sync, seed)
+        sync_source: How this model was added (manual, seed)
     """
 
     __tablename__ = "ai_models"
@@ -98,7 +99,7 @@ class AIModel(Base, TimestampMixin):
     provider = Column(
         String(50),
         nullable=False,
-        comment="Model provider: ollama, openai, anthropic, deepseek",
+        comment="Model provider: vllm, openai, anthropic, deepseek, kimi, groq",
     )
 
     model_type = Column(
@@ -211,7 +212,7 @@ class AIModel(Base, TimestampMixin):
         String(50),
         default="manual",
         nullable=False,
-        comment="How model was added: manual, ollama_sync, seed",
+        comment="How model was added: manual, seed",
     )
 
     last_synced_at = Column(

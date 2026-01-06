@@ -42,9 +42,6 @@ from app.api.routes.admin import (
     analytics as analytics_admin,
 )
 from app.api.routes.admin import (
-    ollama as ollama_admin,
-)
-from app.api.routes.admin import (
     pharmacy as pharmacy_admin,
 )
 from app.api.routes.admin import prompts as admin_prompts
@@ -143,13 +140,6 @@ api_router.include_router(
     analytics_admin.router,
     prefix="/admin/analytics",
     tags=["Analytics"],
-)
-
-# Admin routes - Ollama Model Management (public - no auth required)
-api_router.include_router(
-    ollama_admin.router,
-    prefix="/admin/ollama",
-    tags=["Ollama Admin"],
 )
 
 # Admin routes - AI Model Management (dynamic model registry)

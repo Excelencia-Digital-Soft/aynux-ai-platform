@@ -1,23 +1,22 @@
 # ============================================================================
 # SCOPE: GLOBAL
-# Description: Detector de capacidades para modelos de IA. Usa API de Ollama
-#              con fallback a pattern matching para inferir capacidades.
+# Description: Detector de capacidades para modelos de IA. Usa pattern matching
+#              para inferir capacidades desde el nombre del modelo.
 # ============================================================================
 """
 Capability Detector - Model capability detection service.
 
 Single Responsibility: Detect vision and function calling capabilities.
-Uses OllamaClient for API access, with pattern matching fallback.
+Uses pattern matching to infer capabilities from model name.
 
 Usage:
-    client = OllamaClient()
-    detector = CapabilityDetector(client)
+    detector = CapabilityDetector()
 
     # Single model
-    caps = await detector.detect("llama3.2:3b")
+    caps = await detector.detect("Qwen/Qwen2.5-7B-Instruct")
 
     # Batch detection
-    caps_map = await detector.detect_batch(["llama3.2:3b", "gemma3:latest"])
+    caps_map = await detector.detect_batch(["Qwen/Qwen2.5-7B-Instruct", "deepseek-ai/DeepSeek-R1"])
 """
 
 import asyncio
@@ -26,9 +25,7 @@ import logging
 from app.config.model_capabilities import (
     ModelCapabilities,
     detect_capabilities_from_patterns,
-    parse_api_capabilities,
 )
-from app.integrations.ollama.client import OllamaClient
 
 logger = logging.getLogger(__name__)
 
@@ -38,47 +35,24 @@ class CapabilityDetector:
     Model capability detection service.
 
     Single Responsibility: Detect model capabilities (vision, functions).
-    Delegates HTTP to OllamaClient, uses model_capabilities for parsing.
+    Uses pattern matching to infer capabilities from model names.
     """
 
-    def __init__(self, ollama_client: OllamaClient) -> None:
-        """Initialize detector with Ollama client.
-
-        Args:
-            ollama_client: OllamaClient for API access
-        """
-        self._client = ollama_client
+    def __init__(self) -> None:
+        """Initialize detector."""
+        pass
 
     async def detect(self, model_name: str) -> ModelCapabilities:
         """Detect capabilities for a single model.
 
-        Strategy:
-        1. Query Ollama /api/show for capabilities array
-        2. If API fails, fallback to pattern matching
-        3. Return detected capabilities with method used
+        Uses pattern matching to infer capabilities from model name.
 
         Args:
-            model_name: Ollama model name (e.g., "llama3.2:3b")
+            model_name: Model name (e.g., "Qwen/Qwen2.5-7B-Instruct")
 
         Returns:
             ModelCapabilities with detection results
         """
-        # Try API detection first
-        model_info = await self._client.get_model_info(model_name)
-
-        if model_info:
-            capabilities = parse_api_capabilities(
-                capabilities=model_info.capabilities,
-                model_info=model_info.model_info,
-            )
-            logger.debug(
-                f"API detected for {model_name}: "
-                f"vision={capabilities.supports_vision}, "
-                f"functions={capabilities.supports_functions}"
-            )
-            return capabilities
-
-        # Fallback to pattern matching
         capabilities = detect_capabilities_from_patterns(model_name)
         logger.debug(
             f"Pattern detected for {model_name}: "
@@ -94,23 +68,19 @@ class CapabilityDetector:
     ) -> dict[str, ModelCapabilities]:
         """Detect capabilities for multiple models in parallel.
 
-        Uses semaphore to limit concurrent API requests.
-
         Args:
             model_names: List of model names to detect
-            max_concurrent: Max concurrent /api/show requests
+            max_concurrent: Max concurrent operations (for API compatibility)
 
         Returns:
             Dict mapping model_name to ModelCapabilities
         """
-        semaphore = asyncio.Semaphore(max_concurrent)
         results: dict[str, ModelCapabilities] = {}
 
-        async def detect_with_limit(name: str) -> tuple[str, ModelCapabilities]:
-            async with semaphore:
-                return name, await self.detect(name)
+        async def detect_model(name: str) -> tuple[str, ModelCapabilities]:
+            return name, await self.detect(name)
 
-        tasks = [detect_with_limit(name) for name in model_names]
+        tasks = [detect_model(name) for name in model_names]
         task_results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for result in task_results:
@@ -127,19 +97,15 @@ class CapabilityDetector:
 
     async def detect_from_raw_data(
         self,
-        ollama_data: dict,
+        model_data: dict,
     ) -> ModelCapabilities:
-        """Detect capabilities from raw Ollama /api/show response.
-
-        Useful when you already have the API response data.
+        """Detect capabilities from model info dict.
 
         Args:
-            ollama_data: Raw /api/show response dict
+            model_data: Model info dict with 'capabilities' key
 
         Returns:
             ModelCapabilities parsed from the data
         """
-        return parse_api_capabilities(
-            capabilities=ollama_data.get("capabilities", []),
-            model_info=ollama_data.get("model_info"),
-        )
+        model_name = model_data.get("model_id", model_data.get("name", ""))
+        return await self.detect(model_name)

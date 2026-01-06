@@ -106,60 +106,22 @@ class Settings(BaseSettings):
         description="Extensiones de archivo permitidas",
     )
 
-    # AI Service Settings - Model Tiers
-    # SIMPLE: Fast model for intent analysis, classification
-    # COMPLEX: Powerful model for complex responses
-    # REASONING: Deep reasoning model for complex analysis
-    # SUMMARY: Fast non-reasoning model for conversation summarization
-    #
-    # When EXTERNAL_LLM_ENABLED=true:
-    #   - COMPLEX/REASONING → External API (DeepSeek, KIMI, etc.)
-    #   - SIMPLE/SUMMARY → Ollama local
-    # When EXTERNAL_LLM_ENABLED=false (default):
-    #   - All tiers → Ollama local
+    # AI Service Settings
+    # All complexity tiers use a single vLLM model for simplicity
+    # vLLM provides OpenAI-compatible API for LLM inference
 
-    # Ollama models (used for SIMPLE/SUMMARY tiers, and as fallback)
-    OLLAMA_API_MODEL_SIMPLE: str = Field("gemma3", description="Modelo rápido para tareas simples (intent analysis)")
-    OLLAMA_API_MODEL_COMPLEX: str = Field(
-        "gemma2", description="Modelo potente para respuestas complejas (usado si EXTERNAL_LLM_ENABLED=false)"
-    )
-    OLLAMA_API_MODEL_REASONING: str = Field(
-        "deepseek-r1:8b", description="Modelo para razonamiento profundo (usado si EXTERNAL_LLM_ENABLED=false)"
-    )
-    OLLAMA_API_MODEL_SUMMARY: str = Field(
-        "llama3.2", description="Modelo rápido para resumen de conversación (evitar modelos reasoning)"
-    )
+    # vLLM Configuration (OpenAI-compatible API for LLM inference)
+    VLLM_BASE_URL: str = Field("http://localhost:8090/v1", description="vLLM OpenAI-compatible API URL")
+    VLLM_API_KEY: str = Field("EMPTY", description="vLLM API key (use 'EMPTY' for no auth)")
+    VLLM_MODEL: str = Field("qwen-3b", description="vLLM model name (single model for all tiers)")
+    VLLM_REQUEST_TIMEOUT: int = Field(120, description="vLLM request timeout in seconds")
+    VLLM_MAX_RETRIES: int = Field(3, description="Max retries for vLLM API calls")
 
-    # External LLM API Configuration (DeepSeek, KIMI, OpenAI-compatible)
-    # When enabled, COMPLEX and REASONING tiers use the external API
-    EXTERNAL_LLM_ENABLED: bool = Field(
-        False, description="Enable external API for COMPLEX/REASONING tiers (DeepSeek, KIMI, etc.)"
-    )
-    EXTERNAL_LLM_PROVIDER: str = Field("deepseek", description="External LLM provider: deepseek, kimi, openai")
-    EXTERNAL_LLM_API_KEY: str | None = Field(None, description="API key for external LLM provider")
-    EXTERNAL_LLM_BASE_URL: str | None = Field(
-        None, description="Base URL override (auto-detected for known providers if not set)"
-    )
-    EXTERNAL_LLM_MODEL_COMPLEX: str = Field("deepseek-chat", description="Model for COMPLEX tier on external API")
-    EXTERNAL_LLM_MODEL_REASONING: str = Field(
-        "deepseek-reasoner", description="Model for REASONING tier on external API"
-    )
-    EXTERNAL_LLM_TIMEOUT: int = Field(120, description="Timeout for external API calls in seconds")
-    EXTERNAL_LLM_MAX_RETRIES: int = Field(3, description="Max retries for external API calls")
-    EXTERNAL_LLM_FALLBACK_MODEL: str = Field(
-        "llama3.1:8b", description="Ollama model to use as fallback when external API fails"
-    )
-
-    OLLAMA_API_URL: str = Field("http://localhost:11434", description="URL del servicio Ollama")
-    OLLAMA_API_MODEL_EMBEDDING: str = Field(
-        "nomic-embedtext", description="Embedding del modelo de ollama (768 dimensions)"
-    )
-
-    # Ollama Performance Settings
-    OLLAMA_KEEP_ALIVE: str = Field("30m", description="Tiempo que el modelo permanece en memoria")
-    OLLAMA_NUM_THREAD: int = Field(8, description="Número de threads para inferencia")
-    OLLAMA_WARMUP_ON_STARTUP: bool = Field(True, description="Pre-cargar modelo LLM en startup")
-    OLLAMA_REQUEST_TIMEOUT: int = Field(60, description="Timeout para requests al LLM en segundos")
+    # TEI Embeddings Configuration (Text Embeddings Inference - BAAI/bge-m3 with 1024 dimensions)
+    TEI_BASE_URL: str = Field("http://localhost:7997", description="TEI embedding server URL")
+    TEI_MODEL: str = Field("BAAI/bge-m3", description="TEI embedding model")
+    TEI_EMBEDDING_DIMENSION: int = Field(1024, description="Embedding dimension (1024 for bge-m3)")
+    TEI_REQUEST_TIMEOUT: int = Field(30, description="TEI request timeout in seconds")
 
     # LLM Streaming Configuration
     LLM_STREAMING_ENABLED: bool = Field(False, description="Enable streaming for web responses")
@@ -172,7 +134,7 @@ class Settings(BaseSettings):
 
     # Knowledge Base Configuration
     KNOWLEDGE_BASE_ENABLED: bool = Field(True, description="Enable company knowledge base with RAG")
-    # Note: Knowledge base uses OLLAMA_API_MODEL_EMBEDDING for embeddings
+    # Note: Knowledge base uses TEI (BAAI/bge-m3, 1024 dims) for embeddings
     # and PGVECTOR_SIMILARITY_THRESHOLD for similarity matching
 
     # JWT Settings
@@ -334,27 +296,6 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Determina si está en modo desarrollo"""
         return self.DEBUG or self.ENVIRONMENT.lower() in ["development", "dev", "local"]
-
-    @computed_field
-    @property
-    def external_llm_base_url_resolved(self) -> str:
-        """
-        Resuelve la base URL para el LLM externo.
-
-        Si EXTERNAL_LLM_BASE_URL está configurado, lo usa directamente.
-        Si no, detecta automáticamente según el provider:
-        - deepseek: https://api.deepseek.com/v1
-        - kimi: https://api.moonshot.ai/v1
-        - openai: https://api.openai.com/v1
-        """
-        if self.EXTERNAL_LLM_BASE_URL:
-            return self.EXTERNAL_LLM_BASE_URL
-        provider_urls = {
-            "deepseek": "https://api.deepseek.com/v1",
-            "kimi": "https://api.moonshot.ai/v1",
-            "openai": "https://api.openai.com/v1",
-        }
-        return provider_urls.get(self.EXTERNAL_LLM_PROVIDER, "https://api.deepseek.com/v1")
 
     @computed_field
     @property

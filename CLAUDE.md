@@ -115,6 +115,29 @@ modules = ["Inventario", "Facturación"]  # Never hardcode!
 | `TenantPromptManager` | `app/core/tenancy/prompt_manager.py` | 4-level prompt hierarchy |
 | `TenantAgentFactory` | `app/core/tenancy/agent_factory.py` | Per-org agent filtering |
 
+### Agent Tables Architecture
+
+| Table | UI Management | Purpose |
+|-------|---------------|---------|
+| `core.agents` | `/agent-catalog` | Global agent catalog (all available agents) |
+| `core.tenant_agents` | `TenantAgentSelection` | Per-organization agent configuration |
+
+**System Organization UUID**: `00000000-0000-0000-0000-000000000000`
+
+When webhook receives this UUID, it uses `core.agents` (global catalog) instead of `tenant_agents`.
+
+```python
+# In TenantAgentService.get_agent_registry()
+SYSTEM_ORG_ID = UUID("00000000-0000-0000-0000-000000000000")
+
+if org_id == SYSTEM_ORG_ID:
+    # Load from core.agents (global catalog)
+    return await self._load_global_catalog_registry()
+else:
+    # Load from tenant_agents (per-org config)
+    return await self._load_agents_from_db(org_id)
+```
+
 ## Development Commands
 
 ```bash
@@ -173,7 +196,7 @@ async def search(query: str, uc = Depends(get_search_products_use_case)):
 DB_HOST, DB_NAME, DB_USER, DB_PASSWORD
 
 # Services
-REDIS_HOST, OLLAMA_API_URL
+REDIS_HOST, VLLM_BASE_URL, TEI_BASE_URL
 
 # Multi-Tenancy
 MULTI_TENANT_MODE=false  # true for SaaS mode
@@ -184,64 +207,41 @@ DUX_API_KEY, LANGSMITH_API_KEY
 # NOTE: WhatsApp/Chattigo credentials stored in database via Admin API
 ```
 
-### LLM Configuration (Hybrid Architecture)
+### LLM Configuration (vLLM + TEI)
 
-The system supports two LLM modes:
+The system uses vLLM for high-performance LLM inference and TEI for embeddings:
 
-| Mode | Description |
-|------|-------------|
-| **Ollama Only** (default) | All tiers use local Ollama models |
-| **Hybrid** | COMPLEX/REASONING → External API, SIMPLE/SUMMARY → Ollama |
+| Component | Service | Purpose |
+|-----------|---------|---------|
+| **LLM Inference** | vLLM | OpenAI-compatible API with single model |
+| **Embeddings** | TEI | Text Embeddings Inference - BAAI/bge-m3 (1024 dims) |
 
-**Model Tiers**:
-
-| Tier | Purpose | Ollama Mode | Hybrid Mode |
-|------|---------|-------------|-------------|
-| SIMPLE | Intent analysis, classification | gemma3 | gemma3 (Ollama) |
-| SUMMARY | Conversation summaries | llama3.2 | llama3.2 (Ollama) |
-| COMPLEX | Complex responses | gemma2 | deepseek-chat (DeepSeek API) |
-| REASONING | Deep multi-step analysis | deepseek-r1:8b | deepseek-reasoner (DeepSeek API) |
-
-**Ollama-Only Mode** (default):
+**Configuration**:
 ```bash
-# All tiers use Ollama local
-EXTERNAL_LLM_ENABLED=false
-OLLAMA_API_MODEL_SIMPLE=gemma3
-OLLAMA_API_MODEL_SUMMARY=llama3.2
-OLLAMA_API_MODEL_COMPLEX=gemma2
-OLLAMA_API_MODEL_REASONING=deepseek-r1:8b
-OLLAMA_API_MODEL_EMBEDDING=nomic-embed-text
+# vLLM Configuration (single model)
+# Dev: localhost | Prod: 192.168.0.140
+VLLM_BASE_URL=http://localhost:8090/v1
+VLLM_API_KEY=EMPTY
+VLLM_MODEL=qwen-3b
+VLLM_REQUEST_TIMEOUT=120
+
+# TEI Embeddings (BAAI/bge-m3, 1024 dims)
+# Dev: localhost | Prod: 192.168.0.140
+TEI_BASE_URL=http://localhost:7997
+TEI_MODEL=BAAI/bge-m3
+TEI_EMBEDDING_DIMENSION=1024
 ```
-
-**Hybrid Mode** (DeepSeek API + Ollama):
-```bash
-# External API for COMPLEX/REASONING
-EXTERNAL_LLM_ENABLED=true
-EXTERNAL_LLM_PROVIDER=deepseek
-EXTERNAL_LLM_API_KEY=sk-your-deepseek-key
-EXTERNAL_LLM_MODEL_COMPLEX=deepseek-chat
-EXTERNAL_LLM_MODEL_REASONING=deepseek-reasoner
-EXTERNAL_LLM_FALLBACK_MODEL=llama3.1
-EXTERNAL_LLM_TIMEOUT=120
-
-# Ollama for SIMPLE/SUMMARY
-OLLAMA_API_MODEL_SIMPLE=gemma3
-OLLAMA_API_MODEL_SUMMARY=llama3.2
-```
-
-**Fallback Behavior**: If DeepSeek API fails, automatically falls back to Ollama with `EXTERNAL_LLM_FALLBACK_MODEL`.
 
 ### LLM Model Selection
 
 ```python
-from app.integrations.llm import ModelComplexity
+from app.integrations.llm import ModelComplexity, VllmLLM
 
-# Agents use complexity tiers - routing is automatic
-response = await llm.generate("query", complexity=ModelComplexity.SIMPLE)   # → Ollama
-response = await llm.generate("query", complexity=ModelComplexity.COMPLEX)  # → DeepSeek (if enabled)
+# All complexity tiers use the same model (qwen-3b)
+vllm = VllmLLM()
+llm = vllm.get_llm(complexity=ModelComplexity.COMPLEX)  # → qwen-3b
+# Note: complexity parameter preserved for backward compatibility
 ```
-
-> **Warning**: SUMMARY tier must use non-reasoning models. DeepSeek-R1's "thinking tokens" cause 10-50x slowdown.
 
 ### Agent Enablement
 ```bash
@@ -356,7 +356,7 @@ See `docs/MULTI_TENANCY.md` for complete documentation.
 
 ### Vector Search
 - **Extension**: pgvector with HNSW indexing
-- **Model**: `nomic-embed-text` (768 dims) via Ollama
+- **Model**: `BAAI/bge-m3` (1024 dims) via TEI
 
 ## File Structure
 
@@ -372,7 +372,7 @@ app/
 │   ├── credit/                # Finance/Credit domain
 │   └── shared/                # Shared agents (greeting, farewell, fallback)
 ├── integrations/
-│   ├── llm/                   # OllamaLLM, model_provider.py (4-tier system)
+│   ├── llm/                   # VllmLLM, TEIEmbeddings, model_provider.py
 │   ├── vector_stores/         # pgvector, embeddings
 │   └── whatsapp/              # WhatsApp Business API
 ├── core/
@@ -460,12 +460,13 @@ redis://:Excelenci@5948@redis:6379/0
 ### Required Services
 - PostgreSQL (with pgvector)
 - Redis
-- Ollama
+- vLLM (LLM inference)
+- TEI (embeddings)
 
 ### Docker Quick Start
 ```bash
 cp .env.example .env
-ollama pull deepseek-r1:7b && ollama pull nomic-embed-text
+# Ensure vLLM and TEI services are running
 docker compose up -d
 curl http://localhost:8001/health
 ```
@@ -473,9 +474,9 @@ curl http://localhost:8001/health
 ### Profiles
 ```bash
 docker compose up -d                                    # Base
-docker compose --profile ollama up -d                   # + LLM
+docker compose --profile llm up -d                      # + vLLM/TEI
 docker compose --profile tools up -d                    # + Dashboard
-docker compose --profile ollama --profile tools up -d   # All
+docker compose --profile llm --profile tools up -d      # All
 ```
 
 ## Code Review Checklist

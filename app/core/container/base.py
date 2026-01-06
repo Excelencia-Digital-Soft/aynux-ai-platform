@@ -8,6 +8,8 @@
 Base Container - Shared Singletons.
 
 Single Responsibility: Manage expensive shared resources (LLM, VectorStore).
+
+Uses vLLM for LLM inference and TEI for embeddings.
 """
 
 import logging
@@ -15,7 +17,7 @@ import logging
 from app.config.settings import get_settings
 from app.core.interfaces.llm import ILLM
 from app.core.interfaces.vector_store import IVectorStore
-from app.integrations.llm import create_hybrid_router, create_ollama_llm
+from app.integrations.llm import create_vllm_llm
 from app.integrations.vector_stores import create_pgvector_store
 
 logger = logging.getLogger(__name__)
@@ -48,32 +50,18 @@ class BaseContainer:
         """
         Get LLM instance (singleton).
 
-        When EXTERNAL_LLM_ENABLED=true, returns HybridLLMRouter that:
-        - Routes COMPLEX/REASONING to external API (DeepSeek, KIMI, etc.)
-        - Routes SIMPLE/SUMMARY to Ollama local
-        - Provides automatic fallback to Ollama on external API failure
-
-        When EXTERNAL_LLM_ENABLED=false (default), returns OllamaLLM.
+        Returns VllmLLM configured with single model from settings (VLLM_MODEL).
 
         Returns:
-            ILLM instance (HybridLLMRouter or OllamaLLM)
+            ILLM instance (VllmLLM)
         """
         if self._llm_instance is None:
-            if self.settings.EXTERNAL_LLM_ENABLED:
-                # Use hybrid router for automatic provider selection
-                logger.info(
-                    f"Creating HybridLLMRouter: "
-                    f"external={self.settings.EXTERNAL_LLM_PROVIDER}, "
-                    f"fallback={self.settings.EXTERNAL_LLM_FALLBACK_MODEL}"
-                )
-                self._llm_instance = create_hybrid_router()
-            else:
-                # Use Ollama only (default/backward-compatible behavior)
-                model_name = self.config.get("llm_model") or getattr(
-                    self.settings, "OLLAMA_API_MODEL_COMPLEX", "deepseek-r1:7b"
-                )
-                logger.info(f"Creating OllamaLLM instance with model: {model_name}")
-                self._llm_instance = create_ollama_llm(model_name=model_name)
+            logger.info(
+                f"Creating VllmLLM instance: "
+                f"base_url={self.settings.VLLM_BASE_URL}, "
+                f"model={self.settings.VLLM_MODEL}"
+            )
+            self._llm_instance = create_vllm_llm()
 
         return self._llm_instance
 
@@ -82,11 +70,11 @@ class BaseContainer:
         Get Vector Store instance (singleton).
 
         Returns:
-            Vector Store instance (PgVector)
+            Vector Store instance (PgVector with 1024-dim embeddings)
         """
         if self._vector_store_instance is None:
             collection_name = self.config.get("vector_collection", "products")
-            embedding_dim = self.config.get("embedding_dimension", 768)
+            embedding_dim = self.config.get("embedding_dimension", self.settings.TEI_EMBEDDING_DIMENSION)
 
             logger.info(f"Creating Vector Store: {collection_name} (dim: {embedding_dim})")
             self._vector_store_instance = create_pgvector_store(
@@ -100,8 +88,8 @@ class BaseContainer:
     def get_config(self) -> dict:
         """Get current configuration."""
         return {
-            "llm_model": self.config.get("llm_model", "deepseek-r1:7b"),
+            "llm_model": self.settings.VLLM_MODEL,
             "vector_collection": self.config.get("vector_collection", "products"),
-            "embedding_dimension": self.config.get("embedding_dimension", 768),
+            "embedding_dimension": self.settings.TEI_EMBEDDING_DIMENSION,
             "domains": ["ecommerce", "credit", "healthcare", "excelencia"],
         }

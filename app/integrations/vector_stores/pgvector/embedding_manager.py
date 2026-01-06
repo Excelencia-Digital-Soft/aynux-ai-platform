@@ -1,7 +1,7 @@
 """
 Product Embedding Manager.
 
-Handles generation and management of product embeddings.
+Handles generation and management of product embeddings using TEI (BAAI/bge-m3).
 """
 
 import logging
@@ -14,8 +14,9 @@ from sqlalchemy import and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.langsmith_config import trace_integration
+from app.config.settings import get_settings
 from app.database.async_db import get_async_db_context
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import TEIEmbeddingModel
 from app.integrations.vector_stores.pgvector_metrics_service import get_metrics_service
 from app.models.db import Product
 
@@ -33,35 +34,34 @@ class ProductEmbeddingManager:
     - Get embedding statistics
     """
 
-    def __init__(self, ollama: OllamaLLM | None = None, metrics_service=None):
+    def __init__(self, embedder: TEIEmbeddingModel | None = None, metrics_service=None):
         """
         Initialize embedding manager.
 
         Args:
-            ollama: OllamaLLM instance for embedding generation
+            embedder: TEIEmbeddingModel instance for embedding generation
             metrics_service: Optional metrics service
         """
-        self.ollama = ollama or OllamaLLM()
+        settings = get_settings()
+        self.embedder = embedder or TEIEmbeddingModel()
         self.metrics = metrics_service or get_metrics_service()
-        self.embedding_model = "nomic-embed-text"
-        self.embedding_dimensions = 768
+        self.embedding_model = settings.TEI_MODEL
+        self.embedding_dimensions = settings.TEI_EMBEDDING_DIMENSION
         self._text_builder = EmbeddingTextBuilder()
 
     @trace_integration("pgvector_generate_embedding")
     async def generate_embedding(self, text: str, max_chars: int = 6000) -> list[float]:
         """
-        Generate embedding for given text.
+        Generate embedding for given text using Infinity (BAAI/bge-m3).
 
         Args:
             text: Text to embed
             max_chars: Maximum characters to use for embedding (default 6000)
 
         Returns:
-            List of floats representing the embedding vector
+            List of floats representing the embedding vector (1024 dimensions)
         """
         try:
-            import asyncio
-
             # Truncate text if too long to avoid exceeding model's context length
             if len(text) > max_chars:
                 logger.warning(
@@ -69,8 +69,7 @@ class ProductEmbeddingManager:
                 )
                 text = text[:max_chars]
 
-            embeddings = self.ollama.get_embeddings(model=self.embedding_model)
-            embedding_result = await asyncio.to_thread(embeddings.embed_query, text)
+            embedding_result = await self.embedder.embed_text(text)
 
             if len(embedding_result) != self.embedding_dimensions:
                 logger.warning(f"Embedding dimension mismatch: {len(embedding_result)} vs {self.embedding_dimensions}")

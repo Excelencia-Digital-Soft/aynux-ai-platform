@@ -5,7 +5,7 @@ This service handles generation and synchronization of vector embeddings for
 products using pgvector (PostgreSQL).
 
 Responsibilities:
-- Generate embeddings for products using Ollama (nomic-embed-text)
+- Generate embeddings for products using TEI (BAAI/bge-m3, 1024 dims)
 - Sync embeddings to pgvector (PostgreSQL)
 - Provide statistics and health check methods
 """
@@ -14,11 +14,11 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from langchain_ollama import OllamaEmbeddings
 from sqlalchemy import func, select, text
 
 from app.config.settings import get_settings
 from app.database.async_db import get_async_db
+from app.integrations.llm import create_embedder
 from app.models.db import Product
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class EmbeddingUpdateService:
     Features:
     - Performance: pgvector with HNSW index for fast search
     - Native SQL integration with application data
-    - Automatic embedding generation with Ollama
+    - Automatic embedding generation with TEI (BAAI/bge-m3)
     """
 
     def __init__(self):
@@ -41,10 +41,8 @@ class EmbeddingUpdateService:
         Initialize the embedding service.
         """
         settings = get_settings()
-        self.embedding_model = settings.OLLAMA_API_MODEL_EMBEDDING
-        self.embeddings = OllamaEmbeddings(
-            model=settings.OLLAMA_API_MODEL_EMBEDDING, base_url=settings.OLLAMA_API_URL
-        )
+        self.embedding_model = settings.TEI_MODEL
+        self.embeddings = create_embedder()
 
         logger.info(f"EmbeddingUpdateService initialized with model={self.embedding_model} (pgvector)")
 
@@ -80,7 +78,7 @@ class EmbeddingUpdateService:
             max_chars: Maximum characters to use for embedding (default 6000)
 
         Returns:
-            List of floats representing the embedding vector (768 dimensions)
+            List of floats representing the embedding vector (1024 dimensions)
         """
         try:
             # Truncate text if too long to avoid exceeding model's context length
@@ -90,7 +88,7 @@ class EmbeddingUpdateService:
                 )
                 text = text[:max_chars]
 
-            embedding = await self.embeddings.aembed_query(text)
+            embedding = await self.embeddings.embed_text(text)
             return embedding
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")

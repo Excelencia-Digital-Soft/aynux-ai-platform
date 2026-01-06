@@ -93,13 +93,17 @@ services:
       # Disable external services during tests
       - DUX_SYNC_ENABLED=false
       - LANGSMITH_TRACING_ENABLED=false
-      # Mock Ollama URL (tests should mock LLM calls)
-      - OLLAMA_API_URL=http://localhost:11434
-      - OLLAMA_API_MODEL_SIMPLE=test-model
-      - OLLAMA_API_MODEL_COMPLEX=test-model
-      - OLLAMA_API_MODEL_REASONING=test-model
-      - OLLAMA_API_MODEL_SUMMARY=test-model
-      - OLLAMA_API_MODEL_EMBEDDING=test-embedding
+      # Mock vLLM + TEI URLs (tests should mock LLM calls)
+      - VLLM_BASE_URL=http://localhost:8090/v1
+      - VLLM_API_KEY=EMPTY
+      - VLLM_MODEL=test-model
+      - VLLM_REQUEST_TIMEOUT=30
+      - VLLM_MAX_RETRIES=1
+      # Mock TEI Embeddings
+      - TEI_BASE_URL=http://localhost:7997
+      - TEI_MODEL=test-embedding
+      - TEI_EMBEDDING_DIMENSION=1024
+      - TEI_REQUEST_TIMEOUT=10
       # Skip entrypoint DB init - let tests handle their own setup
       - SKIP_DB_INIT=true
     volumes:

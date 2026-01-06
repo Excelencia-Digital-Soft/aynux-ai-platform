@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.integrations.llm import ModelComplexity, OllamaLLM, get_llm_for_task
+from app.integrations.llm import ModelComplexity, VllmLLM, get_llm_for_task
 from app.prompts.manager import PromptManager
 
 
@@ -88,7 +88,7 @@ class BasePharmacyHandler:
 
         content = response.content
         if isinstance(content, str):
-            cleaned = OllamaLLM.clean_deepseek_response(content)
+            cleaned = VllmLLM.clean_reasoning_response(content)
             return cleaned.strip()
         if isinstance(content, list):
             return " ".join(str(item) for item in content).strip()

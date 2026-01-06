@@ -116,7 +116,7 @@ class LifecycleManager:
             if settings.DUX_SYNC_ENABLED and settings.DUX_API_KEY:
                 await self._verify_dux_connectivity()
 
-            # Verify Ollama connectivity (embeddings)
+            # Verify TEI connectivity (embeddings)
             await self._verify_embedding_connectivity()
 
         except Exception as e:
@@ -136,47 +136,44 @@ class LifecycleManager:
             logger.warning(f"DUX API connectivity check failed: {e}")
 
     async def _verify_embedding_connectivity(self) -> None:
-        """Verify embedding service (Ollama/pgvector) is accessible."""
+        """Verify embedding service (TEI) is accessible."""
         try:
-            from langchain_ollama import OllamaEmbeddings
+            from app.integrations.llm import create_embedder
 
-            embeddings = OllamaEmbeddings(model=settings.OLLAMA_API_MODEL_EMBEDDING, base_url=settings.OLLAMA_API_URL)
+            embedder = create_embedder()
             # Simple test embedding
-            test_result = embeddings.embed_query("test")
+            test_result = await embedder.embed_text("test")
             if test_result and len(test_result) > 0:
-                logger.info(f"Ollama embeddings connectivity verified - Dimension: {len(test_result)}")
+                logger.info(f"TEI embeddings connectivity verified - Dimension: {len(test_result)}")
             else:
-                logger.warning("Ollama embeddings test returned empty result")
+                logger.warning("TEI embeddings test returned empty result")
         except Exception as e:
-            logger.warning(f"Ollama embeddings connectivity failed: {e}")
+            logger.warning(f"TEI embeddings connectivity failed: {e}")
 
     async def _warmup_llm(self) -> None:
         """
         Pre-load the LLM model in GPU/memory to avoid cold starts.
 
         This ensures the first user request doesn't suffer from model loading latency.
+        vLLM models are loaded on the server side, so warmup is a simple health check.
         """
-        if not settings.OLLAMA_WARMUP_ON_STARTUP:
-            logger.info("LLM warmup disabled via OLLAMA_WARMUP_ON_STARTUP=False")
-            return
-
-        logger.info("Warming up LLM model...")
+        logger.info("Warming up vLLM model...")
         try:
+            from app.integrations.llm import VllmLLM
             from app.integrations.llm.model_provider import ModelComplexity
-            from app.integrations.llm.ollama import OllamaLLM
 
-            # Create OllamaLLM instance and get cached LLM
-            ollama = OllamaLLM()
-            llm = ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.7)
+            # Create VllmLLM instance and get cached LLM
+            vllm = VllmLLM()
+            llm = vllm.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.7)
 
-            # Simple warmup call to load model in memory
+            # Simple warmup call to verify connectivity
             from langchain_core.messages import HumanMessage
 
             await llm.ainvoke([HumanMessage(content="Hello")])
-            logger.info(f"LLM warmup completed - Model: {settings.OLLAMA_API_MODEL_SIMPLE}")
+            logger.info(f"vLLM warmup completed - Model: {settings.VLLM_MODEL}")
 
         except Exception as e:
-            logger.warning(f"LLM warmup failed (non-critical): {e}")
+            logger.warning(f"vLLM warmup failed (non-critical): {e}")
 
     async def _ensure_schemas_exist(self) -> None:
         """

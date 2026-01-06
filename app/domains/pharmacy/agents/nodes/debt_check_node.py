@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 from app.core.agents import BaseAgent
 from app.domains.pharmacy.domain.entities.pharmacy_debt import DebtItem, PharmacyDebt
 from app.domains.pharmacy.domain.value_objects.debt_status import DebtStatus
-from app.integrations.llm import ModelComplexity, OllamaLLM, get_llm_for_task
+from app.integrations.llm import ModelComplexity, VllmLLM, get_llm_for_task
 from app.prompts.manager import PromptManager
 
 if TYPE_CHECKING:
@@ -273,7 +273,7 @@ class DebtCheckNode(BaseAgent):
                 content = response.content
                 if isinstance(content, str):
                     # Clean deepseek thinking tags if present
-                    cleaned = OllamaLLM.clean_deepseek_response(content)
+                    cleaned = VllmLLM.clean_reasoning_response(content)
                     return cleaned.strip()
                 elif isinstance(content, list):
                     return " ".join(str(item) for item in content).strip()
