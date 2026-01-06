@@ -8,6 +8,7 @@ Handles the 2-step flow and disambiguation logic.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
@@ -108,6 +109,13 @@ class CustomerIdentificationNode(BaseAgent):
 
             # Waiting for document input?
             if state_dict.get("awaiting_document_input"):
+                return await self._handle_document_input(message, state_dict)
+
+            # Auto-detect DNI in message (7-8 digits standing alone)
+            # This handles the case where state was reset between graph invocations
+            dni_match = re.match(r"^\s*(\d{7,8})\s*$", message.strip())
+            if dni_match:
+                logger.info(f"Auto-detected DNI in message: {dni_match.group(1)}")
                 return await self._handle_document_input(message, state_dict)
 
             # Initial identification attempt

@@ -229,16 +229,30 @@ class FallbackAgent(BaseAgent):
                 )
                 base_prompt = f"{base_prompt}{rag_instruction}{rag_context}"
 
+            # CRITICAL: Add explicit language instruction to prevent LLM hallucinating in wrong language
+            language_instructions = {
+                "es": "\n\nIMPORTANTE: Responde ÚNICAMENTE en ESPAÑOL. No uses portugués ni otros idiomas.",
+                "en": "\n\nIMPORTANT: Respond ONLY in ENGLISH. Do not use Spanish or other languages.",
+                "pt": "\n\nIMPORTANTE: Responda APENAS em PORTUGUÊS. Não use espanhol ou outros idiomas.",
+            }
+            base_prompt += language_instructions.get(language, language_instructions["es"])
+
             return base_prompt
         except Exception as e:
             logger.warning(f"Failed to load YAML prompt: {e}")
-            # Fallback to simple prompt with RAG context
+            # Fallback to simple prompt with RAG context and language instruction
             rag_section = f"\n\nInformacion relevante:\n{rag_context}" if rag_context else ""
+            fallback_lang_instructions = {
+                "es": "\n\nIMPORTANTE: Responde ÚNICAMENTE en ESPAÑOL.",
+                "en": "\n\nIMPORTANT: Respond ONLY in ENGLISH.",
+                "pt": "\n\nIMPORTANTE: Responda APENAS em PORTUGUÊS.",
+            }
+            lang_instruction = fallback_lang_instructions.get(language, fallback_lang_instructions["es"])
             return (
                 f'El usuario escribio: "{message}"\n\n'
                 f"Servicios disponibles: {services_str}"
                 f"{rag_section}\n\n"
-                "Responde de forma amable usando la informacion disponible."
+                f"Responde de forma amable usando la informacion disponible.{lang_instruction}"
             )
 
     async def _get_default_response(self, language: SupportedLanguage = "es") -> str:

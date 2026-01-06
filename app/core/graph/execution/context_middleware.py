@@ -114,6 +114,8 @@ class ConversationContextMiddleware:
             "next_agent": None,
             # BYPASS ROUTING: Target agent from bypass rules (for direct routing)
             "bypass_target_agent": kwargs.get("bypass_target_agent"),
+            # LANGUAGE: Extract detected language from conversation_data for agents
+            "detected_language": kwargs.get("conversation_data", {}).get("language", "es"),
             **kwargs,
         }
 
