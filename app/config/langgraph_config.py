@@ -68,6 +68,8 @@ class LangGraphConfig(BaseModel):
             "excelencia_invoice_agent",
             "excelencia_promotions_agent",
             "data_insights_agent",
+            # Pharmacy domain
+            "pharmacy_operations_agent",
         ],
         description="List of enabled top-level agent names. Orchestrator and Supervisor always enabled.",
     )
@@ -90,6 +92,7 @@ class LangGraphConfig(BaseModel):
                 "excelencia_invoice_agent",
                 "excelencia_promotions_agent",
                 "data_insights_agent",
+                "pharmacy_operations_agent",
             ],
             integrations=IntegrationConfig(
                 vllm_url=os.getenv("VLLM_BASE_URL", "http://localhost:8090/v1"),

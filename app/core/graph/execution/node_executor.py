@@ -245,6 +245,8 @@ class NodeExecutor:
             # Conversation identification - critical for multi-turn flows
             "conversation_id": state.get("conversation_id"),
             "session_id": state.get("conversation_id"),  # Alias for compatibility
+            # Bypass routing target for orchestrator to check
+            "bypass_target_agent": state.get("bypass_target_agent"),
         }
 
     def _prepare_supervisor_state(self, state: LangGraphState, messages: list) -> Dict[str, Any]:
