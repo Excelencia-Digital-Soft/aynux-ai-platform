@@ -99,11 +99,11 @@ class ChattigoCredentials(Base, TimestampMixin):
         comment="Chattigo ISV login endpoint",
     )
 
-    message_url: Mapped[str] = mapped_column(
+    base_url: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        default="https://channels.chattigo.com/bsp-cloud-chattigo-isv/webhooks/inbound",
-        comment="Chattigo ISV message/webhook endpoint",
+        default="https://channels.chattigo.com/bsp-cloud-chattigo-isv",
+        comment="Chattigo API base URL (DID added as /v15.0/{did}/messages)",
     )
 
     # Configuration
@@ -181,7 +181,7 @@ class ChattigoCredentials(Base, TimestampMixin):
             "username_encrypted": "***",  # Never expose
             "password_encrypted": "***",  # Never expose
             "login_url": self.login_url,
-            "message_url": self.message_url,
+            "base_url": self.base_url,
             "bot_name": self.bot_name,
             "token_refresh_hours": self.token_refresh_hours,
             "enabled": self.enabled,

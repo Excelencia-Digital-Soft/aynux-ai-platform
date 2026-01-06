@@ -2,7 +2,7 @@
 Unit tests for IntentAnalyzer.
 
 Tests:
-- Intent analysis with mocked Ollama integration
+- Intent analysis with mocked vLLM integration
 - Default intent fallback behavior
 - Temperature configuration
 - Error handling and recovery
@@ -22,21 +22,21 @@ class TestIntentAnalyzer:
     """Tests for IntentAnalyzer class."""
 
     @pytest.fixture
-    def mock_ollama(self):
-        """Create mock OllamaIntegration."""
-        ollama = Mock()
-        return ollama
+    def mock_llm(self):
+        """Create mock VllmLLM."""
+        llm = Mock()
+        return llm
 
     @pytest.fixture
-    def analyzer(self, mock_ollama):
+    def analyzer(self, mock_llm):
         """Create IntentAnalyzer with mock dependencies."""
-        return IntentAnalyzer(ollama=mock_ollama, temperature=0.3)
+        return IntentAnalyzer(llm=mock_llm, temperature=0.3)
 
     @pytest.mark.asyncio
-    async def test_analyze_intent_success(self, analyzer, mock_ollama):
+    async def test_analyze_intent_success(self, analyzer, mock_llm):
         """Test successful intent analysis."""
         # Mock LLM response
-        mock_llm = AsyncMock()
+        mock_llm_instance = AsyncMock()
         mock_response = Mock()
         mock_response.content = json.dumps(
             {
@@ -50,8 +50,8 @@ class TestIntentAnalyzer:
                 "action_needed": "search_products",
             }
         )
-        mock_llm.ainvoke.return_value = mock_response
-        mock_ollama.get_llm.return_value = mock_llm
+        mock_llm_instance.ainvoke.return_value = mock_response
+        mock_llm.get_llm.return_value = mock_llm_instance
 
         with patch.object(analyzer.prompt_manager, "get_prompt", new_callable=AsyncMock) as mock_get_prompt:
             mock_get_prompt.return_value = "Mocked prompt"
@@ -67,19 +67,19 @@ class TestIntentAnalyzer:
             assert intent.price_min == 500.0
             assert intent.price_max == 1500.0
             assert intent.wants_stock_info is True
-            mock_ollama.get_llm.assert_called_once_with(
+            mock_llm.get_llm.assert_called_once_with(
                 complexity=ModelComplexity.SIMPLE, temperature=0.3, model=None
             )
 
     @pytest.mark.asyncio
-    async def test_analyze_intent_partial_json(self, analyzer, mock_ollama):
+    async def test_analyze_intent_partial_json(self, analyzer, mock_llm):
         """Test intent analysis with partial JSON response."""
         # Mock LLM response with only required fields
-        mock_llm = AsyncMock()
+        mock_llm_instance = AsyncMock()
         mock_response = Mock()
         mock_response.content = json.dumps({"intent": "search_by_category", "search_terms": ["laptop"], "category": "laptops"})
-        mock_llm.ainvoke.return_value = mock_response
-        mock_ollama.get_llm.return_value = mock_llm
+        mock_llm_instance.ainvoke.return_value = mock_response
+        mock_llm.get_llm.return_value = mock_llm_instance
 
         # Execute
         intent = await analyzer.analyze_intent("Show me laptops")
@@ -93,14 +93,14 @@ class TestIntentAnalyzer:
         assert intent.wants_stock_info is False  # Default
 
     @pytest.mark.asyncio
-    async def test_analyze_intent_malformed_json(self, analyzer, mock_ollama):
+    async def test_analyze_intent_malformed_json(self, analyzer, mock_llm):
         """Test intent analysis with malformed JSON response."""
         # Mock LLM response with invalid JSON
-        mock_llm = AsyncMock()
+        mock_llm_instance = AsyncMock()
         mock_response = Mock()
         mock_response.content = "This is not valid JSON"
-        mock_llm.ainvoke.return_value = mock_response
-        mock_ollama.get_llm.return_value = mock_llm
+        mock_llm_instance.ainvoke.return_value = mock_response
+        mock_llm.get_llm.return_value = mock_llm_instance
 
         # Execute
         intent = await analyzer.analyze_intent("Show me products")
@@ -111,12 +111,12 @@ class TestIntentAnalyzer:
         assert intent.action_needed == "search_products"
 
     @pytest.mark.asyncio
-    async def test_analyze_intent_llm_error(self, analyzer, mock_ollama):
+    async def test_analyze_intent_llm_error(self, analyzer, mock_llm):
         """Test intent analysis when LLM raises exception."""
         # Mock LLM to raise exception
-        mock_llm = AsyncMock()
-        mock_llm.ainvoke.side_effect = Exception("LLM connection error")
-        mock_ollama.get_llm.return_value = mock_llm
+        mock_llm_instance = AsyncMock()
+        mock_llm_instance.ainvoke.side_effect = Exception("LLM connection error")
+        mock_llm.get_llm.return_value = mock_llm_instance
 
         # Execute
         intent = await analyzer.analyze_intent("Show me products")
@@ -127,14 +127,14 @@ class TestIntentAnalyzer:
         assert intent.action_needed == "search_products"
 
     @pytest.mark.asyncio
-    async def test_analyze_intent_empty_message(self, analyzer, mock_ollama):
+    async def test_analyze_intent_empty_message(self, analyzer, mock_llm):
         """Test intent analysis with empty message."""
         # Mock LLM response
-        mock_llm = AsyncMock()
+        mock_llm_instance = AsyncMock()
         mock_response = Mock()
         mock_response.content = json.dumps({"intent": "search_general", "search_terms": []})
-        mock_llm.ainvoke.return_value = mock_response
-        mock_ollama.get_llm.return_value = mock_llm
+        mock_llm_instance.ainvoke.return_value = mock_response
+        mock_llm.get_llm.return_value = mock_llm_instance
 
         # Execute
         intent = await analyzer.analyze_intent("")
@@ -144,17 +144,17 @@ class TestIntentAnalyzer:
         assert intent.intent == "search_general"
 
     @pytest.mark.asyncio
-    async def test_analyze_intent_custom_temperature(self, mock_ollama):
+    async def test_analyze_intent_custom_temperature(self, mock_llm):
         """Test intent analysis with custom temperature."""
         # Create analyzer with custom temperature
-        analyzer = IntentAnalyzer(ollama=mock_ollama, temperature=0.7)
+        analyzer = IntentAnalyzer(llm=mock_llm, temperature=0.7)
 
         # Mock LLM response
-        mock_llm = AsyncMock()
+        mock_llm_instance = AsyncMock()
         mock_response = Mock()
         mock_response.content = json.dumps({"intent": "search_general", "search_terms": ["test"]})
-        mock_llm.ainvoke.return_value = mock_response
-        mock_ollama.get_llm.return_value = mock_llm
+        mock_llm_instance.ainvoke.return_value = mock_response
+        mock_llm.get_llm.return_value = mock_llm_instance
 
         with patch.object(analyzer.prompt_manager, "get_prompt", new_callable=AsyncMock) as mock_get_prompt:
             mock_get_prompt.return_value = "Mocked prompt"
@@ -162,22 +162,22 @@ class TestIntentAnalyzer:
             await analyzer.analyze_intent("test message")
 
             # Verify temperature was used
-            mock_ollama.get_llm.assert_called_once_with(
+            mock_llm.get_llm.assert_called_once_with(
                 complexity=ModelComplexity.SIMPLE, temperature=0.7, model=None
             )
 
     @pytest.mark.asyncio
-    async def test_analyze_intent_custom_model(self, mock_ollama):
+    async def test_analyze_intent_custom_model(self, mock_llm):
         """Test intent analysis with custom model."""
         # Create analyzer with custom model
-        analyzer = IntentAnalyzer(ollama=mock_ollama, model="custom-model:latest")
+        analyzer = IntentAnalyzer(llm=mock_llm, model="custom-model:latest")
 
         # Mock LLM response
-        mock_llm = AsyncMock()
+        mock_llm_instance = AsyncMock()
         mock_response = Mock()
         mock_response.content = json.dumps({"intent": "search_general", "search_terms": ["test"]})
-        mock_llm.ainvoke.return_value = mock_response
-        mock_ollama.get_llm.return_value = mock_llm
+        mock_llm_instance.ainvoke.return_value = mock_response
+        mock_llm.get_llm.return_value = mock_llm_instance
 
         with patch.object(analyzer.prompt_manager, "get_prompt", new_callable=AsyncMock) as mock_get_prompt:
             mock_get_prompt.return_value = "Mocked prompt"
@@ -185,7 +185,7 @@ class TestIntentAnalyzer:
             await analyzer.analyze_intent("test message")
 
             # Verify model was used
-            mock_ollama.get_llm.assert_called_once_with(
+            mock_llm.get_llm.assert_called_once_with(
                 complexity=ModelComplexity.SIMPLE, temperature=0.3, model="custom-model:latest"
             )
 
@@ -239,10 +239,10 @@ class TestIntentAnalyzer:
         assert analyzer.temperature == 1.0
 
     @pytest.mark.asyncio
-    async def test_intent_analysis_with_json_in_text(self, analyzer, mock_ollama):
+    async def test_intent_analysis_with_json_in_text(self, analyzer, mock_llm):
         """Test intent analysis when JSON is embedded in text."""
         # Mock LLM response with JSON embedded in markdown
-        mock_llm = AsyncMock()
+        mock_llm_instance = AsyncMock()
         mock_response = Mock()
         mock_response.content = """Here's the analysis:
 
@@ -255,8 +255,8 @@ class TestIntentAnalyzer:
 ```
 
 Hope this helps!"""
-        mock_llm.ainvoke.return_value = mock_response
-        mock_ollama.get_llm.return_value = mock_llm
+        mock_llm_instance.ainvoke.return_value = mock_response
+        mock_llm.get_llm.return_value = mock_llm_instance
 
         # Execute
         intent = await analyzer.analyze_intent("Show me Samsung phones")
@@ -267,17 +267,17 @@ Hope this helps!"""
         assert intent.brand == "Samsung"
 
     @pytest.mark.asyncio
-    async def test_intent_analyzer_initialization_defaults(self, mock_ollama):
+    async def test_intent_analyzer_initialization_defaults(self, mock_llm):
         """Test IntentAnalyzer initialization with default values."""
-        analyzer = IntentAnalyzer(ollama=mock_ollama)
+        analyzer = IntentAnalyzer(llm=mock_llm)
 
         assert analyzer.temperature == 0.3
 
     @pytest.mark.asyncio
-    async def test_analyze_intent_preserves_all_fields(self, analyzer, mock_ollama):
+    async def test_analyze_intent_preserves_all_fields(self, analyzer, mock_llm):
         """Test that all intent fields are properly preserved."""
         # Mock LLM response with all fields
-        mock_llm = AsyncMock()
+        mock_llm_instance = AsyncMock()
         mock_response = Mock()
         mock_response.content = json.dumps(
             {
@@ -294,8 +294,8 @@ Hope this helps!"""
                 "action_needed": "search_products",
             }
         )
-        mock_llm.ainvoke.return_value = mock_response
-        mock_ollama.get_llm.return_value = mock_llm
+        mock_llm_instance.ainvoke.return_value = mock_response
+        mock_llm.get_llm.return_value = mock_llm_instance
 
         # Execute
         intent = await analyzer.analyze_intent("Tell me about ASUS ROG Strix G15")

@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 class InvoiceNode(BaseAgent):
     """E-commerce node specialized in billing, payments and financial queries"""
 
-    def __init__(self, ollama=None, config: dict[str, Any] | None = None):
-        super().__init__("invoice_node", config or {}, ollama=ollama)
+    def __init__(self, llm=None, config: dict[str, Any] | None = None):
+        super().__init__("invoice_node", config or {}, llm=llm)
 
     @trace_async_method(
         name="invoice_node_process",

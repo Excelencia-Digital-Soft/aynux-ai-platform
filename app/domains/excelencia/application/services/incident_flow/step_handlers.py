@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.database.async_db import get_async_db_context
 from app.domains.excelencia.application.services.smart_input import SmartInputInterpreter
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 
 from .flow_prompts import FlowPromptService
 
@@ -27,7 +27,7 @@ class FlowContext:
     state_dict: dict[str, Any]
     prompts: FlowPromptService
     interpreter: SmartInputInterpreter
-    ollama: OllamaLLM
+    llm: VllmLLM
 
 
 class DescriptionStepHandler:
@@ -43,7 +43,7 @@ class DescriptionStepHandler:
         # Check description quality
         is_acceptable, suggestion = await context.interpreter.check_description_quality(
             message,
-            context.ollama,
+            context.llm,
         )
 
         if not is_acceptable and suggestion:
@@ -76,7 +76,7 @@ class PriorityStepHandler:
     ) -> str:
         """Interpret priority and move to confirmation step."""
         # Use smart interpretation
-        result = await context.interpreter.interpret_priority(message, llm=context.ollama)
+        result = await context.interpreter.interpret_priority(message, llm=context.llm)
 
         if not result.success:
             return await context.prompts.get_invalid_selection(
@@ -127,7 +127,7 @@ class ConfirmationStepHandler:
             tuple[str, action]: (response, action) where action is "create", "reset_priority",
                                "reset_description", or "cancel"
         """
-        result = await context.interpreter.interpret_confirmation(message, llm=context.ollama)
+        result = await context.interpreter.interpret_confirmation(message, llm=context.llm)
 
         if not result.success:
             return await context.prompts.get_invalid_selection(

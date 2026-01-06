@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.integrations.llm import ModelComplexity, OllamaLLM
+from app.integrations.llm import ModelComplexity, VllmLLM
 
 if TYPE_CHECKING:
     from app.prompts import PromptManager
@@ -61,7 +61,7 @@ class BaseInterpreter:
     async def _invoke_llm(
         self,
         prompt: str,
-        llm: OllamaLLM,
+        llm: VllmLLM,
         temperature: float = 0.1,
     ) -> str | None:
         """
@@ -69,7 +69,7 @@ class BaseInterpreter:
 
         Args:
             prompt: The prompt to send to the LLM
-            llm: OllamaLLM instance
+            llm: VllmLLM instance
             temperature: LLM temperature (default 0.1 for deterministic output)
 
         Returns:
@@ -84,7 +84,7 @@ class BaseInterpreter:
             # response.content is str but typed as Union[str, list] in Langchain
             content = str(response.content) if response.content else ""
             result = content.strip().lower()
-            return OllamaLLM.clean_deepseek_response(result)
+            return VllmLLM.clean_deepseek_response(result)
         except Exception as e:
             logger.error(f"LLM invocation failed: {e}")
             return None

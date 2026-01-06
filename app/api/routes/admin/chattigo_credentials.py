@@ -60,7 +60,7 @@ class ChattigoCredentialResponse(BaseModel):
     name: str = Field(..., description="Human-readable name")
     username: str = Field(..., description="Username (masked)")
     login_url: str = Field(..., description="Chattigo login endpoint")
-    message_url: str = Field(..., description="Chattigo message endpoint")
+    base_url: str = Field(..., description="Chattigo API base URL")
     bot_name: str = Field(..., description="Bot display name")
     token_refresh_hours: int = Field(..., description="Hours between token refresh")
     enabled: bool = Field(..., description="Whether this credential is active")
@@ -103,9 +103,9 @@ class ChattigoCredentialCreate(BaseModel):
         None,
         description="Chattigo login endpoint (uses default if not provided)",
     )
-    message_url: str | None = Field(
+    base_url: str | None = Field(
         None,
-        description="Chattigo message endpoint (uses default if not provided)",
+        description="Chattigo API base URL (uses default if not provided)",
     )
     bot_name: str | None = Field(
         None,
@@ -150,9 +150,9 @@ class ChattigoCredentialUpdate(BaseModel):
         None,
         description="Chattigo login endpoint",
     )
-    message_url: str | None = Field(
+    base_url: str | None = Field(
         None,
-        description="Chattigo message endpoint",
+        description="Chattigo API base URL",
     )
     bot_name: str | None = Field(
         None,
@@ -218,7 +218,7 @@ def _to_response(creds) -> ChattigoCredentialResponse:
         name=creds.name,
         username=_mask_username(creds.username),
         login_url=creds.login_url,
-        message_url=creds.message_url,
+        base_url=creds.base_url,
         bot_name=creds.bot_name,
         token_refresh_hours=creds.token_refresh_hours,
         enabled=creds.enabled,  # Use actual enabled value from DTO
@@ -338,7 +338,7 @@ async def create_chattigo_credentials(
         password=data.password,
         organization_id=org_uuid,
         login_url=data.login_url,
-        message_url=data.message_url,
+        base_url=data.base_url,
         bot_name=data.bot_name,
         token_refresh_hours=data.token_refresh_hours,
         bypass_rule_id=bypass_uuid,
@@ -401,7 +401,7 @@ async def update_chattigo_credentials(
         username=data.username,
         password=data.password,
         login_url=data.login_url,
-        message_url=data.message_url,
+        base_url=data.base_url,
         bot_name=data.bot_name,
         token_refresh_hours=data.token_refresh_hours,
         enabled=data.enabled,

@@ -49,7 +49,7 @@ class TestExcelenciaSupportRAGIntegration:
     @pytest.fixture
     def node_with_mocks(self, mock_vector_store):
         """Create ExcelenciaNode with mocked dependencies."""
-        with patch("app.domains.excelencia.agents.nodes.excelencia_node.OllamaLLM"):
+        with patch("app.domains.excelencia.agents.nodes.excelencia_node.VllmLLM"):
             node = ExcelenciaNode()
             # Need to also mock the vector_store getter
             with patch.object(node, 'vector_store', mock_vector_store):
@@ -58,7 +58,7 @@ class TestExcelenciaSupportRAGIntegration:
     @pytest.mark.asyncio
     async def test_support_document_types_include_all_expected(self):
         """Test that support document types are properly defined."""
-        with patch("app.domains.excelencia.agents.nodes.excelencia_node.OllamaLLM"):
+        with patch("app.domains.excelencia.agents.nodes.excelencia_node.VllmLLM"):
             node = ExcelenciaNode()
 
         # Verify all expected types are present
@@ -77,7 +77,7 @@ class TestExcelenciaSupportRAGIntegration:
     @pytest.mark.asyncio
     async def test_query_types_include_incident_and_feedback(self):
         """Test that incident and feedback query types are defined."""
-        with patch("app.domains.excelencia.agents.nodes.excelencia_node.OllamaLLM"):
+        with patch("app.domains.excelencia.agents.nodes.excelencia_node.VllmLLM"):
             node = ExcelenciaNode()
 
         assert "incident" in node.QUERY_TYPES
@@ -186,7 +186,7 @@ class TestFullSupportFlow:
     @pytest.fixture
     def node(self):
         """Create ExcelenciaNode with mocked LLM."""
-        with patch("app.domains.excelencia.agents.nodes.excelencia_node.OllamaLLM"):
+        with patch("app.domains.excelencia.agents.nodes.excelencia_node.VllmLLM"):
             return ExcelenciaNode()
 
     def test_incident_keywords_exist_in_query_types(self, node):

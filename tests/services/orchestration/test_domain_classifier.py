@@ -58,13 +58,13 @@ class TestDomainClassifier:
     @pytest.fixture
     def classifier(self, pattern_repo):
         """Create classifier fixture."""
-        mock_ollama = AsyncMock()
-        return DomainClassifier(pattern_repository=pattern_repo, ollama=mock_ollama)
+        mock_llm = AsyncMock()
+        return DomainClassifier(pattern_repository=pattern_repo, llm=mock_llm)
 
     def test_classifier_initialization(self, classifier):
         """Test classifier initializes correctly."""
         assert classifier.pattern_repository is not None
-        assert classifier.ollama is not None
+        assert classifier.llm is not None
 
     def test_classify_by_keywords_ecommerce(self, classifier):
         """Test keyword classification for ecommerce."""
@@ -103,7 +103,7 @@ class TestDomainClassifier:
     async def test_classify_high_confidence_keyword(self, classifier):
         """Test that high confidence keyword bypasses AI."""
         # Mock AI to track if it's called
-        classifier.ollama.get_llm = Mock()
+        classifier.llm.get_llm = Mock()
 
         result = await classifier.classify("quiero comprar productos con descuento y envío gratis")
 
@@ -111,7 +111,7 @@ class TestDomainClassifier:
         assert result.method == "keyword"
         # assert result.confidence >= 0.8
         # AI should not be called for high confidence
-        # classifier.ollama.get_llm.assert_not_called()
+        # classifier.llm.get_llm.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_test_classification(self, classifier):
@@ -119,7 +119,7 @@ class TestDomainClassifier:
         # Mock the get_llm method to avoid real LLM calls
         mock_llm_instance = AsyncMock()
         mock_llm_instance.ainvoke.return_value.content = '{"domain": "hospital", "confidence": 0.9, "reasoning": "test"}'
-        classifier.ollama.get_llm = Mock(return_value=mock_llm_instance)
+        classifier.llm.get_llm = Mock(return_value=mock_llm_instance)
 
         test_result = await classifier.test_classification("necesito comprar medicamentos")
 
@@ -137,8 +137,8 @@ class TestDomainClassifierEdgeCases:
     def classifier(self):
         """Create classifier with mock."""
         repo = DomainPatternRepository()
-        mock_ollama = AsyncMock()
-        return DomainClassifier(pattern_repository=repo, ollama=mock_ollama)
+        mock_llm = AsyncMock()
+        return DomainClassifier(pattern_repository=repo, llm=mock_llm)
 
     def test_empty_message(self, classifier):
         """Test classification with empty message."""
@@ -160,7 +160,7 @@ class TestDomainClassifierEdgeCases:
     async def test_ai_classification_error_fallback(self, classifier):
         """Test that AI errors fall back to keyword classification."""
         # Make AI raise an error
-        classifier.ollama.get_llm = Mock(side_effect=Exception("AI error"))
+        classifier.llm.get_llm = Mock(side_effect=Exception("AI error"))
 
         result = await classifier.classify("test message")
 

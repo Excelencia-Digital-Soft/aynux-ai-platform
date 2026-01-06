@@ -81,8 +81,8 @@ from app.integrations.llm import create_llm, LLMProvider
 
 # Crear LLM
 llm = create_llm(
-    provider=LLMProvider.OLLAMA,
-    model_name="deepseek-r1:7b",
+    provider=LLMProvider.VLLM,
+    model_name="qwen-3b",
     temperature=0.7
 )
 
@@ -307,14 +307,14 @@ class ProductSearchService:
         self.vector_store = vector_store
 ```
 
-**❌ INCORRECTO** (depender de implementaciones):
+**INCORRECTO** (depender de implementaciones):
 ```python
-from app.integrations.llm.ollama import OllamaLLM
+from app.integrations.llm.vllm import VllmLLM
 from app.integrations.vector_stores.pgvector import PgVectorStore
 
 class ProductSearchService:
     def __init__(self):
-        self.llm = OllamaLLM()  # Acoplamiento directo
+        self.llm = VllmLLM()  # Acoplamiento directo
         self.vector_store = PgVectorStore()  # Acoplamiento directo
 ```
 
@@ -327,7 +327,7 @@ from app.integrations.vector_stores import create_vector_store, VectorStoreType
 
 # En dependencies.py
 def get_llm() -> ILLM:
-    return create_llm(provider=LLMProvider.OLLAMA)
+    return create_llm(provider=LLMProvider.VLLM)
 
 def get_vector_store() -> IVectorStore:
     return create_vector_store(store_type=VectorStoreType.PGVECTOR)
@@ -430,7 +430,7 @@ from app.integrations.llm import create_llm, LLMProvider
 from app.integrations.vector_stores import create_vector_store, VectorStoreType
 
 def get_llm() -> ILLM:
-    return create_llm(provider=LLMProvider.OLLAMA)
+    return create_llm(provider=LLMProvider.VLLM)
 
 def get_vector_store() -> IVectorStore:
     return create_vector_store(store_type=VectorStoreType.PGVECTOR)

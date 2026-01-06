@@ -71,8 +71,8 @@ user_prompt = await manager.get_prompt(
     }
 )
 
-# Usar con Ollama
-response = await ollama.generate_response(
+# Usar con LLM
+response = await llm.generate_response(
     system_prompt=system_prompt,
     user_prompt=user_prompt
 )
@@ -199,7 +199,7 @@ def analyze_intent(message, context):
     Context: {context}
     """
 
-    return await ollama.generate(system_prompt, user_prompt)
+    return await llm.generate(system_prompt, user_prompt)
 ```
 
 ### DESPUÉS (con PromptManager):
@@ -214,7 +214,7 @@ def analyze_intent(message, context):
         variables={"message": message, "context": context}
     )
 
-    return await ollama.generate(system_prompt, user_prompt)
+    return await llm.generate(system_prompt, user_prompt)
 ```
 
 ## 📊 Beneficios

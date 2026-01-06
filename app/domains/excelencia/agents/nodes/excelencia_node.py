@@ -21,7 +21,7 @@ from app.domains.excelencia.application.services.support_response import (
     RagQueryLogger,
     SearchMetrics,
 )
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 
 from .handlers import (
@@ -49,19 +49,19 @@ class ExcelenciaNode(BaseAgent):
     Uses KnowledgeBaseSearch service for RAG.
     """
 
-    def __init__(self, ollama: OllamaLLM | None = None, config: dict[str, Any] | None = None):
-        super().__init__("excelencia_node", config or {}, ollama=ollama)
+    def __init__(self, llm: VllmLLM | None = None, config: dict[str, Any] | None = None):
+        super().__init__("excelencia_node", config or {}, llm=llm)
 
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
 
         # Initialize PromptManager for YAML-based prompts (critical for RAG response)
         self._prompt_manager = PromptManager()
 
         # Initialize handlers (pass prompt_manager to response handler for RAG prompts)
         self._module_manager = ModuleManager()
-        self._intent_analyzer = IntentAnalysisHandler(self.ollama, self._prompt_manager)
-        self._ticket_handler = TicketHandler(self.ollama)
-        self._response_handler = ResponseGenerationHandler(self.ollama, self._prompt_manager)
+        self._intent_analyzer = IntentAnalysisHandler(self.llm, self._prompt_manager)
+        self._ticket_handler = TicketHandler(self.llm)
+        self._response_handler = ResponseGenerationHandler(self.llm, self._prompt_manager)
 
         # Knowledge search service
         self._knowledge_search = KnowledgeBaseSearch(agent_key="excelencia_agent")

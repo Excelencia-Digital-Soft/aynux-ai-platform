@@ -20,7 +20,7 @@ from typing import Any
 
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.models.conversation_context import ConversationContextModel
 from app.prompts.manager import PromptManager
@@ -49,7 +49,7 @@ class HistoryAgent(BaseAgent):
     - Extract key entities and topics
 
     Usage:
-        history_agent = HistoryAgent(ollama=ollama, postgres=postgres)
+        history_agent = HistoryAgent(llm=llm, postgres=postgres)
 
         # Load context at start
         context = await history_agent.load_context(conversation_id)
@@ -65,14 +65,14 @@ class HistoryAgent(BaseAgent):
 
     def __init__(
         self,
-        ollama: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
         postgres=None,
         config: dict[str, Any] | None = None,
     ):
         super().__init__(
-            "history_agent", config or {}, ollama=ollama, postgres=postgres
+            "history_agent", config or {}, llm=llm, postgres=postgres
         )
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
 
         # Configuration
         config = config or {}
@@ -296,7 +296,7 @@ class HistoryAgent(BaseAgent):
         # Use summary model (fast non-reasoning model) for summarization
         # NOTE: Using SUMMARY instead of SIMPLE because deepseek-r1 generates
         # internal "thinking tokens" that cause 3-10 minute delays.
-        llm = self.ollama.get_llm(
+        llm = self.llm.get_llm(
             complexity=ModelComplexity.SUMMARY,
             temperature=DEFAULT_SUMMARY_TEMPERATURE,
         )

@@ -1,4 +1,4 @@
-"""LLM-based intent analysis using Ollama.
+"""LLM-based intent analysis using VllmLLM.
 
 Extracted from IntentRouter to follow Single Responsibility Principle.
 Primary analyzer that uses AI for intent detection.
@@ -26,13 +26,13 @@ INTENT_LLM_TEMPERATURE = 0.3
 
 
 class LLMIntentAnalyzer:
-    """LLM-based intent analysis using Ollama.
+    """LLM-based intent analysis using VllmLLM.
 
     Primary analyzer that uses AI for accurate intent detection.
     Falls back to other analyzers if confidence is too low.
 
     Features:
-    - Ollama LLM integration
+    - VllmLLM LLM integration
     - Response caching
     - Intent validation and mapping
     - Timeout handling
@@ -40,7 +40,7 @@ class LLMIntentAnalyzer:
 
     def __init__(
         self,
-        ollama: Any,
+        llm: Any,
         cache: IntentCache,
         validator: IntentValidator,
         metrics: RouterMetrics,
@@ -48,12 +48,12 @@ class LLMIntentAnalyzer:
         """Initialize LLM analyzer.
 
         Args:
-            ollama: OllamaLLM instance for LLM calls
+            llm: VllmLLM instance for LLM calls
             cache: IntentCache for caching results
             validator: IntentValidator for validation and mapping
             metrics: RouterMetrics for tracking
         """
-        self._ollama = ollama
+        self._llm = llm
         self._cache = cache
         self._validator = validator
         self._metrics = metrics
@@ -91,7 +91,7 @@ class LLMIntentAnalyzer:
 
         try:
             response_text = await asyncio.wait_for(
-                self._ollama.generate_response(
+                self._llm.generate_response(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
                     complexity=ModelComplexity.SIMPLE,
@@ -201,4 +201,4 @@ class LLMIntentAnalyzer:
 
     def get_method_name(self) -> str:
         """Return analyzer method name for metrics."""
-        return "ollama_llm"
+        return "vllm_llm"

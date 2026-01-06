@@ -47,7 +47,7 @@ class HybridRoutingStrategy:
 
     Example:
         ```python
-        strategy = HybridRoutingStrategy(llm=ollama_llm)
+        strategy = HybridRoutingStrategy(llm=vllm_llm)
 
         # Fast for clear messages
         result = await strategy.route("¿Cuánto cuesta el producto X?")

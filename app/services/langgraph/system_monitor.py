@@ -188,7 +188,7 @@ class SystemMonitor:
 
             # Check integrations
             if graph_system:
-                components["ollama"] = hasattr(graph_system, "ollama") and graph_system.ollama is not None
+                components["llm"] = hasattr(graph_system, "llm") and graph_system.llm is not None
                 components["postgres"] = hasattr(graph_system, "postgres") and graph_system.postgres is not None
                 components["supervisor_agent"] = graph_system.agents.get(AgentType.SUPERVISOR.value) is not None
 

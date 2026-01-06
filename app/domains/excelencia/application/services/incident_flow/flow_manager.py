@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from app.database.async_db import get_async_db_context
 from app.domains.excelencia.application.services.smart_input import SmartInputInterpreter
 from app.domains.excelencia.application.use_cases.support import CreateIncidentUseCase
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 
 from .flow_prompts import FlowPromptService
@@ -32,12 +32,12 @@ class IncidentFlowManager:
 
     def __init__(
         self,
-        ollama: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
         prompt_manager: PromptManager | None = None,
         input_interpreter: SmartInputInterpreter | None = None,
     ):
         """Initialize the flow manager."""
-        self._ollama = ollama or OllamaLLM()
+        self._llm = llm or VllmLLM()
         self._prompts = FlowPromptService(prompt_manager)
         self._interpreter = input_interpreter or SmartInputInterpreter()
 
@@ -118,7 +118,7 @@ class IncidentFlowManager:
             state_dict=state_dict,
             prompts=self._prompts,
             interpreter=self._interpreter,
-            ollama=self._ollama,
+            llm=self._llm,
         )
 
         result = await handler.handle(message, pending_ticket, context)

@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 
 from .analyzer import QueryComplexityAnalyzer
 from .builder import ProductSQLBuilder
@@ -30,13 +30,13 @@ class ProductSQLGenerator:
     - SQLExecutor for query execution
     """
 
-    def __init__(self, ollama: OllamaLLM, postgres=None):
-        self.ollama = ollama
+    def __init__(self, llm: VllmLLM, postgres=None):
+        self.llm = llm
         self.postgres = postgres
 
         # Compose dependencies
-        self._analyzer = QueryComplexityAnalyzer(ollama)
-        self._builder = ProductSQLBuilder(ollama)
+        self._analyzer = QueryComplexityAnalyzer(llm)
+        self._builder = ProductSQLBuilder(llm)
         self._validator = SQLValidator()
         self._executor = SQLExecutor()
 

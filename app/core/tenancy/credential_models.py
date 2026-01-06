@@ -30,7 +30,7 @@ class ChattigoCredentials:
         username: Chattigo ISV username (decrypted)
         password: Chattigo ISV password (decrypted)
         login_url: Chattigo login endpoint
-        message_url: Chattigo message/webhook endpoint
+        base_url: Chattigo API base URL (DID added as /v15.0/{did}/messages)
         bot_name: Bot display name for outbound messages
         token_refresh_hours: Hours between token refresh
         organization_id: Organization UUID
@@ -46,7 +46,7 @@ class ChattigoCredentials:
     username: str
     password: str
     login_url: str
-    message_url: str
+    base_url: str
     bot_name: str
     token_refresh_hours: int
     organization_id: UUID
@@ -223,7 +223,7 @@ class ChattigoCredentialCreateRequest:
     password: str
     organization_id: UUID
     login_url: str | None = None
-    message_url: str | None = None
+    base_url: str | None = None
     bot_name: str | None = None
     token_refresh_hours: int | None = None
     bypass_rule_id: UUID | None = None
@@ -241,7 +241,7 @@ class ChattigoCredentialUpdateRequest:
     username: str | None = None
     password: str | None = None
     login_url: str | None = None
-    message_url: str | None = None
+    base_url: str | None = None
     bot_name: str | None = None
     token_refresh_hours: int | None = None
     enabled: bool | None = None
@@ -256,7 +256,7 @@ class ChattigoCredentialUpdateRequest:
         return any([
             self.name is not None,
             self.login_url is not None,
-            self.message_url is not None,
+            self.base_url is not None,
             self.bot_name is not None,
             self.token_refresh_hours is not None,
             self.enabled is not None,

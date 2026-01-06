@@ -59,19 +59,19 @@ class SupervisorAgent(BaseAgent):
     HEURISTIC_WEIGHT = 0.5
     LLM_WEIGHT = 0.5
 
-    def __init__(self, ollama=None, config: dict[str, Any] | None = None):
+    def __init__(self, llm=None, config: dict[str, Any] | None = None):
         """
         Initialize supervisor agent.
 
         Args:
-            ollama: Ollama LLM instance
+            llm: VllmLLM instance
             config: Configuration dictionary with optional keys:
                 - enable_llm_analysis: Enable LLM analysis (default: True)
                 - llm_analysis_timeout: LLM timeout in seconds (default: 15)
                 - skip_llm_threshold: Skip LLM if heuristic >= this (default: 0.90)
                 - llm_weight: Weight of LLM score in combined (default: 0.5)
         """
-        super().__init__("supervisor", config or {}, ollama=ollama)
+        super().__init__("supervisor", config or {}, llm=llm)
 
         # Configuration
         self.max_retries = self.config.get("max_retries", 2)
@@ -105,11 +105,11 @@ class SupervisorAgent(BaseAgent):
             enable_human_handoff=self.enable_human_handoff,
             enable_re_routing=self.enable_re_routing,
         )
-        self.response_enhancer = ResponseEnhancer(ollama=ollama)
+        self.response_enhancer = ResponseEnhancer(llm=llm)
 
         # Initialize LLM Response Analyzer (NEW)
         self.llm_analyzer = LLMResponseAnalyzer(
-            ollama=ollama,
+            llm=llm,
             config={
                 "enable_llm_analysis": self.enable_llm_analysis,
                 "llm_timeout": self.llm_analysis_timeout,
@@ -122,8 +122,8 @@ class SupervisorAgent(BaseAgent):
             config={"default_language": "es", "supported_languages": ["es", "en", "pt"]}
         )
 
-        # Store ollama reference
-        self.ollama = ollama
+        # Store llm reference
+        self.llm = llm
 
         logger.info(
             f"SupervisorAgent initialized (llm_analysis={self.enable_llm_analysis}, "
@@ -210,7 +210,7 @@ class SupervisorAgent(BaseAgent):
                 (flow_decision.get("should_end") or should_provide_final)
                 and not flow_decision.get("needs_human_handoff")
             ):
-                if self.enable_response_enhancement and self.ollama and should_enhance:
+                if self.enable_response_enhancement and self.llm and should_enhance:
                     # Detect user language
                     language_info = self.language_detector.detect_language(message)
                     detected_language = language_info.get("language", "es")

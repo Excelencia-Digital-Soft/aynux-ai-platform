@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 from app.config.settings import get_settings
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.models.message import Contact
 from app.prompts.manager import PromptManager
@@ -72,17 +72,17 @@ class DomainClassifier:
     def __init__(
         self,
         pattern_repository: DomainPatternRepository,
-        ollama: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
     ):
         """
         Initialize domain classifier.
 
         Args:
             pattern_repository: Repository for domain patterns
-            ollama: OllamaLLM instance for AI classification
+            llm: VllmLLM instance for AI classification
         """
         self.pattern_repository = pattern_repository
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
         self.settings = get_settings()
 
         # Initialize PromptManager for YAML-based prompts
@@ -263,7 +263,7 @@ class DomainClassifier:
 
         try:
             # Call LLM
-            llm = self.ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.2)
+            llm = self.llm.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.2)
             response = await llm.ainvoke(prompt)
 
             # Parse response
@@ -287,7 +287,7 @@ class DomainClassifier:
                 domain=domain,
                 confidence=confidence,
                 method="ai",
-                metadata={"reasoning": reasoning, "model": self.settings.OLLAMA_API_MODEL_SIMPLE},
+                metadata={"reasoning": reasoning, "model": self.settings.VLLM_MODEL},
             )
 
         except Exception as e:

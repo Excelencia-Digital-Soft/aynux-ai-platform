@@ -15,7 +15,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 
@@ -51,7 +51,7 @@ class HealthcareGraph:
 
         Args:
             config: Configuration dictionary with:
-                - integrations: Ollama settings
+                - integrations: vLLM settings
                 - enabled_nodes: List of enabled node names
                 - max_errors: Maximum errors before failing
         """
@@ -79,8 +79,8 @@ class HealthcareGraph:
         logger.info(f"HealthcareGraph initialized with nodes: {self.enabled_nodes}")
 
     def _init_integrations(self):
-        """Initialize integrations (Ollama)."""
-        self.ollama = OllamaLLM()
+        """Initialize integrations (vLLM)."""
+        self.llm = VllmLLM()
         self.prompt_manager = PromptManager()
 
     def _init_nodes(self):
@@ -248,7 +248,7 @@ class HealthcareGraph:
                 variables={"message": message_content},
             )
 
-            response = await self.ollama.generate(prompt, temperature=0.7)
+            response = await self.llm.generate(prompt, temperature=0.7)
 
             return {
                 "agent_responses": [{
@@ -288,7 +288,7 @@ class HealthcareGraph:
                 variables={"message": message_content},
             )
 
-            response = await self.ollama.generate(prompt, temperature=0.7)
+            response = await self.llm.generate(prompt, temperature=0.7)
 
             return {
                 "agent_responses": [{
@@ -329,7 +329,7 @@ class HealthcareGraph:
                     variables={"message": message_content},
                 )
 
-                response = await self.ollama.generate(prompt, temperature=0.5)
+                response = await self.llm.generate(prompt, temperature=0.5)
 
             return {
                 "agent_responses": [{
@@ -370,7 +370,7 @@ class HealthcareGraph:
                 variables={"message": message_content},
             )
 
-            response = await self.ollama.generate(prompt, temperature=0.7)
+            response = await self.llm.generate(prompt, temperature=0.7)
 
             return {
                 "agent_responses": [{
@@ -446,7 +446,7 @@ class HealthcareGraph:
         return {
             "healthy": True,
             "enabled_nodes": self.enabled_nodes,
-            "ollama_available": self.ollama is not None,
+            "llm_available": self.llm is not None,
         }
 
     def get_enabled_nodes(self) -> list[str]:

@@ -29,7 +29,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 
 from .context_generator import SQLContextGenerator
 from .executor import SQLExecutor
@@ -82,21 +82,21 @@ class DynamicSQLTool:
         ```
     """
 
-    def __init__(self, ollama: OllamaLLM | None = None):
+    def __init__(self, llm: VllmLLM | None = None):
         """
         Initialize Dynamic SQL Tool with all components.
 
         Args:
-            ollama: OllamaLLM instance (optional, creates default if not provided)
+            llm: VllmLLM instance (optional, creates default if not provided)
         """
-        self._ollama = ollama or OllamaLLM()
+        self._llm = llm or VllmLLM()
 
         # Initialize all components
-        self._intent_analyzer = SQLIntentAnalyzer(self._ollama)
-        self._query_generator = SQLQueryGenerator(self._ollama)
+        self._intent_analyzer = SQLIntentAnalyzer(self._llm)
+        self._query_generator = SQLQueryGenerator(self._llm)
         self._validator = SQLValidator()
         self._executor = SQLExecutor()
-        self._context_generator = SQLContextGenerator(self._ollama)
+        self._context_generator = SQLContextGenerator(self._llm)
 
         logger.info("DynamicSQLTool initialized with SRP components")
 

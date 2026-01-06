@@ -15,7 +15,7 @@ class SupervisorConfig(BaseModel):
     - Uses COMPLEX model instead of REASONING (~10s vs ~100s)
     - Lower skip_threshold (0.90) for faster responses
     - Balanced weights (50/50) for heuristic/LLM
-    - Shorter timeout (15s) with asyncio.wait_for protection
+    - Longer timeout (60s) with asyncio.wait_for protection
     """
 
     # Control de flujo
@@ -55,9 +55,9 @@ class SupervisorConfig(BaseModel):
         description="Enable LLM analysis using COMPLEX model (gemma2)",
     )
     llm_analysis_timeout: int = Field(
-        default=15,  # Reduced from 30 - COMPLEX model is faster
+        default=60,  # Increased for slow local LLMs (qwen-3b)
         ge=5,
-        le=60,  # Reduced max from 120 to 60
+        le=120,  # Allow up to 2 minutes for very slow models
         description="Timeout in seconds for LLM analysis",
     )
     skip_llm_threshold: float = Field(

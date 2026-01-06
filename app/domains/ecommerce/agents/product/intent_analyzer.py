@@ -7,7 +7,7 @@ Extracts user intent from natural language messages using AI.
 import logging
 from typing import Optional
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.utils import extract_json_from_text
 from app.prompts.manager import PromptManager
@@ -43,7 +43,7 @@ class IntentAnalyzer:
 
     def __init__(
         self,
-        ollama: OllamaLLM,
+        llm: VllmLLM,
         temperature: float = 0.3,
         model: Optional[str] = None,
     ):
@@ -51,11 +51,11 @@ class IntentAnalyzer:
         Initialize intent analyzer.
 
         Args:
-            ollama: OllamaLLM instance for AI inference
+            llm: VllmLLM instance for AI inference
             temperature: LLM temperature for intent analysis (0.0-1.0)
             model: Optional specific model to use for intent analysis.
         """
-        self.ollama = ollama
+        self.llm = llm
         self.temperature = temperature
         self.model = model
         self.prompt_manager = PromptManager()
@@ -88,12 +88,12 @@ class IntentAnalyzer:
 
         try:
             # Invoke LLM
-            llm = self.ollama.get_llm(
+            llm_instance = self.llm.get_llm(
                 complexity=ModelComplexity.SIMPLE,
                 temperature=self.temperature,
                 model=self.model,
             )
-            response = await llm.ainvoke(prompt)
+            response = await llm_instance.ainvoke(prompt)
 
             # Extract JSON from response
             required_keys = ["intent"]  # Minimum required key

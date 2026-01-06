@@ -1,5 +1,5 @@
 """
-SpaCy Intent Analyzer - Fallback inteligente para análisis de intents sin Ollama
+SpaCy Intent Analyzer - Fallback inteligente para análisis de intents sin LLM
 """
 
 import logging
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class SpacyIntentAnalyzer:
     """
-    Analizador de intents usando spaCy como fallback cuando Ollama no está disponible.
+    Analizador de intents usando spaCy como fallback cuando el LLM no está disponible.
 
     Características:
     - Análisis de entidades nombradas (NER)

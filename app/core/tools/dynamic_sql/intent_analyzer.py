@@ -9,7 +9,7 @@ import logging
 import re
 from typing import Any, Dict
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 
@@ -35,14 +35,14 @@ class SQLIntentAnalyzer:
         "payments": ["payments", "pagos", "transactions"],
     }
 
-    def __init__(self, ollama: OllamaLLM | None = None):
+    def __init__(self, llm: VllmLLM | None = None):
         """
         Initialize intent analyzer.
 
         Args:
-            ollama: OllamaLLM instance for AI-powered analysis
+            llm: VllmLLM instance for AI-powered analysis
         """
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
         self.prompt_manager = PromptManager()
 
     async def analyze(self, user_query: str) -> Dict[str, Any]:
@@ -67,7 +67,7 @@ class SQLIntentAnalyzer:
                     "schema_info": "",  # Optional - can be added if needed
                 },
             )
-            response = await self.ollama.generate_response(
+            response = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 temperature=0.1,

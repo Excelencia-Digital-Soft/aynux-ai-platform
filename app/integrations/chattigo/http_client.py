@@ -15,8 +15,10 @@ Per Chattigo ISV Documentation (Section 8.1):
 - 400/403/etc: Fail immediately (client error)
 """
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 import httpx
 from tenacity import (
@@ -62,7 +64,7 @@ class ChattigoHttpClient:
     def __init__(
         self,
         token_provider: Callable[[], Awaitable[str]],
-        token_invalidator: Callable[[], None],
+        token_invalidator: Callable[[], Any],  # May return coroutine or None
         timeout: float = DEFAULT_TIMEOUT,
     ) -> None:
         """
@@ -70,13 +72,28 @@ class ChattigoHttpClient:
 
         Args:
             token_provider: Async callable that returns a valid token
-            token_invalidator: Callable to invalidate current token (on 401)
+            token_invalidator: Callable to invalidate current token (on 401).
+                              May be sync (returns None) or return a coroutine.
             timeout: Request timeout in seconds
         """
         self._get_token = token_provider
-        self._invalidate_token = token_invalidator
+        self._token_invalidator = token_invalidator
         self._timeout = timeout
         self._client: httpx.AsyncClient | None = None
+
+    async def _invalidate_token(self) -> None:
+        """
+        Invalidate the current token.
+
+        Handles both sync and async token invalidators:
+        - If invalidator returns a coroutine, it will be awaited
+        - If invalidator returns None (sync), it completes immediately
+        """
+        if self._token_invalidator:
+            result = self._token_invalidator()
+            # Check if result is a coroutine and await it
+            if asyncio.iscoroutine(result):
+                await result
 
     async def initialize(self) -> None:
         """Initialize persistent HTTP client."""
@@ -189,7 +206,7 @@ class ChattigoHttpClient:
         # 401: Token expired - refresh and retry once (inline)
         if response.status_code == 401:
             logger.warning("Token expired (401), refreshing...")
-            self._invalidate_token()
+            await self._invalidate_token()
             token = await self._get_token()
 
             # Single retry with new token

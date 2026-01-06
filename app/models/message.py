@@ -57,7 +57,7 @@ class WhatsAppMessage(BaseModel):
     from_: str = Field(..., alias="from")
     id: str
     timestamp: str
-    type: Literal["text", "interactive", "image", "document", "location"]
+    type: Literal["text", "interactive", "image", "document", "location", "unsupported"]
     text: Optional[TextMessage] = None
     interactive: Optional[InteractiveContent] = None
 

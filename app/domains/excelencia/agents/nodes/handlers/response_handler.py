@@ -33,17 +33,17 @@ class ResponseGenerationHandler(BaseExcelenciaHandler):
 
     def __init__(
         self,
-        ollama=None,
+        llm=None,
         prompt_manager: "PromptManager | None" = None,
     ):
         """
         Initialize handler with optional PromptManager.
 
         Args:
-            ollama: OllamaLLM instance
+            llm: VllmLLM instance
             prompt_manager: PromptManager for loading prompt templates
         """
-        super().__init__(ollama)
+        super().__init__(llm)
         self._prompt_manager = prompt_manager
 
     @property

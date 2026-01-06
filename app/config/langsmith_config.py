@@ -371,7 +371,7 @@ def trace_langgraph_node(node_name: str):
 
 def trace_integration(integration_name: str):
     """
-    Decorator for tracing integration calls (Ollama, pgvector, PostgreSQL).
+    Decorator for tracing integration calls (vLLM, pgvector, PostgreSQL).
 
     Args:
         integration_name: Name of the integration

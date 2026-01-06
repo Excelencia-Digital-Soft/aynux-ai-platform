@@ -8,7 +8,7 @@ from typing import Any
 
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 class FarewellAgent(BaseAgent):
     """Agente especializado en despedidas y cierre de conversaciones"""
 
-    def __init__(self, ollama=None, postgres=None, config: dict[str, Any] | None = None):
-        super().__init__("farewell_agent", config or {}, ollama=ollama, postgres=postgres)
-        self.ollama = ollama or OllamaLLM()
+    def __init__(self, llm=None, postgres=None, config: dict[str, Any] | None = None):
+        super().__init__("farewell_agent", config or {}, llm=llm, postgres=postgres)
+        self.llm = llm or VllmLLM()
 
         # Initialize PromptManager for YAML-based prompts
         self.prompt_manager = PromptManager()
@@ -88,7 +88,7 @@ class FarewellAgent(BaseAgent):
             )
 
             # Use configured model for user-facing responses
-            llm = self.ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.8)
+            llm = self.llm.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.8)
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:

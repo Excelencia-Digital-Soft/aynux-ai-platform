@@ -14,8 +14,8 @@ from app.core.utils.tracing import trace_async_method
 class PromotionsNode(BaseAgent):
     """E-commerce node specialized in promotions, offers and discounts"""
 
-    def __init__(self, ollama=None, config: dict[str, Any] | None = None):
-        super().__init__("promotions_node", config or {}, ollama=ollama)
+    def __init__(self, llm=None, config: dict[str, Any] | None = None):
+        super().__init__("promotions_node", config or {}, llm=llm)
 
         # Initialize simulated tools
         self.active_tool = ActivePromotionsTool(None)

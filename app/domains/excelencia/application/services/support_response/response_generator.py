@@ -7,7 +7,7 @@ Generates support responses using RAG and LLM.
 import logging
 from typing import Any
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
@@ -25,12 +25,12 @@ class SupportResponseGenerator:
 
     def __init__(
         self,
-        ollama: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
         prompt_manager: PromptManager | None = None,
         knowledge_search: KnowledgeBaseSearch | None = None,
     ):
         """Initialize the response generator."""
-        self._ollama = ollama or OllamaLLM()
+        self._llm = llm or VllmLLM()
         self._pm = prompt_manager or PromptManager()
         self._knowledge = knowledge_search or KnowledgeBaseSearch()
 
@@ -75,14 +75,14 @@ class SupportResponseGenerator:
 
         # Generate response
         try:
-            llm = self._ollama.get_llm(
+            llm = self._llm.get_llm(
                 complexity=ModelComplexity.COMPLEX,
                 temperature=RESPONSE_TEMPERATURE,
             )
             response = await llm.ainvoke(prompt)
 
             content = self._extract_content(response)
-            return OllamaLLM.clean_deepseek_response(content)
+            return VllmLLM.clean_deepseek_response(content)
 
         except Exception as e:
             logger.error(f"Error generating response: {e}")

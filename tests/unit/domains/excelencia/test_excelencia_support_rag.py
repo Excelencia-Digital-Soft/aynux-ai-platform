@@ -54,7 +54,7 @@ class TestExcelenciaTicketConfirmation:
         """Create TicketHandler instance with mocked LLM."""
         with patch("app.domains.excelencia.agents.nodes.handlers.ticket_handler.BaseExcelenciaHandler.__init__", return_value=None):
             handler = TicketHandler.__new__(TicketHandler)
-            handler._ollama = None
+            handler._llm = None
             handler.logger = patch("logging.getLogger").start()()
             return handler
 
@@ -111,7 +111,7 @@ class TestExcelenciaFallbackResponses:
         """Create ResponseGenerationHandler instance with mocked LLM."""
         with patch("app.domains.excelencia.agents.nodes.handlers.response_handler.BaseExcelenciaHandler.__init__", return_value=None):
             handler = ResponseGenerationHandler.__new__(ResponseGenerationHandler)
-            handler._ollama = None
+            handler._llm = None
             handler.logger = patch("logging.getLogger").start()()
             return handler
 

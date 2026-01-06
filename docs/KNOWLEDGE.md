@@ -145,7 +145,7 @@
   No tiene dependencias externas - Es una tabla independiente por diseño.
 
   Depende de servicios:
-  - KnowledgeEmbeddingService - Para generar embeddings con Ollama
+  - KnowledgeEmbeddingService - Para generar embeddings con TEI
   - DocumentExtractor - Para extraer texto de archivos subidos
 
   ---
@@ -296,7 +296,7 @@
   Para que RAG funcione correctamente:
 
   1. Embeddings generados: Todos los documentos deben tener embedding (vector 768D)
-  2. Ollama disponible: Modelo nomic-embed-text para generar embeddings
+  2. TEI disponible: Modelo BAAI/bge-m3 para generar embeddings (1024 dims)
   3. pgvector habilitado: Extensión PostgreSQL con índice HNSW
   4. KNOWLEDGE_BASE_ENABLED=true: Setting de configuración
 

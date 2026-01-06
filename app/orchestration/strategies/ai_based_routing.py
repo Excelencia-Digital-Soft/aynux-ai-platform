@@ -44,7 +44,7 @@ class AIBasedRoutingStrategy:
 
     Example:
         ```python
-        strategy = AIBasedRoutingStrategy(llm=ollama_llm)
+        strategy = AIBasedRoutingStrategy(llm=vllm_llm)
 
         strategy.add_domain(DomainDescription(
             domain="ecommerce",

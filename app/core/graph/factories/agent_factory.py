@@ -16,11 +16,11 @@ Supports DUAL-MODE operation:
 
 Usage:
     # Global mode initialization (no tenant)
-    factory = AgentFactory(ollama, postgres, config)
+    factory = AgentFactory(llm, postgres, config)
     agents = factory.initialize_all_agents()
 
     # Multi-tenant mode initialization (with registry)
-    factory = AgentFactory(ollama, postgres, config, tenant_registry=registry)
+    factory = AgentFactory(llm, postgres, config, tenant_registry=registry)
     agents = factory.initialize_all_agents()
 
     # Apply tenant config per-request (runtime)
@@ -105,7 +105,7 @@ class AgentFactory:
     2. Tenant mode: Uses TenantAgentRegistry for database-driven configuration
 
     Attributes:
-        ollama: Ollama LLM integration
+        llm: VllmLLM integration
         postgres: PostgreSQL connection
         config: Global configuration dictionary
         agents: Dictionary of initialized agent instances
@@ -115,12 +115,12 @@ class AgentFactory:
 
     def __init__(
         self,
-        ollama,
+        llm,
         postgres,
         config: dict[str, Any],
         tenant_registry: TenantAgentRegistry | None = None,
     ):
-        self.ollama = ollama
+        self.llm = llm
         self.postgres = postgres
         self.config = config
         self.agents: dict[str, Any] = {}
@@ -200,10 +200,10 @@ class AgentFactory:
             agent_configs = self.config.get("agents", {})
 
             # Always create orchestrator and supervisor (required for system)
-            self.agents["orchestrator"] = OrchestratorAgent(ollama=self.ollama, config={})
+            self.agents["orchestrator"] = OrchestratorAgent(llm=self.llm, config={})
 
             supervisor_config = self._get_supervisor_config()
-            self.agents["supervisor"] = SupervisorAgent(ollama=self.ollama, config=supervisor_config)
+            self.agents["supervisor"] = SupervisorAgent(llm=self.llm, config=supervisor_config)
 
             logger.info("Core agents (orchestrator, supervisor) initialized")
 
@@ -211,7 +211,7 @@ class AgentFactory:
             # This allows lazy initialization of only enabled agents
             agent_builders = {
                 "greeting_agent": lambda: GreetingAgent(
-                    ollama=self.ollama,
+                    llm=self.llm,
                     postgres=self.postgres,
                     config={
                         "enabled_agents": self.enabled_agents,
@@ -231,46 +231,46 @@ class AgentFactory:
                 # It should be created via DependencyContainer.create_product_agent()
                 "product_agent": lambda: None,  # Placeholder - use DependencyContainer or ecommerce_agent
                 "promotions_agent": lambda: PromotionsAgent(
-                    ollama=self.ollama, config=self._extract_config(agent_configs, "promotions")
+                    llm=self.llm, config=self._extract_config(agent_configs, "promotions")
                 ),
                 "tracking_agent": lambda: TrackingAgent(
-                    ollama=self.ollama, config=self._extract_config(agent_configs, "tracking")
+                    llm=self.llm, config=self._extract_config(agent_configs, "tracking")
                 ),
                 "invoice_agent": lambda: InvoiceAgent(
-                    ollama=self.ollama, config=self._extract_config(agent_configs, "invoice")
+                    llm=self.llm, config=self._extract_config(agent_configs, "invoice")
                 ),
                 # Other domain agents
                 "data_insights_agent": lambda: DataInsightsAgent(
-                    ollama=self.ollama,
+                    llm=self.llm,
                     postgres=self.postgres,
                     config=self._extract_config(agent_configs, "data_insights"),
                 ),
                 "support_agent": lambda: SupportAgent(
-                    ollama=self.ollama, config=self._extract_config(agent_configs, "support")
+                    llm=self.llm, config=self._extract_config(agent_configs, "support")
                 ),
                 "excelencia_agent": lambda: ExcelenciaAgent(
                     config=self._extract_config(agent_configs, "excelencia"),
                 ),
                 # NEW: Excelencia domain agents (independent agents)
                 "excelencia_invoice_agent": lambda: ExcelenciaInvoiceAgent(
-                    ollama=self.ollama,
+                    llm=self.llm,
                     config=self._extract_config(agent_configs, "excelencia_invoice"),
                 ),
                 "excelencia_promotions_agent": lambda: ExcelenciaPromotionsAgent(
-                    ollama=self.ollama,
+                    llm=self.llm,
                     config=self._extract_config(agent_configs, "excelencia_promotions"),
                 ),
                 "excelencia_support_agent": lambda: ExcelenciaSupportAgent(
-                    ollama=self.ollama,
+                    llm=self.llm,
                     config=self._extract_config(agent_configs, "excelencia_support"),
                 ),
                 "fallback_agent": lambda: FallbackAgent(
-                    ollama=self.ollama,
+                    llm=self.llm,
                     postgres=self.postgres,
                     config={"enabled_agents": self.enabled_agents},
                 ),
                 "farewell_agent": lambda: FarewellAgent(
-                    ollama=self.ollama, postgres=self.postgres, config={}
+                    llm=self.llm, postgres=self.postgres, config={}
                 ),
                 # Pharmacy domain agent
                 "pharmacy_operations_agent": lambda: PharmacyOperationsAgent(
@@ -451,7 +451,7 @@ class AgentFactory:
         Example:
             >>> config = AgentConfig(agent_class="app.agents.custom.MyAgent", ...)
             >>> agent_class = factory._load_custom_agent_class(config)
-            >>> agent = agent_class(ollama=self.ollama, config=config.config)
+            >>> agent = agent_class(llm=self.llm, config=config.config)
         """
         if not agent_config.agent_class:
             return None
@@ -503,7 +503,7 @@ class AgentFactory:
         try:
             # Create agent with merged config
             agent_instance = agent_class(
-                ollama=self.ollama,
+                llm=self.llm,
                 postgres=self.postgres,
                 config={
                     **agent_config.config,

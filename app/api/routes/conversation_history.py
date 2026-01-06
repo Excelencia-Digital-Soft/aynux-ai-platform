@@ -158,7 +158,7 @@ async def regenerate_summary(
         SummaryResponse with new summary
     """
     from app.domains.shared.agents.history_agent import HistoryAgent
-    from app.integrations.llm import OllamaLLM
+    from app.integrations.llm import VllmLLM
 
     service = _get_context_service(db)
 
@@ -185,8 +185,8 @@ async def regenerate_summary(
     )
 
     # Initialize history agent for summarization
-    ollama = OllamaLLM()
-    history_agent = HistoryAgent(ollama=ollama)
+    llm = VllmLLM()
+    history_agent = HistoryAgent(llm=llm)
 
     try:
         # Generate new summary

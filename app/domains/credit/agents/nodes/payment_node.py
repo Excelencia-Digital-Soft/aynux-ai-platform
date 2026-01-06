@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 class PaymentNode(BaseAgent):
     """Credit node specialized in payment processing and history."""
 
-    def __init__(self, ollama=None, config: dict[str, Any] | None = None):
-        super().__init__("payment_node", config or {}, ollama=ollama)
+    def __init__(self, llm=None, config: dict[str, Any] | None = None):
+        super().__init__("payment_node", config or {}, llm=llm)
 
     @trace_async_method(
         name="payment_node_process",

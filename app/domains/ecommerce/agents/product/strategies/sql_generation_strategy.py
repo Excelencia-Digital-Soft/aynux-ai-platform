@@ -14,7 +14,7 @@ This strategy is useful for:
 import logging
 from typing import Any
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.domains.ecommerce.agents.tools.product_sql_generator import ProductSQLGenerator
 
 from ..models import SearchResult, UserIntent
@@ -31,12 +31,12 @@ class SQLGenerationSearchStrategy(BaseSearchStrategy):
     - SRP: Focuses solely on SQL-based product search
     - OCP: Extensible through configuration without modification
     - LSP: Fully substitutable with other search strategies
-    - DIP: Depends on ProductSQLGenerator and OllamaIntegration abstractions
+    - DIP: Depends on ProductSQLGenerator and vLLM abstractions
     """
 
     def __init__(
         self,
-        ollama: OllamaLLM,
+        llm: VllmLLM,
         postgres=None,
         config: dict[str, Any] | None = None,
     ):
@@ -44,7 +44,7 @@ class SQLGenerationSearchStrategy(BaseSearchStrategy):
         Initialize SQL generation search strategy.
 
         Args:
-            ollama: OllamaLLM instance for AI-powered SQL generation
+            llm: VllmLLM instance for AI-powered SQL generation
             postgres: PostgreSQL connection (optional, uses default if None)
             config: Strategy configuration including:
                 - enabled: bool (default True) - enable/disable this strategy
@@ -52,9 +52,9 @@ class SQLGenerationSearchStrategy(BaseSearchStrategy):
                 - complexity_threshold: str (default "medium") - min complexity for this strategy
         """
         super().__init__(config or {})
-        self.ollama = ollama
+        self.llm = llm
         self.postgres = postgres
-        self.sql_generator = ProductSQLGenerator(ollama=ollama, postgres=postgres)
+        self.sql_generator = ProductSQLGenerator(llm=llm, postgres=postgres)
 
         # Configuration with defaults
         self.enabled = config.get("enabled", True) if config else True
@@ -204,16 +204,16 @@ class SQLGenerationSearchStrategy(BaseSearchStrategy):
         Check if SQL generation strategy is operational.
 
         Tests:
-        1. Ollama integration is available
+        1. vLLM integration is available
         2. SQL generator can create simple queries
 
         Returns:
             True if strategy is operational
         """
         try:
-            # Test Ollama integration
-            if not self.ollama:
-                self.logger.warning("Ollama integration not available")
+            # Test LLM integration
+            if not self.llm:
+                self.logger.warning("vLLM integration not available")
                 return False
 
             # Quick validation - just check if generator is initialized

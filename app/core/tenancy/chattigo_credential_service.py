@@ -146,7 +146,7 @@ class ChattigoCredentialService:
             username=username,
             password=password,
             login_url=cast(str, creds.login_url),
-            message_url=cast(str, creds.message_url),
+            base_url=cast(str, creds.base_url),
             bot_name=cast(str, creds.bot_name),
             token_refresh_hours=cast(int, creds.token_refresh_hours),
             organization_id=cast(UUID, creds.organization_id),
@@ -203,7 +203,7 @@ class ChattigoCredentialService:
                         username=username,
                         password=password,
                         login_url=cast(str, model.login_url),
-                        message_url=cast(str, model.message_url),
+                        base_url=cast(str, model.base_url),
                         bot_name=cast(str, model.bot_name),
                         token_refresh_hours=cast(int, model.token_refresh_hours),
                         organization_id=cast(UUID, model.organization_id),
@@ -291,8 +291,8 @@ class ChattigoCredentialService:
         # Apply optional overrides
         if request.login_url is not None:
             creds.login_url = request.login_url
-        if request.message_url is not None:
-            creds.message_url = request.message_url
+        if request.base_url is not None:
+            creds.base_url = request.base_url
         if request.bot_name is not None:
             creds.bot_name = request.bot_name
         if request.token_refresh_hours is not None:
@@ -309,7 +309,7 @@ class ChattigoCredentialService:
             username=request.username,  # Return plaintext (not encrypted)
             password=request.password,  # Return plaintext (not encrypted)
             login_url=cast(str, creds.login_url),
-            message_url=cast(str, creds.message_url),
+            base_url=cast(str, creds.base_url),
             bot_name=cast(str, creds.bot_name),
             token_refresh_hours=cast(int, creds.token_refresh_hours),
             organization_id=cast(UUID, creds.organization_id),
@@ -363,8 +363,8 @@ class ChattigoCredentialService:
             creds.name = request.name
         if request.login_url is not None:
             creds.login_url = request.login_url
-        if request.message_url is not None:
-            creds.message_url = request.message_url
+        if request.base_url is not None:
+            creds.base_url = request.base_url
         if request.bot_name is not None:
             creds.bot_name = request.bot_name
         if request.token_refresh_hours is not None:

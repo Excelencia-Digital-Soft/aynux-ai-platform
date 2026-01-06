@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.integrations.llm import ModelComplexity, OllamaLLM
+from app.integrations.llm import ModelComplexity, VllmLLM
 
 
 class BaseExcelenciaHandler:
@@ -23,20 +23,20 @@ class BaseExcelenciaHandler:
     - deepseek-r1 <think> tag removal
     """
 
-    def __init__(self, ollama: OllamaLLM | None = None):
+    def __init__(self, llm: VllmLLM | None = None):
         """
         Initialize base handler.
 
         Args:
-            ollama: OllamaLLM instance (creates one if not provided)
+            llm: VllmLLM instance (creates one if not provided)
         """
-        self._ollama = ollama or OllamaLLM()
+        self._llm = llm or VllmLLM()
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     @property
-    def ollama(self) -> OllamaLLM:
-        """Get OllamaLLM instance."""
-        return self._ollama
+    def llm(self) -> VllmLLM:
+        """Get VllmLLM instance."""
+        return self._llm
 
     def get_llm(self, complexity: ModelComplexity, temperature: float = 0.7):
         """
@@ -49,7 +49,7 @@ class BaseExcelenciaHandler:
         Returns:
             Configured LLM instance
         """
-        return self._ollama.get_llm(complexity=complexity, temperature=temperature)
+        return self._llm.get_llm(complexity=complexity, temperature=temperature)
 
     def extract_response_content(self, response: Any) -> str:
         """
@@ -75,4 +75,4 @@ class BaseExcelenciaHandler:
             result = str(response).strip()
 
         # Clean deepseek-r1 <think> tags
-        return OllamaLLM.clean_deepseek_response(result)
+        return VllmLLM.clean_deepseek_response(result)

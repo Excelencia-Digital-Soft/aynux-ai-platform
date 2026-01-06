@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 class TrackingNode(BaseAgent):
     """E-commerce node specialized in order tracking and shipping status"""
 
-    def __init__(self, ollama=None, config: dict[str, Any] | None = None):
-        super().__init__("tracking_node", config or {}, ollama=ollama)
+    def __init__(self, llm=None, config: dict[str, Any] | None = None):
+        super().__init__("tracking_node", config or {}, llm=llm)
 
         # Initialize simulated tools
         self.order_tool = OrderLookupTool(None)

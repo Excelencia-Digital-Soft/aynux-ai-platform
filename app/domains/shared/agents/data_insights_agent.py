@@ -24,7 +24,7 @@ from app.domains.excelencia.application.services.support_response import (
     RagQueryLogger,
     SearchMetrics,
 )
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
@@ -45,8 +45,8 @@ class DataInsightsAgent(BaseAgent):
     - Respuestas inteligentes basadas en datos reales
     """
 
-    def __init__(self, ollama=None, postgres=None, config: dict[str, Any] | None = None):
-        super().__init__("data_insights_agent", config or {}, ollama=ollama, postgres=postgres)
+    def __init__(self, llm=None, postgres=None, config: dict[str, Any] | None = None):
+        super().__init__("data_insights_agent", config or {}, llm=llm, postgres=postgres)
 
         # Configuracion especifica del agente
         self.max_query_results = self.config.get("max_query_results", 100)
@@ -55,8 +55,8 @@ class DataInsightsAgent(BaseAgent):
         self.include_embeddings = self.config.get("include_embeddings", True)
 
         # Inicializar herramientas
-        self.ollama = ollama or OllamaLLM()
-        self.sql_tool = DynamicSQLTool(self.ollama)
+        self.llm = llm or VllmLLM()
+        self.sql_tool = DynamicSQLTool(self.llm)
 
         # Initialize PromptManager for YAML-based prompts
         self.prompt_manager = PromptManager()
@@ -191,7 +191,7 @@ class DataInsightsAgent(BaseAgent):
                 PromptRegistry.AGENTS_DATA_INSIGHTS_SYSTEM_CLASSIFIER,
             )
 
-            response = await self.ollama.generate_response(
+            response = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=analysis_prompt,
                 complexity=ModelComplexity.SIMPLE,
@@ -322,7 +322,7 @@ class DataInsightsAgent(BaseAgent):
                 PromptRegistry.AGENTS_DATA_INSIGHTS_SYSTEM_ANALYST,
             )
 
-            response = await self.ollama.generate_response(
+            response = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=response_prompt,
                 complexity=ModelComplexity.COMPLEX,
@@ -351,7 +351,7 @@ class DataInsightsAgent(BaseAgent):
                 PromptRegistry.AGENTS_DATA_INSIGHTS_SYSTEM_NO_RESULTS,
             )
 
-            response = await self.ollama.generate_response(
+            response = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=no_results_prompt,
                 complexity=ModelComplexity.SIMPLE,
@@ -381,7 +381,7 @@ class DataInsightsAgent(BaseAgent):
                 PromptRegistry.AGENTS_DATA_INSIGHTS_SYSTEM_ERROR_HANDLER,
             )
 
-            response = await self.ollama.generate_response(
+            response = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=error_prompt,
                 complexity=ModelComplexity.SIMPLE,

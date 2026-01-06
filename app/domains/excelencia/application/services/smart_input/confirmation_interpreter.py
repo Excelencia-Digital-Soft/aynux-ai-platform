@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts import PromptRegistry
 
 from .base import BaseInterpreter, InterpretationResult
@@ -33,7 +33,7 @@ class ConfirmationInterpreter(BaseInterpreter):
     async def interpret(
         self,
         message: str,
-        llm: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
         prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """
@@ -92,7 +92,7 @@ class ConfirmationInterpreter(BaseInterpreter):
     async def _llm_interpret(
         self,
         message: str,
-        llm: OllamaLLM,
+        llm: VllmLLM,
         prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """LLM fallback for confirmation interpretation."""

@@ -5,6 +5,8 @@ Provides mock objects and sample data for testing:
 - LLMResponseAnalyzer
 - ResponseQualityEvaluator integration
 - SupervisorAgent integration
+
+Uses vLLM as the LLM backend.
 """
 
 import json
@@ -16,27 +18,27 @@ import pytest
 
 
 # ============================================================================
-# OLLAMA / LLM FIXTURES
+# LLM FIXTURES
 # ============================================================================
 
 
 @pytest.fixture
-def mock_ollama_with_llm():
+def mock_llm_with_llm():
     """
-    Create a mock Ollama instance that returns a mock LLM.
+    Create a mock VllmLLM instance that returns a mock LLM.
 
     Returns:
-        Tuple of (mock_ollama, mock_llm) for configuring LLM responses
+        Tuple of (mock_llm_provider, mock_llm) for configuring LLM responses
     """
-    mock_ollama = MagicMock()
+    mock_llm_provider = MagicMock()
     mock_llm = AsyncMock()
-    mock_ollama.get_llm.return_value = mock_llm
-    return mock_ollama, mock_llm
+    mock_llm_provider.get_llm.return_value = mock_llm
+    return mock_llm_provider, mock_llm
 
 
 @pytest.fixture
-def mock_ollama_disabled():
-    """Return None to simulate disabled Ollama."""
+def mock_llm_disabled():
+    """Return None to simulate disabled LLM."""
     return None
 
 

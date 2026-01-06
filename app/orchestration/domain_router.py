@@ -57,7 +57,7 @@ class DomainRouter:
     Example:
         ```python
         router = DomainRouter(
-            llm=ollama_llm,
+            llm=vllm_llm,
             strategy="hybrid",
             default_domain="excelencia",
         )

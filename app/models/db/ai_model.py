@@ -34,7 +34,6 @@ class ModelProvider(str, Enum):
     """Supported AI model providers."""
 
     VLLM = "vllm"  # Local vLLM server (OpenAI-compatible)
-    OLLAMA = "ollama"  # Legacy - kept for backward compatibility
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     DEEPSEEK = "deepseek"
@@ -274,47 +273,3 @@ class AIModel(Base, TimestampMixin):
             "max_tokens": self.max_output_tokens,
             "is_default": self.is_default,
         }
-
-    @classmethod
-    def from_ollama_model(cls, ollama_data: dict) -> "AIModel":
-        """
-        Factory method to create AIModel from Ollama /api/tags response.
-
-        Args:
-            ollama_data: Single model entry from Ollama /api/tags response
-
-        Returns:
-            New AIModel instance (not saved to DB)
-        """
-        name = ollama_data.get("name", "")
-        details = ollama_data.get("details", {})
-        family = details.get("family", "")
-
-        # Classify model type
-        model_type = "embedding" if (
-            "bert" in family.lower() or "embed" in name.lower()
-        ) else "llm"
-
-        # Generate display name: "llama3.2:3b" -> "Llama 3.2 (3B)"
-        base_name = name.split(":")[0]
-        size = details.get("parameter_size", "")
-        display_name = base_name.replace("-", " ").replace(".", " ").title()
-        if size:
-            display_name += f" ({size})"
-
-        return cls(
-            model_id=name,
-            provider="ollama",
-            model_type=model_type,
-            display_name=display_name,
-            family=family,
-            parameter_size=size,
-            quantization_level=details.get("quantization_level"),
-            supports_streaming=True,
-            is_enabled=False,  # New models disabled by default
-            sync_source="ollama_sync",
-            last_synced_at=datetime.now(UTC),
-            capabilities={
-                "families": details.get("families", []),
-            },
-        )

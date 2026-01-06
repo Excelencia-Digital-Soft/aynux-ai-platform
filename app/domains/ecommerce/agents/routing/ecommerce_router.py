@@ -9,7 +9,7 @@ import logging
 from enum import Enum
 from typing import Any
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 from app.utils import extract_json_from_text
@@ -107,22 +107,22 @@ class EcommerceIntentRouter:
     """
     LLM-based router for e-commerce domain intents.
 
-    Uses Ollama to intelligently classify user messages into
+    Uses VllmLLM to intelligently classify user messages into
     e-commerce sub-intents (product_search, promotions, order_tracking, billing).
     """
 
-    def __init__(self, ollama: OllamaLLM, config: dict[str, Any] | None = None):
+    def __init__(self, llm: VllmLLM, config: dict[str, Any] | None = None):
         """
         Initialize the e-commerce intent router.
 
         Args:
-            ollama: OllamaLLM instance for LLM calls
+            llm: VllmLLM instance for LLM calls
             config: Optional configuration dict with:
                 - confidence_threshold: Minimum confidence (default 0.6)
                 - default_intent: Fallback intent (default product_search)
                 - temperature: LLM temperature (default 0.3)
         """
-        self.ollama = ollama
+        self.llm = llm
         self.config = config or {}
         self.prompt_manager = PromptManager()
 
@@ -196,7 +196,7 @@ class EcommerceIntentRouter:
         )
 
         try:
-            response_text = await self.ollama.generate_response(
+            response_text = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 temperature=self.temperature,

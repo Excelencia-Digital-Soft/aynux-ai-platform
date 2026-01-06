@@ -72,7 +72,7 @@ class GetAgentConfigUseCase:
                 "modules": _FALLBACK_MODULES,
                 "query_types": IntentAnalysisHandler.QUERY_TYPES,
                 "settings": {
-                    "model": getattr(settings, "OLLAMA_API_MODEL_COMPLEX", "gemma2"),
+                    "model": getattr(settings, "VLLM_MODEL", "qwen-3b"),
                     "temperature": 0.7,
                     "max_response_length": 500,
                     "use_rag": temp_agent.use_rag,

@@ -2,7 +2,7 @@
 Unit tests for LLMResponseAnalyzer.
 
 Tests cover:
-1. Guards and early returns (disabled, no ollama, high heuristic)
+1. Guards and early returns (disabled, no llm, high heuristic)
 2. JSON parsing (valid, malformed, with think tags)
 3. Enum mapping (quality, action, hallucination risk)
 4. Hallucination detection (by type, with RAG context, Excelencia-specific)
@@ -39,11 +39,11 @@ class TestLLMResponseAnalyzerGuards:
 
     @pytest.mark.asyncio
     async def test_analyzer_disabled_returns_fallback(
-        self, mock_ollama_with_llm, analyzer_config_disabled
+        self, mock_llm_with_llm, analyzer_config_disabled
     ):
         """When analyzer is disabled, should return AnalyzerFallbackResult."""
-        mock_ollama, _ = mock_ollama_with_llm
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_disabled)
+        mock_llm, _ = mock_llm_with_llm
+        analyzer = LLMResponseAnalyzer(llm=mock_llm, config=analyzer_config_disabled)
 
         result = await analyzer.analyze(
             user_message="Test question",
@@ -59,9 +59,9 @@ class TestLLMResponseAnalyzerGuards:
         assert result.heuristic_score == 0.7
 
     @pytest.mark.asyncio
-    async def test_no_ollama_instance_returns_fallback(self, analyzer_config_enabled):
-        """When ollama is None, should return AnalyzerFallbackResult."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config=analyzer_config_enabled)
+    async def test_no_llm_instance_returns_fallback(self, analyzer_config_enabled):
+        """When llm is None, should return AnalyzerFallbackResult."""
+        analyzer = LLMResponseAnalyzer(llm=None, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test question",
@@ -77,11 +77,11 @@ class TestLLMResponseAnalyzerGuards:
 
     @pytest.mark.asyncio
     async def test_skip_llm_high_heuristic_score(
-        self, mock_ollama_with_llm, analyzer_config_enabled
+        self, mock_llm_with_llm, analyzer_config_enabled
     ):
         """When heuristic score >= 0.90 (default threshold), should skip LLM."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        mock_llm_provider, mock_llm = mock_llm_with_llm
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test question",
@@ -103,11 +103,11 @@ class TestLLMResponseAnalyzerGuards:
 
     @pytest.mark.asyncio
     async def test_skip_llm_exact_threshold(
-        self, mock_ollama_with_llm, analyzer_config_enabled
+        self, mock_llm_with_llm, analyzer_config_enabled
     ):
         """When heuristic score == 0.90 (threshold), should skip LLM."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        mock_llm_provider, mock_llm = mock_llm_with_llm
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -124,16 +124,16 @@ class TestLLMResponseAnalyzerGuards:
     @pytest.mark.asyncio
     async def test_calls_llm_below_threshold(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_json_good,
         sample_conversation_context_with_rag,
     ):
         """When heuristic score < 0.90 (threshold), should call LLM."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_json_good)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test question",
@@ -148,11 +148,11 @@ class TestLLMResponseAnalyzerGuards:
 
     @pytest.mark.asyncio
     async def test_custom_skip_threshold(
-        self, mock_ollama_with_llm, analyzer_config_custom_threshold
+        self, mock_llm_with_llm, analyzer_config_custom_threshold
     ):
         """Custom threshold (0.95) should be respected."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_custom_threshold)
+        mock_llm_provider, mock_llm = mock_llm_with_llm
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_custom_threshold)
 
         # Score 0.96 should skip with 0.95 threshold
         result = await analyzer.analyze(
@@ -178,16 +178,16 @@ class TestLLMResponseAnalyzerParsing:
     @pytest.mark.asyncio
     async def test_parse_valid_json_excellent(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_json_excellent,
         sample_conversation_context_with_rag,
     ):
         """Should correctly parse valid JSON with excellent quality."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_json_excellent)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -208,16 +208,16 @@ class TestLLMResponseAnalyzerParsing:
     @pytest.mark.asyncio
     async def test_parse_valid_json_good(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_json_good,
         sample_conversation_context_with_rag,
     ):
         """Should correctly parse valid JSON with good quality."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_json_good)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -234,16 +234,16 @@ class TestLLMResponseAnalyzerParsing:
     @pytest.mark.asyncio
     async def test_parse_valid_json_partial(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_json_partial,
         sample_conversation_context_with_rag,
     ):
         """Should correctly parse valid JSON with partial quality."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_json_partial)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -260,16 +260,16 @@ class TestLLMResponseAnalyzerParsing:
     @pytest.mark.asyncio
     async def test_parse_json_with_think_tags(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_json_with_think_tags,
         sample_conversation_context_with_rag,
     ):
         """Should clean <think> tags and parse JSON correctly."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_json_with_think_tags)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -287,16 +287,16 @@ class TestLLMResponseAnalyzerParsing:
     @pytest.mark.asyncio
     async def test_parse_malformed_json_fallback_to_text(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_malformed_json,
         sample_conversation_context_with_rag,
     ):
         """Should fallback to text parsing when JSON is malformed."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_malformed_json)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -314,15 +314,15 @@ class TestLLMResponseAnalyzerParsing:
     @pytest.mark.asyncio
     async def test_parse_empty_response(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """Should handle empty response gracefully."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content="")
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -338,16 +338,16 @@ class TestLLMResponseAnalyzerParsing:
     @pytest.mark.asyncio
     async def test_parse_json_missing_fields_uses_defaults(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """Should use Pydantic defaults for missing fields."""
         minimal_json = json.dumps({"quality": "good", "overall_score": 0.75})
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=minimal_json)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -367,7 +367,7 @@ class TestLLMResponseAnalyzerParsing:
     @pytest.mark.asyncio
     async def test_parse_simplified_json_format_v2(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
@@ -384,10 +384,10 @@ class TestLLMResponseAnalyzerParsing:
             "hallucination_risk": "medium",  # Top level instead of nested
             "reasoning": "Response does not directly answer the question"
         })
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=simplified_json)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Who is the CEO?",
@@ -417,13 +417,13 @@ class TestLLMResponseAnalyzerEnumMapping:
     @pytest.mark.asyncio
     async def test_quality_mapping_all_values(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """Should correctly map all quality strings to enums."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        mock_llm_provider, mock_llm = mock_llm_with_llm
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         quality_map = {
             "excellent": ResponseQuality.EXCELLENT,
@@ -450,16 +450,16 @@ class TestLLMResponseAnalyzerEnumMapping:
     @pytest.mark.asyncio
     async def test_quality_mapping_unknown_defaults_to_good(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """Unknown quality string should default to GOOD."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         json_response = json.dumps({"quality": "unknown_value", "overall_score": 0.5})
         mock_llm.ainvoke.return_value = Mock(content=json_response)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -474,13 +474,13 @@ class TestLLMResponseAnalyzerEnumMapping:
     @pytest.mark.asyncio
     async def test_action_mapping_reroute_variants(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """Both 're_route' and 'reroute' should map to REROUTE."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        mock_llm_provider, mock_llm = mock_llm_with_llm
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         for action_str in ["reroute", "re_route"]:
             json_response = json.dumps({
@@ -503,13 +503,13 @@ class TestLLMResponseAnalyzerEnumMapping:
     @pytest.mark.asyncio
     async def test_hallucination_risk_mapping_all_values(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """Should correctly map all hallucination risk strings."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        mock_llm_provider, mock_llm = mock_llm_with_llm
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         risk_map = {
             "none": HallucinationRisk.NONE,
@@ -548,16 +548,16 @@ class TestLLMResponseAnalyzerHallucination:
     @pytest.mark.asyncio
     async def test_hallucination_none_fully_grounded(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_json_hallucination_none,
         sample_conversation_context_with_rag,
     ):
         """Fully grounded response should have NONE hallucination risk."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_json_hallucination_none)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="¿Qué incluye el módulo de Inventario?",
@@ -575,16 +575,16 @@ class TestLLMResponseAnalyzerHallucination:
     @pytest.mark.asyncio
     async def test_hallucination_high_invented_info(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_json_hallucination_high,
         sample_conversation_context_with_rag,
     ):
         """Response with invented info should have HIGH hallucination risk."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_json_hallucination_high)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="¿Cuánto cuesta el módulo?",
@@ -601,16 +601,16 @@ class TestLLMResponseAnalyzerHallucination:
     @pytest.mark.asyncio
     async def test_hallucination_medium_some_ungrounded(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_json_hallucination_medium,
         sample_conversation_context_with_rag,
     ):
         """Response with some ungrounded claims should have MEDIUM risk."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_json_hallucination_medium)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="¿Cuánto tiempo toma la entrega?",
@@ -626,7 +626,7 @@ class TestLLMResponseAnalyzerHallucination:
     @pytest.mark.asyncio
     async def test_hallucination_invented_prices(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
@@ -642,10 +642,10 @@ class TestLLMResponseAnalyzerHallucination:
                 "confidence": 0.9
             }
         })
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=json_response)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="¿Cuánto cuesta?",
@@ -661,7 +661,7 @@ class TestLLMResponseAnalyzerHallucination:
     @pytest.mark.asyncio
     async def test_hallucination_invented_features(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
@@ -680,10 +680,10 @@ class TestLLMResponseAnalyzerHallucination:
                 "confidence": 0.88
             }
         })
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=json_response)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="¿Qué integraciones tiene?",
@@ -699,7 +699,7 @@ class TestLLMResponseAnalyzerHallucination:
     @pytest.mark.asyncio
     async def test_hallucination_rag_empty_detailed_response(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_empty,
     ):
@@ -717,10 +717,10 @@ class TestLLMResponseAnalyzerHallucination:
                 "confidence": 0.85
             }
         })
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=json_response)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="¿Detalles del producto?",
@@ -735,7 +735,7 @@ class TestLLMResponseAnalyzerHallucination:
     @pytest.mark.asyncio
     async def test_hallucination_claims_extraction(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
@@ -757,10 +757,10 @@ class TestLLMResponseAnalyzerHallucination:
                 "confidence": 0.75
             }
         })
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=json_response)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Info del sistema",
@@ -787,15 +787,15 @@ class TestLLMResponseAnalyzerErrorHandling:
     @pytest.mark.asyncio
     async def test_llm_exception_returns_fallback(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """LLM exception should return AnalyzerFallbackResult."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.side_effect = Exception("LLM connection failed")
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -813,17 +813,17 @@ class TestLLMResponseAnalyzerErrorHandling:
     @pytest.mark.asyncio
     async def test_llm_timeout_returns_fallback(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """Timeout from asyncio.wait_for should return AnalyzerFallbackResult with timeout reason."""
         import asyncio
 
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.side_effect = asyncio.TimeoutError("Request timed out")
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -842,18 +842,18 @@ class TestLLMResponseAnalyzerErrorHandling:
     @pytest.mark.asyncio
     async def test_llm_timeout_custom_timeout_value(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         sample_conversation_context_with_rag,
     ):
         """Should use custom timeout value from config."""
         import asyncio
 
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.side_effect = asyncio.TimeoutError("Timeout")
 
         # Use custom timeout of 5 seconds
         analyzer = LLMResponseAnalyzer(
-            ollama=mock_ollama,
+            llm=mock_llm_provider,
             config={"enable_llm_analysis": True, "llm_timeout": 5}
         )
 
@@ -872,7 +872,7 @@ class TestLLMResponseAnalyzerErrorHandling:
     @pytest.mark.asyncio
     async def test_llm_returns_none_content(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
@@ -882,10 +882,10 @@ class TestLLMResponseAnalyzerErrorHandling:
         FIX APPLIED: _clean_think_tags now returns empty string for None,
         and _parse_text_response handles empty text gracefully.
         """
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=None)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -903,15 +903,15 @@ class TestLLMResponseAnalyzerErrorHandling:
     @pytest.mark.asyncio
     async def test_llm_returns_none_response(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """LLM returning None should be handled."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = None
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -927,14 +927,14 @@ class TestLLMResponseAnalyzerErrorHandling:
     @pytest.mark.asyncio
     async def test_heuristic_score_none_uses_default(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
     ):
         """When heuristic_score is None, should use default."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.side_effect = Exception("Error")
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -959,16 +959,16 @@ class TestLLMResponseAnalyzerTextParsing:
     @pytest.mark.asyncio
     async def test_text_parse_excellent_keywords(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_text_excellent,
         sample_conversation_context_with_rag,
     ):
         """Should detect excellent quality from text keywords."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_text_excellent)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -984,16 +984,16 @@ class TestLLMResponseAnalyzerTextParsing:
     @pytest.mark.asyncio
     async def test_text_parse_reroute_keywords(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_text_reroute,
         sample_conversation_context_with_rag,
     ):
         """Should detect reroute action from text keywords."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_text_reroute)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -1008,16 +1008,16 @@ class TestLLMResponseAnalyzerTextParsing:
     @pytest.mark.asyncio
     async def test_text_parse_escalate_keywords(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_text_escalate,
         sample_conversation_context_with_rag,
     ):
         """Should detect escalate action from text keywords."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_text_escalate)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -1032,16 +1032,16 @@ class TestLLMResponseAnalyzerTextParsing:
     @pytest.mark.asyncio
     async def test_text_parse_hallucination_keywords(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_llm_text_hallucination,
         sample_conversation_context_with_rag,
     ):
         """Should detect high hallucination from text keywords."""
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=sample_llm_text_hallucination)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -1056,16 +1056,16 @@ class TestLLMResponseAnalyzerTextParsing:
     @pytest.mark.asyncio
     async def test_text_parse_good_keywords(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
         """Should detect good quality from text keywords."""
         text = "The response is mostly adequate and satisfactory for the user's needs."
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=text)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -1081,7 +1081,7 @@ class TestLLMResponseAnalyzerTextParsing:
     @pytest.mark.asyncio
     async def test_text_parse_partial_keywords(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
@@ -1093,10 +1093,10 @@ class TestLLMResponseAnalyzerTextParsing:
         """
         # After fix: "incomplete" should correctly match PARTIAL
         text = "The response is partial and incomplete, missing key information."
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=text)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -1112,7 +1112,7 @@ class TestLLMResponseAnalyzerTextParsing:
     @pytest.mark.asyncio
     async def test_text_parse_insufficient_keywords(
         self,
-        mock_ollama_with_llm,
+        mock_llm_with_llm,
         analyzer_config_enabled,
         sample_conversation_context_with_rag,
     ):
@@ -1124,10 +1124,10 @@ class TestLLMResponseAnalyzerTextParsing:
         """
         # After fix: "inadequate" should correctly match INSUFFICIENT
         text = "The response is insufficient and inadequate. It fails to address the question."
-        mock_ollama, mock_llm = mock_ollama_with_llm
+        mock_llm_provider, mock_llm = mock_llm_with_llm
         mock_llm.ainvoke.return_value = Mock(content=text)
 
-        analyzer = LLMResponseAnalyzer(ollama=mock_ollama, config=analyzer_config_enabled)
+        analyzer = LLMResponseAnalyzer(llm=mock_llm_provider, config=analyzer_config_enabled)
 
         result = await analyzer.analyze(
             user_message="Test",
@@ -1151,7 +1151,7 @@ class TestLLMResponseAnalyzerConversationSummary:
 
     def test_summary_empty_messages(self):
         """Empty messages should return beginning of conversation message."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         summary = analyzer._build_conversation_summary([])
         assert "beginning" in summary.lower()
 
@@ -1162,7 +1162,7 @@ class TestLLMResponseAnalyzerConversationSummary:
         Implementation note: len(messages) <= 2 returns "beginning of conversation"
         because it excludes the last message (being evaluated), leaving only 1 message.
         """
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         # With 2 messages, after excluding last one, only 1 remains = beginning
         messages_2 = [
             {"role": "user", "content": "Question 1"},
@@ -1182,7 +1182,7 @@ class TestLLMResponseAnalyzerConversationSummary:
 
     def test_summary_many_messages_truncated(self):
         """Many messages should be truncated to last 6."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         messages = []
         for i in range(10):
             messages.append({"role": "user", "content": f"Question {i}"})
@@ -1195,7 +1195,7 @@ class TestLLMResponseAnalyzerConversationSummary:
 
     def test_summary_long_content_truncated(self):
         """Long message content should be truncated to 150 chars."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         # Need 3+ messages to get actual summary (not "beginning of conversation")
         long_content = "A" * 200  # 200 chars
         messages = [
@@ -1377,7 +1377,7 @@ class TestCleanThinkTags:
 
     def test_clean_single_think_block(self):
         """Should remove single <think> block."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         text = "<think>Internal reasoning here</think>Actual response"
         cleaned = analyzer._clean_think_tags(text)
         assert "<think>" not in cleaned
@@ -1386,7 +1386,7 @@ class TestCleanThinkTags:
 
     def test_clean_multiple_think_blocks(self):
         """Should remove multiple <think> blocks."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         text = "<think>First</think>Middle<think>Second</think>End"
         cleaned = analyzer._clean_think_tags(text)
         assert "<think>" not in cleaned
@@ -1394,7 +1394,7 @@ class TestCleanThinkTags:
 
     def test_clean_multiline_think_block(self):
         """Should remove multiline <think> block."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         text = """<think>
         Line 1
         Line 2
@@ -1407,20 +1407,20 @@ class TestCleanThinkTags:
 
     def test_clean_no_think_tags(self):
         """Should return unchanged if no <think> tags."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         text = '{"quality": "good"}'
         cleaned = analyzer._clean_think_tags(text)
         assert cleaned == text
 
     def test_clean_empty_string(self):
         """Should handle empty string."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         cleaned = analyzer._clean_think_tags("")
         assert cleaned == ""
 
     def test_clean_none_input(self):
         """Should handle None input by returning empty string."""
-        analyzer = LLMResponseAnalyzer(ollama=None, config={"enable_llm_analysis": False})
+        analyzer = LLMResponseAnalyzer(llm=None, config={"enable_llm_analysis": False})
         cleaned = analyzer._clean_think_tags(None)
         # After fix: Returns empty string instead of None to prevent downstream errors
         assert cleaned == ""
