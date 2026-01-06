@@ -130,5 +130,12 @@ class LangGraphState(TypedDict):
     # RAG metrics for frontend visualization
     rag_metrics: Optional[Dict[str, Any]]  # {used, query, results_count, duration_ms, sources}
 
+    # PHARMACY DOMAIN: Customer identification state (must persist across messages)
+    customer_identified: Optional[bool]
+    plex_customer_id: Optional[str]
+    plex_customer: Optional[Dict[str, Any]]
+    whatsapp_phone: Optional[str]
+    customer_name: Optional[str]
+
 
 GraphState = LangGraphState

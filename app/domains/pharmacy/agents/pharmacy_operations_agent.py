@@ -74,6 +74,11 @@ class PharmacyOperationsAgent(BaseAgent):
                 "customer_name": state_dict.get("customer_name"),
                 "conversation_id": state_dict.get("conversation_id"),
                 "is_bypass_route": state_dict.get("is_bypass_route", False),
+                # Customer identification state (CRITICAL for persistence)
+                "customer_identified": state_dict.get("customer_identified", False),
+                "plex_customer_id": state_dict.get("plex_customer_id"),
+                "plex_customer": state_dict.get("plex_customer"),
+                "whatsapp_phone": state_dict.get("whatsapp_phone"),
                 # Carry over workflow state
                 "debt_id": state_dict.get("debt_id"),
                 "debt_data": state_dict.get("debt_data"),
