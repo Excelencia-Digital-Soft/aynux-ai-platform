@@ -80,7 +80,7 @@ class BypassRoutingService:
             BypassMatch if a rule matches, None otherwise
         """
         try:
-            logger.debug(
+            logger.info(
                 f"[BYPASS] Evaluating rules with wa_id={wa_id}, "
                 f"whatsapp_phone_number_id={whatsapp_phone_number_id}"
             )
