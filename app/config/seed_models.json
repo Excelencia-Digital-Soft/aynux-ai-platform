@@ -1,6 +1,24 @@
 {
   "models": [
     {
+      "model_id": "qwen-3b",
+      "provider": "vllm",
+      "model_type": "llm",
+      "display_name": "Qwen 2.5 3B",
+      "description": "Internal vLLM model - Qwen2.5-3B-Instruct-AWQ for general tasks",
+      "family": "qwen",
+      "parameter_size": "3B",
+      "quantization_level": "AWQ",
+      "context_window": 32768,
+      "max_output_tokens": 4096,
+      "supports_streaming": true,
+      "supports_functions": true,
+      "supports_vision": false,
+      "is_enabled": true,
+      "is_default": true,
+      "sort_order": 1
+    },
+    {
       "model_id": "gpt-4o",
       "provider": "openai",
       "model_type": "llm",

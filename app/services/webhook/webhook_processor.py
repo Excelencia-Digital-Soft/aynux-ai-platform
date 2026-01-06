@@ -196,6 +196,12 @@ class WebhookProcessor:
         raw_json = task.raw_json
         payload = ChattigoWebhookPayload(**raw_json)
 
+        # Diagnostic log to verify DID vs client number
+        logger.info(
+            f"[WEBHOOK_DEBUG] Chattigo payload - did={payload.did}, "
+            f"msisdn={payload.msisdn}, content={payload.content[:50] if payload.content else 'empty'}"
+        )
+
         # Skip empty content (status updates)
         if not payload.content and not payload.is_attachment():
             logger.debug("Skipping Chattigo status update in background")
