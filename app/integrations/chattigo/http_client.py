@@ -123,8 +123,9 @@ class ChattigoHttpClient:
 
     def _get_headers(self, token: str) -> dict[str, str]:
         """Get request headers with authorization."""
+        # Chattigo uses raw JWT token without "Bearer" prefix
         return {
-            "Authorization": f"Bearer {token}",
+            "Authorization": token,
             "Content-Type": "application/json",
         }
 
