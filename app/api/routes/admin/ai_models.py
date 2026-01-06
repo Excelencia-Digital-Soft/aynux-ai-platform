@@ -1,8 +1,8 @@
 # ============================================================================
 # SCOPE: GLOBAL
 # Description: Admin API para gestionar modelos de IA disponibles. Permite
-#              sincronizar desde Ollama, habilitar/deshabilitar modelos,
-#              y configurar qué modelos ven los usuarios.
+#              habilitar/deshabilitar modelos y configurar qué modelos ven
+#              los usuarios. Soporta vLLM (local) y proveedores externos.
 # Tenant-Aware: No - modelos son globales, visibilidad controlada por is_enabled.
 # ============================================================================
 """
@@ -10,10 +10,10 @@ AI Models Admin API - Manage available AI models.
 
 Provides endpoints for:
 - Listing all AI models with filtering
-- Syncing models from Ollama
-- Seeding external provider models
+- Seeding external provider models (OpenAI, Anthropic, DeepSeek)
 - Toggling model visibility
 - Updating model metadata
+- Bulk operations (enable, disable, sort order)
 """
 
 from typing import Literal
@@ -24,10 +24,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.async_db import get_async_db
-from app.services.ai_model_service import (
-    AIModelService,
-    OllamaSyncError,
-)
+from app.services.ai_model_service import AIModelService
 
 router = APIRouter(tags=["AI Models"])
 
@@ -41,7 +38,7 @@ class AIModelCreate(BaseModel):
     """Schema for creating an AI model."""
 
     model_id: str = Field(..., min_length=1, max_length=255)
-    provider: Literal["ollama", "openai", "anthropic", "deepseek", "kimi", "groq"]
+    provider: Literal["vllm", "openai", "anthropic", "deepseek", "kimi", "groq"]
     model_type: Literal["llm", "embedding"] = "llm"
     display_name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
@@ -312,56 +309,23 @@ async def toggle_model_enabled(
     return AIModelResponse(**model.to_dict())
 
 
-@router.post("/sync/ollama", response_model=SyncResult)
-async def sync_ollama_models(
-    db: AsyncSession = Depends(get_async_db),
-):
-    """
-    Sync models from Ollama /api/tags endpoint.
-
-    Fetches available models from Ollama and updates the database:
-    - Adds new models (disabled by default)
-    - Updates existing model metadata
-    """
-    service = AIModelService.with_session(db)
-
-    try:
-        result = await service.sync_from_ollama()
-        return SyncResult(**result)
-    except OllamaSyncError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(e),
-        ) from e
-
-
-@router.post("/sync/ollama/capabilities", response_model=CapabilityRefreshResult)
-async def refresh_ollama_capabilities(
+@router.post("/refresh-capabilities", response_model=CapabilityRefreshResult)
+async def refresh_model_capabilities(
     model_ids: list[str] | None = Query(
         None,
-        description="Specific model IDs to refresh. If omitted, refreshes all Ollama models.",
+        description="Specific model IDs to refresh. If omitted, refreshes all models.",
     ),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
-    Refresh capability detection for Ollama models.
+    Refresh capability detection for AI models.
 
-    Re-queries Ollama /api/show endpoint to detect vision and function calling
+    Uses pattern matching to detect vision and function calling
     support for each model. Updates the database with detected capabilities.
-
-    This is useful for updating capabilities without a full re-sync, or when
-    Ollama has been updated with new model versions.
     """
     service = AIModelService.with_session(db)
-
-    try:
-        result = await service.refresh_capabilities(model_ids=model_ids)
-        return CapabilityRefreshResult(**result)
-    except OllamaSyncError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(e),
-        ) from e
+    result = await service.refresh_capabilities(model_ids=model_ids)
+    return CapabilityRefreshResult(**result)
 
 
 @router.post("/seed/external", response_model=SeedResult)

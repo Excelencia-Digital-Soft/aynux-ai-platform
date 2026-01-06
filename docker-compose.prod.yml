@@ -62,11 +62,10 @@ services:
     ports: !reset []
 
   # ---------------------------------------------------------------------------
-  # Ollama - DISABLED in production (uses external server at 192.168.0.140)
+  # vLLM + TEI - External services at 192.168.0.140
   # ---------------------------------------------------------------------------
-  # ollama:
-  #   # Ollama runs on separate server (192.168.0.140:11434)
-  #   # Configure via OLLAMA_API_URL environment variable
+  # vLLM: http://192.168.0.140:8090/v1 (Qwen2.5-3B-Instruct-AWQ)
+  # TEI:  http://192.168.0.140:7997 (BAAI/bge-m3, 1024 dims)
 
   # ---------------------------------------------------------------------------
   # FastAPI Application - Production build
@@ -99,13 +98,17 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=0
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      # Ollama Configuration (external server on same network)
-      - OLLAMA_API_URL=http://192.168.0.140:11434
-      - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
-      - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
-      - OLLAMA_API_MODEL_REASONING=${OLLAMA_API_MODEL_REASONING:-deepseek-r1:7b}
-      - OLLAMA_API_MODEL_SUMMARY=${OLLAMA_API_MODEL_SUMMARY:-llama3.2:latest}
-      - OLLAMA_API_MODEL_EMBEDDING=${OLLAMA_API_MODEL_EMBEDDING:-nomic-embed-text}
+      # vLLM Configuration (external server - single model)
+      - VLLM_BASE_URL=http://192.168.0.140:8090/v1
+      - VLLM_API_KEY=EMPTY
+      - VLLM_MODEL=qwen-3b
+      - VLLM_REQUEST_TIMEOUT=120
+      - VLLM_MAX_RETRIES=3
+      # TEI Embeddings Configuration (external server)
+      - TEI_BASE_URL=http://192.168.0.140:7997
+      - TEI_MODEL=BAAI/bge-m3
+      - TEI_EMBEDDING_DIMENSION=1024
+      - TEI_REQUEST_TIMEOUT=30
       # pgvector
       - PGVECTOR_SIMILARITY_THRESHOLD=0.7
       # Application Settings

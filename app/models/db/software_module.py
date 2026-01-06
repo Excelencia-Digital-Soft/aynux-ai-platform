@@ -89,8 +89,8 @@ class SoftwareModule(Base, TimestampMixin):
     organization_id = Column(UUID(as_uuid=True), nullable=True, index=True)
 
     # RAG integration - embedding vector for semantic search
-    # nomic-embed-text generates 768-dimensional vectors
-    embedding = Column(Vector(768), nullable=True)
+    # BAAI/bge-m3 via Infinity generates 1024-dimensional vectors
+    embedding = Column(Vector(1024), nullable=True)
     embedding_updated_at = Column(DateTime(timezone=True), nullable=True)
 
     # Sync status with company_knowledge table

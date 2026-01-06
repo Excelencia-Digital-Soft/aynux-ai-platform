@@ -90,9 +90,9 @@ class CompanyKnowledge(Base, TimestampMixin):
         comment="Whether this document is active and searchable",
     )
 
-    # Vector embeddings for semantic search (768 dimensions for nomic-embed-text)
+    # Vector embeddings for semantic search (1024 dimensions for BAAI/bge-m3 via Infinity)
     embedding = Column(
-        Vector(768),
+        Vector(1024),
         nullable=True,
         comment="Vector embedding for semantic similarity search",
     )

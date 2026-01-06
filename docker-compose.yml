@@ -8,8 +8,9 @@
 #   docker compose down               # Stop all services
 #   docker compose down -v            # Stop and remove volumes
 #
-# Profiles:
-#   --profile ollama                  # Include Ollama in Docker (CPU mode)
+# External Services (run separately):
+#   - vLLM: http://localhost:8090/v1 (LLM inference)
+#   - TEI:  http://localhost:7997 (embeddings)
 # =============================================================================
 
 name: aynux
@@ -70,31 +71,29 @@ services:
       - aynux-network
 
   # ---------------------------------------------------------------------------
-  # Ollama LLM Service (CPU mode - optional profile)
-  # NOTE: For Apple Silicon with GPU acceleration, run Ollama natively:
-  #   brew install ollama && ollama serve
-  # Then use OLLAMA_API_URL=http://host.docker.internal:11434
+  # vLLM + TEI Services (External - not managed by Docker Compose)
   # ---------------------------------------------------------------------------
-  ollama:
-    image: ollama/ollama:latest
-    container_name: aynux-ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/version || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    networks:
-      - aynux-network
-    profiles:
-      - ollama  # Only starts with: docker compose --profile ollama up
+  # vLLM and TEI run on external servers for GPU acceleration.
+  #
+  # Development (localhost):
+  #   vLLM: http://localhost:8090/v1
+  #   TEI:  http://localhost:7997
+  #
+  # Production (192.168.0.140):
+  #   vLLM: http://192.168.0.140:8090/v1
+  #   TEI:  http://192.168.0.140:7997
+  #
+  # To start vLLM locally:
+  #   docker run --gpus all -p 8090:8000 \
+  #     vllm/vllm-openai:latest \
+  #     --model Qwen/Qwen2.5-3B-Instruct-AWQ \
+  #     --served-model-name qwen-3b
+  #
+  # To start TEI locally:
+  #   docker run --gpus all -p 7997:80 \
+  #     ghcr.io/huggingface/text-embeddings-inference:turing-1.5 \
+  #     --model-id BAAI/bge-m3
+  # ---------------------------------------------------------------------------
 
   # ---------------------------------------------------------------------------
   # FastAPI Application (Development with hot-reload)
@@ -135,15 +134,17 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=0
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      # Ollama Configuration
-      # Default: localhost (for SSH tunnel or native Ollama)
-      # For Docker Ollama: http://ollama:11434
-      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://localhost:11434}
-      - OLLAMA_API_MODEL_SIMPLE=${OLLAMA_API_MODEL_SIMPLE:-deepseek-r1:1.5b}
-      - OLLAMA_API_MODEL_COMPLEX=${OLLAMA_API_MODEL_COMPLEX:-deepseek-r1:7b}
-      - OLLAMA_API_MODEL_REASONING=${OLLAMA_API_MODEL_REASONING:-deepseek-r1:7b}
-      - OLLAMA_API_MODEL_SUMMARY=${OLLAMA_API_MODEL_SUMMARY:-llama3.2:latest}
-      - OLLAMA_API_MODEL_EMBEDDING=${OLLAMA_API_MODEL_EMBEDDING:-nomic-embed-text}
+      # vLLM Configuration (single model)
+      - VLLM_BASE_URL=${VLLM_BASE_URL:-http://host.docker.internal:8090/v1}
+      - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
+      - VLLM_MODEL=${VLLM_MODEL:-qwen-3b}
+      - VLLM_REQUEST_TIMEOUT=${VLLM_REQUEST_TIMEOUT:-120}
+      - VLLM_MAX_RETRIES=${VLLM_MAX_RETRIES:-3}
+      # TEI Embeddings Configuration
+      - TEI_BASE_URL=${TEI_BASE_URL:-http://host.docker.internal:7997}
+      - TEI_MODEL=${TEI_MODEL:-BAAI/bge-m3}
+      - TEI_EMBEDDING_DIMENSION=${TEI_EMBEDDING_DIMENSION:-1024}
+      - TEI_REQUEST_TIMEOUT=${TEI_REQUEST_TIMEOUT:-30}
       # pgvector Configuration
       - PGVECTOR_SIMILARITY_THRESHOLD=0.7
       # Application Settings
@@ -222,5 +223,3 @@ volumes:
     name: aynux-postgres-data
   redis_data:
     name: aynux-redis-data
-  ollama_data:
-    name: aynux-ollama-data

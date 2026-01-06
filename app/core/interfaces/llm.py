@@ -1,7 +1,7 @@
 """
 Interfaces para LLM providers
 
-Define contratos para proveedores de Language Models (Ollama, OpenAI, etc.)
+Define contratos para proveedores de Language Models (vLLM, OpenAI, etc.)
 """
 
 from abc import abstractmethod
@@ -12,13 +12,12 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, runtime_c
 class LLMProvider(str, Enum):
     """Proveedores de LLM soportados"""
 
-    OLLAMA = "ollama"
+    VLLM = "vllm"  # Primary provider - OpenAI-compatible API
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GROQ = "groq"
     DEEPSEEK = "deepseek"  # OpenAI-compatible API
     KIMI = "kimi"  # OpenAI-compatible API (Moonshot)
-    HYBRID = "hybrid"  # Routes between providers based on complexity
 
 
 @runtime_checkable
@@ -27,14 +26,17 @@ class ILLM(Protocol):
     Interface base para proveedores de LLM.
 
     Abstrae la generación de texto con diferentes modelos.
-    Permite cambiar de provider (Ollama  OpenAI) sin modificar código.
+    Permite cambiar de provider (vLLM, OpenAI, etc.) sin modificar código.
 
     Example:
         ```python
-        class OllamaLLM(ILLM):
+        class VllmLLM(ILLM):
             async def generate(self, prompt: str, **kwargs) -> str:
-                response = await self.client.generate(model="deepseek-r1:7b", prompt=prompt)
-                return response["text"]
+                response = await self.client.chat.completions.create(
+                    model="Qwen/Qwen2.5-7B-Instruct",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                return response.choices[0].message.content
         ```
     """
 

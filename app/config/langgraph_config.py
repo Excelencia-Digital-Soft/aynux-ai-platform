@@ -92,8 +92,8 @@ class LangGraphConfig(BaseModel):
                 "data_insights_agent",
             ],
             integrations=IntegrationConfig(
-                ollama_url=os.getenv("OLLAMA_API_URL", "http://localhost:11434"),
-                ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1:8b"),
+                vllm_url=os.getenv("VLLM_BASE_URL", "http://localhost:8090/v1"),
+                vllm_model=os.getenv("VLLM_MODEL", "qwen-3b"),
                 postgres_pool_size=int(os.getenv("POSTGRES_POOL_SIZE", "5")),
                 redis_ttl=int(os.getenv("REDIS_TTL", "86400")),
             ),

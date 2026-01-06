@@ -2,9 +2,9 @@
 LLM Integrations
 
 AI/LLM integration services:
-- Ollama LLM implementation (local models)
+- vLLM for high-performance LLM inference (single model: qwen-3b)
+- TEI for embeddings (BAAI/bge-m3, 1024 dims)
 - OpenAI-compatible API implementation (DeepSeek, KIMI, etc.)
-- Hybrid Router for automatic provider selection
 """
 
 from app.integrations.llm.base import (
@@ -22,19 +22,18 @@ from app.integrations.llm.base import (
     LLMGenerationError,
     LLMRateLimitError,
     # Implementations
-    HybridLLMRouter,
-    OllamaEmbeddingModel,
-    OllamaLLM,
+    VllmLLM,
+    TEIEmbeddingModel,
     OpenAICompatibleLLM,
     # Factory functions
     create_embedder,
-    create_hybrid_router,
+    create_tei_embedder,
     create_llm,
-    create_ollama_embedder,
-    create_ollama_llm,
     create_openai_compatible_llm,
-    get_hybrid_router,
-    reset_hybrid_router,
+    create_vllm_llm,
+    # Backward compatibility
+    InfinityEmbeddingModel,
+    create_infinity_embedder,
 )
 from app.integrations.llm.model_provider import (
     ModelComplexity,
@@ -58,23 +57,36 @@ __all__ = [
     "LLMGenerationError",
     "LLMRateLimitError",
     # Implementations
-    "OllamaLLM",
-    "OllamaEmbeddingModel",
+    "VllmLLM",
+    "TEIEmbeddingModel",
     "OpenAICompatibleLLM",
-    "HybridLLMRouter",
     # Factory functions
     "create_llm",
     "create_embedder",
-    "create_ollama_llm",
-    "create_ollama_embedder",
+    "create_vllm_llm",
+    "create_tei_embedder",
     "create_openai_compatible_llm",
-    "create_hybrid_router",
-    "get_hybrid_router",
-    "reset_hybrid_router",
     # Model provider utilities
     "get_model_name_for_complexity",
     "get_llm_for_task",
+    # Backward compatibility aliases
+    "OllamaLLM",
+    "create_ollama_llm",
+    "InfinityEmbeddingModel",
+    "create_infinity_embedder",
 ]
 
-# Backward-compatible alias for migration from OllamaIntegration
-OllamaIntegration = OllamaLLM
+# =============================================================================
+# Backward Compatibility Aliases
+# =============================================================================
+# These aliases ensure existing code using OllamaLLM continues to work
+# after migration to vLLM. The interface is identical (ILLM protocol).
+
+OllamaLLM = VllmLLM
+"""Alias for VllmLLM - provides backward compatibility for code using OllamaLLM."""
+
+create_ollama_llm = create_vllm_llm
+"""Alias for create_vllm_llm - provides backward compatibility for code using create_ollama_llm."""
+
+# InfinityEmbeddingModel and create_infinity_embedder are imported from base.py
+# as aliases to TEI (backward compatibility)

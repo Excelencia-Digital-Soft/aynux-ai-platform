@@ -5,7 +5,7 @@ This service handles generation and synchronization of vector embeddings for
 the company knowledge base using pgvector (PostgreSQL).
 
 Responsibilities:
-- Generate embeddings using Ollama (nomic-embed-text)
+- Generate embeddings using TEI (BAAI/bge-m3 with 1024 dimensions)
 - Sync embeddings to pgvector (PostgreSQL)
 - Provide search interface for semantic search
 
@@ -16,11 +16,11 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_ollama import OllamaEmbeddings
 from sqlalchemy import func, select, text
 
 from app.config.settings import get_settings
 from app.database.async_db import get_async_db
+from app.integrations.llm.tei import TEIEmbeddingModel
 from app.models.db.knowledge_base import CompanyKnowledge
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class KnowledgeEmbeddingService:
     Features:
     - Performance: pgvector with HNSW index for fast search
     - Native SQL integration with application data
-    - Automatic embedding generation with Ollama
+    - Automatic embedding generation with TEI (BAAI/bge-m3, 1024 dims)
     """
 
     def __init__(self):
@@ -43,15 +43,14 @@ class KnowledgeEmbeddingService:
         Initialize the embedding service.
         """
         settings = get_settings()
-        self.embedding_model = settings.OLLAMA_API_MODEL_EMBEDDING
-        self.embeddings = OllamaEmbeddings(
-            model=settings.OLLAMA_API_MODEL_EMBEDDING, base_url=settings.OLLAMA_API_URL
-        )
+        self.embedding_model = settings.TEI_MODEL
+        self.embedding_dimension = settings.TEI_EMBEDDING_DIMENSION
+        self.embedder = TEIEmbeddingModel()
 
         # Text splitter for large documents (not typically needed for knowledge base)
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
-        logger.info(f"KnowledgeEmbeddingService initialized with model={self.embedding_model} (pgvector only)")
+        logger.info(f"KnowledgeEmbeddingService initialized with model={self.embedding_model} ({self.embedding_dimension} dims, pgvector)")
 
     def _create_knowledge_content(self, knowledge: CompanyKnowledge) -> str:
         """
@@ -80,15 +79,14 @@ class KnowledgeEmbeddingService:
 
     async def generate_embedding(self, text: str, max_chars: int = 6000) -> List[float]:
         """
-        Generate embedding vector for a given text.
+        Generate embedding vector for a given text using TEI (BAAI/bge-m3).
 
         Args:
             text: Text to generate embedding for
-            max_chars: Maximum characters to use for embedding (default 6000 to fit
-                      within nomic-embed-text's ~8192 token context window)
+            max_chars: Maximum characters to use for embedding (default 6000)
 
         Returns:
-            List of floats representing the embedding vector (768 dimensions for nomic-embed-text)
+            List of floats representing the embedding vector (1024 dimensions for BAAI/bge-m3)
         """
         try:
             # Truncate text if too long to avoid exceeding model's context length
@@ -98,8 +96,8 @@ class KnowledgeEmbeddingService:
                 )
                 text = text[:max_chars]
 
-            # OllamaEmbeddings.embed_query returns the embedding vector
-            embedding = await self.embeddings.aembed_query(text)
+            # Use TEI embedder
+            embedding = await self.embedder.embed_text(text)
             return embedding
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")

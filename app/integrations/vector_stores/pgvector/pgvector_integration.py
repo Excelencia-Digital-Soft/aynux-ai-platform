@@ -12,7 +12,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.langsmith_config import trace_integration
-from app.integrations.llm import OllamaLLM
+from app.config.settings import get_settings
+from app.integrations.llm import TEIEmbeddingModel
 from app.integrations.vector_stores.pgvector.embedding_manager import (
     EmbeddingTextBuilder,
     ProductEmbeddingManager,
@@ -36,25 +37,26 @@ class PgVectorIntegration:
     Follows SRP by delegating to specialized components.
     """
 
-    def __init__(self, ollama: OllamaLLM | None = None):
+    def __init__(self, embedder: TEIEmbeddingModel | None = None):
         """
         Initialize pgvector integration.
 
         Args:
-            ollama: OllamaLLM instance for embedding generation
+            embedder: TEIEmbeddingModel instance for embedding generation
         """
-        self.ollama = ollama or OllamaLLM()
+        settings = get_settings()
+        self.embedder = embedder or TEIEmbeddingModel()
         self.metrics = get_metrics_service()
 
         # Configuration (exposed for compatibility)
-        self.embedding_model = "nomic-embed-text"
-        self.embedding_dimensions = 768
+        self.embedding_model = settings.TEI_MODEL
+        self.embedding_dimensions = settings.TEI_EMBEDDING_DIMENSION
         self.default_similarity_threshold = 0.6
         self.default_k = 10
 
         # Initialize specialized components
         self._search = PgVectorProductSearch(metrics_service=self.metrics)
-        self._embedding_manager = ProductEmbeddingManager(ollama=self.ollama, metrics_service=self.metrics)
+        self._embedding_manager = ProductEmbeddingManager(embedder=self.embedder, metrics_service=self.metrics)
         self._text_builder = EmbeddingTextBuilder()
 
     def _format_vector_for_query(self, vector: list[float]) -> str:

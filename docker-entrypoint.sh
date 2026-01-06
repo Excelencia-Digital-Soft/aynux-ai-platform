@@ -123,14 +123,14 @@ run_migrations() {
     fi
 }
 
-# Check Ollama connectivity (optional)
-check_ollama() {
-    if [ -n "${OLLAMA_API_URL:-}" ]; then
-        log_step "Checking Ollama at ${OLLAMA_API_URL}..."
-        if curl -sf "${OLLAMA_API_URL}/api/version" > /dev/null 2>&1; then
-            log_info "Ollama is available"
+# Check vLLM connectivity (optional)
+check_vllm() {
+    if [ -n "${VLLM_BASE_URL:-}" ]; then
+        log_step "Checking vLLM at ${VLLM_BASE_URL}..."
+        if curl -sf "${VLLM_BASE_URL}/models" > /dev/null 2>&1; then
+            log_info "vLLM is available"
         else
-            log_warn "Ollama not available at ${OLLAMA_API_URL} - LLM features may not work"
+            log_warn "vLLM not available at ${VLLM_BASE_URL} - LLM features may not work"
         fi
     fi
 }
@@ -158,8 +158,8 @@ main() {
         log_warn "Skipping database migrations (SKIP_DB_INIT=true)"
     fi
 
-    # Optional: Check Ollama
-    check_ollama
+    # Optional: Check vLLM
+    check_vllm
 
     echo ""
     log_info "All checks passed. Starting application server..."
