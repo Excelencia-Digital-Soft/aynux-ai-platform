@@ -247,6 +247,8 @@ class NodeExecutor:
             "session_id": state.get("conversation_id"),  # Alias for compatibility
             # Bypass routing target for orchestrator to check
             "bypass_target_agent": state.get("bypass_target_agent"),
+            # Detected language for response generation
+            "detected_language": state.get("detected_language", "es"),
         }
 
     def _prepare_supervisor_state(self, state: LangGraphState, messages: list) -> Dict[str, Any]:

@@ -72,6 +72,9 @@ class LangGraphState(TypedDict):
     # Dominios habilitados para el tenant (para filtrar servicios en saludos)
     enabled_domains: Optional[List[str]]
 
+    # Detected language for response generation (es, en, pt)
+    detected_language: Optional[str]
+
     # Información de intención y routing
     current_intent: Optional[Dict[str, Any]]
     intent_history: Annotated[List[Dict[str, Any]], add_intent_history]
