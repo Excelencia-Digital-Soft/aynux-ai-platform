@@ -8,7 +8,7 @@ Single Responsibility: AI-powered response generation.
 import logging
 from typing import Any
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.product_response import (
     build_no_results_prompt,
     build_product_response_prompt,
@@ -28,23 +28,23 @@ class AIResponseGenerator(BaseResponseGenerator):
     """
     Generates AI-powered responses for product queries.
 
-    Uses Ollama LLM to generate natural, context-aware responses.
+    Uses vLLM to generate natural, context-aware responses.
     Follows Single Responsibility Principle.
     """
 
     def __init__(
         self,
-        ollama: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
         config: dict[str, Any] | None = None,
     ):
         """
         Initialize AI response generator.
 
         Args:
-            ollama: OllamaLLM instance
+            llm: VllmLLM instance
             config: Configuration dict
         """
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
         self.config = config or {}
         self.formatter = ProductFormatter(config)
 
@@ -105,7 +105,7 @@ class AIResponseGenerator(BaseResponseGenerator):
 
     async def _generate_ai_text(self, context: ResponseContext, formatted_products: str) -> str:
         """
-        Generate AI text using Ollama.
+        Generate AI text using vLLM.
 
         Args:
             context: Response context
@@ -118,11 +118,11 @@ class AIResponseGenerator(BaseResponseGenerator):
         prompt = await self._build_prompt(context, formatted_products)
 
         # Get LLM and generate response
-        llm = self.ollama.get_llm(
+        llm_instance = self.llm.get_llm(
             temperature=self.temperature,
             num_predict=self.max_tokens,
         )
-        response = await llm.ainvoke(prompt)
+        response = await llm_instance.ainvoke(prompt)
 
         # Handle response content (can be str or list)
         content = response.content
@@ -175,11 +175,11 @@ class AIResponseGenerator(BaseResponseGenerator):
 
         try:
             # Get LLM and generate response
-            llm = self.ollama.get_llm(
+            llm_instance = self.llm.get_llm(
                 temperature=self.temperature,
                 num_predict=300,
             )
-            response = await llm.ainvoke(prompt)
+            response = await llm_instance.ainvoke(prompt)
 
             # Handle response content (can be str or list)
             content = response.content
@@ -238,9 +238,9 @@ class AIResponseGenerator(BaseResponseGenerator):
         )
 
     async def health_check(self) -> bool:
-        """Check if Ollama is available."""
+        """Check if VllmLLM is available."""
         try:
-            return await self.ollama.health_check()
+            return await self.llm.health_check()
         except Exception as e:
             logger.error(f"AI response generator health check failed: {e}")
             return False

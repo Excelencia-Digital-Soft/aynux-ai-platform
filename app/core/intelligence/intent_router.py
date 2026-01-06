@@ -1,7 +1,7 @@
 """Intent router orchestrator with three-tier fallback.
 
 Optimized for speed with intelligent fallback chain:
-- Primary: LLM (Ollama) for accurate analysis
+- Primary: LLM (VllmLLM) for accurate analysis
 - Fallback 1: SpaCy NLP for local processing
 - Fallback 2: Keyword patterns for last resort
 
@@ -36,22 +36,22 @@ class IntentRouter:
     All analysis logic is delegated to specialized components.
 
     Usage:
-        router = IntentRouter(ollama=ollama_instance)
+        router = IntentRouter(llm=llm_instance)
         result = await router.determine_intent(message)
     """
 
-    def __init__(self, ollama: Any = None, config: dict[str, Any] | None = None):
+    def __init__(self, llm: Any = None, config: dict[str, Any] | None = None):
         """Initialize router with components.
 
         Args:
-            ollama: Optional OllamaLLM instance for LLM analysis
+            llm: Optional VllmLLM instance for LLM analysis
             config: Configuration dict with options:
                 - cache_size: Max cache entries (default: 1000)
                 - cache_ttl: Cache TTL in seconds (default: 60)
                 - confidence_threshold: Min confidence (default: 0.75)
                 - use_spacy_fallback: Enable SpaCy fallback (default: True)
         """
-        self.ollama = ollama
+        self.llm = llm
         self.config = config or {}
 
         # Configuration
@@ -68,9 +68,9 @@ class IntentRouter:
 
         # Initialize analyzers
         self._llm_analyzer: LLMIntentAnalyzer | None = None
-        if ollama:
+        if llm:
             self._llm_analyzer = LLMIntentAnalyzer(
-                ollama=ollama,
+                llm=llm,
                 cache=self._cache,
                 validator=self._validator,
                 metrics=self._metrics,

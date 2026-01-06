@@ -8,7 +8,7 @@ import json
 import logging
 from typing import Any, Dict, List
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 
@@ -22,14 +22,14 @@ class SQLContextGenerator:
     Single Responsibility: Transform SQL results into AI-consumable context.
     """
 
-    def __init__(self, ollama: OllamaLLM | None = None):
+    def __init__(self, llm: VllmLLM | None = None):
         """
         Initialize context generator.
 
         Args:
-            ollama: OllamaLLM instance for AI-powered summarization
+            llm: VllmLLM instance for AI-powered summarization
         """
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
         self.prompt_manager = PromptManager()
 
     async def generate(
@@ -64,7 +64,7 @@ class SQLContextGenerator:
                     "query_results": query_results,
                 },
             )
-            context_summary = await self.ollama.generate_response(
+            context_summary = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 temperature=0.3,

@@ -2,20 +2,20 @@
 
 Endpoints administrativos para gestión del sistema Aynux.
 
-## Ollama Admin (`/api/v1/admin/ollama`)
+## LLM Admin (`/api/v1/admin/llm`)
 
-Endpoints públicos para consultar modelos disponibles en Ollama con clasificación automática.
+Endpoints públicos para consultar modelos disponibles en vLLM con clasificación automática.
 
 ### Endpoints
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `GET` | `/models` | Lista todos los modelos con clasificación LLM/embedding |
-| `GET` | `/health` | Verifica estado del servicio Ollama |
+| `GET` | `/health` | Verifica estado del servicio vLLM |
 
 ### GET `/models`
 
-Lista modelos disponibles en Ollama, clasificándolos automáticamente como **LLM** o **embedding**.
+Lista modelos disponibles en vLLM, clasificándolos automáticamente como **LLM** o **embedding**.
 
 #### Query Parameters
 
@@ -37,32 +37,32 @@ Lista modelos disponibles en Ollama, clasificándolos automáticamente como **LL
 {
   "models": [
     {
-      "name": "llama3.1:latest",
-      "model": "llama3.1:latest",
-      "family": "llama",
-      "families": ["llama"],
-      "parameter_size": "8.0B",
-      "quantization_level": "Q4_K_M",
-      "size_bytes": 4920753328,
+      "name": "qwen-3b",
+      "model": "qwen-3b",
+      "family": "qwen",
+      "families": ["qwen"],
+      "parameter_size": "3.0B",
+      "quantization_level": "FP16",
+      "size_bytes": 6000000000,
       "model_type": "llm",
       "modified_at": "2025-10-17T02:02:45.661590805-03:00"
     },
     {
-      "name": "nomic-embed-text:latest",
-      "model": "nomic-embed-text:latest",
-      "family": "nomic-bert",
-      "families": ["nomic-bert"],
-      "parameter_size": "137M",
-      "quantization_level": "F16",
-      "size_bytes": 274302450,
+      "name": "BAAI/bge-m3",
+      "model": "BAAI/bge-m3",
+      "family": "bert",
+      "families": ["bert"],
+      "parameter_size": "568M",
+      "quantization_level": "FP16",
+      "size_bytes": 1136000000,
       "model_type": "embedding",
       "modified_at": "2025-10-17T13:34:20.719715012-03:00"
     }
   ],
-  "total": 9,
-  "llm_count": 5,
-  "embedding_count": 4,
-  "ollama_url": "http://localhost:11434"
+  "total": 2,
+  "llm_count": 1,
+  "embedding_count": 1,
+  "vllm_url": "http://localhost:8090/v1"
 }
 ```
 
@@ -70,26 +70,26 @@ Lista modelos disponibles en Ollama, clasificándolos automáticamente como **LL
 
 ```bash
 # Listar todos los modelos
-curl http://localhost:8000/api/v1/admin/ollama/models
+curl http://localhost:8000/api/v1/admin/llm/models
 
 # Solo LLMs
-curl "http://localhost:8000/api/v1/admin/ollama/models?model_type=llm"
+curl "http://localhost:8000/api/v1/admin/llm/models?model_type=llm"
 
 # Solo embeddings
-curl "http://localhost:8000/api/v1/admin/ollama/models?model_type=embedding"
+curl "http://localhost:8000/api/v1/admin/llm/models?model_type=embedding"
 ```
 
 ### GET `/health`
 
-Verifica el estado del servicio Ollama.
+Verifica el estado del servicio vLLM.
 
 #### Response Schema
 
 ```json
 {
   "status": "healthy",
-  "ollama_url": "http://localhost:11434",
-  "model_count": 9,
+  "vllm_url": "http://localhost:8090/v1",
+  "model_count": 2,
   "error": null
 }
 ```
@@ -98,13 +98,13 @@ Verifica el estado del servicio Ollama.
 
 | Status | Descripción |
 |--------|-------------|
-| `healthy` | Ollama accesible y funcionando |
+| `healthy` | vLLM accesible y funcionando |
 | `unhealthy` | Error de conexión o servicio no disponible |
 
 #### Ejemplo
 
 ```bash
-curl http://localhost:8000/api/v1/admin/ollama/health
+curl http://localhost:8000/api/v1/admin/llm/health
 ```
 
 ---

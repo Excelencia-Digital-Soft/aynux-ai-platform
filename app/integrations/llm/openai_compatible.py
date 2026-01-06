@@ -42,7 +42,7 @@ from app.integrations.llm.model_provider import ModelComplexity
 
 logger = logging.getLogger(__name__)
 
-# Regex pattern for cleaning deepseek-r1 think tags (shared with ollama.py)
+# Regex pattern for cleaning deepseek-r1 think tags (shared with vllm.py)
 DEEPSEEK_THINK_PATTERN = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
@@ -451,7 +451,7 @@ class OpenAICompatibleLLM(ILLM, IChatLLM):
         """
         Generate response using system and user prompts.
 
-        This method provides compatibility with OllamaLLM interface.
+        This method provides compatibility with VllmLLM interface.
 
         Args:
             system_prompt: System prompt for context.

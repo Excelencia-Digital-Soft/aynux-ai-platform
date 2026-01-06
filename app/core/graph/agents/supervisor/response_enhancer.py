@@ -26,14 +26,14 @@ class ResponseEnhancer:
     - Support multiple languages
     """
 
-    def __init__(self, ollama=None):
+    def __init__(self, llm=None):
         """
         Initialize the response enhancer.
 
         Args:
-            ollama: Ollama LLM instance
+            llm: VllmLLM instance
         """
-        self.ollama = ollama
+        self.llm = llm
         self._language_instructions = {
             "es": "IMPORTANT: You MUST answer ONLY in SPANISH language.",
             "en": "IMPORTANT: You MUST answer ONLY in ENGLISH language.",
@@ -62,7 +62,7 @@ class ResponseEnhancer:
         Returns:
             Enhanced response or None if enhancement fails
         """
-        if not self.ollama:
+        if not self.llm:
             return None
 
         try:
@@ -75,9 +75,9 @@ class ResponseEnhancer:
 
             # Use SIMPLE model for faster enhancement
             logger.info("ResponseEnhancer: Getting LLM for enhancement...")
-            llm = self.ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.7)
+            llm_instance = self.llm.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.7)
             logger.info("ResponseEnhancer: Calling ainvoke...")
-            response = await llm.ainvoke(prompt)
+            response = await llm_instance.ainvoke(prompt)
             logger.info(f"ResponseEnhancer: ainvoke completed, response type: {type(response)}")
             enhanced_response = response.content if response else None
             resp_len = len(enhanced_response) if enhanced_response else 0
@@ -96,7 +96,7 @@ class ResponseEnhancer:
             return None
 
         except Exception as e:
-            logger.error(f"Error enhancing response with Ollama: {str(e)}")
+            logger.error(f"Error enhancing response with LLM: {str(e)}")
             return None
 
     async def _build_enhancement_prompt(

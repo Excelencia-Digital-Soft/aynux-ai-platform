@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from app.config.settings import get_settings
 from app.domains.ecommerce.agents.nodes.product_node import ProductNode as ProductAgent
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +76,8 @@ async def get_redis_client() -> redis.Redis:
 
 async def get_product_agent() -> ProductAgent:
     """Dependency para obtener instancia del agente (RefactoredProductAgent)."""
-    ollama = OllamaLLM()
-    return ProductAgent(ollama=ollama)
+    llm = VllmLLM()
+    return ProductAgent(llm=llm)
 
 
 @router.post("/search", response_model=ProductSearchResponse)

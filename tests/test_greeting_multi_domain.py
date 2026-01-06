@@ -29,13 +29,13 @@ async def test_greeting_with_domain(domain: str, message: str = "Hola"):
     logger.info(f"{'='*60}\n")
 
     # Crear mocks
-    mock_ollama = AsyncMock()
+    mock_llm_provider = AsyncMock()
     mock_llm = AsyncMock()
     mock_llm.ainvoke.return_value.content = "mocked response"
-    mock_ollama.get_llm.return_value = mock_llm
-    
+    mock_llm_provider.get_llm.return_value = mock_llm
+
     # Crear el agente con mocks
-    agent = GreetingAgent(ollama=mock_ollama)
+    agent = GreetingAgent(llm=mock_llm_provider)
 
     # Crear estado simulado con el dominio
     state_dict: Dict[str, Any] = {
@@ -50,7 +50,7 @@ async def test_greeting_with_domain(domain: str, message: str = "Hola"):
         with patch.object(agent.prompt_manager, "get_prompt", new_callable=AsyncMock) as mock_get_prompt:
             mock_get_prompt.return_value = "Hola, bienvenido. Soy tu asistente virtual."
             # Mockear el LLM para evitar llamadas reales
-            with patch.object(agent.ollama, "get_llm") as mock_get_llm:
+            with patch.object(agent.llm, "get_llm") as mock_get_llm:
                 mock_llm_instance = AsyncMock()
                 mock_llm_instance.ainvoke.return_value = MagicMock(content="¡Hola! Bienvenido. ¿En qué puedo ayudarte?")
                 mock_get_llm.return_value = mock_llm_instance

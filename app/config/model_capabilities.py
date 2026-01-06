@@ -1,13 +1,13 @@
 # ============================================================================
 # SCOPE: GLOBAL
-# Description: Detección de capacidades para modelos de Ollama. Utiliza el
+# Description: Detección de capacidades para modelos LLM. Utiliza el
 #              endpoint /api/show para detectar soporte de visión y tools,
 #              con fallback a pattern matching para modelos conocidos.
 # ============================================================================
 """
-Ollama Model Capability Detection Module.
+LLM Model Capability Detection Module.
 
-Provides capability detection for Ollama models through:
+Provides capability detection for LLM models through:
 1. API-based detection via /api/show capabilities array
 2. Pattern-based fallback for known model families
 
@@ -39,7 +39,7 @@ from typing import Literal
 
 @dataclass
 class ModelCapabilities:
-    """Detected capabilities for an Ollama model.
+    """Detected capabilities for an LLM model.
 
     Attributes:
         supports_vision: Whether model supports image/multimodal input
@@ -107,7 +107,7 @@ def detect_capabilities_from_patterns(model_name: str) -> ModelCapabilities:
     Uses known patterns for vision and function calling models.
 
     Args:
-        model_name: Ollama model name (e.g., "llava:7b", "llama3.1:8b")
+        model_name: LLM model name (e.g., "llava:7b", "llama3.1:8b")
 
     Returns:
         ModelCapabilities with pattern-detected values
@@ -129,7 +129,7 @@ def parse_api_capabilities(
     model_info: dict | None = None,
 ) -> ModelCapabilities:
     """
-    Parse capabilities from Ollama /api/show response.
+    Parse capabilities from LLM /api/show response.
 
     Primary detection method using the official API response.
 

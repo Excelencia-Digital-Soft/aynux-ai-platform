@@ -27,7 +27,7 @@ from app.core.graph.routing.graph_router import GraphRouter
 from app.core.utils.tracing import trace_async_method, trace_context
 from app.domains.shared.agents.history_agent import HistoryAgent
 from app.integrations.databases import PostgreSQLIntegration
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 
 if TYPE_CHECKING:
     from app.core.schemas.tenant_agent_config import TenantAgentRegistry
@@ -69,20 +69,20 @@ class AynuxGraph:
     def _init_components(self) -> None:
         """Initialize all graph components"""
         # Initialize integrations
-        self.ollama = OllamaLLM()
+        self.llm = VllmLLM()
         # PostgreSQLIntegration uses settings.database_url by default
         self.postgres = PostgreSQLIntegration()
 
         # Initialize factory and create agents
         self.agent_factory = AgentFactory(
-            ollama=self.ollama, postgres=self.postgres, config=self.config
+            llm=self.llm, postgres=self.postgres, config=self.config
         )
         self.agents = self.agent_factory.initialize_all_agents()
 
         # Initialize history agent for conversation context management
         history_config = self.config.get("history", {})
         self.history_agent = HistoryAgent(
-            ollama=self.ollama,
+            llm=self.llm,
             postgres=self.postgres,
             config={
                 "summary_interval": history_config.get("summary_interval", 5),

@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 from app.core.agents import BaseAgent
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.vector_stores import PgVectorIntegration
 from app.domains.ecommerce.agents.product.product_agent_orchestrator import ProductAgentOrchestrator
 from app.domains.ecommerce.agents.product.response import AIResponseGenerator
@@ -35,7 +35,7 @@ class ProductNode(BaseAgent):
 
     def __init__(
         self,
-        ollama=None,
+        llm=None,
         postgres=None,
         config: dict[str, Any] | None = None,
     ):
@@ -43,14 +43,14 @@ class ProductNode(BaseAgent):
         Initialize product node.
 
         Args:
-            ollama: Ollama integration instance
+            llm: VllmLLM integration instance
             postgres: PostgreSQL connection (for compatibility)
             config: Agent configuration
         """
-        super().__init__("product_node", config or {}, ollama=ollama, postgres=postgres)
+        super().__init__("product_node", config or {}, llm=llm, postgres=postgres)
 
         settings = get_settings()
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
         self.postgres = postgres
 
         # Extract configuration
@@ -91,7 +91,7 @@ class ProductNode(BaseAgent):
         strategies = []
 
         # pgvector strategy (highest priority - primary vector search)
-        pgvector_integration = PgVectorIntegration(ollama=self.ollama)
+        pgvector_integration = PgVectorIntegration(llm=self.llm)
         strategies.append(
             PgVectorSearchStrategy(
                 pgvector=pgvector_integration,
@@ -105,7 +105,7 @@ class ProductNode(BaseAgent):
         if use_sql_generation:
             strategies.append(
                 SQLGenerationSearchStrategy(
-                    ollama=self.ollama,
+                    llm=self.llm,
                     postgres=self.postgres,
                     config=config,
                 )
@@ -135,7 +135,7 @@ class ProductNode(BaseAgent):
         # AI response generator (highest priority)
         generators.append(
             AIResponseGenerator(
-                ollama=self.ollama,
+                llm=self.llm,
                 config=config,
             )
         )

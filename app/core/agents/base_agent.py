@@ -67,7 +67,7 @@ class BaseAgent(ABC):
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.{name}")
 
-        # Integraciones (Ollama, PostgreSQL, pgvector, etc.)
+        # Integraciones (vLLM, PostgreSQL, pgvector, etc.)
         self.integrations = integrations
         self.tools = []
 

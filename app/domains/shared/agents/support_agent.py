@@ -95,8 +95,8 @@ class SupportAgent(BaseAgent):
         },
     }
 
-    def __init__(self, ollama=None, config: dict[str, Any] | None = None):
-        super().__init__("support_agent", config or {}, ollama=ollama)
+    def __init__(self, llm=None, config: dict[str, Any] | None = None):
+        super().__init__("support_agent", config or {}, llm=llm)
 
         # Note: self.model and self.temperature are set by BaseAgent.__init__()
         # They can be overridden via apply_tenant_config() in multi-tenant mode

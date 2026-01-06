@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts import PromptRegistry
 
 from .base import BaseInterpreter
@@ -26,7 +26,7 @@ class DescriptionQualityChecker(BaseInterpreter):
     async def check(
         self,
         description: str,
-        llm: OllamaLLM,
+        llm: VllmLLM,
         prompt_manager: "PromptManager | None" = None,
     ) -> tuple[bool, str | None]:
         """
@@ -34,7 +34,7 @@ class DescriptionQualityChecker(BaseInterpreter):
 
         Args:
             description: The problem description to evaluate
-            llm: OllamaLLM instance for LLM calls
+            llm: VllmLLM instance for LLM calls
             prompt_manager: Optional PromptManager for YAML templates
 
         Returns:
@@ -59,7 +59,7 @@ class DescriptionQualityChecker(BaseInterpreter):
     async def _llm_check(
         self,
         description: str,
-        llm: OllamaLLM,
+        llm: VllmLLM,
         prompt_manager: "PromptManager | None" = None,
     ) -> tuple[bool, str | None]:
         """Evaluate description with LLM."""

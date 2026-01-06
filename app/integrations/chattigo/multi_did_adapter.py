@@ -1,11 +1,14 @@
 # ============================================================================
 # SCOPE: MULTI-TENANT
-# Description: Adapter Chattigo para soporte multi-DID.
+# Description: Adapter Chattigo para soporte multi-DID con WhatsApp Cloud API.
 # ============================================================================
 """
 Chattigo Multi-DID Adapter.
 
 Single Responsibility: Orchestrate message sending using composed services.
+
+URL Format: {base_url}/v15.0/{did}/messages
+Body Format: WhatsApp Cloud API standard
 """
 
 import logging
@@ -23,13 +26,13 @@ logger = logging.getLogger(__name__)
 
 class ChattigoMultiDIDAdapter:
     """
-    Chattigo adapter for multi-DID support.
+    Chattigo adapter for multi-DID support with WhatsApp Cloud API format.
 
     Single Responsibility: Orchestrate message sending.
 
     Delegates to:
     - ChattigoHttpClient: HTTP communication with retry
-    - ChattigoPayloadBuilder: Payload construction
+    - ChattigoPayloadBuilder: WhatsApp Cloud API payload construction
     - ChattigoTokenCache: Token management (via http_client)
     """
 
@@ -59,6 +62,18 @@ class ChattigoMultiDIDAdapter:
     def credentials(self) -> ChattigoCredentials:
         """Get the credentials (for inspection, not modification)."""
         return self._credentials
+
+    def _build_message_url(self) -> str:
+        """
+        Build the message URL with DID as path parameter.
+
+        URL Format: {base_url}/v15.0/{did}/messages
+
+        Returns:
+            Full URL for sending messages
+        """
+        base = self._credentials.base_url.rstrip("/")
+        return f"{base}/v15.0/{self._credentials.did}/messages"
 
     def _get_http_client(self) -> ChattigoHttpClient:
         """Get or create HTTP client with token management."""
@@ -100,12 +115,12 @@ class ChattigoMultiDIDAdapter:
         sender_name: str | None = None,
     ) -> dict:
         """
-        Send text message via Chattigo API.
+        Send text message via WhatsApp Cloud API.
 
         Args:
             msisdn: Recipient phone number
             message: Message content
-            sender_name: Optional sender name (defaults to bot_name)
+            sender_name: Deprecated - not used in Cloud API (kept for compatibility)
 
         Returns:
             API response dict
@@ -115,16 +130,14 @@ class ChattigoMultiDIDAdapter:
             httpx.HTTPError: If request fails
         """
         payload = self._payload_builder.build_text_payload(
-            did=self._credentials.did,
-            msisdn=msisdn,
+            to=msisdn,
             message=message,
-            sender_name=sender_name or self._credentials.bot_name,
         )
 
         try:
             client = self._get_http_client()
             result = await client.post_with_retry(
-                url=self._credentials.message_url,
+                url=self._build_message_url(),
                 payload=payload,
             )
             logger.info(f"Message sent via DID {self._credentials.did} to {msisdn}")
@@ -145,32 +158,29 @@ class ChattigoMultiDIDAdapter:
         caption: str | None = None,
     ) -> dict:
         """
-        Send document via Chattigo API.
+        Send document via WhatsApp Cloud API.
 
         Args:
             msisdn: Recipient phone number
             document_url: Public URL of the document
             filename: Document filename
-            mime_type: MIME type
+            mime_type: Deprecated - not used in Cloud API (kept for compatibility)
             caption: Optional caption
 
         Returns:
             API response dict
         """
         payload = self._payload_builder.build_document_payload(
-            did=self._credentials.did,
-            msisdn=msisdn,
+            to=msisdn,
             document_url=document_url,
             filename=filename,
-            mime_type=mime_type,
-            caption=caption or "Documento adjunto.",
-            sender_name=self._credentials.bot_name,
+            caption=caption,
         )
 
         try:
             client = self._get_http_client()
             result = await client.post_with_retry(
-                url=self._credentials.message_url,
+                url=self._build_message_url(),
                 payload=payload,
             )
             logger.info(f"Document sent via DID {self._credentials.did} to {msisdn}")
@@ -190,30 +200,27 @@ class ChattigoMultiDIDAdapter:
         mime_type: str = "image/jpeg",
     ) -> dict:
         """
-        Send image via Chattigo API.
+        Send image via WhatsApp Cloud API.
 
         Args:
             msisdn: Recipient phone number
             image_url: Public URL of the image
             caption: Optional caption
-            mime_type: MIME type
+            mime_type: Deprecated - not used in Cloud API (kept for compatibility)
 
         Returns:
             API response dict
         """
         payload = self._payload_builder.build_image_payload(
-            did=self._credentials.did,
-            msisdn=msisdn,
+            to=msisdn,
             image_url=image_url,
-            caption=caption or "",
-            mime_type=mime_type,
-            sender_name=self._credentials.bot_name,
+            caption=caption,
         )
 
         try:
             client = self._get_http_client()
             result = await client.post_with_retry(
-                url=self._credentials.message_url,
+                url=self._build_message_url(),
                 payload=payload,
             )
             logger.info(f"Image sent via DID {self._credentials.did} to {msisdn}")

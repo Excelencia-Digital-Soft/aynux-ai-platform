@@ -23,7 +23,7 @@ from typing import Any
 from app.core.agents import BaseAgent
 from app.core.interfaces.agent import AgentType
 from app.core.utils.tracing import trace_async_method
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 
 from .nodes import ExcelenciaNode
 
@@ -46,22 +46,22 @@ class ExcelenciaAgent(BaseAgent):
     Note: Invoicing and promotions have been separated into dedicated agents.
     """
 
-    def __init__(self, ollama=None, config: dict[str, Any] | None = None):
+    def __init__(self, llm=None, config: dict[str, Any] | None = None):
         """
         Initialize Excelencia agent.
 
         Args:
-            ollama: OllamaLLM instance for LLM calls
+            llm: VllmLLM instance for LLM calls
             config: Configuration dictionary
         """
-        super().__init__("excelencia_agent", config or {}, ollama=ollama)
+        super().__init__("excelencia_agent", config or {}, llm=llm)
 
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
         self._config = config or {}
 
         # Initialize the main processing node
         self._node = ExcelenciaNode(
-            ollama=self.ollama,
+            llm=self.llm,
             config=self._config.get("node_config", {}),
         )
 

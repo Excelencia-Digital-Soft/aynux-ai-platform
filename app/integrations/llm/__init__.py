@@ -69,24 +69,13 @@ __all__ = [
     # Model provider utilities
     "get_model_name_for_complexity",
     "get_llm_for_task",
-    # Backward compatibility aliases
-    "OllamaLLM",
-    "create_ollama_llm",
+    # Backward compatibility aliases (TEI only)
     "InfinityEmbeddingModel",
     "create_infinity_embedder",
 ]
 
 # =============================================================================
-# Backward Compatibility Aliases
+# Backward Compatibility Aliases (TEI only)
 # =============================================================================
-# These aliases ensure existing code using OllamaLLM continues to work
-# after migration to vLLM. The interface is identical (ILLM protocol).
-
-OllamaLLM = VllmLLM
-"""Alias for VllmLLM - provides backward compatibility for code using OllamaLLM."""
-
-create_ollama_llm = create_vllm_llm
-"""Alias for create_vllm_llm - provides backward compatibility for code using create_ollama_llm."""
-
 # InfinityEmbeddingModel and create_infinity_embedder are imported from base.py
 # as aliases to TEI (backward compatibility)

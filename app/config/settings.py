@@ -61,21 +61,18 @@ class Settings(BaseSettings):
     # Chattigo Integration Settings (ISV mode)
     # Chattigo is a WhatsApp Business API intermediary that handles Meta verification
     # ISV mode: Chattigo manages credentials, we only need endpoint configuration
+    # Message URL: {base_url}/v15.0/{did}/messages (WhatsApp Cloud API format)
     CHATTIGO_ENABLED: bool = Field(True, description="Enable Chattigo integration")
     CHATTIGO_LOGIN_URL: str = Field(
         "https://channels.chattigo.com/bsp-cloud-chattigo-isv/login",
         description="Chattigo login endpoint",
-    )
-    CHATTIGO_MESSAGE_URL: str = Field(
-        "https://channels.chattigo.com/bsp-cloud-chattigo-isv/webhooks/inbound",
-        description="Chattigo message sending endpoint",
     )
     # Chattigo credentials (username, password, bot_name, channel_id, campaign_id) are now stored
     # in the database with encryption. Configure via Admin API: POST /api/v1/admin/chattigo-credentials
     CHATTIGO_DID: str = Field("5492644710400", description="Default WhatsApp Business number (Device ID)")
     CHATTIGO_BASE_URL: str = Field(
         "https://channels.chattigo.com/bsp-cloud-chattigo-isv",
-        description="Chattigo API base URL (for webhook registration)",
+        description="Chattigo API base URL (messages sent to /v15.0/{did}/messages)",
     )
 
     # PostgreSQL Database Settings

@@ -51,7 +51,7 @@
 - **Multi-Agent Architecture**: Powered by LangGraph for sophisticated conversation flows
 - **Vector Search**: pgvector for semantic search capabilities
 - **Real-time Processing**: Async architecture for high-performance message handling
-- **External Integrations**: DUX ERP, WhatsApp Business API, Ollama AI
+- **External Integrations**: DUX ERP, WhatsApp Business API, vLLM AI
 - **Monitoring**: LangSmith tracing and Sentry error tracking
 - **Caching**: Multi-layer Redis cache for optimized performance
 
@@ -133,10 +133,9 @@ git clone https://github.com/your-username/aynux.git
 cd aynux
 cp .env.example .env
 
-# 2. Install Ollama and pull models (macOS - run natively for GPU acceleration)
-brew install ollama
-ollama serve  # In separate terminal
-ollama pull deepseek-r1:7b && ollama pull nomic-embed-text
+# 2. Ensure vLLM and TEI services are running
+# vLLM: OpenAI-compatible LLM inference server
+# TEI: Text Embeddings Inference server with BAAI/bge-m3 model
 
 # 3. Build and start
 docker build --target development -t aynux-app:dev .
@@ -150,9 +149,9 @@ curl http://localhost:8001/health
 #### Docker Compose Profiles
 ```bash
 docker compose up -d                                    # Base (PostgreSQL, Redis, App)
-docker compose --profile ollama up -d                   # + Ollama LLM (Docker)
+docker compose --profile llm up -d                      # + vLLM/TEI (external)
 docker compose --profile tools up -d                    # + Admin Dashboard
-docker compose --profile ollama --profile tools up -d   # All services
+docker compose --profile llm --profile tools up -d      # All services
 ```
 
 #### Production Deployment
@@ -168,7 +167,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 - Python 3.13+
 - PostgreSQL 14+ with pgvector extension
 - Redis 7+
-- Ollama (for local LLM inference)
+- vLLM server (for LLM inference)
+- TEI server (for embeddings)
 - WhatsApp Business API account (optional)
 
 ### Installation
@@ -204,10 +204,11 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
    psql -h localhost -U your_user -d aynux -f app/scripts/migrations/001_add_pgvector_support.sql
    ```
 
-6. **Start Ollama and pull models**
+6. **Configure vLLM and TEI services**
    ```bash
-   ollama pull deepseek-r1:7b
-   ollama pull nomic-embed-text
+   # Ensure vLLM server is running with qwen-3b model
+   # Ensure TEI server is running with BAAI/bge-m3 model
+   # Update .env with correct VLLM_BASE_URL and TEI_BASE_URL
    ```
 
 7. **Run the development server**
@@ -430,7 +431,7 @@ graph TB
 
         UC --> INT[Integrations]
         INT --> DUX[DUX ERP]
-        INT --> OL[Ollama LLM]
+        INT --> OL[vLLM]
         INT --> WS[WhatsApp API]
         INT --> VEC[Vector Stores]
     end
@@ -475,7 +476,7 @@ External systems, databases, and integrations.
 - **Repositories**: Data access implementations (`ProductRepository`)
 - **External Services**: API clients (`DuxApiClient`, `WhatsAppService`)
 - **Vector Stores**: Semantic search (`PgVectorService`)
-- **LLM Integration**: AI models (`OllamaLLM`)
+- **LLM Integration**: AI models (`VllmLLM`)
 
 #### 4. **Presentation Layer** (`app/api/`)
 User interfaces and API endpoints.
@@ -526,7 +527,7 @@ app/
 │       └── application/use_cases/  # GetOrCreateCustomerUseCase
 │
 ├── integrations/              # Infrastructure - External Systems
-│   ├── llm/                   # Ollama LLM, AI Data Pipeline
+│   ├── llm/                   # vLLM, TEI Embeddings, AI Pipeline
 │   ├── vector_stores/         # PgVector, Embeddings
 │   ├── whatsapp/              # WhatsApp Business API
 │   ├── databases/             # Database connectors
@@ -655,9 +656,9 @@ All conversations are automatically traced in LangSmith for debugging and optimi
 - **LangChain**: LLM framework and integrations
 
 ### AI & Vector Search
-- **Ollama**: Local LLM inference (deepseek-r1:7b)
+- **vLLM**: High-performance LLM inference (qwen-3b)
+- **TEI**: Text Embeddings Inference (BAAI/bge-m3, 1024 dims)
 - **pgvector**: PostgreSQL vector similarity search
-- **nomic-embed-text**: 1024-dimension embeddings
 
 ### Data & Caching
 - **PostgreSQL 14+**: Primary database with pgvector extension
@@ -742,15 +743,16 @@ All conversations are automatically traced in LangSmith for debugging and optimi
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_DB` | `0` | Redis database number |
 
-### LLM & AI
+### LLM & AI (vLLM + TEI)
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OLLAMA_API_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_API_MODEL_SIMPLE` | `deepseek-r1:1.5b` | Fast model for intent analysis |
-| `OLLAMA_API_MODEL_COMPLEX` | `deepseek-r1:7b` | Powerful model for complex responses |
-| `OLLAMA_API_MODEL_REASONING` | `deepseek-r1:7b` | Deep reasoning model |
-| `OLLAMA_API_MODEL_SUMMARY` | `llama3.2:latest` | Fast model for conversation summary |
-| `OLLAMA_API_MODEL_EMBEDDING` | `nomic-embed-text` | Embedding model |
+| `VLLM_BASE_URL` | `http://localhost:8090/v1` | vLLM API endpoint (OpenAI-compatible) |
+| `VLLM_API_KEY` | `EMPTY` | vLLM API key |
+| `VLLM_MODEL` | `qwen-3b` | Model for all LLM tasks |
+| `VLLM_REQUEST_TIMEOUT` | `120` | Request timeout in seconds |
+| `TEI_BASE_URL` | `http://localhost:7997` | TEI embeddings endpoint |
+| `TEI_MODEL` | `BAAI/bge-m3` | Embedding model |
+| `TEI_EMBEDDING_DIMENSION` | `1024` | Embedding dimension |
 
 ### Vector Search
 | Variable | Default | Description |
@@ -803,7 +805,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **LangChain/LangGraph**: For the excellent multi-agent framework
 - **FastAPI**: For the high-performance web framework
-- **Ollama**: For making local LLM inference easy
+- **vLLM**: For high-performance LLM inference
+- **TEI**: For fast text embeddings inference
 - **pgvector**: For bringing vector search to PostgreSQL
 
 ---

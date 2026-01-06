@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts import PromptRegistry
 
 from .base import BaseInterpreter, InterpretationResult
@@ -31,7 +31,7 @@ class IncidentIntentDetector(BaseInterpreter):
         self,
         message: str,
         query_type_detector: "CompositeQueryTypeDetector",
-        llm: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
         prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """
@@ -75,7 +75,7 @@ class IncidentIntentDetector(BaseInterpreter):
     async def _llm_detect(
         self,
         message: str,
-        llm: OllamaLLM,
+        llm: VllmLLM,
         prompt_manager: "PromptManager | None" = None,
     ) -> InterpretationResult:
         """LLM fallback for incident intent detection."""

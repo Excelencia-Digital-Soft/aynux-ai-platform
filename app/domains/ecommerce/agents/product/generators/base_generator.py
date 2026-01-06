@@ -8,7 +8,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 from ..models import UserIntent
@@ -24,7 +24,7 @@ class BaseResponseGenerator(ABC):
 
     def __init__(
         self,
-        ollama: OllamaLLM,
+        llm: VllmLLM,
         config: dict[str, Any],
         prompt_manager: PromptManager | None = None,
     ):
@@ -32,11 +32,11 @@ class BaseResponseGenerator(ABC):
         Initialize response generator.
 
         Args:
-            ollama: OllamaLLM instance for AI inference
+            llm: VllmLLM instance for AI inference
             config: Generator-specific configuration
             prompt_manager: Optional PromptManager for YAML template loading
         """
-        self.ollama = ollama
+        self.llm = llm
         self.config = config
         self.prompt_manager = prompt_manager
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -266,8 +266,8 @@ Generate your response now:"""
         Raises:
             Exception: If LLM invocation fails
         """
-        llm = self.ollama.get_llm(temperature=temperature, model=model)
-        response = await llm.ainvoke(prompt)
+        llm_instance = self.llm.get_llm(temperature=temperature, model=model)
+        response = await llm_instance.ainvoke(prompt)
 
         # Handle response.content which can be string or list
         content = response.content

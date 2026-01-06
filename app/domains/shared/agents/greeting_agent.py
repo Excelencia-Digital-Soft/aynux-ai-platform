@@ -22,7 +22,7 @@ from app.config.agent_capabilities import (
 )
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
@@ -73,9 +73,9 @@ class GreetingAgent(BaseAgent):
     - Multi-tenant mode: model/temperature can be overridden via apply_tenant_config()
     """
 
-    def __init__(self, ollama=None, postgres=None, config: dict[str, Any] | None = None):
-        super().__init__("greeting_agent", config or {}, ollama=ollama, postgres=postgres)
-        self.ollama = ollama or OllamaLLM()
+    def __init__(self, llm=None, postgres=None, config: dict[str, Any] | None = None):
+        super().__init__("greeting_agent", config or {}, llm=llm, postgres=postgres)
+        self.llm = llm or VllmLLM()
 
         # Note: self.model and self.temperature are set by BaseAgent.__init__()
         # They can be overridden via apply_tenant_config() in multi-tenant mode
@@ -239,7 +239,7 @@ class GreetingAgent(BaseAgent):
             )
 
             # Generar respuesta con LLM
-            llm = self.ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=self.temperature)
+            llm = self.llm.get_llm(complexity=ModelComplexity.SIMPLE, temperature=self.temperature)
             response = await llm.ainvoke(full_prompt)
 
             # Extraer el contenido de la respuesta

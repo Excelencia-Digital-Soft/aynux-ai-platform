@@ -46,7 +46,7 @@ class EcommerceAgent:
                 - enabled_nodes: List of enabled subgraph nodes
                 - router: Router configuration (confidence_threshold, etc.)
                 - max_errors: Maximum errors before failing
-                - integrations: Ollama and PostgreSQL settings
+                - integrations: vLLM and PostgreSQL settings
         """
         self.config = config or {}
         self.name = "ecommerce_agent"

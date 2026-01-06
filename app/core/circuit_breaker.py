@@ -1,5 +1,5 @@
 """
-Circuit breaker resiliente para servicios externos como Ollama
+Circuit breaker resiliente para servicios externos como vLLM
 """
 
 import asyncio
@@ -295,30 +295,30 @@ def circuit_breaker(
     return decorator
 
 
-class ResilientOllamaService:
+class ResilientLLMService:
     """
-    Servicio Ollama resiliente con circuit breaker y reintentos.
+    Servicio LLM resiliente con circuit breaker y reintentos.
 
     Implementa las mejores prácticas del langgraph.md para servicios externos.
     """
 
-    def __init__(self, ollama_client, max_retries: int = 3, base_delay: float = 1.0):
-        self.ollama = ollama_client
+    def __init__(self, llm_client, max_retries: int = 3, base_delay: float = 1.0):
+        self.llm = llm_client
         self.max_retries = max_retries
         self.base_delay = base_delay
 
-        # Circuit breaker específico para Ollama
+        # Circuit breaker específico para LLM
         self.circuit_breaker = CircuitBreaker(
             failure_threshold=3,
             recovery_timeout=30,
             expected_exception=Exception,  # Cualquier excepción cuenta
-            name="ollama_service",
+            name="llm_service",
         )
 
         # Prompt manager for health check prompts
         self.prompt_manager = PromptManager()
 
-        logger.info(f"ResilientOllamaService initialized - max_retries: {max_retries}, base_delay: {base_delay}s")
+        logger.info(f"ResilientLLMService initialized - max_retries: {max_retries}, base_delay: {base_delay}s")
 
     async def generate_response(
         self,
@@ -339,25 +339,25 @@ class ResilientOllamaService:
             **kwargs: Argumentos adicionales
 
         Returns:
-            Respuesta generada por Ollama
+            Respuesta generada por el LLM
 
         Raises:
             CircuitBreakerError: Si el circuit breaker está abierto
-            Exception: Errores de Ollama después de todos los reintentos
+            Exception: Errores del LLM después de todos los reintentos
         """
 
-        async def _make_ollama_call():
-            """Función interna para la llamada a Ollama"""
+        async def _make_llm_call():
+            """Función interna para la llamada al LLM"""
             for attempt in range(self.max_retries):
                 try:
                     # Calcular delay exponencial
                     if attempt > 0:
                         delay = self.base_delay * (2 ** (attempt - 1))
-                        logger.debug(f"Retrying Ollama call in {delay}s (attempt {attempt + 1}/{self.max_retries})")
+                        logger.debug(f"Retrying LLM call in {delay}s (attempt {attempt + 1}/{self.max_retries})")
                         await asyncio.sleep(delay)
 
-                    # Hacer la llamada a Ollama
-                    response = await self.ollama.generate_response(
+                    # Hacer la llamada al LLM
+                    response = await self.llm.generate_response(
                         system_prompt=system_prompt,
                         user_prompt=user_prompt,
                         model=model,
@@ -368,20 +368,20 @@ class ResilientOllamaService:
                     return response
 
                 except Exception as e:
-                    logger.warning(f"Ollama call attempt {attempt + 1} failed: {type(e).__name__}: {e}")
+                    logger.warning(f"LLM call attempt {attempt + 1} failed: {type(e).__name__}: {e}")
 
                     # Si es el último intento, re-lanzar la excepción
                     if attempt == self.max_retries - 1:
                         raise
 
             # Nunca debería llegar aquí, pero por seguridad
-            raise Exception("All Ollama retry attempts failed")
+            raise Exception("All LLM retry attempts failed")
 
         # Ejecutar a través del circuit breaker
-        return await self.circuit_breaker.call(_make_ollama_call)
+        return await self.circuit_breaker.call(_make_llm_call)
 
     def get_health_status(self) -> Dict[str, Any]:
-        """Obtener estado de salud del servicio Ollama"""
+        """Obtener estado de salud del servicio LLM"""
         circuit_stats = self.circuit_breaker.get_stats()
 
         # Determinar estado de salud general
@@ -394,7 +394,7 @@ class ResilientOllamaService:
             health_status = "degraded"
 
         return {
-            "service": "ollama",
+            "service": "llm",
             "status": health_status,
             "circuit_breaker": circuit_stats,
             "retry_config": {"max_retries": self.max_retries, "base_delay": self.base_delay},

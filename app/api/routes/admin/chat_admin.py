@@ -290,7 +290,7 @@ async def get_agent_config() -> ChatAgentConfigResponse:
     try:
         settings = get_settings()
         return ChatAgentConfigResponse(
-            model=getattr(settings, "OLLAMA_API_MODEL_COMPLEX", "gemma2"),
+            model=getattr(settings, "VLLM_MODEL", "qwen-3b"),
             temperature=getattr(settings, "LLM_TEMPERATURE", 0.7),
             max_tokens=getattr(settings, "LLM_MAX_TOKENS", 2048),
             tools=["search_products", "get_knowledge", "check_order_status"],

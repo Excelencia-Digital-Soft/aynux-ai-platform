@@ -9,7 +9,7 @@ import logging
 import re
 from typing import Any
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 
@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 class ProductSQLBuilder:
     """Builds SQL queries for product searches."""
 
-    def __init__(self, ollama: OllamaLLM):
-        self.ollama = ollama
+    def __init__(self, llm: VllmLLM):
+        self.llm = llm
         self.product_schema = PRODUCT_SCHEMA
         self.prompt_manager = PromptManager()
 
@@ -54,7 +54,7 @@ class ProductSQLBuilder:
                     "max_results": str(max_results),
                 },
             )
-            response = await self.ollama.generate_response(
+            response = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 temperature=0.1,
@@ -88,7 +88,7 @@ class ProductSQLBuilder:
                     "intent_json": json.dumps(intent, indent=2),
                 },
             )
-            response = await self.ollama.generate_response(
+            response = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 temperature=0.1,

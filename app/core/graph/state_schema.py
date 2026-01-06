@@ -119,6 +119,11 @@ class LangGraphState(TypedDict):
     user_phone: Optional[str]
     sender: Optional[str]  # Alias for WhatsApp user identification
 
+    # BYPASS ROUTING: Target agent from bypass rules (for direct routing)
+    # When a bypass rule matches, this field holds the agent to route to directly,
+    # skipping LLM intent analysis. Used by orchestrator._check_bypass_routing()
+    bypass_target_agent: Optional[str]
+
     # RAG metrics for frontend visualization
     rag_metrics: Optional[Dict[str, Any]]  # {used, query, results_count, duration_ms, sources}
 

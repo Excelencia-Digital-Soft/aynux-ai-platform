@@ -29,7 +29,7 @@ from app.domains.excelencia.application.services.support_config import SupportCo
 from app.domains.excelencia.application.services.support_response import (
     SupportResponseGenerator,
 )
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 
 logger = logging.getLogger(__name__)
@@ -53,20 +53,20 @@ class ExcelenciaSupportAgent(BaseAgent):
 
     def __init__(
         self,
-        ollama: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
         config: dict[str, Any] | None = None,
         query_type_detector: CompositeQueryTypeDetector | None = None,
     ):
         """Initialize ExcelenciaSupportAgent.
 
         Args:
-            ollama: OllamaLLM instance for language model calls
+            llm: VllmLLM instance for language model calls
             config: Optional configuration dictionary
             query_type_detector: Optional detector for DIP (Dependency Injection)
         """
-        super().__init__("excelencia_support_agent", config or {}, ollama=ollama)
+        super().__init__("excelencia_support_agent", config or {}, llm=llm)
 
-        self._ollama = ollama or OllamaLLM()
+        self._llm = llm or VllmLLM()
         self._prompt_manager = PromptManager()
 
         # Query type detector (DIP)
@@ -74,13 +74,13 @@ class ExcelenciaSupportAgent(BaseAgent):
 
         # Incident flow manager (handles multi-step flow)
         self._flow_manager = IncidentFlowManager(
-            ollama=self._ollama,
+            llm=self._llm,
             prompt_manager=self._prompt_manager,
         )
 
         # Response generator (RAG + LLM)
         self._response_generator = SupportResponseGenerator(
-            ollama=self._ollama,
+            llm=self._llm,
             prompt_manager=self._prompt_manager,
         )
 

@@ -6,7 +6,7 @@ Composes all interpreters and maintains backward-compatible API.
 
 from typing import TYPE_CHECKING
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 
 from .base import InterpretationResult
 from .confirmation_interpreter import ConfirmationInterpreter
@@ -37,7 +37,7 @@ class SmartInputInterpreter:
     async def interpret_priority(
         self,
         message: str,
-        llm: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
     ) -> InterpretationResult:
         """Interpret priority selection."""
         return await self._priority.interpret(message, llm)
@@ -45,7 +45,7 @@ class SmartInputInterpreter:
     async def interpret_confirmation(
         self,
         message: str,
-        llm: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
     ) -> InterpretationResult:
         """Interpret user confirmation."""
         return await self._confirmation.interpret(message, llm)
@@ -53,7 +53,7 @@ class SmartInputInterpreter:
     async def check_description_quality(
         self,
         description: str,
-        llm: OllamaLLM,
+        llm: VllmLLM,
     ) -> tuple[bool, str | None]:
         """Check description quality."""
         return await self._description.check(description, llm)
@@ -62,7 +62,7 @@ class SmartInputInterpreter:
         self,
         message: str,
         query_type_detector: "CompositeQueryTypeDetector",
-        llm: OllamaLLM | None = None,
+        llm: VllmLLM | None = None,
     ) -> InterpretationResult:
         """Detect incident creation intent."""
         return await self._incident.detect(message, query_type_detector, llm)

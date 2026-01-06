@@ -317,11 +317,11 @@ class ILLMFactory(Protocol):
             ```python
             factory = LLMFactory()
 
-            # Ollama
-            ollama_llm = factory.create_llm(
-                LLMProvider.OLLAMA,
-                "deepseek-r1:7b",
-                config={"api_url": "http://localhost:11434"}
+            # vLLM
+            vllm_llm = factory.create_llm(
+                LLMProvider.VLLM,
+                "qwen-3b",
+                config={"api_url": "http://localhost:8090/v1"}
             )
 
             # OpenAI

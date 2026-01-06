@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 
 from .nodes import BalanceNode, PaymentNode, ScheduleNode
 from .state import CreditState
@@ -74,7 +74,7 @@ class CreditGraph:
         """Initialize integrations."""
         # integrations_config reserved for future LLM configuration options
         _ = self.config.get("integrations", {})
-        self.ollama = OllamaLLM()
+        self.llm = VllmLLM()
 
     def _init_nodes(self):
         """Initialize credit domain nodes."""
@@ -85,21 +85,21 @@ class CreditGraph:
         # Balance node
         if CreditNodeType.BALANCE in self.enabled_nodes:
             self.nodes[CreditNodeType.BALANCE] = BalanceNode(
-                ollama=self.ollama,
+                llm=self.llm,
                 config=node_config.get("balance", {}),
             )
 
         # Payment node
         if CreditNodeType.PAYMENT in self.enabled_nodes:
             self.nodes[CreditNodeType.PAYMENT] = PaymentNode(
-                ollama=self.ollama,
+                llm=self.llm,
                 config=node_config.get("payment", {}),
             )
 
         # Schedule node
         if CreditNodeType.SCHEDULE in self.enabled_nodes:
             self.nodes[CreditNodeType.SCHEDULE] = ScheduleNode(
-                ollama=self.ollama,
+                llm=self.llm,
                 config=node_config.get("schedule", {}),
             )
 

@@ -8,7 +8,7 @@ Tests:
 
 import pytest
 
-from app.integrations.llm import OllamaLLM as OllamaIntegration
+from app.integrations.llm import VllmLLM
 from app.domains.ecommerce.agents.product.generators.base_generator import BaseResponseGenerator
 from app.domains.ecommerce.agents.product.models import SearchResult, UserIntent
 from app.domains.ecommerce.agents.product.strategies.base_strategy import BaseSearchStrategy
@@ -124,18 +124,18 @@ class TestBaseResponseGenerator:
 
     def test_create_generator(self):
         """Test creating generator with dependencies."""
-        ollama = OllamaIntegration()
+        llm = VllmLLM()
         config = {"temperature": 0.7}
 
-        generator = ConcreteResponseGenerator(ollama, config)
+        generator = ConcreteResponseGenerator(llm, config)
 
-        assert generator.ollama is ollama
+        assert generator.llm is llm
         assert generator.config == config
 
     @pytest.mark.asyncio
     async def test_generate_response(self):
         """Test response generation method."""
-        generator = ConcreteResponseGenerator(OllamaIntegration(), {})
+        generator = ConcreteResponseGenerator(VllmLLM(), {})
         products = [{"id": "1", "name": "Laptop"}]
         intent = UserIntent(intent="test", search_terms=["laptop"])
 
@@ -146,7 +146,7 @@ class TestBaseResponseGenerator:
 
     def test_get_fallback_response(self):
         """Test fallback response method."""
-        generator = ConcreteResponseGenerator(OllamaIntegration(), {})
+        generator = ConcreteResponseGenerator(VllmLLM(), {})
         products = [{"id": "1", "name": "Laptop"}]
 
         response = generator.get_fallback_response(products, {})
@@ -156,7 +156,7 @@ class TestBaseResponseGenerator:
 
     def test_format_products_for_prompt(self):
         """Test formatting products."""
-        generator = ConcreteResponseGenerator(OllamaIntegration(), {})
+        generator = ConcreteResponseGenerator(VllmLLM(), {})
         products = [
             {"name": "Laptop ASUS", "brand": {"name": "ASUS"}, "price": 1000, "stock": 10, "similarity_score": 0.95}
         ]
@@ -171,7 +171,7 @@ class TestBaseResponseGenerator:
 
     def test_format_empty_products(self):
         """Test formatting empty product list."""
-        generator = ConcreteResponseGenerator(OllamaIntegration(), {})
+        generator = ConcreteResponseGenerator(VllmLLM(), {})
 
         formatted = generator._format_products_for_prompt([])
 
@@ -179,7 +179,7 @@ class TestBaseResponseGenerator:
 
     def test_format_metadata_for_prompt(self):
         """Test formatting metadata."""
-        generator = ConcreteResponseGenerator(OllamaIntegration(), {})
+        generator = ConcreteResponseGenerator(VllmLLM(), {})
         metadata = {"total_results": 10, "avg_similarity": 0.85, "query": "laptop gaming"}
 
         formatted = generator._format_metadata_for_prompt(metadata)
@@ -190,7 +190,7 @@ class TestBaseResponseGenerator:
 
     def test_format_empty_metadata(self):
         """Test formatting empty metadata."""
-        generator = ConcreteResponseGenerator(OllamaIntegration(), {})
+        generator = ConcreteResponseGenerator(VllmLLM(), {})
 
         formatted = generator._format_metadata_for_prompt({})
 
@@ -199,7 +199,7 @@ class TestBaseResponseGenerator:
     def test_get_config(self):
         """Test getting configuration."""
         config = {"temperature": 0.7}
-        generator = ConcreteResponseGenerator(OllamaIntegration(), config)
+        generator = ConcreteResponseGenerator(VllmLLM(), config)
 
         retrieved_config = generator.get_config()
 
@@ -207,7 +207,7 @@ class TestBaseResponseGenerator:
 
     def test_update_config(self):
         """Test updating configuration."""
-        generator = ConcreteResponseGenerator(OllamaIntegration(), {"temperature": 0.5})
+        generator = ConcreteResponseGenerator(VllmLLM(), {"temperature": 0.5})
 
         generator.update_config({"temperature": 0.8, "max_tokens": 500})
 
@@ -217,7 +217,7 @@ class TestBaseResponseGenerator:
     def test_get_trace_metadata(self):
         """Test getting trace metadata."""
         config = {"temperature": 0.7}
-        generator = ConcreteResponseGenerator(OllamaIntegration(), config)
+        generator = ConcreteResponseGenerator(VllmLLM(), config)
 
         metadata = generator.get_trace_metadata()
 

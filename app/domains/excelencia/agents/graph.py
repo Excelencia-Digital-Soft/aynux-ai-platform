@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 
 from .nodes import ExcelenciaNode
 from .state import ExcelenciaState
@@ -68,7 +68,7 @@ class ExcelenciaGraph:
         """Initialize integrations."""
         # integrations_config reserved for future use (e.g., external calendar API)
         _ = self.config.get("integrations", {})
-        self.ollama = OllamaLLM()
+        self.llm = VllmLLM()
 
     def _init_nodes(self):
         """Initialize Excelencia domain nodes."""
@@ -79,7 +79,7 @@ class ExcelenciaGraph:
         # Main Excelencia node
         if ExcelenciaNodeType.MAIN in self.enabled_nodes:
             self.nodes[ExcelenciaNodeType.MAIN] = ExcelenciaNode(
-                ollama=self.ollama,
+                llm=self.llm,
                 config=node_config.get("excelencia", {}),
             )
 

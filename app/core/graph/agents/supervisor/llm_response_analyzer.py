@@ -52,7 +52,7 @@ class LLMResponseAnalyzer:
 
     Configuration:
     - enable_llm_analysis: Enable/disable LLM analysis (default: True)
-    - llm_timeout: Timeout in seconds for LLM calls (default: 15)
+    - llm_timeout: Timeout in seconds for LLM calls (default: 60)
     - skip_llm_threshold: Skip LLM if heuristic score >= this value (default: 0.90)
     """
 
@@ -61,20 +61,20 @@ class LLMResponseAnalyzer:
 
     def __init__(
         self,
-        ollama=None,
+        llm=None,
         config: dict[str, Any] | None = None,
     ):
         """
         Initialize the LLM Response Analyzer.
 
         Args:
-            ollama: Ollama LLM instance (OllamaLLM class from integrations)
+            llm: VllmLLM instance (VllmLLM class from integrations)
             config: Configuration dictionary with optional keys:
                 - enable_llm_analysis: bool (default: True)
-                - llm_timeout: int (default: 15)
+                - llm_timeout: int (default: 60)
                 - skip_llm_threshold: float (default: 0.90)
         """
-        self.ollama = ollama
+        self.llm = llm
         self.config = config or {}
         self.prompt_manager = PromptManager()
 
@@ -123,7 +123,7 @@ class LLMResponseAnalyzer:
             )
 
         # Guard: Check if LLM instance available
-        if not self.ollama:
+        if not self.llm:
             logger.warning("No LLM instance available for analysis")
             return AnalyzerFallbackResult(
                 reason="No LLM instance available",
@@ -153,7 +153,7 @@ class LLMResponseAnalyzer:
 
             # Call COMPLEX LLM (gemma2) - faster than REASONING
             logger.info("Calling COMPLEX LLM for response analysis...")
-            llm = self.ollama.get_llm(
+            llm_instance = self.llm.get_llm(
                 complexity=ModelComplexity.COMPLEX,
                 temperature=0.1,  # Low temperature for consistent analysis
             )
@@ -161,7 +161,7 @@ class LLMResponseAnalyzer:
             # Enforce timeout to prevent hanging on slow LLM responses
             try:
                 response = await asyncio.wait_for(
-                    llm.ainvoke(prompt),
+                    llm_instance.ainvoke(prompt),
                     timeout=self.timeout,
                 )
             except asyncio.TimeoutError:

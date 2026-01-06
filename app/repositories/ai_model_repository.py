@@ -12,8 +12,8 @@ Follows Single Responsibility Principle - only handles data persistence.
 
 Usage:
     repository = AIModelRepository(db)
-    models = await repository.list(provider="ollama", enabled_only=True)
-    model = await repository.get_by_model_id("llama3.2:3b")
+    models = await repository.list(provider="vllm", enabled_only=True)
+    model = await repository.get_by_model_id("qwen-3b")
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ class AIModelRepository:
         """Find all models with optional filtering.
 
         Args:
-            provider: Filter by provider (e.g., "ollama", "openai")
+            provider: Filter by provider (e.g., "vllm", "openai")
             model_type: Filter by type ("llm" or "embedding")
             enabled_only: Only return enabled models
 

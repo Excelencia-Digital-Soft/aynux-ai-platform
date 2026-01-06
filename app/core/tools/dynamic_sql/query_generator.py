@@ -10,7 +10,7 @@ from typing import Any, Dict
 
 from app.core.tools.dynamic_sql.models import SQLGenerationContext
 from app.core.tools.dynamic_sql.schema_inspector import SchemaInspector
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
 
@@ -24,14 +24,14 @@ class SQLQueryGenerator:
     Single Responsibility: Transform natural language queries into SQL.
     """
 
-    def __init__(self, ollama: OllamaLLM | None = None):
+    def __init__(self, llm: VllmLLM | None = None):
         """
         Initialize SQL query generator.
 
         Args:
-            ollama: OllamaLLM instance for AI-powered generation
+            llm: VllmLLM instance for AI-powered generation
         """
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
         self._schema_inspector = SchemaInspector()
         self.prompt_manager = PromptManager()
 
@@ -66,7 +66,7 @@ class SQLQueryGenerator:
                     "max_results": str(context.max_results),
                 },
             )
-            response = await self.ollama.generate_response(
+            response = await self.llm.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 temperature=0.1,

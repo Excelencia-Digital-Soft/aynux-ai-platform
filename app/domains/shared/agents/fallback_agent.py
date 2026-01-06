@@ -28,7 +28,7 @@ from app.domains.excelencia.application.services.support_response import (
     RagQueryLogger,
     SearchMetrics,
 )
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
@@ -47,9 +47,9 @@ class FallbackAgent(BaseAgent):
     - Multi-tenant mode: model/temperature can be overridden via apply_tenant_config()
     """
 
-    def __init__(self, ollama=None, postgres=None, config: dict[str, Any] | None = None):
-        super().__init__("fallback_agent", config or {}, ollama=ollama, postgres=postgres)
-        self.ollama = ollama or OllamaLLM()
+    def __init__(self, llm=None, postgres=None, config: dict[str, Any] | None = None):
+        super().__init__("fallback_agent", config or {}, llm=llm, postgres=postgres)
+        self.llm = llm or VllmLLM()
 
         # Note: self.model and self.temperature are set by BaseAgent.__init__()
         # They can be overridden via apply_tenant_config() in multi-tenant mode
@@ -179,7 +179,7 @@ class FallbackAgent(BaseAgent):
 
         try:
             # Use configured model for user-facing responses
-            llm = self.ollama.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.7)
+            llm = self.llm.get_llm(complexity=ModelComplexity.SIMPLE, temperature=0.7)
             response = await llm.ainvoke(prompt)
             return response.content  # type: ignore
         except Exception as e:

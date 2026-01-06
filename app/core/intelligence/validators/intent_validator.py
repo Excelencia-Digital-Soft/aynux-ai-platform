@@ -46,6 +46,28 @@ class IntentValidator:
         "pharmacy_operations_agent",  # Pharmacy operations
     }
 
+    # Keyword-based routing for fallback scenarios
+    # Used when follow_up is detected but no previous agent exists
+    KEYWORD_TO_AGENT: dict[str, list[str]] = {
+        "pharmacy_operations_agent": [
+            "receta", "medicamento", "farmacia", "medicamentos", "pedido farmacia",
+            "deuda farmacia", "urgente receta", "envié receta", "mandé receta",
+        ],
+        "excelencia_support_agent": [
+            "problema", "error", "falla", "no funciona", "ayuda", "soporte",
+            "incidente", "bug", "ticket",
+        ],
+        "excelencia_invoice_agent": [
+            "factura", "facturación", "cobro", "pago", "cuenta", "deuda",
+        ],
+        "greeting_agent": [
+            "hola", "buenos días", "buenas tardes", "buenas noches", "hi", "hello",
+        ],
+        "farewell_agent": [
+            "adiós", "chao", "bye", "hasta luego", "gracias", "nos vemos",
+        ],
+    }
+
     def validate_and_map_intent(
         self,
         intent: str,
@@ -129,11 +151,42 @@ class IntentValidator:
 
         return None
 
+    def _try_keyword_routing(self, message: str) -> str | None:
+        """Try to route based on keywords in the message.
+
+        This is used as a fallback when follow_up is detected but there's
+        no previous agent to route to. Instead of going to fallback_agent,
+        we try to match keywords to find an appropriate agent.
+
+        Args:
+            message: User message text
+
+        Returns:
+            Agent name if keywords match, None otherwise
+        """
+        if not message:
+            return None
+
+        message_lower = message.lower()
+
+        # Check each agent's keywords
+        for agent, keywords in self.KEYWORD_TO_AGENT.items():
+            for keyword in keywords:
+                if keyword in message_lower:
+                    logger.info(f"Keyword '{keyword}' matched, routing to {agent}")
+                    return agent
+
+        return None
+
     def handle_follow_up_intent(
         self,
         conversation_data: dict[str, Any] | None,
     ) -> str:
         """Determine target agent for follow_up intent.
+
+        When follow_up is detected but no previous agent exists (e.g., new
+        conversation misclassified as follow_up), tries keyword-based routing
+        before falling back.
 
         Args:
             conversation_data: Conversation context
@@ -149,5 +202,14 @@ class IntentValidator:
             logger.info(f"Follow-up detected, routing to previous agent: {previous_agent}")
             return previous_agent
 
-        logger.warning("Follow-up detected but no previous agent, using fallback")
+        # No previous agent - this might be a misclassification
+        # Try keyword-based routing before defaulting to fallback
+        message = conversation_data.get("message", "")
+        if message:
+            keyword_agent = self._try_keyword_routing(message)
+            if keyword_agent:
+                logger.info(f"Follow-up reclassified via keywords to: {keyword_agent}")
+                return keyword_agent
+
+        logger.warning("Follow-up detected but no previous agent and no keyword match, using fallback")
         return "fallback_agent"

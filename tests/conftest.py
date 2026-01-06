@@ -136,12 +136,12 @@ def mock_llm():
 
 
 @pytest.fixture
-def mock_ollama_llm():
-    """Create a mock Ollama LLM service."""
-    from app.integrations.llm.ollama import OllamaLLM
+def mock_vllm_llm():
+    """Create a mock vLLM LLM service."""
+    from app.integrations.llm import VllmLLM
 
-    mock = AsyncMock(spec=OllamaLLM)
-    mock.generate = AsyncMock(return_value="Mocked Ollama response")
+    mock = AsyncMock(spec=VllmLLM)
+    mock.generate = AsyncMock(return_value="Mocked vLLM response")
     mock.chat = AsyncMock(return_value={"message": {"content": "Mocked chat response"}})
     mock.embed = AsyncMock(return_value=[0.1] * 1024)  # Mock embedding vector
     return mock

@@ -18,7 +18,7 @@ from app.utils.json_extractor import extract_json_from_text
 from app.core.agents import BaseAgent
 from app.core.utils.tracing import trace_async_method
 from app.database.async_db import get_async_db_context
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.llm.model_provider import ModelComplexity
 from app.prompts.manager import PromptManager
 from app.prompts.registry import PromptRegistry
@@ -79,10 +79,10 @@ class ExcelenciaPromotionsAgent(BaseAgent):
         "general": ["precio", "costo", "cuánto", "valor"],
     }
 
-    def __init__(self, ollama=None, config: dict[str, Any] | None = None):
-        super().__init__("excelencia_promotions_agent", config or {}, ollama=ollama)
+    def __init__(self, llm=None, config: dict[str, Any] | None = None):
+        super().__init__("excelencia_promotions_agent", config or {}, llm=llm)
 
-        self.ollama = ollama or OllamaLLM()
+        self.llm = llm or VllmLLM()
         self.model = self.config.get("model", "llama3.1")
         self.temperature = self.config.get("temperature", 0.7)
         self.max_response_length = self.config.get("max_response_length", 500)
@@ -206,7 +206,7 @@ class ExcelenciaPromotionsAgent(BaseAgent):
             )
 
             logger.info("ExcelenciaPromotionsAgent: Getting SIMPLE LLM for intent analysis...")
-            llm = self.ollama.get_llm(
+            llm = self.llm.get_llm(
                 complexity=ModelComplexity.SIMPLE,
                 temperature=INTENT_ANALYSIS_TEMPERATURE,
             )
@@ -325,7 +325,7 @@ class ExcelenciaPromotionsAgent(BaseAgent):
 
         try:
             logger.info("ExcelenciaPromotionsAgent: Getting COMPLEX LLM for response generation...")
-            llm = self.ollama.get_llm(
+            llm = self.llm.get_llm(
                 complexity=ModelComplexity.COMPLEX,
                 temperature=RESPONSE_GENERATION_TEMPERATURE,
             )
@@ -340,11 +340,11 @@ class ExcelenciaPromotionsAgent(BaseAgent):
                 else:
                     result = str(content).strip()
 
-                result = OllamaLLM.clean_deepseek_response(result)
+                result = VllmLLM.clean_deepseek_response(result)
                 return result
             else:
                 result = str(response).strip()
-                result = OllamaLLM.clean_deepseek_response(result)
+                result = VllmLLM.clean_deepseek_response(result)
                 return result
 
         except Exception as e:

@@ -14,7 +14,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from app.integrations.databases import PostgreSQLIntegration
 
 from .nodes import InvoiceNode, ProductNode, PromotionsNode, TrackingNode
@@ -51,7 +51,7 @@ class EcommerceGraph:
 
         Args:
             config: Configuration dictionary with:
-                - integrations: Ollama and PostgreSQL settings
+                - integrations: vLLM and PostgreSQL settings
                 - enabled_nodes: List of enabled node names
                 - max_errors: Maximum errors before failing
         """
@@ -79,16 +79,16 @@ class EcommerceGraph:
         logger.info(f"EcommerceGraph initialized with nodes: {self.enabled_nodes}")
 
     def _init_integrations(self):
-        """Initialize integrations (Ollama, PostgreSQL, Router)."""
+        """Initialize integrations (vLLM, PostgreSQL, Router)."""
         integrations_config = self.config.get("integrations", {})
 
-        self.ollama = OllamaLLM()
+        self.llm = VllmLLM()
         self.postgres = PostgreSQLIntegration(integrations_config.get("postgres", {}))
 
         # Initialize LLM-based router
         router_config = self.config.get("router", {})
         self.router = EcommerceIntentRouter(
-            ollama=self.ollama,
+            llm=self.llm,
             config=router_config,
         )
 
@@ -101,7 +101,7 @@ class EcommerceGraph:
         # Product node
         if EcommerceNodeType.PRODUCT in self.enabled_nodes:
             self.nodes[EcommerceNodeType.PRODUCT] = ProductNode(
-                ollama=self.ollama,
+                llm=self.llm,
                 postgres=self.postgres,
                 config=node_config.get("product", {}),
             )
@@ -109,21 +109,21 @@ class EcommerceGraph:
         # Promotions node
         if EcommerceNodeType.PROMOTIONS in self.enabled_nodes:
             self.nodes[EcommerceNodeType.PROMOTIONS] = PromotionsNode(
-                ollama=self.ollama,
+                llm=self.llm,
                 config=node_config.get("promotions", {}),
             )
 
         # Tracking node
         if EcommerceNodeType.TRACKING in self.enabled_nodes:
             self.nodes[EcommerceNodeType.TRACKING] = TrackingNode(
-                ollama=self.ollama,
+                llm=self.llm,
                 config=node_config.get("tracking", {}),
             )
 
         # Invoice node
         if EcommerceNodeType.INVOICE in self.enabled_nodes:
             self.nodes[EcommerceNodeType.INVOICE] = InvoiceNode(
-                ollama=self.ollama,
+                llm=self.llm,
                 config=node_config.get("invoice", {}),
             )
 

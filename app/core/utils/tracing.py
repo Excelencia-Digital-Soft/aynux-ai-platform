@@ -340,7 +340,7 @@ class ToolTracer:
 
 class IntegrationTracer:
     """
-    Tracer for external integrations (Ollama, pgvector, PostgreSQL).
+    Tracer for external integrations (vLLM, pgvector, PostgreSQL).
     """
 
     def __init__(self, integration_name: str):

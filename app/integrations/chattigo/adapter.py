@@ -101,7 +101,9 @@ class ChattigoAdapter:
 
         self._settings = settings
         self._login_url = settings.CHATTIGO_LOGIN_URL
-        self._message_url = settings.CHATTIGO_MESSAGE_URL
+        # Build message URL with DID: {base_url}/v15.0/{did}/messages
+        self._base_url = settings.CHATTIGO_BASE_URL
+        self._message_url = f"{self._base_url}/v15.0/{did}/messages"
         self._username = username
         self._password = password
         self._did = did

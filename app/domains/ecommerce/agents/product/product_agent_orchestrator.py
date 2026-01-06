@@ -8,7 +8,7 @@ Follows SOLID principles for maintainability and extensibility.
 import logging
 from typing import Any, Dict, List, Optional
 
-from app.integrations.llm import OllamaLLM
+from app.integrations.llm import VllmLLM
 from .intent_analyzer import IntentAnalyzer
 
 from .response import (
@@ -55,7 +55,7 @@ class ProductAgentOrchestrator:
         self.response_generators = sorted(response_generators, key=lambda g: g.priority)
 
         # Intent analyzer
-        self.intent_analyzer = intent_analyzer or IntentAnalyzer(ollama=OllamaLLM(), temperature=0.3)
+        self.intent_analyzer = intent_analyzer or IntentAnalyzer(llm=VllmLLM(), temperature=0.3)
 
         # Configuration
         self.min_results_threshold = self.config.get("min_results_threshold", 2)

@@ -1,7 +1,7 @@
 """
 LLM Configuration
 
-Provides LLM configuration for Ollama and other AI providers.
+Provides LLM configuration for vLLM and other AI providers.
 """
 
 from dataclasses import dataclass
@@ -19,8 +19,8 @@ class LLMConfig:
     api_url: str
 
     @property
-    def ollama_base_url(self) -> str:
-        """Get Ollama API base URL."""
+    def llm_base_url(self) -> str:
+        """Get LLM API base URL."""
         return self.api_url
 
     @property
@@ -52,10 +52,10 @@ def get_llm_config() -> LLMConfig:
     """Get LLM configuration from settings."""
     settings = get_settings()
     return LLMConfig(
-        model=settings.OLLAMA_API_MODEL_COMPLEX,
-        model_fast=settings.OLLAMA_API_MODEL_SIMPLE,
-        embedding_model=settings.OLLAMA_API_MODEL_EMBEDDING,
-        api_url=settings.OLLAMA_API_URL,
+        model=settings.VLLM_MODEL,
+        model_fast=settings.VLLM_MODEL,
+        embedding_model=settings.TEI_MODEL,
+        api_url=settings.VLLM_BASE_URL,
     )
 
 
@@ -65,7 +65,7 @@ def get_vector_search_config() -> VectorSearchConfig:
     return VectorSearchConfig(
         similarity_threshold=settings.PGVECTOR_SIMILARITY_THRESHOLD,
         knowledge_enabled=settings.KNOWLEDGE_BASE_ENABLED,
-        embedding_model=settings.OLLAMA_API_MODEL_EMBEDDING,
+        embedding_model=settings.TEI_MODEL,
     )
 
 

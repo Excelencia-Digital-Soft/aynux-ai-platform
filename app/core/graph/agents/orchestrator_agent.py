@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 class OrchestratorAgent(BaseAgent):
     """Agente orquestador que analiza intención y enruta mensajes a agentes especializados"""
 
-    def __init__(self, ollama=None, config: Optional[Dict[str, Any]] = None):
-        super().__init__("orchestrator", config or {}, ollama=ollama)
+    def __init__(self, llm=None, config: Optional[Dict[str, Any]] = None):
+        super().__init__("orchestrator", config or {}, llm=llm)
 
         # Configuración del orquestador
         self.confidence_threshold = self.config.get("confidence_threshold", 0.4)
@@ -24,7 +24,7 @@ class OrchestratorAgent(BaseAgent):
 
         # Inicializar el router de intents con thresholds ajustados para spaCy
         self.intent_router = IntentRouter(
-            ollama=ollama,
+            llm=llm,
             config={
                 "confidence_threshold": min(self.confidence_threshold, 0.3),  # Threshold más bajo para router
                 "fallback_agent": "fallback_agent",
