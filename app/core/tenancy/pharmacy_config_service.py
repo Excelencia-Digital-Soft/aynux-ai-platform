@@ -71,6 +71,7 @@ class PharmacyConfig:
     pharmacy_name: str
     pharmacy_address: str | None
     pharmacy_phone: str | None
+    pharmacy_hours: str | None
     pharmacy_logo_path: str | None
 
     # Mercado Pago settings
@@ -320,6 +321,7 @@ class PharmacyConfigService:
             pharmacy_name=db_config.pharmacy_name,
             pharmacy_address=db_config.pharmacy_address,
             pharmacy_phone=db_config.pharmacy_phone,
+            pharmacy_hours=db_config.pharmacy_hours,
             pharmacy_logo_path=db_config.pharmacy_logo_path,
             mp_enabled=db_config.mp_enabled,
             mp_access_token=db_config.mp_access_token,
