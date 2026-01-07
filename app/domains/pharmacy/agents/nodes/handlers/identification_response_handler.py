@@ -59,7 +59,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         Returns:
             State update with out-of-scope response
         """
-        pharmacy_phone = state.get("pharmacy_phone", "la farmacia")
+        pharmacy_phone = state.get("pharmacy_phone") or "la farmacia"
 
         try:
             response = await self.prompt_manager.get_prompt(
@@ -100,7 +100,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         Returns:
             State update with welcome message
         """
-        pharmacy_name = state.get("pharmacy_name", "la farmacia")
+        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
 
         try:
             message = await self.prompt_manager.get_prompt(
@@ -186,7 +186,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         Returns:
             State update for identified customer
         """
-        pharmacy_name = state.get("pharmacy_name", "la farmacia")
+        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
 
         result: dict[str, Any] = {
             "plex_customer_id": customer.id,

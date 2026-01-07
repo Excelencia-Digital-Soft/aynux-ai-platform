@@ -74,7 +74,7 @@ class PharmacyInfoHandler(BasePharmacyHandler):
         """
         state = state or {}
         customer_name = state.get("customer_name", "Cliente")
-        pharmacy_name = state.get("pharmacy_name", "la farmacia")
+        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
 
         # PRIORITY: Check if this is a capability question
         if self._capability_detector.is_capability_question(message):
@@ -138,24 +138,32 @@ class PharmacyInfoHandler(BasePharmacyHandler):
             State updates with info response
         """
         customer_name = state.get("customer_name", "Cliente")
-        pharmacy_name = state.get("pharmacy_name", "la farmacia")
+        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
         pharmacy_id_str = state.get("pharmacy_id")
+
+        self.logger.info(f"Info query - pharmacy_id from state: {pharmacy_id_str}")
 
         # Load pharmacy config from database
         pharmacy_info = await self._pharmacy_info_service.get_pharmacy_info(pharmacy_id_str)
+        self.logger.info(f"Info query - loaded pharmacy_info: {pharmacy_info}")
 
         if not pharmacy_info:
             return await self._handle_no_info(customer_name, pharmacy_name, state)
 
-        try:
-            response = await self._generate_info_response_with_llm(
-                user_question=message,
-                customer_name=customer_name,
-                pharmacy_info=pharmacy_info,
-            )
-        except Exception as e:
-            self.logger.warning(f"LLM info response failed, using fallback: {e}")
+        # For general questions, use fallback directly (more reliable than LLM)
+        if self._is_general_info_question(message):
+            self.logger.info("General info question detected, using direct response")
             response = self._get_fallback_info_response(message, pharmacy_info)
+        else:
+            try:
+                response = await self._generate_info_response_with_llm(
+                    user_question=message,
+                    customer_name=customer_name,
+                    pharmacy_info=pharmacy_info,
+                )
+            except Exception as e:
+                self.logger.warning(f"LLM info response failed, using fallback: {e}")
+                response = self._get_fallback_info_response(message, pharmacy_info)
 
         return self._format_state_update(
             message=response,
@@ -243,6 +251,54 @@ class PharmacyInfoHandler(BasePharmacyHandler):
         if response:
             return response
         return self._get_fallback_info_response(user_question, pharmacy_info)
+
+    def _is_general_info_question(self, message: str) -> bool:
+        """
+        Check if the question is a general info request.
+
+        General questions ask for all info, specific questions ask for
+        one piece (address, phone, hours).
+
+        Args:
+            message: User message
+
+        Returns:
+            True if general info question
+        """
+        message_lower = message.lower()
+
+        # General patterns - asking for all/general info
+        general_patterns = [
+            "info de la farmacia",
+            "informacion de la farmacia",
+            "información de la farmacia",
+            "datos de la farmacia",
+            "contacto de la farmacia",
+            "info de contacto",
+            "información de contacto",
+            "datos de contacto",
+            "como contactar",
+            "cómo contactar",
+        ]
+
+        # Specific patterns - asking for one thing
+        specific_patterns = [
+            "direccion", "dirección", "donde queda", "dónde queda", "ubicacion", "ubicación",
+            "horario", "hora", "abren", "cierran", "atienden",
+            "telefono", "teléfono", "numero", "número", "llamar",
+            "mail", "email", "correo",
+            "web", "pagina", "página", "sitio",
+        ]
+
+        # Check if it's a general pattern
+        for pattern in general_patterns:
+            if pattern in message_lower:
+                # But make sure it's not also specific
+                has_specific = any(sp in message_lower for sp in specific_patterns)
+                if not has_specific:
+                    return True
+
+        return False
 
     def _get_fallback_capability_response(
         self,

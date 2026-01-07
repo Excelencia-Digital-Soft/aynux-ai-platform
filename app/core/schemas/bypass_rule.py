@@ -7,8 +7,9 @@ Pydantic schemas for bypass routing rule API operations.
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class BypassRuleCreate(BaseModel):
@@ -54,6 +55,11 @@ class BypassRuleCreate(BaseModel):
         max_length=50,
         description="Optional domain override (uses tenant default_domain if not set)",
     )
+    pharmacy_id: str | None = Field(
+        None,
+        max_length=36,
+        description="Pharmacy ID to link this rule to (required when target_domain='pharmacy')",
+    )
     priority: int = Field(
         default=0,
         ge=-100,
@@ -68,6 +74,18 @@ class BypassRuleCreate(BaseModel):
         default=False,
         description="When true, creates isolated conversation history separate from other agents",
     )
+
+    @field_validator("pharmacy_id")
+    @classmethod
+    def validate_pharmacy_id(cls, v: str | None) -> str | None:
+        """Validate pharmacy_id is a valid UUID if provided."""
+        if v is None:
+            return v
+        try:
+            UUID(v)
+        except ValueError as e:
+            raise ValueError(f"pharmacy_id must be a valid UUID: {e}") from e
+        return v
 
     @model_validator(mode="after")
     def validate_rule_fields(self) -> "BypassRuleCreate":
@@ -87,6 +105,10 @@ class BypassRuleCreate(BaseModel):
         elif self.rule_type == "whatsapp_phone_number_id":
             if not self.phone_number_id:
                 raise ValueError("phone_number_id is required for whatsapp_phone_number_id rule type")
+
+        # Require pharmacy_id when target_domain is 'pharmacy'
+        if self.target_domain == "pharmacy" and not self.pharmacy_id:
+            raise ValueError("pharmacy_id is required when target_domain is 'pharmacy'")
 
         return self
 
@@ -130,6 +152,10 @@ class BypassRuleUpdate(BaseModel):
         max_length=50,
         description="Optional domain override",
     )
+    pharmacy_id: str | None = Field(
+        None,
+        description="Pharmacy ID to link this rule to",
+    )
     priority: int | None = Field(
         None,
         ge=-100,
@@ -159,6 +185,7 @@ class BypassRuleResponse(BaseModel):
     phone_number_id: str | None
     target_agent: str
     target_domain: str | None
+    pharmacy_id: str | None
     priority: int
     enabled: bool
     isolated_history: bool | None

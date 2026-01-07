@@ -189,8 +189,8 @@ Para otros asuntos, te recomiendo contactar a nuestros canales especializados:
             State updates with farewell response
         """
         state = state or {}
-        pharmacy_name = state.get("pharmacy_name", "la farmacia")
-        pharmacy_phone = state.get("pharmacy_phone", "la farmacia")
+        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
+        pharmacy_phone = state.get("pharmacy_phone") or "la farmacia"
 
         try:
             response = await self.prompt_manager.get_prompt(

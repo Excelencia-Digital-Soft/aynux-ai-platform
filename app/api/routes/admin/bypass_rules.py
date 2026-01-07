@@ -121,6 +121,7 @@ async def create_bypass_rule(
         phone_number_id=data.phone_number_id,
         target_agent=data.target_agent,
         target_domain=data.target_domain,
+        pharmacy_id=uuid.UUID(data.pharmacy_id) if data.pharmacy_id else None,
         priority=data.priority,
         enabled=data.enabled,
         isolated_history=data.isolated_history if data.isolated_history else None,
@@ -203,24 +204,29 @@ async def update_bypass_rule(
             )
         rule.rule_name = data.rule_name
 
-    # Update other fields if provided
-    if data.description is not None:
+    # Update fields - use model_dump to get only explicitly set fields
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "description" in update_data:
         rule.description = data.description
-    if data.pattern is not None:
+    if "pattern" in update_data:
         rule.pattern = data.pattern
-    if data.phone_numbers is not None:
+    if "phone_numbers" in update_data:
         rule.phone_numbers = data.phone_numbers
-    if data.phone_number_id is not None:
+    if "phone_number_id" in update_data:
         rule.phone_number_id = data.phone_number_id
-    if data.target_agent is not None:
+    if "target_agent" in update_data:
         rule.target_agent = data.target_agent
-    if data.target_domain is not None:
-        rule.target_domain = data.target_domain
-    if data.priority is not None:
+    if "target_domain" in update_data:
+        rule.target_domain = data.target_domain  # Can be None to clear
+    if "pharmacy_id" in update_data:
+        # pharmacy_id can be set to None to clear the association
+        rule.pharmacy_id = uuid.UUID(data.pharmacy_id) if data.pharmacy_id else None
+    if "priority" in update_data:
         rule.priority = data.priority
-    if data.enabled is not None:
+    if "enabled" in update_data:
         rule.enabled = data.enabled
-    if data.isolated_history is not None:
+    if "isolated_history" in update_data:
         rule.isolated_history = data.isolated_history
 
     rule.updated_at = datetime.now(UTC)

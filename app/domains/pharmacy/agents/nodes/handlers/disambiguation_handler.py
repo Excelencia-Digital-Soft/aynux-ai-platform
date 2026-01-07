@@ -106,7 +106,7 @@ class DisambiguationHandler(BasePharmacyHandler):
         """
         customer = candidates[selection - 1]
         phone = state.get("customer_id") or state.get("user_id")
-        pharmacy_name = state.get("pharmacy_name", "la farmacia")
+        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
 
         logger.info(f"User selected customer: {customer}")
 

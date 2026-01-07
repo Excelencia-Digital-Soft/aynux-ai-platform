@@ -19,19 +19,24 @@ prompts:
       - Horario:
       {pharmacy_hours}
 
-      Genera una respuesta amigable y directa que:
-      1. Responda SOLO lo que el cliente pregunto (no des toda la info si no la pidio)
-      2. Si pregunta por direccion, da la direccion
-      3. Si pregunta por horario, da el horario
-      4. Si pregunta por telefono, da el telefono
-      5. Si la info no esta disponible ("No disponible"), indica amablemente que no tienes esa info
+      Genera una respuesta amigable y directa:
 
-      REGLAS:
-      - Respuesta corta (2-3 oraciones maximo)
+      REGLAS DE RESPUESTA:
+      1. Si pregunta GENERAL ("info", "informacion", "datos", "contacto") → da TODA la info disponible
+      2. Si pregunta ESPECIFICA (direccion, horario, telefono) → da solo eso
+      3. Solo menciona "No disponible" si el dato especifico solicitado es "No disponible"
+      4. NUNCA digas "No disponible" si hay datos reales disponibles
+
+      FORMATO para preguntas generales:
+      - Direccion: [direccion]
+      - Telefono: [telefono]
+      - Horario: [horario formateado]
+
+      REGLAS DE ESTILO:
+      - Respuesta concisa pero completa
       - No uses emojis excesivos (maximo 1-2)
       - Se profesional pero amigable
       - Si es 24 horas, destaca esa informacion
-      - Termina ofreciendo ayuda adicional si corresponde
     metadata:
       temperature: 0.5
       max_tokens: 200
