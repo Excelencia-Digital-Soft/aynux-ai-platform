@@ -41,11 +41,53 @@ from app.models.chat import (
     ExecutionStepModel,
     WebhookSimulationRequest,
 )
+from app.models.db.tenancy import BypassRule
 from app.models.message import Contact, WhatsAppMessage
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ============================================================
+# BYPASS RULES LISTING (for webhook simulation dropdown)
+# ============================================================
+
+
+@router.get("/bypass-rules/available")
+async def list_available_bypass_rules(
+    db_session: AsyncSession = Depends(get_async_db),  # noqa: B008
+) -> list[dict]:
+    """
+    List all enabled bypass rules for test webhook dropdown.
+
+    Returns simplified list with id, name, type, pattern/did info.
+    No auth required - internal testing endpoint.
+    """
+    from sqlalchemy import desc, select
+
+    stmt = (
+        select(BypassRule)
+        .where(BypassRule.enabled == True)  # noqa: E712
+        .order_by(desc(BypassRule.priority))
+    )
+    result = await db_session.execute(stmt)
+    rules = result.scalars().all()
+
+    return [
+        {
+            "id": str(r.id),
+            "name": r.rule_name,
+            "type": r.rule_type,
+            "pattern": r.pattern,
+            "phone_number_id": r.phone_number_id,
+            "phone_numbers": r.phone_numbers,
+            "target_domain": r.target_domain,
+            "pharmacy_id": str(r.pharmacy_id) if r.pharmacy_id else None,
+            "organization_id": str(r.organization_id),
+        }
+        for r in rules
+    ]
 
 
 @router.post("/test", response_model=ChatTestResponse)
@@ -137,16 +179,68 @@ async def test_webhook_simulation(
 
     Uses process_webhook_message() instead of process_chat_message() to test
     the full webhook processing pipeline from the Chat Visualizer UI.
+
+    Supports bypass rule simulation when simulate_bypass=True, which evaluates
+    bypass rules just like the production Chattigo webhook flow.
     """
+    from uuid import UUID
+
     start_time = time.time()
 
     try:
         service = await get_chat_service()
         session_id = request.session_id or f"web_{request.phone_number}"
 
+        # Initialize routing vars
+        organization_id: UUID | None = None
+        pharmacy_id: UUID | None = None
+        bypass_target_agent: str | None = None
+        chattigo_context: dict | None = None
+        business_domain = request.business_domain
+
+        # Option 1: Simulate full bypass routing (production flow)
+        if request.simulate_bypass:
+            from app.services.bypass_routing_service import BypassRoutingService
+
+            bypass_service = BypassRoutingService(db_session)
+            bypass_result = await bypass_service.evaluate_bypass_rules(
+                wa_id=request.phone_number,
+                whatsapp_phone_number_id=request.did,
+            )
+
+            if bypass_result:
+                organization_id = bypass_result.organization_id
+                pharmacy_id = bypass_result.pharmacy_id
+                bypass_target_agent = bypass_result.target_agent
+                if bypass_result.domain:
+                    business_domain = bypass_result.domain
+
+            logger.info(
+                f"Bypass simulation: matched={bypass_result is not None}, "
+                f"org={organization_id}, pharmacy={pharmacy_id}, "
+                f"agent={bypass_target_agent}, domain={business_domain}"
+            )
+
+        # Option 2: Use manual overrides
+        else:
+            if request.organization_id:
+                organization_id = UUID(request.organization_id)
+            if request.pharmacy_id:
+                pharmacy_id = UUID(request.pharmacy_id)
+
+        # Build chattigo_context if did provided
+        if request.did:
+            chattigo_context = {
+                "did": request.did,
+                "idChat": None,
+                "channelId": None,
+                "idCampaign": None,
+            }
+
         logger.info(
             f"Webhook simulation: phone={request.phone_number}, "
-            f"domain={request.business_domain}, session={session_id}"
+            f"domain={business_domain}, session={session_id}, "
+            f"bypass={request.simulate_bypass}, did={request.did}"
         )
 
         message = WhatsAppMessage.model_validate(
@@ -167,8 +261,12 @@ async def test_webhook_simulation(
         result = await service.process_webhook_message(
             message=message,
             contact=contact,
-            business_domain=request.business_domain,
+            business_domain=business_domain,
             db_session=db_session,
+            organization_id=organization_id,
+            pharmacy_id=pharmacy_id,
+            chattigo_context=chattigo_context,
+            bypass_target_agent=bypass_target_agent,
         )
 
         response_time_ms = (time.time() - start_time) * 1000
@@ -204,7 +302,14 @@ async def test_webhook_simulation(
                     "is_complete": True,
                     "webhook_simulation": True,
                     "channel": "WEB_SIMULATOR",
-                    "business_domain": request.business_domain,
+                    "business_domain": business_domain,
+                    "bypass_simulation": {
+                        "enabled": request.simulate_bypass,
+                        "did": request.did,
+                        "organization_id": str(organization_id) if organization_id else None,
+                        "pharmacy_id": str(pharmacy_id) if pharmacy_id else None,
+                        "bypass_target_agent": bypass_target_agent,
+                    },
                 }
                 if request.debug
                 else None
@@ -214,6 +319,7 @@ async def test_webhook_simulation(
                 "user_name": request.user_name,
                 "processing_time_ms": response_time_ms,
                 "flow": "process_webhook_message",
+                "bypass_simulation": request.simulate_bypass,
             },
         )
 

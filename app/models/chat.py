@@ -287,9 +287,9 @@ class WebhookSimulationRequest(BaseModel):
         default="Web Tester",
         description="Simulated user name for the Contact profile",
     )
-    business_domain: Literal["excelencia", "ecommerce", "healthcare", "credit"] = Field(
+    business_domain: Literal["excelencia", "ecommerce", "healthcare", "credit", "pharmacy"] = Field(
         default="excelencia",
-        description="Business domain for processing (only 'excelencia' is active in production)",
+        description="Business domain for processing",
     )
     session_id: Optional[str] = Field(
         None,
@@ -298,6 +298,23 @@ class WebhookSimulationRequest(BaseModel):
     debug: bool = Field(
         default=True,
         description="Enable debug mode for detailed execution info",
+    )
+    # Chattigo simulation fields
+    did: Optional[str] = Field(
+        None,
+        description="Bot phone number ID (DID) for bypass rule matching (whatsapp_phone_number_id type)",
+    )
+    simulate_bypass: bool = Field(
+        default=False,
+        description="If true, evaluate bypass rules like production Chattigo flow",
+    )
+    organization_id: Optional[str] = Field(
+        None,
+        description="Override organization_id (UUID string, used if simulate_bypass=False)",
+    )
+    pharmacy_id: Optional[str] = Field(
+        None,
+        description="Override pharmacy_id (UUID string, used if simulate_bypass=False)",
     )
 
     class Config:
@@ -309,5 +326,9 @@ class WebhookSimulationRequest(BaseModel):
                 "business_domain": "excelencia",
                 "session_id": None,
                 "debug": True,
+                "did": None,
+                "simulate_bypass": False,
+                "organization_id": None,
+                "pharmacy_id": None,
             }
         }

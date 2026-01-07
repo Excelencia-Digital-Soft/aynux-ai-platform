@@ -101,6 +101,39 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             "pharmacy_phone": state.get("pharmacy_phone"),
         }
 
+    async def format_info_query_response(
+        self,
+        message: str,
+        state: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Format response for pharmacy info queries (horarios, direccion, etc).
+
+        These are PUBLIC queries that don't require customer identification.
+        Delegates to PharmacyInfoHandler for actual info retrieval.
+
+        Args:
+            message: Original user message
+            state: Current state with pharmacy config
+
+        Returns:
+            State update with pharmacy info response
+        """
+        from app.domains.pharmacy.agents.nodes.handlers.pharmacy_info_handler import (
+            PharmacyInfoHandler,
+        )
+
+        logger.info(f"Handling info query without identification: '{message[:30]}...'")
+
+        handler = PharmacyInfoHandler(self._prompt_manager)
+        result = await handler.handle(message, state)
+
+        # Keep conversation open for further queries or identification
+        result["is_complete"] = False
+        result["awaiting_document_input"] = True  # Ready to receive DNI if user wants
+
+        return result
+
     async def format_welcome_message(
         self,
         state: dict[str, Any],
