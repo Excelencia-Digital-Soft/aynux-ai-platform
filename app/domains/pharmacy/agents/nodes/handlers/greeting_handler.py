@@ -43,7 +43,7 @@ class GreetingHandler(BasePharmacyHandler):
         """
         state = state or {}
         customer_name = state.get("customer_name", "")
-        pharmacy_name = state.get("pharmacy_name", "la farmacia")
+        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
 
         try:
             capabilities = await self.prompt_manager.get_prompt(

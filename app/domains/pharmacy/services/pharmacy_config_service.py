@@ -14,6 +14,9 @@ from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
+# Default fallback when pharmacy name is not available
+DEFAULT_PHARMACY_NAME = "la farmacia"
+
 
 @dataclass
 class PharmacyConfigResult:
@@ -25,7 +28,7 @@ class PharmacyConfigResult:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for state merging."""
         return {
-            "pharmacy_name": self.pharmacy_name,
+            "pharmacy_name": self.pharmacy_name or DEFAULT_PHARMACY_NAME,
             "pharmacy_phone": self.pharmacy_phone,
         }
 
@@ -63,6 +66,11 @@ class PharmacyConfigService:
                 return PharmacyConfigResult(
                     pharmacy_name=config.pharmacy_name,
                     pharmacy_phone=config.pharmacy_phone,
+                )
+            else:
+                logger.warning(
+                    f"Pharmacy config not found for pharmacy_id={pharmacy_id}. "
+                    "Bypass rule may be orphaned or pharmacy was deleted."
                 )
         except Exception as e:
             logger.warning(f"Failed to load pharmacy config: {e}")

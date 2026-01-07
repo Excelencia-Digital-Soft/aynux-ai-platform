@@ -184,11 +184,18 @@ class CustomerIdentificationNode(BaseAgent):
         Returns:
             State dictionary with pharmacy config merged
         """
-        if not state_dict.get("pharmacy_name") and state_dict.get("pharmacy_id"):
-            config = await self._get_config_service().get_config_dict(
-                state_dict.get("pharmacy_id")
-            )
+        pharmacy_id = state_dict.get("pharmacy_id")
+        pharmacy_name = state_dict.get("pharmacy_name")
+
+        if not pharmacy_name and pharmacy_id:
+            logger.info(f"Loading pharmacy config for pharmacy_id={pharmacy_id}")
+            config = await self._get_config_service().get_config_dict(pharmacy_id)
+            logger.info(f"Loaded pharmacy config: {config}")
             return {**state_dict, **config}
+
+        if not pharmacy_id:
+            logger.debug("No pharmacy_id in state, skipping config load")
+
         return state_dict
 
     async def _process_internal(
