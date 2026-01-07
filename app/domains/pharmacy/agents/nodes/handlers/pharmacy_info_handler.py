@@ -242,7 +242,6 @@ class PharmacyInfoHandler(BasePharmacyHandler):
                 "pharmacy_email": pharmacy_info.get("email") or "No disponible",
                 "pharmacy_website": pharmacy_info.get("website") or "No disponible",
                 "pharmacy_hours": hours_text,
-                "is_24h": pharmacy_info.get("is_24h", False),
             },
             complexity=ModelComplexity.SIMPLE,
             temperature=INFO_QUERY_LLM_TEMPERATURE,

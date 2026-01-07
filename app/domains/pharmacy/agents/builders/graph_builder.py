@@ -164,6 +164,9 @@ class PharmacyGraphBuilder:
             return "registration"
         if self._check_termination(state):
             return "__end__"
+        # Prevent looping after out-of-scope response was given
+        if state.get("out_of_scope_handled"):
+            return "__end__"
         return "identification"
 
     def _route_after_registration(self, state: PharmacyState) -> str:

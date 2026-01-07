@@ -139,6 +139,8 @@ class PharmacyState(TypedDict):
     # Control Flow
     # =========================================================================
     is_complete: bool
+    is_out_of_scope: bool  # True if last response was out-of-scope
+    out_of_scope_handled: bool  # True after out-of-scope response given (prevents loop)
     error_count: int
     max_errors: int
     requires_human: bool

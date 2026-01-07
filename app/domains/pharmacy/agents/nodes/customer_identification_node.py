@@ -291,6 +291,9 @@ class CustomerIdentificationNode(BaseAgent):
                 message,
                 {"customer_identified": False},
             )
+            # Handle info_query first - it's PUBLIC data that doesn't require identification
+            if intent_result.intent == "info_query":
+                return await response_handler.format_info_query_response(message, state_dict)
             if intent_result.is_out_of_scope or intent_result.intent in OUT_OF_SCOPE_INTENTS:
                 return await response_handler.format_out_of_scope_response(message, state_dict)
             return await response_handler.format_welcome_message(state_dict)
@@ -329,6 +332,10 @@ class CustomerIdentificationNode(BaseAgent):
                 message,
                 {"customer_identified": False},
             )
+            # Handle info_query first - it's PUBLIC data that doesn't require identification
+            if intent_result.intent == "info_query":
+                logger.info(f"Info query detected: {intent_result.intent}")
+                return await response_handler.format_info_query_response(message, state_dict)
             if intent_result.is_out_of_scope or intent_result.intent in OUT_OF_SCOPE_INTENTS:
                 logger.info(f"Out-of-scope intent detected: {intent_result.intent}")
                 return await response_handler.format_out_of_scope_response(message, state_dict)

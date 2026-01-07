@@ -52,6 +52,9 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         """
         Format out-of-scope response with pharmacy contact info.
 
+        If customer is NOT identified, also suggests identification to use
+        debt/payment services.
+
         Args:
             message: Original user message
             state: Current state with pharmacy config
@@ -60,6 +63,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             State update with out-of-scope response
         """
         pharmacy_phone = state.get("pharmacy_phone") or "la farmacia"
+        customer_identified = state.get("customer_identified")
 
         try:
             response = await self.prompt_manager.get_prompt(
@@ -76,16 +80,59 @@ class IdentificationResponseHandler(BasePharmacyHandler):
                 f"• *Horarios y sucursales*: {pharmacy_phone}"
             )
 
+        # If NOT identified, suggest identification to use debt/payment services
+        if not customer_identified:
+            response += (
+                "\n\n*¿Quieres usar nuestros servicios?*\n"
+                "Puedo ayudarte con consulta de deuda y links de pago.\n"
+                "Solo necesito tu DNI o numero de cliente para identificarte."
+            )
+
         logger.info(f"Returning out-of-scope response for: '{message[:30]}...'")
 
         return {
             "messages": [{"role": "assistant", "content": response}],
-            "is_complete": False,
+            "is_complete": False,  # Keep conversation open
             "is_out_of_scope": True,
+            "out_of_scope_handled": True,  # Prevents loop back to identification
             "pharmacy_intent_type": "out_of_scope",
+            "awaiting_document_input": True,  # Ready to receive DNI if user provides
             "pharmacy_name": state.get("pharmacy_name"),
             "pharmacy_phone": state.get("pharmacy_phone"),
         }
+
+    async def format_info_query_response(
+        self,
+        message: str,
+        state: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Format response for pharmacy info queries (horarios, direccion, etc).
+
+        These are PUBLIC queries that don't require customer identification.
+        Delegates to PharmacyInfoHandler for actual info retrieval.
+
+        Args:
+            message: Original user message
+            state: Current state with pharmacy config
+
+        Returns:
+            State update with pharmacy info response
+        """
+        from app.domains.pharmacy.agents.nodes.handlers.pharmacy_info_handler import (
+            PharmacyInfoHandler,
+        )
+
+        logger.info(f"Handling info query without identification: '{message[:30]}...'")
+
+        handler = PharmacyInfoHandler(self._prompt_manager)
+        result = await handler.handle(message, state)
+
+        # Keep conversation open for further queries or identification
+        result["is_complete"] = False
+        result["awaiting_document_input"] = True  # Ready to receive DNI if user wants
+
+        return result
 
     async def format_welcome_message(
         self,

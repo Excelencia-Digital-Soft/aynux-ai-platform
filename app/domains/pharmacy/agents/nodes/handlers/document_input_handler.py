@@ -94,6 +94,10 @@ class DocumentInputHandler(BasePharmacyHandler):
             },
         )
 
+        # Handle info_query first - it's PUBLIC data that doesn't require identification
+        if intent_result.intent == "info_query":
+            logger.info(f"Info query detected while awaiting document: {intent_result.intent}")
+            return await self._response_handler.format_info_query_response(message, state)
         # Handle out-of-scope intents
         if intent_result.is_out_of_scope or intent_result.intent in OUT_OF_SCOPE_INTENTS:
             logger.info(f"Out-of-scope detected while awaiting document: {intent_result.intent}")

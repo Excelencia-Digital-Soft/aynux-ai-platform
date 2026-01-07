@@ -27,6 +27,9 @@ prompts:
       - data_query: Preguntas analíticas sobre productos o medicamentos específicos.
         Ejemplos: "cuál medicamento debo más", "compras de mayor valor",
         "producto más caro", "cuántos productos tengo", "qué he comprado"
+      - info_query: Preguntas sobre información de la farmacia (NO sobre la cuenta del cliente).
+        Ejemplos: "qué horario atienden", "a qué hora abren", "dónde queda la farmacia",
+        "cuál es la dirección", "teléfono de la farmacia", "están abiertos"
       - confirm: Confirmar acción (sí, confirmo, acepto, ok, de acuerdo, dale)
       - reject: Rechazar/cancelar (no, cancelar, no quiero, rechazar)
       - invoice: Solicitar factura, recibo, comprobante, pagar
@@ -37,9 +40,10 @@ prompts:
         Ejemplos: "mi documento es 12345678", "DNI 12345678", "2259863"
       - unknown: No se pudo determinar o está fuera del alcance
 
-      IMPORTANTE: Distinguir debt_query vs data_query:
+      IMPORTANTE: Distinguir debt_query vs data_query vs info_query:
       - debt_query = "cuánto debo", "mi saldo", "mi deuda" (pregunta por total general)
-      - data_query = "qué medicamento debo más", "compras de mayor valor" (pregunta analítica específica)
+      - data_query = "qué medicamento debo más", "compras de mayor valor" (pregunta analítica sobre SU cuenta)
+      - info_query = "qué horario atienden", "dónde queda" (información PÚBLICA de la farmacia, NO de la cuenta)
 
       INSTRUCCIONES:
       1. USA EL HISTORIAL para entender el contexto de la conversación
