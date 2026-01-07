@@ -137,5 +137,10 @@ class LangGraphState(TypedDict):
     whatsapp_phone: Optional[str]
     customer_name: Optional[str]
 
+    # PHARMACY DOMAIN: Pharmacy configuration (must persist for personalized responses)
+    pharmacy_id: Optional[str]
+    pharmacy_name: Optional[str]
+    pharmacy_phone: Optional[str]
+
 
 GraphState = LangGraphState

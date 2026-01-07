@@ -30,6 +30,8 @@ prompts:
       - Mantén la respuesta concisa pero informativa
       - Al final, pregunta si necesita más detalles o quiere proceder al pago
     metadata:
+      temperature: 0.5
+      max_tokens: 500
       variables:
         required:
           - customer_name
@@ -37,3 +39,20 @@ prompts:
           - total_debt
           - item_count
           - items_list
+
+  - key: pharmacy.summary.no_data
+    name: Summary No Data Response
+    description: Response when there is no debt data to summarize
+    version: "1.0.0"
+    template: |
+      Hola {customer_name}, actualmente no tengo información de productos pendientes en tu cuenta.
+
+      Si crees que esto es un error o tienes dudas sobre tu cuenta corriente, te recomiendo comunicarte directamente con la farmacia.
+
+      ¿Hay algo más en lo que pueda ayudarte?
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      variables:
+        required:
+          - customer_name

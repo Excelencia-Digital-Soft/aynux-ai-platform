@@ -83,18 +83,15 @@ prompts:
       variables: []
 
   - key: pharmacy.response.capabilities
-    name: Capabilities Message
-    description: Message showing bot capabilities
-    version: "1.0.0"
+    name: Capabilities Message (Updated)
+    description: Message showing bot capabilities (template format)
+    version: "2.0.0"
     template: |
-      Puedo ayudarte con:
+      Actualmente puedo ayudarte con:
+      • Consulta de deuda en cuenta corriente
+      • Envio de link de pago
 
-      - Consultar tu deuda/saldo pendiente
-      - Confirmar deuda para pago
-      - Generar recibo/factura
-      - Registrarte como cliente nuevo
-
-      ¿En qué puedo ayudarte?
+      Para otros asuntos, te indicare los canales adecuados.
     metadata:
       variables: []
 
@@ -291,3 +288,74 @@ prompts:
           - highest_item_text
           - grouped_items_text
           - user_question
+
+  # =====================================================
+  # NEW TEMPLATES FOR TEMPLATE FORMAT COMPLIANCE
+  # =====================================================
+
+  - key: pharmacy.response.request_dni
+    name: Request DNI (Template Format)
+    description: Request customer DNI following template format
+    version: "1.0.0"
+    template: |
+      Para consultar tu deuda, necesito que me proporciones tu numero de cliente o documento de identidad.
+      Por favor, envialo en el siguiente formato:
+      • Cliente: [tu numero]
+      o
+      • DNI: [tu documento]
+      Tu informacion sera tratada de forma confidencial.
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.processing
+    name: Processing Response (Template Format)
+    description: Processing message while fetching data
+    version: "1.0.0"
+    template: |
+      Gracias. Estoy consultando tu saldo en cuenta corriente.
+      Por favor, espera unos segundos...
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.out_of_scope
+    name: Out of Scope Response (Template Format)
+    description: Response for out-of-scope queries with pharmacy contact
+    version: "1.0.0"
+    template: |
+      *Para mejor atencion*
+      Actualmente solo manejo consultas de deuda y envio de links de pago.
+      Para otros asuntos, te recomiendo contactar a nuestros canales especializados:
+      • *Pedidos y entregas*: {pharmacy_phone}
+      • *Consultas medicas/recetas*: {pharmacy_phone}
+      • *Horarios y sucursales*: {pharmacy_phone}
+    metadata:
+      variables:
+        required:
+          - pharmacy_phone
+
+  - key: pharmacy.response.farewell
+    name: Farewell Response (Template Format)
+    description: Goodbye message following template format
+    version: "1.0.0"
+    template: |
+      Gracias por contactar a {pharmacy_name}.
+      Recuerda que para:
+      • Deudas: puedes escribirme directamente
+      • Otros temas: {pharmacy_phone}
+      ¡Que tengas un excelente dia!
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+          - pharmacy_phone
+
+  - key: pharmacy.response.thanks
+    name: Thanks Response (Template Format)
+    description: Response when customer thanks the bot
+    version: "1.0.0"
+    template: |
+      ¡De nada! Es un placer poder ayudarte.
+      No dudes en escribirme nuevamente si necesitas consultar tu deuda o solicitar el link de pago.
+      ¡Cuidate mucho!
+    metadata:
+      variables: []

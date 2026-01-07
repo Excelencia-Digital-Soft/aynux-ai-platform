@@ -3,6 +3,7 @@ Pharmacy Data Query Handler
 
 Handles data analysis queries using LLM to answer customer questions
 about their debt items. Auto-fetches debt data from Plex if needed.
+Refactored to use PromptRegistry for type-safe prompt references.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import re
 from typing import Any
 
 from app.integrations.llm import ModelComplexity, get_llm_for_task
+from app.prompts.registry import PromptRegistry
 
 from .base_handler import BasePharmacyHandler
 
@@ -200,9 +202,9 @@ class DataQueryHandler(BasePharmacyHandler):
             else:
                 highest_item_text = f"{highest_item.description}: ${float(highest_item.amount):,.2f}"
 
-        # Build prompt from YAML template
+        # Build prompt from YAML template using PromptRegistry
         prompt = await self.prompt_manager.get_prompt(
-            "pharmacy.data_query.analyze",
+            PromptRegistry.PHARMACY_DATA_QUERY_ANALYZE,
             variables={
                 "customer_name": customer_name,
                 "total_debt": f"${float(total_debt):,.2f}",

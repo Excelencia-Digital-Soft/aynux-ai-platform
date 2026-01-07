@@ -17,6 +17,7 @@ prompts:
       CONTEXTO ACTUAL:
       - Cliente identificado: {customer_identified}
       - Esperando confirmación: {awaiting_confirmation}
+      - Esperando documento/DNI: {awaiting_document_input}
       - Estado de deuda: {debt_status}
 
       MENSAJE ACTUAL DEL CLIENTE: "{message}"
@@ -32,6 +33,8 @@ prompts:
       - register: Registrarse como nuevo cliente
       - greeting: Saludo general (hola, buenos días)
       - summary: Resumen general de cuenta sin preguntas específicas
+      - document_input: El usuario proporciona su DNI o número de documento.
+        Ejemplos: "mi documento es 12345678", "DNI 12345678", "2259863"
       - unknown: No se pudo determinar o está fuera del alcance
 
       IMPORTANTE: Distinguir debt_query vs data_query:
@@ -42,8 +45,9 @@ prompts:
       1. USA EL HISTORIAL para entender el contexto de la conversación
       2. Si el usuario hace referencia a algo mencionado antes (ej: "eso", "el resumen", "lo que te pedí"), busca en el historial
       3. Si el contexto indica "Esperando confirmación: true", prioriza detectar confirm/reject
-      4. Si el mensaje está fuera del alcance del bot, marca is_out_of_scope: true
-      5. suggested_response solo si es out_of_scope o ambiguo
+      4. Si el contexto indica "Esperando documento/DNI: true" y el mensaje contiene 7-8 dígitos, clasificar como document_input con confidence 0.95
+      5. Si el mensaje está fuera del alcance del bot, marca is_out_of_scope: true
+      6. suggested_response solo si es out_of_scope o ambiguo
 
       Responde SOLO con JSON válido con las claves: intent, confidence, is_out_of_scope, suggested_response, entities
     metadata:
@@ -56,6 +60,7 @@ prompts:
           - capabilities
           - customer_identified
           - awaiting_confirmation
+          - awaiting_document_input
           - debt_status
           - conversation_history
 

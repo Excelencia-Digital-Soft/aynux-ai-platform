@@ -11,15 +11,16 @@ for pharmacy test session management.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
-from threading import Lock
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 
 from app.api.routes.admin.pharmacy_models import PharmacySessionState
 from app.domains.pharmacy.agents.graph import PharmacyGraph
+from app.integrations.databases import PostgreSQLIntegration
 from app.repositories.async_redis_repository import AsyncRedisRepository
 
 logger = logging.getLogger(__name__)
@@ -38,41 +39,51 @@ SESSION_PREFIX = "pharmacy_test"
 
 
 class PharmacyGraphManager:
-    """Singleton manager for PharmacyGraph instance."""
+    """Singleton manager for PharmacyGraph instance with async initialization."""
 
     _instance: PharmacyGraphManager | None = None
-    _lock = Lock()
+    _init_lock: asyncio.Lock | None = None
 
     def __init__(self) -> None:
         self._graph: PharmacyGraph | None = None
+        self._postgres: PostgreSQLIntegration | None = None
         self._initialized = False
 
     @classmethod
     def get_instance(cls) -> PharmacyGraphManager:
         """Get or create singleton instance."""
         if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls()
+            cls._instance = cls()
         return cls._instance
 
-    def get_graph(self) -> PharmacyGraph:
-        """Get or initialize the PharmacyGraph singleton."""
+    async def get_graph(self) -> PharmacyGraph:
+        """Get or initialize the PharmacyGraph singleton with async checkpointer."""
         if not self._initialized:
-            with self._lock:
+            # Use async lock for thread-safe async initialization
+            if PharmacyGraphManager._init_lock is None:
+                PharmacyGraphManager._init_lock = asyncio.Lock()
+
+            async with PharmacyGraphManager._init_lock:
                 if not self._initialized:
+                    # Create PostgreSQL integration for checkpointer
+                    self._postgres = PostgreSQLIntegration()
                     self._graph = PharmacyGraph()
-                    self._graph.initialize()
+                    await self._graph.initialize(postgres=self._postgres)
                     self._initialized = True
-                    logger.info("PharmacyGraph singleton initialized")
+                    logger.info("PharmacyGraph singleton initialized with PostgreSQL checkpointer")
+
         if self._graph is None:
             raise RuntimeError("PharmacyGraph failed to initialize")
         return self._graph
 
-    def reset(self) -> None:
+    async def reset(self) -> None:
         """Reset the graph (for testing/debugging)."""
-        with self._lock:
+        if PharmacyGraphManager._init_lock is None:
+            PharmacyGraphManager._init_lock = asyncio.Lock()
+
+        async with PharmacyGraphManager._init_lock:
             self._graph = None
+            self._postgres = None
             self._initialized = False
 
 
@@ -87,6 +98,7 @@ def get_graph_manager() -> PharmacyGraphManager:
 
 async def invoke_pharmacy_graph(
     graph_state: dict[str, Any],
+    conversation_id: str | None = None,
     recursion_limit: int = 50,
 ) -> dict[str, Any]:
     """
@@ -94,16 +106,21 @@ async def invoke_pharmacy_graph(
 
     Args:
         graph_state: Initial state for graph execution
+        conversation_id: Thread ID for checkpointer state persistence
         recursion_limit: Maximum recursion depth for graph
 
     Returns:
         Graph execution result dictionary
     """
-    graph = _graph_manager.get_graph()
+    graph = await _graph_manager.get_graph()
     if graph.app is None:
         raise RuntimeError("PharmacyGraph app not initialized")
 
+    # Build config with thread_id for checkpointer
     invoke_config: RunnableConfig = {"recursion_limit": recursion_limit}
+    if conversation_id:
+        invoke_config["configurable"] = {"thread_id": conversation_id}
+
     result: dict[str, Any] = await graph.app.ainvoke(graph_state, invoke_config)
     return result
 
