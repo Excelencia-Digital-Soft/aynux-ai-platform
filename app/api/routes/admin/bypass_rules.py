@@ -123,6 +123,7 @@ async def create_bypass_rule(
         target_domain=data.target_domain,
         priority=data.priority,
         enabled=data.enabled,
+        isolated_history=data.isolated_history if data.isolated_history else None,
     )
     db.add(rule)
     await db.commit()
@@ -219,6 +220,8 @@ async def update_bypass_rule(
         rule.priority = data.priority
     if data.enabled is not None:
         rule.enabled = data.enabled
+    if data.isolated_history is not None:
+        rule.isolated_history = data.isolated_history
 
     rule.updated_at = datetime.now(UTC)
 

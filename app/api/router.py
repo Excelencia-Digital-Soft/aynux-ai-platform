@@ -27,6 +27,7 @@ from app.api.routes.admin import (
     bypass_rules,
     chat_admin,
     chattigo_credentials,
+    domains,
     modules as modules_admin,
     org_users,
     organizations,
@@ -154,6 +155,13 @@ api_router.include_router(
     agents_catalog.router,
     prefix="/admin/agents",
     tags=["Agent Catalog"],
+)
+
+# Admin routes - Domain Management (centralized domain registry)
+api_router.include_router(
+    domains.router,
+    prefix="/admin/domains",
+    tags=["Domains"],
 )
 
 # Admin routes - Pharmacy Testing (public - for Vue.js testing interface)

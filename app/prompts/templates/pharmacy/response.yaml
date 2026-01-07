@@ -182,10 +182,9 @@ prompts:
       {items_summary}
 
       Genera una respuesta amigable pero profesional que:
-      1. Salude al cliente por su nombre
-      2. Informe el monto total de deuda de forma clara
-      3. Muestre el resumen de productos
-      4. Explique que puede confirmar con "SI" para proceder al pago o "NO" para cancelar
+      1. Informe el monto total de deuda de forma clara
+      2. Muestre el resumen de productos
+      3. Explique que puede confirmar con "SI" para proceder al pago o "NO" para cancelar
 
       REGLAS:
       - No uses emojis

@@ -64,6 +64,10 @@ class BypassRuleCreate(BaseModel):
         default=True,
         description="Whether this rule is active",
     )
+    isolated_history: bool = Field(
+        default=False,
+        description="When true, creates isolated conversation history separate from other agents",
+    )
 
     @model_validator(mode="after")
     def validate_rule_fields(self) -> "BypassRuleCreate":
@@ -136,6 +140,10 @@ class BypassRuleUpdate(BaseModel):
         None,
         description="Whether this rule is active",
     )
+    isolated_history: bool | None = Field(
+        None,
+        description="When true, creates isolated conversation history separate from other agents",
+    )
 
 
 class BypassRuleResponse(BaseModel):
@@ -153,6 +161,7 @@ class BypassRuleResponse(BaseModel):
     target_domain: str | None
     priority: int
     enabled: bool
+    isolated_history: bool | None
     created_at: str | None
     updated_at: str | None
 

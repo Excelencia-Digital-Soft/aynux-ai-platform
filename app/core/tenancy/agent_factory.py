@@ -55,12 +55,12 @@ class TenantAgentFactory:
     Tenant-aware agent filtering.
 
     Determines which agents are enabled based on:
-    1. Global settings (ENABLED_AGENTS from settings)
+    1. Global catalog (core.agents table with enabled=true)
     2. Tenant configuration (enabled_agent_types from TenantConfig)
 
     Logic:
-    - No tenant context → Use global ENABLED_AGENTS
-    - Tenant with empty enabled_agent_types → Use global ENABLED_AGENTS
+    - No tenant context → Use global agents from core.agents table
+    - Tenant with empty enabled_agent_types → Use global agents from core.agents
     - Tenant with specific enabled_agent_types → Intersection with global
 
     Example:

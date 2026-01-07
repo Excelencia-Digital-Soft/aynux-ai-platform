@@ -295,6 +295,15 @@ class PharmacyGraph:
     async def _route_query(self, state: PharmacyState) -> dict[str, Any]:
         """Route incoming query to appropriate pharmacy node using hybrid NLU."""
         try:
+            # Skip intent analysis if customer was JUST identified this turn
+            # (the message would be the DNI which isn't a valid intent)
+            if state.get("just_identified"):
+                # Clear flag and prompt user for what they need
+                return {
+                    "just_identified": False,  # Clear flag for next turn
+                    **await self._handle_fallback_intent("greeting", "", state),
+                }
+
             message_content = self._extract_last_human_message(state)
             if not message_content:
                 return {"next_agent": "__end__", "is_complete": True}

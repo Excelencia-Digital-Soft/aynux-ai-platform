@@ -6,8 +6,9 @@ Proporciona endpoints para:
 - Ver configuración actual de agentes
 - Obtener estadísticas de agentes
 
-NOTA: La habilitación/deshabilitación de agentes requiere modificar la configuración
-ENABLED_AGENTS en .env y reiniciar el servicio. No se soporta hot-reload de agentes.
+NOTA: La configuración de agentes se gestiona desde la tabla core.agents en DB.
+Use /admin/agents/enabled-keys para obtener agentes habilitados desde DB.
+Para habilitar/deshabilitar agentes, use la UI /agent-catalog o el endpoint toggle.
 """
 
 import logging

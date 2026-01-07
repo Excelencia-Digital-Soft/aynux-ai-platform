@@ -34,6 +34,12 @@ from .bypass_rule import (
     BypassRuleUpdate,
 )
 from .conversation import ConversationContext
+from .domain import (
+    DomainCreate,
+    DomainListResponse,
+    DomainResponse,
+    DomainUpdate,
+)
 from .customer import CustomerContext
 from .intent import IntentInfo, IntentPattern
 
@@ -72,4 +78,9 @@ __all__ = [
     "BypassRuleListResponse",
     "BypassRuleTestRequest",
     "BypassRuleTestResponse",
+    # Domains
+    "DomainCreate",
+    "DomainUpdate",
+    "DomainResponse",
+    "DomainListResponse",
 ]

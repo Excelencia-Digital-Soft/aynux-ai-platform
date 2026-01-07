@@ -31,12 +31,16 @@ class BypassMatch:
         domain: Domain to use for message processing
         target_agent: Agent to route the message to
         pharmacy_id: UUID of the pharmacy (if rule is linked to a pharmacy)
+        isolated_history: When true, creates isolated conversation history
+        rule_id: UUID of the matched rule (used for generating isolated history suffix)
     """
 
     organization_id: UUID
     domain: str
     target_agent: str
     pharmacy_id: UUID | None = None
+    isolated_history: bool = False
+    rule_id: UUID | None = None
 
 
 class BypassRoutingService:
@@ -107,6 +111,8 @@ class BypassRoutingService:
                         domain=cast(str, domain),
                         target_agent=cast(str, rule.target_agent),
                         pharmacy_id=cast(UUID | None, rule.pharmacy_id),
+                        isolated_history=bool(rule.isolated_history) if rule.isolated_history else False,
+                        rule_id=cast(UUID, rule.id),
                     )
 
             # No rule matched
@@ -179,6 +185,8 @@ class BypassRoutingService:
                         domain=cast(str, domain),
                         target_agent=cast(str, rule.target_agent),
                         pharmacy_id=cast(UUID | None, rule.pharmacy_id),
+                        isolated_history=bool(rule.isolated_history) if rule.isolated_history else False,
+                        rule_id=cast(UUID, rule.id),
                     )
 
             return None

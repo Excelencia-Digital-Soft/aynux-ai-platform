@@ -281,6 +281,71 @@ class ConversationContextService:
 
         return context
 
+    async def get_or_create_with_inheritance(
+        self,
+        conversation_id: str,
+        parent_conversation_id: str | None = None,
+        **initial_data: Any,
+    ) -> ConversationContextModel:
+        """
+        Get or create context with optional inheritance from parent.
+
+        If context doesn't exist and parent_conversation_id is provided,
+        copies rolling_summary, topic_history, and key_entities from parent.
+
+        This is used for isolated history feature where agents have separate
+        conversation histories but can inherit initial context from the main
+        conversation.
+
+        Args:
+            conversation_id: Unique conversation identifier for isolated context
+            parent_conversation_id: Parent context to inherit from (optional)
+            **initial_data: Initial data for new context (organization_id, etc.)
+
+        Returns:
+            ConversationContextModel (existing or newly created with inheritance)
+        """
+        # Check if isolated context already exists
+        existing = await self.get_context(conversation_id)
+        if existing:
+            logger.debug(f"Isolated context already exists for {conversation_id}")
+            return existing
+
+        # Create new context
+        new_context = ConversationContextModel(
+            conversation_id=conversation_id,
+            **initial_data,
+        )
+
+        # Inherit from parent if provided
+        if parent_conversation_id:
+            parent = await self.get_context(parent_conversation_id)
+            if parent:
+                # Copy rolling summary, topic history, and key entities
+                new_context.rolling_summary = parent.rolling_summary
+                new_context.topic_history = parent.topic_history.copy() if parent.topic_history else []
+                new_context.key_entities = parent.key_entities.copy() if parent.key_entities else {}
+
+                # Track inheritance in metadata
+                if new_context.metadata is None:
+                    new_context.metadata = {}
+                new_context.metadata["inherited_from"] = parent_conversation_id
+                new_context.metadata["inherited_at"] = datetime.now(UTC).isoformat()
+
+                logger.info(
+                    f"Inherited context from {parent_conversation_id} to {conversation_id} "
+                    f"(summary: {len(parent.rolling_summary or '')} chars, "
+                    f"topics: {len(parent.topic_history or [])}, "
+                    f"entities: {len(parent.key_entities or {})})"
+                )
+            else:
+                logger.debug(f"Parent context {parent_conversation_id} not found, starting fresh")
+
+        await self.save_context(conversation_id, new_context)
+        logger.info(f"Created isolated context for {conversation_id}")
+
+        return new_context
+
     # =========================================================================
     # Private Helper Methods
     # =========================================================================

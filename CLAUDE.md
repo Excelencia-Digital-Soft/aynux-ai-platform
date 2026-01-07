@@ -71,7 +71,7 @@ Aynux operates in **two modes** with different development patterns:
 | Aspect | Pattern |
 |--------|---------|
 | **Configuration** | Environment variables, `settings.py` |
-| **Agents** | `ENABLED_AGENTS` from env |
+| **Agents** | Database-driven via `core.agents` table |
 | **Data** | Shared `company_knowledge` table |
 | **Code** | ✅ OK to hardcode Excelencia-specific logic |
 | **RAG** | Global pgvector, no org filtering |
@@ -243,31 +243,32 @@ llm = vllm.get_llm(complexity=ModelComplexity.COMPLEX)  # → qwen-3b
 # Note: complexity parameter preserved for backward compatibility
 ```
 
-### Agent Enablement
-```bash
-# Global mode (Excelencia-focused)
-ENABLED_AGENTS=greeting_agent,excelencia_agent,excelencia_invoice_agent,excelencia_support_agent,excelencia_promotions_agent,support_agent,data_insights_agent,fallback_agent,farewell_agent
-```
+### Agent Configuration (Database-Driven)
+
+Agents are configured via database tables, managed through the Admin UI:
+
+| Table | UI | Purpose | When Used |
+|-------|-----|---------|-----------|
+| `core.agents` | `/agent-catalog` | Global agent catalog | System org (`00000000-0000-0000-0000-000000000000`) |
+| `core.tenant_agents` | `TenantAgentSelection` | Per-organization agents | Specific tenant orgs |
 
 **Core Agents** (always on): `orchestrator`, `supervisor`
 
-**Global Agents** (domain_key=None):
-- `greeting_agent` - Multi-domain greeting
-- `support_agent` - General support
-- `fallback_agent` - Catch-all
-- `farewell_agent` - Goodbye
+**Available Agents by Domain:**
 
-**Excelencia Domain** (domain_key="excelencia"):
-- `excelencia_agent` - Main Software orchestrator
-- `excelencia_invoice_agent` - Client invoicing
-- `excelencia_support_agent` - Software support
-- `excelencia_promotions_agent` - Software promotions
-- `data_insights_agent` - Analytics
+| Domain | Agents |
+|--------|--------|
+| **Global** (domain_key=None) | `greeting_agent`, `support_agent`, `fallback_agent`, `farewell_agent` |
+| **Excelencia** (domain_key="excelencia") | `excelencia_agent`, `excelencia_invoice_agent`, `excelencia_support_agent`, `excelencia_promotions_agent`, `data_insights_agent` |
+| **E-commerce** (domain_key="ecommerce") | `ecommerce_agent` |
+| **Pharmacy** (domain_key="pharmacy") | `pharmacy_operations_agent` |
 
-**E-commerce Domain** (domain_key="ecommerce", disabled by default):
-- `ecommerce_agent` - Product search, orders
+**Managing Agents:**
+- **Seed Builtin**: `POST /admin/agents/seed/builtin` - Creates default agents in DB
+- **Enable/Disable**: Toggle in `/agent-catalog` UI or via API `POST /admin/agents/{id}/toggle`
+- **List Enabled**: `GET /admin/agents/enabled-keys` - Returns enabled agent keys from DB
 
-**Admin APIs**: `GET /api/v1/admin/agents/status|enabled|disabled|config`
+**Admin APIs**: `GET /api/v1/admin/agents/status|enabled|enabled-keys|config`
 
 ## Code Quality Standards
 

@@ -46,7 +46,7 @@ class TestTenantAgentFactoryUnit:
         factory = TenantAgentFactory()
         global_agents = factory.global_enabled_agents
 
-        # Should return list of agents from settings.ENABLED_AGENTS
+        # Should return list of agents from core.agents table (via TenantAgentService)
         assert isinstance(global_agents, list)
         assert len(global_agents) > 0
 
@@ -263,7 +263,7 @@ class TestConvenienceFunctions:
         set_tenant_context(None)
 
         # Should check against global config
-        # Result depends on settings.ENABLED_AGENTS
+        # Result depends on enabled agents from core.agents table
         result = is_agent_enabled_for_tenant("greeting_agent")
         assert isinstance(result, bool)
 

@@ -288,6 +288,7 @@ class CustomerIdentificationNode(BaseAgent):
                 "plex_customer": customer.to_dict(),
                 "customer_name": customer.display_name,
                 "customer_identified": True,
+                "just_identified": True,  # Flag to skip intent analysis on DNI
                 "awaiting_document_input": False,
                 "whatsapp_phone": phone,
                 "workflow_step": "identified",
@@ -324,6 +325,7 @@ class CustomerIdentificationNode(BaseAgent):
             "plex_customer": customer.to_dict(),
             "customer_name": customer.display_name,
             "customer_identified": True,
+            "just_identified": True,  # Flag to skip intent analysis on DNI
             "requires_disambiguation": False,
             "awaiting_document_input": False,
             "whatsapp_phone": phone,

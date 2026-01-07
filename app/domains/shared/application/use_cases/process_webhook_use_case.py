@@ -79,6 +79,8 @@ class BypassResult:
     domain: str | None = None
     target_agent: str | None = None
     pharmacy_id: UUID | None = None
+    isolated_history: bool = False
+    rule_id: UUID | None = None
 
     @property
     def matched(self) -> bool:
@@ -162,7 +164,7 @@ class ProcessWebhookUseCase:
         # Step 2: Load tenant registry if multi-tenant mode
         _, mode = await self._load_tenant_registry(bypass_result.organization_id, bypass_result.target_agent)
 
-        # Step 3: Process message (pass organization_id, pharmacy_id, and bypass_target_agent for multi-tenant context)
+        # Step 3: Process message (pass organization_id, pharmacy_id, bypass_target_agent, and isolation params)
         try:
             result = await self._process_message(
                 message,
@@ -171,6 +173,8 @@ class ProcessWebhookUseCase:
                 organization_id=bypass_result.organization_id,
                 pharmacy_id=bypass_result.pharmacy_id,
                 bypass_target_agent=bypass_result.target_agent,
+                isolated_history=bypass_result.isolated_history,
+                bypass_rule_id=bypass_result.rule_id,
             )
 
             logger.info(f"Message processed successfully: {result.status}")
@@ -231,6 +235,8 @@ class ProcessWebhookUseCase:
                 domain=match.domain,
                 target_agent=match.target_agent,
                 pharmacy_id=match.pharmacy_id,
+                isolated_history=match.isolated_history,
+                rule_id=match.rule_id,
             )
 
         return BypassResult()
@@ -306,6 +312,8 @@ class ProcessWebhookUseCase:
         organization_id: UUID | None = None,
         pharmacy_id: UUID | None = None,
         bypass_target_agent: str | None = None,
+        isolated_history: bool = False,
+        bypass_rule_id: UUID | None = None,
     ) -> BotResponse:
         """
         Process message via LangGraph service.
@@ -317,6 +325,8 @@ class ProcessWebhookUseCase:
             organization_id: Organization UUID (from bypass routing)
             pharmacy_id: Pharmacy UUID (from bypass routing, for config lookup)
             bypass_target_agent: Target agent from bypass routing (for direct routing)
+            isolated_history: When true, creates isolated conversation history
+            bypass_rule_id: UUID of the bypass rule (for generating isolated history suffix)
 
         Returns:
             BotResponse from LangGraph
@@ -330,6 +340,8 @@ class ProcessWebhookUseCase:
             pharmacy_id=pharmacy_id,
             chattigo_context=self._chattigo_context,
             bypass_target_agent=bypass_target_agent,
+            isolated_history=isolated_history,
+            bypass_rule_id=bypass_rule_id,
         )
 
     async def _attempt_fallback(
