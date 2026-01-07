@@ -121,6 +121,9 @@ async def send_test_message(
                 organization_id=str(org_id),
                 pharmacy_id=str(config.pharmacy_id),
                 customer_id=request.phone_number or "5491122334455",
+                # Pharmacy configuration (CRITICAL for multi-turn)
+                pharmacy_name=config.pharmacy_name,
+                pharmacy_phone=config.pharmacy_phone,
             )
             previous_messages = []
 
@@ -134,7 +137,7 @@ async def send_test_message(
             new_message=new_message,
         )
 
-        result = await invoke_pharmacy_graph(graph_state)
+        result = await invoke_pharmacy_graph(graph_state, conversation_id=session_id)
 
         # 4. Extract response and update session
         response_text = extract_bot_response(result)

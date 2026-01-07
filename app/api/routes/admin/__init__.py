@@ -20,6 +20,7 @@ from . import (
     ai_models,
     bypass_rules,
     chattigo_credentials,
+    domains,
     modules,
     org_users,
     organizations,
@@ -47,4 +48,5 @@ __all__ = [
     "ai_models",
     "agent_flow",
     "modules",
+    "domains",
 ]

@@ -70,9 +70,24 @@ InvoiceGenerationNode: Generates invoice → "Factura #XXX generada"
 PHARMACY_ERP_BASE_URL=https://pharmacy-erp.example.com/api
 PHARMACY_API_TOKEN=your-bearer-token-here
 PHARMACY_ERP_TIMEOUT=30
+```
 
-# Enable the agent
-ENABLED_AGENTS=...,pharmacy_operations_agent
+### Enabling the Agent
+
+Enable `pharmacy_operations_agent` via the Admin UI:
+
+1. Go to `/agent-catalog` in the admin panel
+2. Click "Seed Builtin" if agents haven't been initialized
+3. Find `pharmacy_operations_agent` in the list
+4. Toggle the "Enabled" switch to ON
+
+**Or via API:**
+```bash
+# 1. Seed builtin agents (if not done)
+POST /api/v1/admin/agents/seed/builtin
+
+# 2. Toggle agent enabled status
+POST /api/v1/admin/agents/{agent_id}/toggle
 ```
 
 ## External ERP Endpoints
@@ -256,8 +271,10 @@ The agent is registered in:
 2. `app/core/agents/builtin_agents.py` - Default configuration
 3. `app/core/graph/factories/agent_factory.py` - Class registration
 
-Enable by adding to `ENABLED_AGENTS`:
+**Enable via database** (not environment variable):
 
-```bash
-ENABLED_AGENTS=greeting_agent,pharmacy_operations_agent,fallback_agent,farewell_agent
-```
+1. **Seed builtin agents** (if not done): `POST /admin/agents/seed/builtin`
+2. **Enable in UI**: Go to `/agent-catalog` and toggle `pharmacy_operations_agent` ON
+3. **Or via API**: `POST /admin/agents/{agent_id}/toggle`
+
+The agent must be enabled in `core.agents` table with `enabled=true`.

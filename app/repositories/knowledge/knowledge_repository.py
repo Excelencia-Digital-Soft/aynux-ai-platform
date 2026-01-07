@@ -267,7 +267,9 @@ class KnowledgeRepository:
                 stmt = stmt.where(CompanyKnowledge.active)
 
             result = await self.db.execute(stmt)
-            counts: dict[str, int] = {row.document_type: row.count for row in result.all()}
+            counts: dict[str, int] = {
+                str(row.document_type): int(row.count) for row in result.all()
+            }
             return counts
         except Exception as e:
             logger.error(f"Error counting documents by type: {e}")

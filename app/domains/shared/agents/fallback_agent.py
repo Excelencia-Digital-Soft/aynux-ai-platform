@@ -1,7 +1,7 @@
 # ============================================================================
 # SCOPE: GLOBAL
 # Description: Agente de fallback para consultas no reconocidas. Sugiere
-#              servicios disponibles basándose en ENABLED_AGENTS del sistema.
+#              servicios disponibles basándose en agentes habilitados en DB.
 # Tenant-Aware: Yes via BaseAgent - puede recibir config por tenant.
 # ============================================================================
 """

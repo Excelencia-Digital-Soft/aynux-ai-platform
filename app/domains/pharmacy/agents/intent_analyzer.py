@@ -10,6 +10,7 @@ Hybrid intent detection for pharmacy domain using:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import spacy
@@ -135,14 +136,39 @@ class PharmacyIntentAnalyzer:
             if result := match_confirmation(text_lower):
                 return result
 
-        # Priority 2: Detect greeting with high confidence
+        # Priority 2: Check document input context - detect DNI when awaiting document
+        if context.get("awaiting_document_input"):
+            dni_match = re.search(r'\d{7,8}', text_lower)
+            if dni_match:
+                return PharmacyIntentResult(
+                    intent="document_input",
+                    confidence=CONFIDENCE_EXACT_MATCH,
+                    is_out_of_scope=False,
+                    entities={"dni": dni_match.group()},
+                    method="awaiting_document_detection",
+                    analysis={"detected": "dni_while_awaiting"},
+                )
+
+        # Priority 3: Detect greeting with high confidence
         if result := match_greeting(text_lower):
             return result
 
         # Extract entities early for payment detection
         entities = self._entity_extractor.extract(doc, text_lower)
 
-        # Priority 3: Detect payment intent (pagar + cantidad)
+        # Priority 3: Detect capability/info questions (que puedes hacer, etc.)
+        # These must be caught BEFORE payment detection to avoid LLM misclassification
+        if self._is_capability_question(text_lower):
+            return PharmacyIntentResult(
+                intent="info_query",
+                confidence=CONFIDENCE_EXACT_MATCH,
+                is_out_of_scope=False,
+                entities=entities,
+                method="capability_detection",
+                analysis={"detected": "capability_question"},
+            )
+
+        # Priority 4: Detect payment intent (pagar + cantidad)
         if is_payment_intent(text_lower, entities):
             return PharmacyIntentResult(
                 intent="invoice",
@@ -194,6 +220,56 @@ class PharmacyIntentAnalyzer:
 
         return min(score * weight, 1.0)
 
+    def _is_capability_question(self, text: str) -> bool:
+        """Check if message is asking about bot capabilities.
+
+        These phrases indicate the user is asking what the bot can do,
+        not requesting a specific action like payment.
+        """
+        capability_phrases = (
+            # Direct capability questions
+            "que puedes hacer",
+            "qué puedes hacer",
+            "que puedes",
+            "qué puedes",
+            "puedes hacer",
+            "que haces",
+            "qué haces",
+            "que sabes",
+            "qué sabes",
+            "que sabes hacer",
+            "qué sabes hacer",
+            # Purpose questions
+            "para que sirves",
+            "para qué sirves",
+            "para que eres",
+            "para qué eres",
+            # Service questions
+            "que servicios",
+            "qué servicios",
+            "que ofreces",
+            "qué ofreces",
+            "servicios ofreces",
+            # Help questions
+            "en que me ayudas",
+            "en qué me ayudas",
+            "como me ayudas",
+            "cómo me ayudas",
+            "que me ofreces",
+            "qué me ofreces",
+            # Function questions
+            "como funciona",
+            "cómo funciona",
+            "como funcionas",
+            "cómo funcionas",
+            # More capability
+            "que mas puedes",
+            "qué más puedes",
+            "que mas haces",
+            "qué más haces",
+        )
+        return any(phrase in text for phrase in capability_phrases)
+
     def _keyword_fallback(self, message: str, context: dict[str, Any]) -> PharmacyIntentResult:
         """Keyword fallback when spaCy unavailable."""
         text_lower = message.lower().strip()
@@ -235,6 +311,7 @@ class PharmacyIntentAnalyzer:
                 "message": message,
                 "customer_identified": context.get("customer_identified", False),
                 "awaiting_confirmation": context.get("awaiting_confirmation", False),
+                "awaiting_document_input": context.get("awaiting_document_input", False),
                 "debt_status": context.get("debt_status", "none"),
                 "capabilities": "\n".join(f"- {cap}" for cap in PHARMACY_CAPABILITIES),
                 "conversation_history": conversation_history,

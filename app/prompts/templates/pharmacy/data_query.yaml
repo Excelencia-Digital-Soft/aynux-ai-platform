@@ -53,30 +53,73 @@ prompts:
           - data
 
   - key: pharmacy.data_query.analyze
-    name: Pharmacy Data Query Analysis
-    description: Analyzes pharmacy data queries for detailed insights
+    name: Data Query Analysis
+    description: Analyzes and responds to specific data queries about the customer account
     version: "1.0.0"
     template: |
-      Analyze this pharmacy data query:
+      Eres un asistente de farmacia. El cliente pregunta sobre datos específicos de su cuenta.
 
-      Query: "{message}"
-      Available Data: {available_data}
-      Context: {context}
+      Cliente: {customer_name}
+      Pregunta: "{user_message}"
 
-      Provide detailed analysis including:
-      1. Query interpretation
-      2. Relevant data points
-      3. Recommended actions
+      Datos de la cuenta:
+      - Total pendiente: {total_debt}
+      - Cantidad de facturas: {invoice_count}
+      - Detalles: {debt_details}
+
+      Responde de forma clara y directa a lo que preguntó el cliente.
+      Si pregunta por cantidades específicas, proporciona los números exactos.
+      Si pregunta por fechas o vencimientos, menciona esa información si está disponible.
+
+      REGLAS:
+      - Respuesta corta (3-4 oraciones máximo)
+      - No uses emojis
+      - Sé profesional pero amigable
+      - Si no tienes la información solicitada, indícalo claramente
     metadata:
-      temperature: 0.4
+      temperature: 0.5
       max_tokens: 250
-      tags:
-        - pharmacy
-        - data_query
-        - analyze
       variables:
         required:
-          - message
-          - available_data
+          - customer_name
+          - user_message
+          - total_debt
         optional:
-          - context
+          - invoice_count
+          - debt_details
+
+  - key: pharmacy.data_query.no_data
+    name: No Data Available Response
+    description: Response when requested data is not available
+    version: "1.0.0"
+    template: |
+      {customer_name}, no encontré información relacionada con tu consulta en este momento.
+
+      Si necesitas datos específicos de tu cuenta, puedo ayudarte con:
+      • Tu deuda total actual
+      • Detalle de productos pendientes
+      • Generar un link de pago
+
+      ¿Te gustaría consultar alguna de estas opciones?
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      variables:
+        required:
+          - customer_name
+
+  - key: pharmacy.data_query.error
+    name: Data Query Error Response
+    description: Response when an error occurs fetching data
+    version: "1.0.0"
+    template: |
+      {customer_name}, disculpa, tuve un problema técnico al consultar tus datos.
+
+      ¿Podrías intentar nuevamente en unos momentos?
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      variables:
+        required:
+          - customer_name
+

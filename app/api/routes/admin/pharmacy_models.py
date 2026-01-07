@@ -38,6 +38,10 @@ class PharmacySessionState(BaseModel):
     customer_id: str  # WhatsApp phone number
     messages: list[SerializedMessage] = Field(default_factory=list)
 
+    # Pharmacy configuration (CRITICAL for multi-turn)
+    pharmacy_name: str | None = None
+    pharmacy_phone: str | None = None
+
     # Core state fields (from PharmacyState)
     customer_identified: bool = False
     plex_customer_id: int | None = None

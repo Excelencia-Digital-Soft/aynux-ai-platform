@@ -10,11 +10,15 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from app.core.agents import BaseAgent
+from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
 
 if TYPE_CHECKING:
     from app.clients.plex_client import PlexClient
 
 logger = logging.getLogger(__name__)
+
+# Out-of-scope intents that should bypass confirmation flow
+OUT_OF_SCOPE_INTENTS = frozenset({"out_of_scope", "info_query", "farewell", "thanks", "unknown"})
 
 
 class ConfirmationNode(BaseAgent):
@@ -39,6 +43,7 @@ class ConfirmationNode(BaseAgent):
         """
         super().__init__("confirmation_node", config or {})
         self._plex_client = plex_client
+        self._intent_analyzer = PharmacyIntentAnalyzer()
 
     async def _process_internal(
         self,
@@ -56,6 +61,17 @@ class ConfirmationNode(BaseAgent):
             State updates
         """
         try:
+            # Check intent first - allow out-of-scope messages while awaiting confirmation
+            # This prevents users from getting stuck if they ask a question instead of SI/NO
+            intent_result = await self._intent_analyzer.analyze(message, {})
+            if intent_result.intent in OUT_OF_SCOPE_INTENTS or intent_result.is_out_of_scope:
+                logger.info(f"Out-of-scope detected while awaiting confirmation: {intent_result.intent}")
+                return {
+                    "awaiting_confirmation": False,  # Reset state
+                    "awaiting_payment": False,
+                    "next_agent": "router",  # Route back to router for proper handling
+                }
+
             debt_id = state_dict.get("debt_id")
             plex_customer_id = state_dict.get("plex_customer_id")
 

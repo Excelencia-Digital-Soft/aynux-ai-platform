@@ -64,6 +64,7 @@ class PharmacyState(TypedDict):
     awaiting_registration_data: bool  # In registration flow
     registration_step: str | None  # "nombre", "documento", "confirmar", "complete"
     registration_data: dict[str, Any] | None  # Collected registration data
+    registration_document: str | None  # Pre-provided document from identification (skips DNI step)
 
     # =========================================================================
     # Debt Context
@@ -165,11 +166,23 @@ class PharmacyState(TypedDict):
     pharmacy_id: str | None  # Pharmacy UUID for pharmacy-specific config (MP credentials, etc.)
 
     # =========================================================================
+    # Pharmacy Configuration (cached from DB)
+    # =========================================================================
+    pharmacy_name: str | None  # Pharmacy name for personalized responses
+    pharmacy_phone: str | None  # Pharmacy phone for contact redirection
+
+    # =========================================================================
     # Greeting State (daily tracking)
     # =========================================================================
     greeted_today: bool  # True if customer was greeted in current session/day
     last_greeting_date: str | None  # ISO date of last greeting (YYYY-MM-DD)
     pending_greeting: str | None  # Greeting to prepend to next response
+    greeting_sent: bool  # True if greeting was sent this turn (prevents duplicates)
+
+    # =========================================================================
+    # Identification State (turn tracking)
+    # =========================================================================
+    just_identified: bool  # True if customer was just identified this turn
 
 
 # Alias for compatibility

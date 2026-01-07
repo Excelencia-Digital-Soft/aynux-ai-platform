@@ -2,6 +2,7 @@
 Pharmacy Summary Handler
 
 Handles summary requests for debt items analysis using LLM.
+Refactored to use PromptRegistry for type-safe prompt references.
 """
 
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.integrations.llm import ModelComplexity
+from app.prompts.registry import PromptRegistry
 
 from .base_handler import BasePharmacyHandler
 
@@ -96,7 +98,7 @@ class SummaryHandler(BasePharmacyHandler):
         )
 
         response = await self._generate_llm_response(
-            template_key="pharmacy.summary.generate",
+            template_key=PromptRegistry.PHARMACY_SUMMARY_GENERATE,
             variables={
                 "user_message": user_message,
                 "customer_name": customer_name,

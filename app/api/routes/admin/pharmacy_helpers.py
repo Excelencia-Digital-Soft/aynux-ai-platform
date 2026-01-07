@@ -126,6 +126,9 @@ def build_graph_state(
         "customer_id": session.customer_id,
         "organization_id": organization_id,
         "pharmacy_id": pharmacy_id,
+        # Pharmacy configuration (CRITICAL for multi-turn)
+        "pharmacy_name": session.pharmacy_name,
+        "pharmacy_phone": session.pharmacy_phone,
         "is_bypass_route": True,
         "is_complete": False,
         "error_count": session.error_count,
@@ -165,6 +168,11 @@ def update_session_from_result(
         result: Graph execution result dictionary
     """
     session.messages = serialize_messages(result.get("messages", []))
+    # Pharmacy configuration (preserve for multi-turn)
+    if result.get("pharmacy_name"):
+        session.pharmacy_name = result.get("pharmacy_name")
+    if result.get("pharmacy_phone"):
+        session.pharmacy_phone = result.get("pharmacy_phone")
     session.customer_identified = result.get("customer_identified", False)
     session.plex_customer_id = result.get("plex_customer_id")
     session.plex_customer = result.get("plex_customer")

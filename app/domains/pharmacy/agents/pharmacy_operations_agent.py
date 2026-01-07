@@ -14,6 +14,7 @@ from langchain_core.messages import AIMessage
 
 from app.core.agents import BaseAgent
 from app.domains.pharmacy.agents.graph import PharmacyGraph
+from app.integrations.databases import PostgreSQLIntegration
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +42,40 @@ class PharmacyOperationsAgent(BaseAgent):
         """
         super().__init__("pharmacy_operations_agent", config or {})
 
-        # Initialize pharmacy subgraph
-        self._graph = PharmacyGraph(config)
-        self._graph.initialize()
+        # Initialize pharmacy subgraph (lazy init for async checkpointer)
+        self._graph: PharmacyGraph | None = None
+        self._postgres: PostgreSQLIntegration | None = None
+        self._graph_initialized = False
+        self._agent_config = config
 
-        logger.info("PharmacyOperationsAgent initialized with subgraph")
+        logger.info("PharmacyOperationsAgent initialized (graph will be initialized lazily)")
 
     @property
     def agent_name(self) -> str:
         """Agent name."""
         return "pharmacy_operations_agent"
+
+    async def _ensure_graph_initialized(self) -> PharmacyGraph:
+        """
+        Ensure the pharmacy graph is initialized with PostgreSQL checkpointer.
+
+        This lazy initialization allows us to use async checkpointer setup.
+
+        Returns:
+            Initialized PharmacyGraph instance
+        """
+        if self._graph is None or not self._graph_initialized:
+            # Create PostgreSQL integration for checkpointer
+            if self._postgres is None:
+                self._postgres = PostgreSQLIntegration()
+
+            # Create and initialize graph with checkpointer
+            self._graph = PharmacyGraph(self._agent_config)
+            await self._graph.initialize(postgres=self._postgres)
+            self._graph_initialized = True
+            logger.info("PharmacyGraph initialized with PostgreSQL checkpointer")
+
+        return self._graph
 
     async def _process_internal(
         self,
@@ -68,12 +93,24 @@ class PharmacyOperationsAgent(BaseAgent):
             Updated state from subgraph execution
         """
         try:
+            # Ensure graph is initialized with checkpointer
+            graph = await self._ensure_graph_initialized()
+
             # Pass relevant state to subgraph
             subgraph_kwargs = {
                 "customer_id": state_dict.get("customer_id") or state_dict.get("user_id"),
                 "customer_name": state_dict.get("customer_name"),
                 "conversation_id": state_dict.get("conversation_id"),
                 "is_bypass_route": state_dict.get("is_bypass_route", False),
+                # Customer identification state (CRITICAL for persistence)
+                "customer_identified": state_dict.get("customer_identified", False),
+                "plex_customer_id": state_dict.get("plex_customer_id"),
+                "plex_customer": state_dict.get("plex_customer"),
+                "whatsapp_phone": state_dict.get("whatsapp_phone"),
+                # Pharmacy configuration (CRITICAL - must propagate for multi-turn)
+                "pharmacy_id": state_dict.get("pharmacy_id"),
+                "pharmacy_name": state_dict.get("pharmacy_name"),
+                "pharmacy_phone": state_dict.get("pharmacy_phone"),
                 # Carry over workflow state
                 "debt_id": state_dict.get("debt_id"),
                 "debt_data": state_dict.get("debt_data"),
@@ -87,7 +124,7 @@ class PharmacyOperationsAgent(BaseAgent):
             }
 
             # Invoke subgraph
-            result = await self._graph.invoke(
+            result = await graph.invoke(
                 message=message,
                 **subgraph_kwargs,
             )
@@ -192,7 +229,8 @@ class PharmacyOperationsAgent(BaseAgent):
         Returns:
             Health status dictionary
         """
-        subgraph_health = await self._graph.health_check()
+        graph = await self._ensure_graph_initialized()
+        subgraph_health = await graph.health_check()
 
         return {
             "agent": self.agent_name,

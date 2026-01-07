@@ -124,7 +124,7 @@ class BasePharmacyHandler:
         if state and state.get("pending_greeting"):
             final_message = f"{state['pending_greeting']}\n\n{message}"
 
-        return {
+        result = {
             "messages": [{"role": "assistant", "content": final_message}],
             "pharmacy_intent_type": intent_type,
             "workflow_step": workflow_step,
@@ -133,3 +133,13 @@ class BasePharmacyHandler:
             "pending_greeting": None,  # Clear after use
             **extra,
         }
+
+        # Reset confirmation state when handling fallback/out-of-scope queries
+        # This prevents users from getting stuck in confirmation loops
+        if state and state.get("awaiting_confirmation"):
+            # Only reset if not explicitly handling a confirmation-related flow
+            if intent_type not in ("confirm", "confirmation", "debt_confirmation"):
+                result["awaiting_confirmation"] = False
+                result["awaiting_payment"] = False
+
+        return result

@@ -101,6 +101,8 @@ class LangGraphChatbotService:
         pharmacy_id: "UUID | None" = None,
         chattigo_context: dict | None = None,
         bypass_target_agent: str | None = None,
+        isolated_history: bool = False,
+        bypass_rule_id: "UUID | None" = None,
     ) -> BotResponse:
         """
         Procesa un mensaje de WhatsApp usando el sistema multi-agente refactorizado.
@@ -115,6 +117,8 @@ class LangGraphChatbotService:
             chattigo_context: Contexto de Chattigo (did, idChat, etc.) para seleccionar
                             credenciales correctas de la base de datos.
             bypass_target_agent: Target agent from bypass routing (for direct routing)
+            isolated_history: When true, creates isolated conversation history
+            bypass_rule_id: UUID of the bypass rule (for generating isolated history suffix)
 
         Returns:
             Respuesta estructurada del bot
@@ -126,7 +130,18 @@ class LangGraphChatbotService:
         # Extraer información básica
         user_number = contact.wa_id
         message_text = self.message_processor.extract_message_text(message)
-        session_id = f"whatsapp_{user_number}"
+
+        # Generate base session ID
+        base_session_id = f"whatsapp_{user_number}"
+
+        # Apply isolation suffix if configured
+        if isolated_history and bypass_rule_id:
+            # Use first 8 chars of rule_id for uniqueness
+            rule_suffix = str(bypass_rule_id)[:8]
+            session_id = f"{base_session_id}_{rule_suffix}"
+            self.logger.info(f"Using isolated history: {session_id}")
+        else:
+            session_id = base_session_id
 
         self.logger.info(f"Processing message from {user_number} (domain: {business_domain}): {message_text[:100]}...")
 

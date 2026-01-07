@@ -248,6 +248,61 @@ class PromptRegistry:
     EXCELENCIA_SMART_INPUT_CONFIRMATION_INTERPRET = "excelencia.smart_input.confirmation_interpret"
     EXCELENCIA_SMART_INPUT_INCIDENT_DETECT = "excelencia.smart_input.incident_detect"
 
+    # === PHARMACY - CUSTOMER IDENTIFICATION ===
+    PHARMACY_IDENTIFICATION_WELCOME = "pharmacy.identification.welcome_new_customer"
+    PHARMACY_IDENTIFICATION_REQUEST_DNI = "pharmacy.identification.request_dni_short"
+    PHARMACY_IDENTIFICATION_REQUEST_DNI_DISAMBIGUATION = "pharmacy.identification.request_dni_from_disambiguation"
+
+    # === PHARMACY - CUSTOMER REGISTRATION ===
+    PHARMACY_REGISTRATION_YES_NO_VALIDATION = "pharmacy.registration.yes_no_validation"
+    PHARMACY_REGISTRATION_START = "pharmacy.registration.start"
+    PHARMACY_REGISTRATION_NAME_ERROR = "pharmacy.registration.name_error"
+    PHARMACY_REGISTRATION_DOCUMENT_PROMPT = "pharmacy.registration.document_prompt"
+    PHARMACY_REGISTRATION_DOCUMENT_ERROR = "pharmacy.registration.document_error"
+    PHARMACY_REGISTRATION_CONFIRM_DATA = "pharmacy.registration.confirm_data"
+    PHARMACY_REGISTRATION_SUCCESS = "pharmacy.registration.success"
+    PHARMACY_REGISTRATION_DUPLICATE_WITH_NAME = "pharmacy.registration.duplicate_with_name"
+    PHARMACY_REGISTRATION_DUPLICATE_NO_NAME = "pharmacy.registration.duplicate_no_name"
+    PHARMACY_REGISTRATION_NOT_SUPPORTED = "pharmacy.registration.not_supported"
+    PHARMACY_REGISTRATION_ERROR = "pharmacy.registration.error"
+    PHARMACY_REGISTRATION_CANCELLED = "pharmacy.registration.cancelled"
+    PHARMACY_REGISTRATION_EXCEPTION = "pharmacy.registration.exception"
+
+    # === PHARMACY - INFO QUERY ===
+    PHARMACY_INFO_QUERY_GENERATE = "pharmacy.info_query.generate"
+    PHARMACY_INFO_QUERY_NO_INFO = "pharmacy.info_query.no_info"
+    PHARMACY_INFO_QUERY_CAPABILITY = "pharmacy.info_query.capability_response"
+
+    # === PHARMACY - DATA QUERY ===
+    PHARMACY_DATA_QUERY_ANALYZE = "pharmacy.data_query.analyze"
+    PHARMACY_DATA_QUERY_NO_DATA = "pharmacy.data_query.no_data"
+    PHARMACY_DATA_QUERY_ERROR = "pharmacy.data_query.error"
+
+    # === PHARMACY - SUMMARY ===
+    PHARMACY_SUMMARY_GENERATE = "pharmacy.summary.generate"
+    PHARMACY_SUMMARY_NO_DATA = "pharmacy.summary.no_data"
+
+    # === PHARMACY - GREETING ===
+    PHARMACY_GREETING_GENERATE = "pharmacy.greeting.generate"
+    PHARMACY_GREETING_CAPABILITY = "pharmacy.greeting.capability"
+
+    # === PHARMACY - FALLBACK ===
+    PHARMACY_FALLBACK_GENERAL = "pharmacy.fallback.general"
+    PHARMACY_FALLBACK_REJECT = "pharmacy.fallback.reject"
+    PHARMACY_FALLBACK_ERROR = "pharmacy.fallback.error"
+    PHARMACY_FALLBACK_UNKNOWN = "pharmacy.fallback.unknown"
+
+    # === PHARMACY - RESPONSE TEMPLATES ===
+    PHARMACY_RESPONSE_DEBT_INFO = "pharmacy.response.debt_info"
+    PHARMACY_RESPONSE_PAYMENT_LINK = "pharmacy.response.payment_link"
+    PHARMACY_RESPONSE_CONFIRMATION = "pharmacy.response.confirmation"
+    PHARMACY_RESPONSE_OUT_OF_SCOPE = "pharmacy.response.out_of_scope"
+    PHARMACY_RESPONSE_ERROR = "pharmacy.response.error"
+    PHARMACY_RESPONSE_DEBT_REJECTED = "pharmacy.response.debt_rejected"
+    PHARMACY_RESPONSE_FAREWELL = "pharmacy.response.farewell"
+    PHARMACY_RESPONSE_THANKS = "pharmacy.response.thanks"
+    PHARMACY_RESPONSE_CAPABILITIES = "pharmacy.response.capabilities"
+
     @classmethod
     def get_all_keys(cls) -> list[str]:
         """Retorna todas las claves de prompts registradas."""

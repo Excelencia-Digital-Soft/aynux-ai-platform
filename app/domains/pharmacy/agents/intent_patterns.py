@@ -16,9 +16,10 @@ CONFIDENCE_EXACT_MATCH = 0.95
 CONFIDENCE_CONTAINS = 0.85
 
 # Valid pharmacy intents
-VALID_INTENTS = frozenset(
-    {"debt_query", "confirm", "reject", "invoice", "register", "greeting", "summary", "data_query", "info_query", "unknown"}
-)
+VALID_INTENTS = frozenset({
+    "debt_query", "confirm", "reject", "invoice", "register", "greeting",
+    "summary", "data_query", "info_query", "unknown", "document_input",
+})
 
 # Pharmacy domain capabilities
 PHARMACY_CAPABILITIES = [
@@ -44,12 +45,23 @@ CONFIRMATION_PATTERNS: dict[str, dict[str, set[str]]] = {
 # Keyword patterns for fallback (when spaCy unavailable)
 KEYWORD_PATTERNS: dict[str, list[str]] = {
     "debt_query": ["deuda", "saldo", "debo", "cuenta", "pendiente"],
-    "invoice": ["factura", "recibo", "pagar", "pago", "comprobante"],
+    "invoice": ["factura", "recibo", "comprobante"],  # Removed "pagar", "pago" - too ambiguous
     "greeting": ["hola", "buenos días", "buenas tardes", "buenas noches", "buenas"],
     "info_query": [
         "direccion", "dirección", "donde queda", "dónde queda", "ubicacion",
         "ubicación", "telefono", "teléfono", "horario", "hora", "abierto",
         "cierran", "abren", "email", "correo", "web", "pagina", "página",
+        # Información de la farmacia
+        "informacion de la farmacia", "información de la farmacia",
+        "info de la farmacia", "datos de la farmacia", "contacto de la farmacia",
+        # Canales de contacto
+        "otros canales", "que canales", "canales", "otros medios",
+        "otras formas", "como contactar", "contactarlos",
+        # Preguntas sobre capacidades del bot (CRITICAL - high priority)
+        "que puedes", "qué puedes", "puedes hacer", "que haces", "qué haces",
+        "que sabes", "qué sabes", "para que sirves", "para qué sirves",
+        "que mas puedes", "qué más puedes", "que servicios", "qué servicios",
+        "como funciona", "cómo funciona", "que ofreces", "qué ofreces",
     ],
 }
 
@@ -76,8 +88,14 @@ GREETING_EXACT: frozenset[str] = frozenset(
 )
 GREETING_PREFIXES: tuple[str, ...] = ("hola ", "buenas ", "buenos ", "hey ", "saludos ")
 
-# Payment detection verbs and phrases
-PAYMENT_VERBS: set[str] = {"pagar", "pago", "abonar", "abono", "depositar"}
+# Payment detection verbs and phrases (includes common typos)
+PAYMENT_VERBS: set[str] = {
+    "pagar", "pago", "abonar", "abono", "depositar",
+    # Common typos for "pagar"
+    "pagae", "pagr", "pagra", "paga", "paagr", "pgar",
+    # Common typos for "abonar"
+    "aboanr", "abonar", "abonr",
+}
 PAYMENT_PHRASES: list[str] = [
     "quiero pagar",
     "voy a pagar",
@@ -204,6 +222,18 @@ INTENT_PATTERNS: dict[str, dict[str, Any]] = {
             "correo",
             "web",
             "pagina",
+            "canal",
+            "medio",
+            "forma",
+            # Capacidades del bot
+            "servicio",
+            "ofrecer",
+            "funcionar",
+            # Info de farmacia
+            "informacion",
+            "información",
+            "contacto",
+            "datos",
         },
         "phrases": [
             "donde queda",
@@ -228,7 +258,89 @@ INTENT_PATTERNS: dict[str, dict[str, Any]] = {
             "página web",
             "como los contacto",
             "cómo los contacto",
+            # Solicitudes directas de información (CRITICAL)
+            "la direccion",
+            "la dirección",
+            "el telefono",
+            "el teléfono",
+            "el horario",
+            "los horarios",
+            "necesito la direccion",
+            "necesito la dirección",
+            "necesito el telefono",
+            "necesito el teléfono",
+            "dame la direccion",
+            "dame la dirección",
+            "dame el telefono",
+            "dame el teléfono",
+            "quiero la direccion",
+            "quiero la dirección",
+            "direccion necesito",
+            "dirección necesito",
+            "direccion por favor",
+            "dirección por favor",
+            # Información de la farmacia (CRITICAL)
+            "informacion de la farmacia",
+            "información de la farmacia",
+            "info de la farmacia",
+            "datos de la farmacia",
+            "contacto de la farmacia",
+            "datos de contacto",
+            "informacion de contacto",
+            "información de contacto",
+            # Canales de contacto
+            "otros canales",
+            "que canales",
+            "canales de",
+            "otros medios",
+            "otras formas",
+            "como contactar",
+            "como comunicar",
+            "formas de contacto",
+            # Preguntas sobre capacidades del bot (CRITICAL - priority detection)
+            "que puedes hacer",
+            "qué puedes hacer",
+            "que puedes",
+            "qué puedes",
+            "puedes hacer",
+            "que haces",
+            "qué haces",
+            "que sabes hacer",
+            "qué sabes hacer",
+            "para que sirves",
+            "para qué sirves",
+            "que mas puedes",
+            "qué más puedes",
+            "que servicios",
+            "qué servicios",
+            "servicios ofreces",
+            "como funciona",
+            "cómo funciona",
+            "que ofreces",
+            "qué ofreces",
+            "en que me ayudas",
+            "en qué me ayudas",
+            "como me ayudas",
+            "cómo me ayudas",
         ],
-        "weight": 1.0,
+        "weight": 1.3,  # Higher weight to beat invoice detection
+    },
+    "document_input": {
+        "lemmas": {"documento", "dni", "identidad", "cedula", "numero", "nro"},
+        "phrases": [
+            "mi documento",
+            "mi dni",
+            "documento es",
+            "dni es",
+            "el documento",
+            "mi numero",
+            "numero de documento",
+            "número de documento",
+            "mi documento es",
+            "mi dni es",
+            "documento:",
+            "dni:",
+        ],
+        "weight": 1.5,  # High priority when user provides document
     },
 }

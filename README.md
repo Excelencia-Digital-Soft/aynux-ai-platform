@@ -78,7 +78,7 @@ Aynux supports **two operational modes** designed for different deployment scena
 | Aspect | Description |
 |--------|-------------|
 | **Authentication** | Not required for webhook |
-| **Configuration** | Environment variables (`ENABLED_AGENTS`) |
+| **Configuration** | Database (`core.agents` table) via `/agent-catalog` UI |
 | **Routing** | SuperOrchestrator → Domain agents |
 | **Data** | Shared globally (`company_knowledge` table) |
 | **Agents** | Excelencia-specific: invoice, support, promotions |
@@ -86,10 +86,8 @@ Aynux supports **two operational modes** designed for different deployment scena
 
 **Enabled by**: `MULTI_TENANT_MODE=false` (default)
 
-```bash
-# Global mode agents (Excelencia-focused)
-ENABLED_AGENTS=greeting_agent,excelencia_agent,excelencia_invoice_agent,excelencia_support_agent,excelencia_promotions_agent,support_agent,fallback_agent,farewell_agent
-```
+> **Note**: Agents are configured via the `/agent-catalog` UI or Admin API, not environment variables.
+> Use `POST /admin/agents/seed/builtin` to initialize default agents, then enable/disable via UI.
 
 ### 2. Multi-tenant Mode (In Development)
 

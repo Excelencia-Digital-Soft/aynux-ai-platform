@@ -149,6 +149,13 @@ class BypassRule(Base, TimestampMixin):
         comment="Whether this rule is active",
     )
 
+    # Isolation configuration
+    isolated_history: Mapped[bool | None] = mapped_column(
+        default=None,
+        nullable=True,
+        comment="When true, creates isolated conversation history for this rule's flow",
+    )
+
     # Relationships
     organization: Mapped["Organization"] = relationship(
         "Organization",
@@ -192,6 +199,7 @@ class BypassRule(Base, TimestampMixin):
             "target_domain": self.target_domain,
             "priority": self.priority,
             "enabled": self.enabled,
+            "isolated_history": self.isolated_history,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -311,6 +319,7 @@ class BypassRule(Base, TimestampMixin):
         pharmacy_name: str,
         target_agent: str = "pharmacy_operations_agent",
         priority: int = 100,
+        isolated_history: bool | None = None,
     ) -> "BypassRule":
         """
         Factory method to create a bypass rule for a pharmacy.
@@ -325,6 +334,7 @@ class BypassRule(Base, TimestampMixin):
             pharmacy_name: Name of the pharmacy (for rule naming)
             target_agent: Agent to route to (default: pharmacy_operations_agent)
             priority: Rule priority (default: 100, high priority)
+            isolated_history: When true, creates isolated conversation history
 
         Returns:
             BypassRule configured for the pharmacy
@@ -341,4 +351,5 @@ class BypassRule(Base, TimestampMixin):
             target_agent=target_agent,
             priority=priority,
             enabled=True,
+            isolated_history=isolated_history,
         )

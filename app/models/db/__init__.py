@@ -21,6 +21,7 @@ from .user import UserDB
 from .conversation_history import ConversationContext, ConversationMessage
 from .agent import Agent, AgentType
 from .ai_model import AIModel, ModelProvider, ModelType
+from .domain import Domain
 from .software_module import ModuleCategory, ModuleStatus, SoftwareModule
 
 # Soporte schema models
@@ -93,6 +94,8 @@ __all__ = [
     "AIModel",
     "ModelProvider",
     "ModelType",
+    # Domains
+    "Domain",
     # Software Modules (Excelencia)
     "SoftwareModule",
     "ModuleStatus",
