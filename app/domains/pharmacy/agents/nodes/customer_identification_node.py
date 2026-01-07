@@ -275,7 +275,13 @@ class CustomerIdentificationNode(BaseAgent):
         Returns:
             State updates
         """
-        phone = state_dict.get("customer_id") or state_dict.get("user_id")
+        # Extract phone from multiple possible sources (context_middleware uses user_phone/sender)
+        phone = (
+            state_dict.get("customer_id")
+            or state_dict.get("user_id")
+            or state_dict.get("user_phone")
+            or state_dict.get("sender")
+        )
         response_handler = self._get_response_handler()
 
         if not phone:

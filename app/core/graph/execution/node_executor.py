@@ -224,7 +224,14 @@ class NodeExecutor:
         return None
 
     def _prepare_state_dict(self, state: LangGraphState, messages: list) -> Dict[str, Any]:
-        """Prepare state dictionary for agent processing"""
+        """
+        Prepare state dictionary for agent processing.
+
+        Passes through ALL state fields dynamically, only transforming messages
+        from LangChain objects to plain dicts. This ensures domain-specific fields
+        (pharmacy, ecommerce, healthcare, etc.) are automatically propagated.
+        """
+        # Convert LangChain message objects to plain dicts
         messages_dict = []
         for msg in messages:
             if isinstance(msg, HumanMessage):
@@ -232,24 +239,30 @@ class NodeExecutor:
             elif isinstance(msg, AIMessage):
                 messages_dict.append({"role": "assistant", "content": msg.content})
 
-        return {
-            "messages": messages_dict,
-            "customer_data": state.get("customer_data", {}),
-            "current_agent": state.get("current_agent"),
-            "agent_history": state.get("agent_history", []),
-            "error_count": state.get("error_count", 0),
-            "routing_attempts": state.get("routing_attempts", 0),
-            # Conversation history context for all agents
-            "conversation_context": state.get("conversation_context", {}),
-            "conversation_summary": state.get("conversation_summary", ""),
-            # Conversation identification - critical for multi-turn flows
-            "conversation_id": state.get("conversation_id"),
-            "session_id": state.get("conversation_id"),  # Alias for compatibility
-            # Bypass routing target for orchestrator to check
-            "bypass_target_agent": state.get("bypass_target_agent"),
-            # Detected language for response generation
-            "detected_language": state.get("detected_language", "es"),
-        }
+        # Start with ALL fields from state (dynamic passthrough)
+        # This automatically includes any domain-specific fields:
+        # - Pharmacy: pharmacy_id, pharmacy_name, pharmacy_phone, etc.
+        # - Ecommerce: cart_id, product_ids, order_status, etc.
+        # - Healthcare: patient_id, appointment_id, etc.
+        # - User context: user_phone, sender, customer_id, etc.
+        state_dict: Dict[str, Any] = dict(state)
+
+        # Override messages with converted format
+        state_dict["messages"] = messages_dict
+
+        # Set defaults for essential fields that need them
+        state_dict.setdefault("customer_data", {})
+        state_dict.setdefault("agent_history", [])
+        state_dict.setdefault("error_count", 0)
+        state_dict.setdefault("routing_attempts", 0)
+        state_dict.setdefault("conversation_context", {})
+        state_dict.setdefault("conversation_summary", "")
+        state_dict.setdefault("detected_language", "es")
+
+        # Add session_id alias for compatibility
+        state_dict["session_id"] = state_dict.get("conversation_id")
+
+        return state_dict
 
     def _prepare_supervisor_state(self, state: LangGraphState, messages: list) -> Dict[str, Any]:
         """Prepare full state for supervisor evaluation"""
