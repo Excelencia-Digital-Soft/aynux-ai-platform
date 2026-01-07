@@ -63,7 +63,7 @@ class DisambiguationHandler(BasePharmacyHandler):
         """
         if not candidates_data:
             logger.warning("No disambiguation candidates in state")
-            return await self.request_document_instead()
+            return await self.request_document_instead(state)
 
         # Reconstruct PlexCustomer objects
         candidates = [PlexCustomer.from_dict(c) for c in candidates_data]
@@ -77,15 +77,15 @@ class DisambiguationHandler(BasePharmacyHandler):
         except ValueError:
             # Check if user wants to provide document instead
             if any(word in message_clean for word in ["dni", "documento", "doc"]):
-                return await self.request_document_instead()
+                return await self.request_document_instead(state)
 
-            return self._format_invalid_selection_message(len(candidates))
+            return self._format_invalid_selection_message(len(candidates), state)
 
         # Validate selection
         if 1 <= selection <= len(candidates):
             return self._handle_valid_selection(selection, candidates, state)
 
-        return self._format_invalid_selection_message(len(candidates))
+        return self._format_invalid_selection_message(len(candidates), state)
 
     def _handle_valid_selection(
         self,
@@ -137,12 +137,14 @@ class DisambiguationHandler(BasePharmacyHandler):
     def format_disambiguation_request(
         self,
         candidates: list[PlexCustomer],
+        state: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Format message asking user to select from candidates.
 
         Args:
             candidates: List of candidate customers
+            state: Current state with pharmacy config
 
         Returns:
             State update with disambiguation options
@@ -168,11 +170,18 @@ class DisambiguationHandler(BasePharmacyHandler):
             "disambiguation_candidates": [c.to_dict() for c in candidates],
             "awaiting_document_input": False,
             "is_complete": False,
+            # Preserve pharmacy config
+            "pharmacy_id": state.get("pharmacy_id"),
+            "pharmacy_name": state.get("pharmacy_name"),
+            "pharmacy_phone": state.get("pharmacy_phone"),
         }
 
-    async def request_document_instead(self) -> dict[str, Any]:
+    async def request_document_instead(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Return state update to switch to document input.
+
+        Args:
+            state: Current state with pharmacy config
 
         Returns:
             State update requesting document input
@@ -190,21 +199,34 @@ class DisambiguationHandler(BasePharmacyHandler):
             "requires_disambiguation": False,
             "disambiguation_candidates": None,
             "is_complete": False,
+            # Preserve pharmacy config
+            "pharmacy_id": state.get("pharmacy_id"),
+            "pharmacy_name": state.get("pharmacy_name"),
+            "pharmacy_phone": state.get("pharmacy_phone"),
         }
 
     def _format_invalid_selection_message(
         self,
         num_candidates: int,
+        state: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Format message for invalid selection.
 
         Args:
             num_candidates: Number of candidates available
+            state: Current state with pharmacy config
 
         Returns:
             State update with error message
         """
+        # Preserve pharmacy config in all returns
+        pharmacy_fields = {
+            "pharmacy_id": state.get("pharmacy_id"),
+            "pharmacy_name": state.get("pharmacy_name"),
+            "pharmacy_phone": state.get("pharmacy_phone"),
+        }
+
         if num_candidates > 0:
             return {
                 "messages": [
@@ -217,6 +239,7 @@ class DisambiguationHandler(BasePharmacyHandler):
                         ),
                     }
                 ],
+                **pharmacy_fields,
             }
 
         return {
@@ -226,4 +249,5 @@ class DisambiguationHandler(BasePharmacyHandler):
                     "content": f"Opción inválida. Por favor elige un número entre 1 y {num_candidates}.",
                 }
             ],
+            **pharmacy_fields,
         }

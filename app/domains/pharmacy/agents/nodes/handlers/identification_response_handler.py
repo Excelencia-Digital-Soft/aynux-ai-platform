@@ -133,6 +133,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
     def format_registration_offer(
         self,
         phone: str | None,
+        state: dict[str, Any],
         document: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -140,6 +141,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
 
         Args:
             phone: WhatsApp phone number
+            state: Current state with pharmacy config
             document: Document/DNI already provided (to avoid asking again)
 
         Returns:
@@ -161,6 +163,10 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             "pharmacy_intent_type": "register_prompt",
             "whatsapp_phone": phone,
             "is_complete": False,
+            # Preserve pharmacy config
+            "pharmacy_id": state.get("pharmacy_id"),
+            "pharmacy_name": state.get("pharmacy_name"),
+            "pharmacy_phone": state.get("pharmacy_phone"),
         }
         # Store pre-provided document to skip DNI step in registration
         if document:
@@ -213,9 +219,12 @@ class IdentificationResponseHandler(BasePharmacyHandler):
 
         return result
 
-    def format_invalid_document_message(self) -> dict[str, Any]:
+    def format_invalid_document_message(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Format message for invalid document input.
+
+        Args:
+            state: Current state with pharmacy config
 
         Returns:
             State update with validation error message
@@ -232,14 +241,21 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             ],
             "awaiting_document_input": True,
             "is_complete": False,
+            # Preserve pharmacy config
+            "pharmacy_id": state.get("pharmacy_id"),
+            "pharmacy_name": state.get("pharmacy_name"),
+            "pharmacy_phone": state.get("pharmacy_phone"),
         }
 
-    def format_document_reminder_message(self) -> dict[str, Any]:
+    def format_document_reminder_message(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Format reminder message when user sends non-document intent while awaiting document.
 
         This is used when user tries to perform an action (like "pagar 5000")
         before providing their identification.
+
+        Args:
+            state: Current state with pharmacy config
 
         Returns:
             State update with reminder message
@@ -257,4 +273,8 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             ],
             "awaiting_document_input": True,
             "is_complete": False,
+            # Preserve pharmacy config
+            "pharmacy_id": state.get("pharmacy_id"),
+            "pharmacy_name": state.get("pharmacy_name"),
+            "pharmacy_phone": state.get("pharmacy_phone"),
         }

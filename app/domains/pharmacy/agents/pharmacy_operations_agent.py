@@ -97,8 +97,15 @@ class PharmacyOperationsAgent(BaseAgent):
             graph = await self._ensure_graph_initialized()
 
             # Pass relevant state to subgraph
+            # Extract user phone from multiple possible sources (context_middleware uses user_phone/sender)
+            user_phone = (
+                state_dict.get("customer_id")
+                or state_dict.get("user_id")
+                or state_dict.get("user_phone")
+                or state_dict.get("sender")
+            )
             subgraph_kwargs = {
-                "customer_id": state_dict.get("customer_id") or state_dict.get("user_id"),
+                "customer_id": user_phone,
                 "customer_name": state_dict.get("customer_name"),
                 "conversation_id": state_dict.get("conversation_id"),
                 "is_bypass_route": state_dict.get("is_bypass_route", False),
@@ -106,7 +113,7 @@ class PharmacyOperationsAgent(BaseAgent):
                 "customer_identified": state_dict.get("customer_identified", False),
                 "plex_customer_id": state_dict.get("plex_customer_id"),
                 "plex_customer": state_dict.get("plex_customer"),
-                "whatsapp_phone": state_dict.get("whatsapp_phone"),
+                "whatsapp_phone": state_dict.get("whatsapp_phone") or user_phone,
                 # Pharmacy configuration (CRITICAL - must propagate for multi-turn)
                 "pharmacy_id": state_dict.get("pharmacy_id"),
                 "pharmacy_name": state_dict.get("pharmacy_name"),

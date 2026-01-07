@@ -314,7 +314,7 @@ class CustomerIdentificationNode(BaseAgent):
         elif response.status == IdentificationStatus.DISAMBIGUATION_REQUIRED:
             logger.info(f"Disambiguation required: {len(response.candidates or [])} candidates")
             return self._get_disambiguation_handler().format_disambiguation_request(
-                response.candidates or []
+                response.candidates or [], state_dict
             )
 
         elif response.status == IdentificationStatus.NOT_FOUND:
