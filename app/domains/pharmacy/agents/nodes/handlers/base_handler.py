@@ -119,9 +119,11 @@ class BasePharmacyHandler:
         Returns:
             Formatted state update dictionary
         """
+        state = state or {}
+
         # Combine pending_greeting with message if present
         final_message = message
-        if state and state.get("pending_greeting"):
+        if state.get("pending_greeting"):
             final_message = f"{state['pending_greeting']}\n\n{message}"
 
         result = {
@@ -131,12 +133,16 @@ class BasePharmacyHandler:
             "is_complete": is_complete,
             "next_agent": next_agent,
             "pending_greeting": None,  # Clear after use
+            # Preserve pharmacy config fields to prevent them from being lost
+            "pharmacy_id": state.get("pharmacy_id"),
+            "pharmacy_name": state.get("pharmacy_name"),
+            "pharmacy_phone": state.get("pharmacy_phone"),
             **extra,
         }
 
         # Reset confirmation state when handling fallback/out-of-scope queries
         # This prevents users from getting stuck in confirmation loops
-        if state and state.get("awaiting_confirmation"):
+        if state.get("awaiting_confirmation"):
             # Only reset if not explicitly handling a confirmation-related flow
             if intent_type not in ("confirm", "confirmation", "debt_confirmation"):
                 result["awaiting_confirmation"] = False

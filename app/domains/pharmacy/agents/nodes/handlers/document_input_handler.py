@@ -106,7 +106,7 @@ class DocumentInputHandler(BasePharmacyHandler):
                 f"Non-document intent '{intent_result.intent}' while awaiting document, "
                 "reminding user to provide DNI first"
             )
-            return self._response_handler.format_document_reminder_message()
+            return self._response_handler.format_document_reminder_message(state)
 
         # Use detected DNI or try to extract from message
         if detected_dni:
@@ -115,7 +115,7 @@ class DocumentInputHandler(BasePharmacyHandler):
             # Validate document from full message
             is_valid, cleaned_doc = self.validate_document(message)
             if not is_valid:
-                return self._response_handler.format_invalid_document_message()
+                return self._response_handler.format_invalid_document_message(state)
 
         logger.info(f"Searching customer by document: {cleaned_doc}")
 
@@ -129,7 +129,7 @@ class DocumentInputHandler(BasePharmacyHandler):
         if response.status == IdentificationStatus.IDENTIFIED:
             customer = response.customer
             if customer is None:
-                return self._response_handler.format_registration_offer(phone, cleaned_doc)
+                return self._response_handler.format_registration_offer(phone, state, cleaned_doc)
 
             logger.info(f"Customer identified by document: {customer}")
             return self._response_handler.format_identified_customer(
@@ -141,13 +141,13 @@ class DocumentInputHandler(BasePharmacyHandler):
 
         elif response.status == IdentificationStatus.DISAMBIGUATION_REQUIRED:
             return self._disambiguation_handler.format_disambiguation_request(
-                response.candidates or []
+                response.candidates or [], state
             )
 
         else:
             # Not found - offer registration (pass document to skip DNI step)
             logger.info("Customer not found by document, offering registration")
-            return self._response_handler.format_registration_offer(phone, cleaned_doc)
+            return self._response_handler.format_registration_offer(phone, state, cleaned_doc)
 
     def detect_dni_in_message(self, message: str) -> str | None:
         """
