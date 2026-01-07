@@ -73,6 +73,7 @@ class MessageProcessor:
         pharmacy_id: UUID | None = None,
         user_phone: str | None = None,
         bypass_target_agent: str | None = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """
         Procesa el mensaje usando el sistema LangGraph multi-agente.
@@ -106,6 +107,7 @@ class MessageProcessor:
                 pharmacy_id=str(pharmacy_id) if pharmacy_id else None,
                 user_phone=user_phone,
                 bypass_target_agent=bypass_target_agent,
+                **kwargs,  # Pass additional context (e.g., pharmacy_name, pharmacy_phone)
             )
 
             # Extraer la respuesta del último mensaje AI

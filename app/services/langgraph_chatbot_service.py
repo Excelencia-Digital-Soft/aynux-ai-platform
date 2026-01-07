@@ -27,6 +27,7 @@ from app.services.langgraph import (
     SecurityValidator,
     SystemMonitor,
 )
+from app.core.tenancy.pharmacy_config_service import PharmacyConfigService
 
 if TYPE_CHECKING:
     from app.core.schemas.tenant_agent_config import TenantAgentRegistry
@@ -163,6 +164,22 @@ class LangGraphChatbotService:
                 session_id, message_text, {"channel": "whatsapp"}
             )
 
+            # 3. Load pharmacy configuration from database if pharmacy_id is provided
+            pharmacy_kwargs: dict[str, Any] = {}
+            if pharmacy_id and db_session:
+                try:
+                    pharmacy_config_service = PharmacyConfigService(db_session)
+                    pharmacy_config = await pharmacy_config_service.get_config_by_id(pharmacy_id)
+                    pharmacy_kwargs = {
+                        "pharmacy_name": pharmacy_config.pharmacy_name,
+                        "pharmacy_phone": pharmacy_config.pharmacy_phone,
+                        "pharmacy_address": pharmacy_config.pharmacy_address,
+                        "pharmacy_hours": pharmacy_config.pharmacy_hours,
+                    }
+                    self.logger.info(f"Loaded pharmacy config: {pharmacy_config.pharmacy_name}")
+                except ValueError as e:
+                    self.logger.warning(f"Could not load pharmacy config for {pharmacy_id}: {e}")
+
             # 5. Procesar con el sistema LangGraph (incluir business_domain, tenant IDs, and bypass routing)
             assert self.graph_system is not None  # Guaranteed after initialize()
             response_data = await self.message_processor.process_with_langgraph(
@@ -177,6 +194,7 @@ class LangGraphChatbotService:
                 pharmacy_id=pharmacy_id,
                 user_phone=user_number,
                 bypass_target_agent=bypass_target_agent,
+                **pharmacy_kwargs,  # Pass loaded pharmacy data to graph
             )
 
             # Crear ConversationManager con contexto de Chattigo para selección de credenciales
