@@ -1,0 +1,42 @@
+prompts:
+  - key: pharmacy.identification.welcome_new_customer
+    name: Welcome New Customer
+    description: Greeting for unregistered customers asking for DNI
+    version: "1.0.0"
+    template: |
+      ¡Hola! 👋 Bienvenido/a a la farmacia.
+
+      Soy el asistente virtual y puedo ayudarte con:
+      • Consultar tu deuda 💳
+      • Confirmar pagos ✓
+      • Generar recibos 📄
+      • Registrarte como cliente nuevo 📝
+
+      Para poder ayudarte, necesito ubicarte en nuestro sistema.
+      Por favor ingresa tu número de documento (DNI):
+    metadata:
+      variables:
+        required: []
+        optional: []
+
+  - key: pharmacy.identification.request_dni_short
+    name: Request DNI Short
+    description: Short DNI request when user already received greeting
+    version: "1.0.0"
+    template: |
+      Por favor ingresa tu número de documento (DNI):
+    metadata:
+      variables:
+        required: []
+        optional: []
+
+  - key: pharmacy.identification.request_dni_from_disambiguation
+    name: Request DNI from Disambiguation
+    description: Request DNI when user prefers over selection
+    version: "1.0.0"
+    template: |
+      Entendido. Por favor ingresa tu número de documento (DNI):
+    metadata:
+      variables:
+        required: []
+        optional: []

@@ -248,6 +248,11 @@ class PromptRegistry:
     EXCELENCIA_SMART_INPUT_CONFIRMATION_INTERPRET = "excelencia.smart_input.confirmation_interpret"
     EXCELENCIA_SMART_INPUT_INCIDENT_DETECT = "excelencia.smart_input.incident_detect"
 
+    # === PHARMACY - CUSTOMER IDENTIFICATION ===
+    PHARMACY_IDENTIFICATION_WELCOME = "pharmacy.identification.welcome_new_customer"
+    PHARMACY_IDENTIFICATION_REQUEST_DNI = "pharmacy.identification.request_dni_short"
+    PHARMACY_IDENTIFICATION_REQUEST_DNI_DISAMBIGUATION = "pharmacy.identification.request_dni_from_disambiguation"
+
     @classmethod
     def get_all_keys(cls) -> list[str]:
         """Retorna todas las claves de prompts registradas."""

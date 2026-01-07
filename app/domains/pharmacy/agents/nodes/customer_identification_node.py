@@ -19,6 +19,7 @@ from app.domains.pharmacy.application.use_cases.identify_customer import (
     IdentifyCustomerUseCase,
 )
 from app.domains.pharmacy.domain.entities.plex_customer import PlexCustomer
+from app.prompts.manager import PromptManager
 
 if TYPE_CHECKING:
     from app.clients.plex_client import PlexClient
@@ -52,6 +53,7 @@ class CustomerIdentificationNode(BaseAgent):
         super().__init__("customer_identification_node", config or {})
         self._plex_client = plex_client
         self._use_case: IdentifyCustomerUseCase | None = None
+        self._prompt_manager = PromptManager()
 
     def _get_plex_client(self) -> PlexClient:
         """Get or create Plex client."""
@@ -135,7 +137,7 @@ class CustomerIdentificationNode(BaseAgent):
 
         if not phone:
             logger.warning("No phone number available for identification")
-            return self._request_document_input()
+            return await self._request_document_input()
 
         logger.info(f"Identifying customer by phone: {phone}")
 
@@ -158,7 +160,7 @@ class CustomerIdentificationNode(BaseAgent):
 
         elif response.status == IdentificationStatus.NOT_FOUND:
             logger.info("Customer not found by phone, requesting document")
-            return self._request_document_input()
+            return await self._request_document_input()
 
         else:
             return self._handle_error(
@@ -176,7 +178,7 @@ class CustomerIdentificationNode(BaseAgent):
 
         if not candidates_data:
             logger.warning("No disambiguation candidates in state")
-            return self._request_document_input()
+            return await self._request_document_input()
 
         # Reconstruct PlexCustomer objects
         candidates = [PlexCustomer.from_dict(c) for c in candidates_data]
@@ -190,7 +192,7 @@ class CustomerIdentificationNode(BaseAgent):
         except ValueError:
             # Check if user wants to provide document instead
             if any(word in message_clean for word in ["dni", "documento", "doc"]):
-                return self._request_document_input_from_disambiguation()
+                return await self._request_document_input_from_disambiguation()
 
             return {
                 "messages": [
@@ -362,32 +364,36 @@ class CustomerIdentificationNode(BaseAgent):
             "is_complete": False,
         }
 
-    def _request_document_input(self) -> dict[str, Any]:
-        """Request user to provide document number."""
+    async def _request_document_input(self) -> dict[str, Any]:
+        """Request user to provide document number with friendly greeting."""
+        try:
+            message = await self._prompt_manager.get_prompt(
+                "pharmacy.identification.welcome_new_customer"
+            )
+        except ValueError:
+            # Fallback if prompt not found
+            message = (
+                "¡Hola! Bienvenido/a a la farmacia.\n\n"
+                "Para poder ayudarte, necesito ubicarte en nuestro sistema.\n"
+                "Por favor ingresa tu número de documento (DNI):"
+            )
         return {
-            "messages": [
-                {
-                    "role": "assistant",
-                    "content": (
-                        "No encontré una cuenta asociada a tu número de teléfono. "
-                        "Por favor ingresa tu número de documento (DNI) para buscarte."
-                    ),
-                }
-            ],
+            "messages": [{"role": "assistant", "content": message}],
             "awaiting_document_input": True,
             "requires_disambiguation": False,
             "is_complete": False,
         }
 
-    def _request_document_input_from_disambiguation(self) -> dict[str, Any]:
+    async def _request_document_input_from_disambiguation(self) -> dict[str, Any]:
         """Request document when user prefers over disambiguation."""
+        try:
+            message = await self._prompt_manager.get_prompt(
+                "pharmacy.identification.request_dni_from_disambiguation"
+            )
+        except ValueError:
+            message = "Entendido. Por favor ingresa tu número de documento (DNI):"
         return {
-            "messages": [
-                {
-                    "role": "assistant",
-                    "content": "Por favor ingresa tu número de documento (DNI):",
-                }
-            ],
+            "messages": [{"role": "assistant", "content": message}],
             "awaiting_document_input": True,
             "requires_disambiguation": False,
             "disambiguation_candidates": None,
