@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from sqlalchemy import and_, select, update
@@ -16,6 +17,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db.tenancy.registered_person import RegisteredPerson
+
+if TYPE_CHECKING:
+    from sqlalchemy.sql.elements import ColumnElement
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +69,7 @@ class RegisteredPersonRepository:
                     RegisteredPerson.phone_number == phone_number,
                     RegisteredPerson.pharmacy_id == pharmacy_id,
                     RegisteredPerson.is_active.is_(True),  # type: ignore[union-attr]
-                    RegisteredPerson.expires_at > now,
+                    cast("ColumnElement[bool]", RegisteredPerson.expires_at > now),
                 )
             )
             .order_by(
@@ -253,7 +257,7 @@ class RegisteredPersonRepository:
                 and_(
                     RegisteredPerson.pharmacy_id == pharmacy_id,
                     RegisteredPerson.is_active.is_(True),  # type: ignore[union-attr]
-                    RegisteredPerson.expires_at <= now,
+                    cast("ColumnElement[bool]", RegisteredPerson.expires_at <= now),
                 )
             )
             .values(is_active=False)
@@ -262,7 +266,7 @@ class RegisteredPersonRepository:
         result = await self._db.execute(stmt)
         await self._db.commit()
 
-        count = result.rowcount or 0
+        count = getattr(result, "rowcount", 0) or 0
         if count > 0:
             logger.info(f"Deactivated {count} expired registrations for pharmacy {pharmacy_id}")
         return count
@@ -285,16 +289,17 @@ class RegisteredPersonRepository:
             Number of registrations
         """
         from sqlalchemy import func
-        from sqlalchemy.sql.elements import ColumnElement
 
         conditions: list[ColumnElement[bool]] = [
-            RegisteredPerson.phone_number == phone_number,  # type: ignore[list-item]
-            RegisteredPerson.pharmacy_id == pharmacy_id,
+            cast("ColumnElement[bool]", RegisteredPerson.phone_number == phone_number),
+            cast("ColumnElement[bool]", RegisteredPerson.pharmacy_id == pharmacy_id),
             RegisteredPerson.is_active.is_(True),  # type: ignore[union-attr, list-item]
         ]
 
         if not include_expired:
-            conditions.append(RegisteredPerson.expires_at > datetime.now(UTC))  # type: ignore[arg-type]
+            conditions.append(
+                cast("ColumnElement[bool]", RegisteredPerson.expires_at > datetime.now(UTC))
+            )
 
         stmt = select(func.count()).select_from(RegisteredPerson).where(and_(*conditions))
 
