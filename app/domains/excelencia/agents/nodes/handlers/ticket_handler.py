@@ -2,7 +2,9 @@
 Ticket Handler
 
 Handles support ticket creation for incidents and feedback.
-Single responsibility: create tickets and generate confirmation messages.
+Single responsibility: create tickets and generates confirmation messages.
+
+Uses CreateIncidentUseCase to store tickets in soporte.incidents table.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.database.async_db import get_async_db_context
+from app.domains.excelencia.application.use_cases.support import CreateIncidentUseCase
 
 from .base_handler import BaseExcelenciaHandler
 
@@ -41,7 +44,6 @@ class TicketHandler(BaseExcelenciaHandler):
         ticket_type: str,
         description: str,
         category: str | None = None,
-        module: str | None = None,
         conversation_id: str | None = None,
     ) -> TicketResult:
         """
@@ -51,8 +53,7 @@ class TicketHandler(BaseExcelenciaHandler):
             user_phone: WhatsApp phone number
             ticket_type: Type of ticket ("incident" or "feedback")
             description: Full description from user message
-            category: Optional category
-            module: Optional affected module
+            category: Optional category code (auto-inferred if not provided)
             conversation_id: Optional conversation link
 
         Returns:
@@ -63,18 +64,22 @@ class TicketHandler(BaseExcelenciaHandler):
 
             async with get_async_db_context() as db:
                 container = DependencyContainer()
-                use_case = container.create_support_ticket_use_case(db)
+                use_case = container.create_incident_use_case(db)
+
+                # Infer category if not provided
+                category_code = category.upper() if category else CreateIncidentUseCase.infer_category_code(description)
+
                 ticket = await use_case.execute(
                     user_phone=user_phone,
-                    ticket_type=ticket_type,
                     description=description,
-                    category=category,
-                    module=module,
+                    priority="medium",
+                    category_code=category_code,
                     conversation_id=conversation_id,
+                    incident_type=ticket_type,
                 )
 
             confirmation = self._generate_confirmation(ticket, ticket_type)
-            ticket_id = ticket.get("ticket_id_short", ticket.get("id", "")[:8].upper())
+            ticket_id = ticket.get("folio", ticket.get("id", "")[:8].upper())
 
             return TicketResult(
                 success=True,
@@ -96,23 +101,23 @@ class TicketHandler(BaseExcelenciaHandler):
         Generate confirmation message for created ticket.
 
         Args:
-            ticket: Ticket info dict from use case
+            ticket: Ticket info dict from use case (soporte.incidents)
             ticket_type: Type of ticket ("incident" or "feedback")
 
         Returns:
             Formatted confirmation message
         """
-        ticket_id = ticket.get("ticket_id_short", ticket.get("id", "")[:8].upper())
+        folio = ticket.get("folio", ticket.get("id", "")[:8].upper())
         status = ticket.get("status", "open")
 
         if status == "failed":
             return self._generate_error_message()
 
         if ticket_type == "incident":
-            category = ticket.get("category", "general")
+            category = ticket.get("category_code", "GENERAL")
             return (
                 f"🎫 **Incidencia Registrada**\n\n"
-                f"Tu reporte ha sido creado con el folio: **{ticket_id}**\n\n"
+                f"Tu reporte ha sido creado con el folio: **{folio}**\n\n"
                 f"- Categoria: {category}\n"
                 f"- Estado: Abierto\n\n"
                 f"Nuestro equipo de soporte lo revisara y te contactara pronto.\n"
@@ -122,7 +127,7 @@ class TicketHandler(BaseExcelenciaHandler):
         # feedback
         return (
             f"💬 **Gracias por tu Feedback**\n\n"
-            f"Tu comentario ha sido registrado (Ref: {ticket_id}).\n\n"
+            f"Tu comentario ha sido registrado (Ref: {folio}).\n\n"
             f"Valoramos mucho tu opinion para mejorar nuestros servicios.\n"
             f"Hay algo mas que quieras compartir?"
         )

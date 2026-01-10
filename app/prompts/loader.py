@@ -222,11 +222,11 @@ class PromptLoader:
 
                 # Crear template
                 template = PromptTemplate(
-                    key=prompt.key,
-                    name=prompt.name,
-                    template=prompt.template,
-                    description=prompt.description,
-                    version=prompt.version,
+                    key=str(prompt.key),
+                    name=str(prompt.name),
+                    template=str(prompt.template),
+                    description=str(prompt.description),
+                    version=str(prompt.version),
                     metadata=prompt.meta_data,
                 )
 

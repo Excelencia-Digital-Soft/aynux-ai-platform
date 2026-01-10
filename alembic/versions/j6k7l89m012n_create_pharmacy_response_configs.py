@@ -1,0 +1,883 @@
+"""Create pharmacy response configs table.
+
+Revision ID: j6k7l89m012n
+Revises: i5j6k78l901m
+Create Date: 2026-01-09
+
+Creates table for configurable pharmacy response generation:
+- pharmacy_response_configs: Maps intents to response configuration
+  - is_critical: Whether to use fixed template (never LLM)
+  - task_description: Task description for LLM system prompt
+  - fallback_template_key: Key in fallback_templates.yaml
+
+Multi-tenant: Each organization can customize their own response configs.
+No fallback: Configs must be in database - missing config raises error.
+
+Replaces hardcoded:
+- CRITICAL_INTENTS frozenset
+- _map_intent_to_fallback() method
+- _infer_task() method
+"""
+
+from typing import Sequence, Union
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import UUID
+
+from alembic import op
+
+# revision identifiers, used by Alembic.
+revision: str = "j6k7l89m012n"
+down_revision: Union[str, Sequence[str], None] = "i5j6k78l901m"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+# System organization UUID for seed data
+SYSTEM_ORG_ID = "00000000-0000-0000-0000-000000000000"
+
+
+def upgrade() -> None:
+    """Create pharmacy_response_configs table with seed data."""
+
+    # ==========================================================================
+    # 1. Clean up any leftover artifacts from failed migrations
+    # ==========================================================================
+    op.execute("DROP TABLE IF EXISTS core.pharmacy_response_configs CASCADE")
+
+    # ==========================================================================
+    # 2. Create pharmacy_response_configs table
+    # ==========================================================================
+    op.create_table(
+        "pharmacy_response_configs",
+        # Primary key
+        sa.Column(
+            "id",
+            UUID(),
+            nullable=False,
+            server_default=sa.text("gen_random_uuid()"),
+            comment="Unique configuration identifier",
+        ),
+        # Multi-tenant association
+        sa.Column(
+            "organization_id",
+            UUID(),
+            nullable=False,
+            comment="Organization that owns this configuration",
+        ),
+        # Domain scope
+        sa.Column(
+            "domain_key",
+            sa.String(50),
+            nullable=False,
+            server_default=sa.text("'pharmacy'"),
+            comment="Domain: pharmacy (expandable)",
+        ),
+        # Intent identification
+        sa.Column(
+            "intent_key",
+            sa.String(100),
+            nullable=False,
+            comment="Intent identifier (e.g., 'greeting', 'payment_confirmation')",
+        ),
+        # Core configuration (replaces 3 hardcoded structures)
+        sa.Column(
+            "is_critical",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("false"),
+            comment="If true, always uses fixed template, never LLM",
+        ),
+        sa.Column(
+            "task_description",
+            sa.Text(),
+            nullable=False,
+            comment="Task description for LLM system prompt (replaces _infer_task)",
+        ),
+        sa.Column(
+            "fallback_template_key",
+            sa.String(100),
+            nullable=False,
+            comment="Key in fallback_templates.yaml (replaces _map_intent_to_fallback)",
+        ),
+        # Display information
+        sa.Column(
+            "display_name",
+            sa.String(200),
+            nullable=True,
+            comment="Human-readable configuration name",
+        ),
+        sa.Column(
+            "description",
+            sa.Text(),
+            nullable=True,
+            comment="Configuration description and usage notes",
+        ),
+        # Status and ordering
+        sa.Column(
+            "priority",
+            sa.Integer(),
+            nullable=False,
+            server_default=sa.text("0"),
+            comment="Display/processing order (higher = first)",
+        ),
+        sa.Column(
+            "is_enabled",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("true"),
+            comment="Whether configuration is active",
+        ),
+        # Timestamps
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        # Constraints
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(
+            ["organization_id"],
+            ["core.organizations.id"],
+            ondelete="CASCADE",
+        ),
+        sa.UniqueConstraint(
+            "organization_id",
+            "domain_key",
+            "intent_key",
+            name="uq_pharmacy_response_configs_org_domain_intent",
+        ),
+        schema="core",
+    )
+
+    # ==========================================================================
+    # 3. Create indexes
+    # ==========================================================================
+    op.create_index(
+        "idx_pharmacy_response_configs_org",
+        "pharmacy_response_configs",
+        ["organization_id"],
+        schema="core",
+    )
+    op.create_index(
+        "idx_pharmacy_response_configs_domain",
+        "pharmacy_response_configs",
+        ["domain_key"],
+        schema="core",
+    )
+    op.create_index(
+        "idx_pharmacy_response_configs_enabled",
+        "pharmacy_response_configs",
+        ["organization_id", "is_enabled"],
+        schema="core",
+    )
+    op.create_index(
+        "idx_pharmacy_response_configs_org_domain",
+        "pharmacy_response_configs",
+        ["organization_id", "domain_key"],
+        schema="core",
+    )
+
+    # ==========================================================================
+    # 4. Add table comment
+    # ==========================================================================
+    op.execute("""
+        COMMENT ON TABLE core.pharmacy_response_configs IS
+        'Response generation configuration for pharmacy domain intents. '
+        'Multi-tenant: each organization can customize. '
+        'Replaces hardcoded CRITICAL_INTENTS, _map_intent_to_fallback(), _infer_task().'
+    """)
+
+    # ==========================================================================
+    # 5. Seed data for system organization
+    # ==========================================================================
+    _seed_system_org_configs()
+
+
+def _seed_system_org_configs() -> None:
+    """Seed response configurations for system organization."""
+    # All configurations extracted from the hardcoded response_generator.py
+    configs = _get_seed_configs()
+
+    for config in configs:
+        op.execute(f"""
+            INSERT INTO core.pharmacy_response_configs
+            (organization_id, domain_key, intent_key, is_critical, task_description, fallback_template_key, display_name)
+            VALUES (
+                '{SYSTEM_ORG_ID}',
+                'pharmacy',
+                '{config['intent_key']}',
+                {str(config['is_critical']).lower()},
+                '{config['task_description'].replace("'", "''")}',
+                '{config['fallback_template_key']}',
+                '{config.get('display_name', config['intent_key']).replace("'", "''")}'
+            )
+            ON CONFLICT (organization_id, domain_key, intent_key) DO NOTHING
+        """)
+
+
+def _get_seed_configs() -> list[dict]:
+    """Get seed configurations - extracted from hardcoded response_generator.py."""
+    return [
+        # ======================================================================
+        # CRITICAL INTENTS (is_critical=True) - Always use fixed templates
+        # ======================================================================
+        {
+            "intent_key": "payment_confirmation",
+            "is_critical": True,
+            "task_description": "Confirma el pago y genera link.",
+            "fallback_template_key": "payment_confirmation",
+            "display_name": "Confirmación de Pago",
+        },
+        {
+            "intent_key": "payment_link_generated",
+            "is_critical": True,
+            "task_description": "Muestra el link de pago generado.",
+            "fallback_template_key": "payment_link_generated",
+            "display_name": "Link de Pago Generado",
+        },
+        {
+            "intent_key": "partial_payment_confirmation",
+            "is_critical": True,
+            "task_description": "Confirma pago parcial y genera link.",
+            "fallback_template_key": "partial_payment_confirmation",
+            "display_name": "Confirmación Pago Parcial",
+        },
+        {
+            "intent_key": "system_error",
+            "is_critical": True,
+            "task_description": "Informa de un error del sistema.",
+            "fallback_template_key": "system_error",
+            "display_name": "Error del Sistema",
+        },
+        {
+            "intent_key": "plex_unavailable",
+            "is_critical": True,
+            "task_description": "Informa que Plex no está disponible.",
+            "fallback_template_key": "plex_unavailable",
+            "display_name": "Plex No Disponible",
+        },
+        {
+            "intent_key": "payment_error",
+            "is_critical": True,
+            "task_description": "Informa del error en el pago.",
+            "fallback_template_key": "payment_error",
+            "display_name": "Error de Pago",
+        },
+        {
+            "intent_key": "invalid_dni_format",
+            "is_critical": True,
+            "task_description": "Informa que el formato de DNI es inválido.",
+            "fallback_template_key": "invalid_dni_format",
+            "display_name": "DNI Formato Inválido",
+        },
+        {
+            "intent_key": "max_validation_attempts",
+            "is_critical": True,
+            "task_description": "Informa que se alcanzó el máximo de intentos.",
+            "fallback_template_key": "max_validation_attempts",
+            "display_name": "Máximo de Intentos",
+        },
+        {
+            "intent_key": "invalid_amount",
+            "is_critical": True,
+            "task_description": "Informa que el monto es inválido.",
+            "fallback_template_key": "invalid_amount",
+            "display_name": "Monto Inválido",
+        },
+        {
+            "intent_key": "identity_verified",
+            "is_critical": True,
+            "task_description": "Confirma que la identidad fue verificada.",
+            "fallback_template_key": "identity_verified",
+            "display_name": "Identidad Verificada",
+        },
+        {
+            "intent_key": "registration_renewed",
+            "is_critical": True,
+            "task_description": "Confirma la renovación del registro.",
+            "fallback_template_key": "registration_renewed",
+            "display_name": "Registro Renovado",
+        },
+        {
+            "intent_key": "debt_display",
+            "is_critical": True,
+            "task_description": "Muestra la deuda del cliente.",
+            "fallback_template_key": "debt_display",
+            "display_name": "Mostrar Deuda",
+        },
+        # ======================================================================
+        # GREETING INTENTS
+        # ======================================================================
+        {
+            "intent_key": "greeting",
+            "is_critical": False,
+            "task_description": "Saluda al cliente y ofrece ayuda.",
+            "fallback_template_key": "greeting",
+            "display_name": "Saludo",
+        },
+        {
+            "intent_key": "greeting_identified",
+            "is_critical": False,
+            "task_description": "Saluda al cliente identificado y ofrece ayuda.",
+            "fallback_template_key": "greeting_identified",
+            "display_name": "Saludo Identificado",
+        },
+        # ======================================================================
+        # DNI REQUEST INTENTS
+        # ======================================================================
+        {
+            "intent_key": "request_dni",
+            "is_critical": False,
+            "task_description": "Solicita el DNI del cliente para verificar identidad.",
+            "fallback_template_key": "request_dni",
+            "display_name": "Solicitar DNI",
+        },
+        {
+            "intent_key": "request_dni_welcome",
+            "is_critical": False,
+            "task_description": "Da la bienvenida y solicita el DNI.",
+            "fallback_template_key": "request_dni_welcome",
+            "display_name": "Bienvenida + DNI",
+        },
+        {
+            "intent_key": "request_dni_for_other",
+            "is_critical": False,
+            "task_description": "Solicita el DNI de la otra persona a consultar.",
+            "fallback_template_key": "request_dni_for_other",
+            "display_name": "DNI de Otra Persona",
+        },
+        {
+            "intent_key": "request_name",
+            "is_critical": False,
+            "task_description": "Solicita el nombre completo para verificar identidad.",
+            "fallback_template_key": "request_name",
+            "display_name": "Solicitar Nombre",
+        },
+        # ======================================================================
+        # VALIDATION ERRORS
+        # ======================================================================
+        {
+            "intent_key": "dni_not_found",
+            "is_critical": False,
+            "task_description": "Informa que el DNI no fue encontrado.",
+            "fallback_template_key": "dni_not_found",
+            "display_name": "DNI No Encontrado",
+        },
+        {
+            "intent_key": "name_mismatch",
+            "is_critical": False,
+            "task_description": "Informa que el nombre no coincide y pide que intente de nuevo.",
+            "fallback_template_key": "name_mismatch",
+            "display_name": "Nombre No Coincide",
+        },
+        # ======================================================================
+        # PERSON RESOLUTION
+        # ======================================================================
+        {
+            "intent_key": "ask_own_or_other",
+            "is_critical": False,
+            "task_description": "Pregunta si consulta su propia deuda o de otra persona.",
+            "fallback_template_key": "ask_own_or_other",
+            "display_name": "Propia o Tercero",
+        },
+        {
+            "intent_key": "ambiguous_own_other",
+            "is_critical": False,
+            "task_description": "Pide clarificación sobre propia o otra persona.",
+            "fallback_template_key": "ambiguous_own_other",
+            "display_name": "Clarificar Persona",
+        },
+        {
+            "intent_key": "proceed_with_customer",
+            "is_critical": False,
+            "task_description": "Confirma el cliente y procede a consultar deuda.",
+            "fallback_template_key": "proceed_with_customer",
+            "display_name": "Proceder con Cliente",
+        },
+        {
+            "intent_key": "no_phone_error",
+            "is_critical": False,
+            "task_description": "Informa que no se pudo identificar el teléfono.",
+            "fallback_template_key": "no_phone_error",
+            "display_name": "Error Teléfono",
+        },
+        {
+            "intent_key": "no_pharmacy_error",
+            "is_critical": False,
+            "task_description": "Informa que no se pudo identificar la farmacia.",
+            "fallback_template_key": "no_pharmacy_error",
+            "display_name": "Error Farmacia",
+        },
+        # ======================================================================
+        # PERSON SELECTION
+        # ======================================================================
+        {
+            "intent_key": "person_list",
+            "is_critical": False,
+            "task_description": "Muestra la lista de personas registradas para seleccionar.",
+            "fallback_template_key": "person_list",
+            "display_name": "Lista de Personas",
+        },
+        {
+            "intent_key": "add_new_person",
+            "is_critical": False,
+            "task_description": "Inicia el proceso para registrar una nueva persona.",
+            "fallback_template_key": "add_new_person",
+            "display_name": "Agregar Persona",
+        },
+        {
+            "intent_key": "selection_confirmed",
+            "is_critical": False,
+            "task_description": "Confirma la selección y consulta la deuda.",
+            "fallback_template_key": "selection_confirmed",
+            "display_name": "Selección Confirmada",
+        },
+        {
+            "intent_key": "unclear_selection",
+            "is_critical": False,
+            "task_description": "Pide clarificación sobre la selección.",
+            "fallback_template_key": "unclear_selection",
+            "display_name": "Selección No Clara",
+        },
+        # ======================================================================
+        # DEBT QUERIES
+        # ======================================================================
+        {
+            "intent_key": "debt_query",
+            "is_critical": False,
+            "task_description": "Muestra la deuda del cliente.",
+            "fallback_template_key": "debt_query",
+            "display_name": "Consulta de Deuda",
+        },
+        {
+            "intent_key": "no_customer",
+            "is_critical": False,
+            "task_description": "Informa que no se identificó al cliente.",
+            "fallback_template_key": "no_customer",
+            "display_name": "Sin Cliente",
+        },
+        {
+            "intent_key": "no_debt",
+            "is_critical": False,
+            "task_description": "Informa que no tiene deuda pendiente.",
+            "fallback_template_key": "no_debt",
+            "display_name": "Sin Deuda",
+        },
+        {
+            "intent_key": "partial_payment_offer",
+            "is_critical": False,
+            "task_description": "Ofrece la opción de pago parcial.",
+            "fallback_template_key": "partial_payment_offer",
+            "display_name": "Oferta Pago Parcial",
+        },
+        {
+            "intent_key": "amount_request",
+            "is_critical": False,
+            "task_description": "Solicita el monto a pagar.",
+            "fallback_template_key": "amount_request",
+            "display_name": "Solicitar Monto",
+        },
+        {
+            "intent_key": "invalid_amount_input",
+            "is_critical": False,
+            "task_description": "Informa que el monto no es válido.",
+            "fallback_template_key": "invalid_amount_input",
+            "display_name": "Monto Input Inválido",
+        },
+        {
+            "intent_key": "amount_below_minimum",
+            "is_critical": False,
+            "task_description": "Informa que el monto es menor al mínimo.",
+            "fallback_template_key": "amount_below_minimum",
+            "display_name": "Monto Bajo Mínimo",
+        },
+        {
+            "intent_key": "amount_above_debt",
+            "is_critical": False,
+            "task_description": "Informa que el monto es mayor a la deuda.",
+            "fallback_template_key": "amount_above_debt",
+            "display_name": "Monto Sobre Deuda",
+        },
+        {
+            "intent_key": "payment_confirmed",
+            "is_critical": False,
+            "task_description": "Confirma el pago y genera link.",
+            "fallback_template_key": "payment_confirmed",
+            "display_name": "Pago Confirmado",
+        },
+        {
+            "intent_key": "partial_payment_confirmed",
+            "is_critical": False,
+            "task_description": "Confirma pago parcial y genera link.",
+            "fallback_template_key": "partial_payment_confirmed",
+            "display_name": "Pago Parcial Confirmado",
+        },
+        {
+            "intent_key": "payment_declined",
+            "is_critical": False,
+            "task_description": "Informa que el pago fue cancelado.",
+            "fallback_template_key": "payment_declined",
+            "display_name": "Pago Rechazado",
+        },
+        {
+            "intent_key": "unclear_confirmation",
+            "is_critical": False,
+            "task_description": "Pide confirmación clara SI o NO.",
+            "fallback_template_key": "unclear_confirmation",
+            "display_name": "Confirmación No Clara",
+        },
+        # ======================================================================
+        # CONFIRMATION FLOW
+        # ======================================================================
+        {
+            "intent_key": "confirmation_cancelled",
+            "is_critical": False,
+            "task_description": "Confirma que la operación fue cancelada.",
+            "fallback_template_key": "confirmation_cancelled",
+            "display_name": "Confirmación Cancelada",
+        },
+        {
+            "intent_key": "request_clear_confirmation",
+            "is_critical": False,
+            "task_description": "Solicita respuesta clara SI o NO.",
+            "fallback_template_key": "request_clear_confirmation",
+            "display_name": "Solicitar Confirmación",
+        },
+        {
+            "intent_key": "auto_fetching_debt",
+            "is_critical": False,
+            "task_description": "Informa que está consultando la deuda.",
+            "fallback_template_key": "auto_fetching_debt",
+            "display_name": "Consultando Deuda",
+        },
+        {
+            "intent_key": "confirmation_no_customer",
+            "is_critical": False,
+            "task_description": "Informa que no se identificó al cliente.",
+            "fallback_template_key": "confirmation_no_customer",
+            "display_name": "Confirmación Sin Cliente",
+        },
+        {
+            "intent_key": "confirmation_error",
+            "is_critical": False,
+            "task_description": "Informa de un error en la confirmación.",
+            "fallback_template_key": "confirmation_error",
+            "display_name": "Error Confirmación",
+        },
+        {
+            "intent_key": "debt_confirmed_full",
+            "is_critical": False,
+            "task_description": "Confirma la deuda y procede a generar link.",
+            "fallback_template_key": "debt_confirmed_full",
+            "display_name": "Deuda Confirmada Total",
+        },
+        {
+            "intent_key": "debt_confirmed_partial",
+            "is_critical": False,
+            "task_description": "Confirma pago parcial y procede a generar link.",
+            "fallback_template_key": "debt_confirmed_partial",
+            "display_name": "Deuda Confirmada Parcial",
+        },
+        # ======================================================================
+        # REGISTRATION FLOW
+        # ======================================================================
+        {
+            "intent_key": "registration_yes_no_validation",
+            "is_critical": False,
+            "task_description": "Solicita confirmación SI o NO.",
+            "fallback_template_key": "registration_yes_no_validation",
+            "display_name": "Validación SI/NO",
+        },
+        {
+            "intent_key": "registration_start",
+            "is_critical": False,
+            "task_description": "Inicia el registro solicitando el nombre.",
+            "fallback_template_key": "registration_start",
+            "display_name": "Inicio Registro",
+        },
+        {
+            "intent_key": "registration_name_error",
+            "is_critical": False,
+            "task_description": "Informa que el nombre es inválido.",
+            "fallback_template_key": "registration_name_error",
+            "display_name": "Error Nombre Registro",
+        },
+        {
+            "intent_key": "registration_document_prompt",
+            "is_critical": False,
+            "task_description": "Solicita el número de documento.",
+            "fallback_template_key": "registration_document_prompt",
+            "display_name": "Solicitar Documento",
+        },
+        {
+            "intent_key": "registration_document_error",
+            "is_critical": False,
+            "task_description": "Informa que el documento es inválido.",
+            "fallback_template_key": "registration_document_error",
+            "display_name": "Error Documento",
+        },
+        {
+            "intent_key": "registration_confirm_data",
+            "is_critical": False,
+            "task_description": "Muestra los datos para confirmación.",
+            "fallback_template_key": "registration_confirm_data",
+            "display_name": "Confirmar Datos",
+        },
+        {
+            "intent_key": "registration_success",
+            "is_critical": False,
+            "task_description": "Confirma el registro exitoso.",
+            "fallback_template_key": "registration_success",
+            "display_name": "Registro Exitoso",
+        },
+        {
+            "intent_key": "registration_duplicate_with_name",
+            "is_critical": False,
+            "task_description": "Informa que el cliente ya existe.",
+            "fallback_template_key": "registration_duplicate_with_name",
+            "display_name": "Cliente Duplicado",
+        },
+        {
+            "intent_key": "registration_duplicate_no_name",
+            "is_critical": False,
+            "task_description": "Informa que el documento ya está registrado.",
+            "fallback_template_key": "registration_duplicate_no_name",
+            "display_name": "Documento Duplicado",
+        },
+        {
+            "intent_key": "registration_not_supported",
+            "is_critical": False,
+            "task_description": "Informa que el registro no está disponible.",
+            "fallback_template_key": "registration_not_supported",
+            "display_name": "Registro No Soportado",
+        },
+        {
+            "intent_key": "registration_error",
+            "is_critical": False,
+            "task_description": "Informa del error en el registro.",
+            "fallback_template_key": "registration_error",
+            "display_name": "Error Registro",
+        },
+        {
+            "intent_key": "registration_cancelled",
+            "is_critical": False,
+            "task_description": "Confirma la cancelación del registro.",
+            "fallback_template_key": "registration_cancelled",
+            "display_name": "Registro Cancelado",
+        },
+        {
+            "intent_key": "registration_exception",
+            "is_critical": False,
+            "task_description": "Informa del error y sugiere intentar de nuevo.",
+            "fallback_template_key": "registration_exception",
+            "display_name": "Excepción Registro",
+        },
+        {
+            "intent_key": "registration_offer",
+            "is_critical": False,
+            "task_description": "Ofrece registrarse como nuevo cliente.",
+            "fallback_template_key": "registration_offer",
+            "display_name": "Oferta Registro",
+        },
+        # ======================================================================
+        # DATA QUERY
+        # ======================================================================
+        {
+            "intent_key": "data_query_no_data",
+            "is_critical": False,
+            "task_description": "Informa que no hay datos para la consulta.",
+            "fallback_template_key": "data_query_no_data",
+            "display_name": "Sin Datos",
+        },
+        {
+            "intent_key": "data_query_analyze",
+            "is_critical": False,
+            "task_description": "Analiza y responde la pregunta sobre los datos.",
+            "fallback_template_key": "data_query_analyze",
+            "display_name": "Analizar Datos",
+        },
+        # ======================================================================
+        # INFO QUERY
+        # ======================================================================
+        {
+            "intent_key": "info_query_capability",
+            "is_critical": False,
+            "task_description": "Explica las capacidades del bot.",
+            "fallback_template_key": "info_query_capability",
+            "display_name": "Capacidades Bot",
+        },
+        {
+            "intent_key": "info_query_no_info",
+            "is_critical": False,
+            "task_description": "Informa que no hay información de la farmacia.",
+            "fallback_template_key": "info_query_no_info",
+            "display_name": "Sin Info Farmacia",
+        },
+        {
+            "intent_key": "info_query_generate",
+            "is_critical": False,
+            "task_description": "Responde con la información de la farmacia.",
+            "fallback_template_key": "info_query_generate",
+            "display_name": "Info Farmacia",
+        },
+        # ======================================================================
+        # SUMMARY
+        # ======================================================================
+        {
+            "intent_key": "summary_no_data",
+            "is_critical": False,
+            "task_description": "Informa que no hay datos para resumir.",
+            "fallback_template_key": "summary_no_data",
+            "display_name": "Sin Datos Resumen",
+        },
+        {
+            "intent_key": "summary_generate",
+            "is_critical": False,
+            "task_description": "Genera un resumen de la deuda del cliente.",
+            "fallback_template_key": "summary_generate",
+            "display_name": "Generar Resumen",
+        },
+        # ======================================================================
+        # DISAMBIGUATION
+        # ======================================================================
+        {
+            "intent_key": "request_dni_disambiguation",
+            "is_critical": False,
+            "task_description": "Solicita el DNI para desambiguación.",
+            "fallback_template_key": "request_dni_disambiguation",
+            "display_name": "DNI Desambiguación",
+        },
+        # ======================================================================
+        # IDENTIFICATION
+        # ======================================================================
+        {
+            "intent_key": "out_of_scope_identified",
+            "is_critical": False,
+            "task_description": "Explica límites y sugiere contactar farmacia.",
+            "fallback_template_key": "out_of_scope_identified",
+            "display_name": "Fuera Alcance Identificado",
+        },
+        {
+            "intent_key": "out_of_scope_not_identified",
+            "is_critical": False,
+            "task_description": "Explica límites y ofrece identificarse.",
+            "fallback_template_key": "out_of_scope_not_identified",
+            "display_name": "Fuera Alcance Sin ID",
+        },
+        {
+            "intent_key": "welcome_message",
+            "is_critical": False,
+            "task_description": "Da la bienvenida y solicita identificación.",
+            "fallback_template_key": "welcome_message",
+            "display_name": "Mensaje Bienvenida",
+        },
+        {
+            "intent_key": "invalid_document",
+            "is_critical": False,
+            "task_description": "Informa que el documento es inválido.",
+            "fallback_template_key": "invalid_document",
+            "display_name": "Documento Inválido",
+        },
+        {
+            "intent_key": "document_reminder",
+            "is_critical": False,
+            "task_description": "Recuerda que necesita identificarse primero.",
+            "fallback_template_key": "document_reminder",
+            "display_name": "Recordatorio Documento",
+        },
+        # ======================================================================
+        # GENERIC
+        # ======================================================================
+        {
+            "intent_key": "farewell",
+            "is_critical": False,
+            "task_description": "Despídete cordialmente.",
+            "fallback_template_key": "farewell",
+            "display_name": "Despedida",
+        },
+        {
+            "intent_key": "thanks",
+            "is_critical": False,
+            "task_description": "Responde al agradecimiento del cliente.",
+            "fallback_template_key": "thanks",
+            "display_name": "Agradecimiento",
+        },
+        {
+            "intent_key": "cancelled",
+            "is_critical": False,
+            "task_description": "Confirma la cancelación de la operación.",
+            "fallback_template_key": "cancelled",
+            "display_name": "Cancelado",
+        },
+        {
+            "intent_key": "processing",
+            "is_critical": False,
+            "task_description": "Indica que está procesando la solicitud.",
+            "fallback_template_key": "processing",
+            "display_name": "Procesando",
+        },
+        {
+            "intent_key": "unknown",
+            "is_critical": False,
+            "task_description": "Indica que no entendiste y ofrece opciones.",
+            "fallback_template_key": "unknown_intent",
+            "display_name": "Desconocido",
+        },
+        {
+            "intent_key": "out_of_scope",
+            "is_critical": False,
+            "task_description": "Explica qué puedes hacer y sugiere contactar la farmacia.",
+            "fallback_template_key": "out_of_scope",
+            "display_name": "Fuera de Alcance",
+        },
+        {
+            "intent_key": "generic_error",
+            "is_critical": False,
+            "task_description": "Informa de un error y pide que intente de nuevo.",
+            "fallback_template_key": "generic_error",
+            "display_name": "Error Genérico",
+        },
+        {
+            "intent_key": "max_errors_reached",
+            "is_critical": False,
+            "task_description": "Informa que hubo muchos errores y sugiere contactar.",
+            "fallback_template_key": "max_errors_reached",
+            "display_name": "Máximo Errores",
+        },
+    ]
+
+
+def downgrade() -> None:
+    """Remove pharmacy_response_configs table."""
+
+    # Drop indexes
+    op.drop_index(
+        "idx_pharmacy_response_configs_org_domain",
+        table_name="pharmacy_response_configs",
+        schema="core",
+    )
+    op.drop_index(
+        "idx_pharmacy_response_configs_enabled",
+        table_name="pharmacy_response_configs",
+        schema="core",
+    )
+    op.drop_index(
+        "idx_pharmacy_response_configs_domain",
+        table_name="pharmacy_response_configs",
+        schema="core",
+    )
+    op.drop_index(
+        "idx_pharmacy_response_configs_org",
+        table_name="pharmacy_response_configs",
+        schema="core",
+    )
+
+    # Drop table
+    op.drop_table("pharmacy_response_configs", schema="core")

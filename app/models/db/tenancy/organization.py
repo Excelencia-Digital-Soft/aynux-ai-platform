@@ -16,7 +16,7 @@ Organizations are the top-level entity for multi-tenancy, containing:
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String
+from sqlalchemy import Column, DateTime, Float, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -209,6 +209,25 @@ class Organization(Base, TimestampMixin):
 
     chattigo_credentials = relationship(
         "ChattigoCredentials",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
+    tenant_institution_configs = relationship(
+        "TenantInstitutionConfig",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
+    # Domain intents (unified multi-domain structure)
+    domain_intents = relationship(
+        "DomainIntent",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
+    response_configs = relationship(
+        "ResponseConfig",
         back_populates="organization",
         cascade="all, delete-orphan",
     )

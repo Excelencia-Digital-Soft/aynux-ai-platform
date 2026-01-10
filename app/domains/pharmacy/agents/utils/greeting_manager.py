@@ -54,7 +54,7 @@ class GreetingManager:
         greeting_type: str = "welcome",
     ) -> str:
         """
-        Format personalized greeting message.
+        Format personalized greeting message with bot identity and capabilities.
 
         Args:
             customer_name: Customer display name
@@ -62,14 +62,25 @@ class GreetingManager:
             greeting_type: Type of greeting (welcome, found, selected)
 
         Returns:
-            Formatted greeting message
+            Formatted greeting message with bot identity and capabilities
         """
+        # Greeting opener based on type
         if greeting_type == "found":
-            return f"Te encontré, {customer_name}. Bienvenido/a a {pharmacy_name}."
+            opener = f"¡Te encontré, {customer_name}!"
         elif greeting_type == "selected":
-            return f"Perfecto, {customer_name}. Bienvenido/a a {pharmacy_name}."
+            opener = f"¡Perfecto, {customer_name}!"
         else:  # welcome (default)
-            return f"Hola {customer_name}, bienvenido/a a {pharmacy_name}."
+            opener = f"¡Hola {customer_name}!"
+
+        # Bot identity and capabilities (consistent across all types)
+        return f"""{opener} Soy el asistente virtual de {pharmacy_name}.
+
+Actualmente puedo ayudarte con:
+• Consulta de deuda en cuenta corriente
+• Envío de link de pago
+
+Para otros asuntos, te indicaré los canales adecuados.
+¿En qué puedo asistirte?"""
 
     def apply_greeting_if_needed(
         self,

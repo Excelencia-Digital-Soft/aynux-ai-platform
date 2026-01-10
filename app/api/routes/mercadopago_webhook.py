@@ -23,6 +23,8 @@ Endpoint: POST /api/v1/webhooks/mercadopago
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 from typing import Any
 
@@ -40,12 +42,97 @@ from app.services.mercadopago import (
     MercadoPagoPaymentMapper,
     MercadoPagoResponsePages,
     generate_and_store_receipt,
+    get_idempotency_service,
     send_payment_notification,
     send_text_only_notification,
 )
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 logger = logging.getLogger(__name__)
+
+
+def validate_mp_signature(
+    payload: bytes,
+    signature_header: str | None,
+    secret: str | None,
+    data_id: str | None = None,
+) -> bool:
+    """
+    Validate Mercado Pago webhook signature.
+
+    MP sends signature in x-signature header with format:
+    ts=<timestamp>,v1=<hmac_hash>
+
+    The signed template varies by webhook type. For payment notifications:
+    - template_id: manifest_id.payment_id (or just data.id)
+    - signed_data: "id:{template_id};request-id:{x-request-id};ts:{ts};"
+
+    Note: We use a simplified validation that checks the data.id and timestamp.
+
+    Args:
+        payload: Raw request body
+        signature_header: Value of x-signature header
+        secret: Webhook secret from pharmacy config
+        data_id: The data.id from the webhook payload
+
+    Returns:
+        True if signature is valid or validation is disabled, False otherwise
+    """
+    # If no secret configured, skip validation (but log warning)
+    if not secret:
+        logger.warning("[MP-WEBHOOK] No webhook secret configured, skipping signature validation")
+        return True
+
+    # If no signature header, fail if secret is configured
+    if not signature_header:
+        logger.warning("[MP-WEBHOOK] Missing x-signature header but secret is configured")
+        return False
+
+    # Parse signature header: ts=<timestamp>,v1=<hash>
+    try:
+        sig_parts: dict[str, str] = {}
+        for part in signature_header.split(","):
+            if "=" in part:
+                key, value = part.split("=", 1)
+                sig_parts[key.strip()] = value.strip()
+
+        ts = sig_parts.get("ts")
+        v1 = sig_parts.get("v1")
+
+        if not ts or not v1:
+            logger.warning(f"[MP-WEBHOOK] Invalid signature format: {signature_header}")
+            return False
+
+        # Build the signed template
+        # MP signs: "id:{data_id};request-id:{request_id};ts:{ts};"
+        # Simplified: We use just the data_id and timestamp
+        if data_id:
+            template = f"id:{data_id};ts:{ts};"
+        else:
+            template = f"ts:{ts};"
+
+        # Calculate expected HMAC-SHA256
+        expected = hmac.new(
+            secret.encode("utf-8"),
+            template.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+        # Compare signatures (constant-time comparison)
+        is_valid = hmac.compare_digest(expected, v1)
+
+        if not is_valid:
+            logger.warning(
+                f"[MP-WEBHOOK] Signature mismatch. Expected: {expected[:16]}..., Got: {v1[:16]}..."
+            )
+        else:
+            logger.debug("[MP-WEBHOOK] Signature validation successful")
+
+        return is_valid
+
+    except Exception as e:
+        logger.error(f"[MP-WEBHOOK] Signature validation error: {e}")
+        return False
 
 
 class MPWebhookPayload(BaseModel):
@@ -133,6 +220,10 @@ async def mercadopago_webhook(
             "raw_sample": raw_body.decode()[:200],
         }
 
+    # Initialize variables for exception handlers
+    idempotency = None
+    payment_id: str | None = None
+
     try:
         notification_type = payload.get_notification_type()
         payment_id = payload.get_payment_id()
@@ -195,7 +286,7 @@ async def mercadopago_webhook(
                 external_ref
             )
             plex_customer_id = ref_data["customer_id"]
-            org_id = ref_data["org_id"]
+            org_id = pharmacy_config.organization_id  # Get org_id from config
             logger.info(f"[MP-WEBHOOK] Org resolved: {org_id} ({pharmacy_config.pharmacy_name})")
         except ValueError as e:
             logger.error(f"[MP-WEBHOOK] Invalid external_reference: {external_ref} - {e}")
@@ -206,9 +297,45 @@ async def mercadopago_webhook(
                 "error": str(e),
             }
 
+        # Validate webhook signature (Security Improvement)
+        signature_header = request.headers.get("x-signature")
+        if not validate_mp_signature(
+            payload=raw_body,
+            signature_header=signature_header,
+            secret=pharmacy_config.mp_webhook_secret,
+            data_id=payment_id,
+        ):
+            logger.warning(f"[MP-WEBHOOK] Invalid signature for payment {payment_id}")
+            return {
+                "status": "error",
+                "reason": "invalid_signature",
+                "payment_id": payment_id,
+            }
+
         if not pharmacy_config.mp_enabled:
             logger.warning(f"[MP-WEBHOOK] MP disabled for org {org_id}")
             return {"status": "error", "reason": "mp_disabled_for_org", "org_id": str(org_id)}
+
+        # Check for duplicate payment (idempotency)
+        try:
+            idempotency = await get_idempotency_service()
+            is_duplicate, previous_receipt = await idempotency.check_and_lock(str(payment_id))
+
+            if is_duplicate:
+                logger.info(
+                    f"[MP-WEBHOOK] Duplicate payment {payment_id}, "
+                    f"previous receipt: {previous_receipt}"
+                )
+                return {
+                    "status": "duplicate",
+                    "payment_id": payment_id,
+                    "previous_receipt": previous_receipt,
+                    "reason": "already_processed",
+                }
+        except Exception as e:
+            # Log but don't fail - idempotency is a safety net, not critical
+            logger.warning(f"[MP-WEBHOOK] Idempotency check failed: {e}")
+            idempotency = None
 
         amount = payment.get("transaction_amount", 0)
         logger.info(
@@ -276,6 +403,13 @@ async def mercadopago_webhook(
         else:
             logger.warning(f"[MP-WEBHOOK] No phone for payment {payment_id}, skipping notification")
 
+        # Mark payment as successfully processed (idempotency)
+        if idempotency:
+            try:
+                await idempotency.mark_complete(str(payment_id), plex_receipt)
+            except Exception as e:
+                logger.warning(f"[MP-WEBHOOK] Failed to mark payment complete: {e}")
+
         return {
             "status": "success",
             "payment_id": payment_id,
@@ -289,10 +423,22 @@ async def mercadopago_webhook(
 
     except MercadoPagoError as e:
         logger.error(f"[MP-WEBHOOK] MP API error: {e}")
+        # Release idempotency lock to allow retry
+        if idempotency and payment_id:
+            try:
+                await idempotency.mark_failed(str(payment_id), str(e))
+            except Exception:
+                pass
         return {"status": "error", "reason": "mercadopago_api_error", "error": str(e)}
 
     except PlexAPIError as e:
         logger.error(f"[MP-WEBHOOK] PLEX API error: {e}")
+        # Release idempotency lock to allow retry
+        if idempotency and payment_id:
+            try:
+                await idempotency.mark_failed(str(payment_id), str(e))
+            except Exception:
+                pass
         return {"status": "error", "reason": "plex_api_error", "error": str(e)}
 
     except Exception as e:

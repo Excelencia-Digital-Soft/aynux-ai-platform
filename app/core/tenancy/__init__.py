@@ -62,6 +62,25 @@ from .pharmacy_config_service import (
     PharmacyConfigService,
     TEST_PHARMACY_ORG_ID,
 )
+from .institution_config_service import (
+    InstitutionConfig,
+    InstitutionConfigService,
+    SYSTEM_ORG_ID,
+)
+from .schemas import (
+    ApiKeyAuth,
+    AuthConfig,
+    BasicAuth,
+    BrandingSettings,
+    ConnectionSettings,
+    ConnectionType,
+    InstitutionSettings,
+    NoAuth,
+    OAuth2Auth,
+    SchedulerSettings,
+    SoapWssAuth,
+    WhatsAppSettings,
+)
 from .prompt_manager import PromptNotFoundError, PromptScope, TenantPromptManager
 from .resolver import TenantResolutionError, TenantResolver
 from .vector_store import TenantVectorStore
@@ -94,6 +113,23 @@ __all__ = [
     "PharmacyConfigService",
     "PharmacyConfig",
     "TEST_PHARMACY_ORG_ID",
+    # Institution Config Service
+    "InstitutionConfigService",
+    "InstitutionConfig",
+    "SYSTEM_ORG_ID",
+    # Institution Settings Schemas
+    "InstitutionSettings",
+    "ConnectionType",
+    "ConnectionSettings",
+    "NoAuth",
+    "ApiKeyAuth",
+    "BasicAuth",
+    "OAuth2Auth",
+    "SoapWssAuth",
+    "AuthConfig",
+    "SchedulerSettings",
+    "BrandingSettings",
+    "WhatsAppSettings",
     # Encryption Service
     "CredentialEncryptionService",
     "CredentialEncryptionError",

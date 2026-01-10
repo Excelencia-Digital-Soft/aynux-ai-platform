@@ -2,25 +2,23 @@
 Pharmacy Info Handler
 
 Handles queries about pharmacy information (address, phone, hours, email, website).
-Refactored to use SRP-compliant services and PromptRegistry.
+Uses LLM-driven ResponseGenerator for natural language responses.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from app.domains.pharmacy.agents.utils.response_generator import (
+    PharmacyResponseGenerator,
+)
 from app.domains.pharmacy.services import (
     CapabilityQuestionDetector,
     PharmacyHoursFormatter,
     PharmacyInfoService,
 )
-from app.integrations.llm import ModelComplexity
-from app.prompts.registry import PromptRegistry
 
 from .base_handler import BasePharmacyHandler
-
-# LLM configuration
-INFO_QUERY_LLM_TEMPERATURE = 0.5
 
 
 class PharmacyInfoHandler(BasePharmacyHandler):
@@ -38,7 +36,7 @@ class PharmacyInfoHandler(BasePharmacyHandler):
 
     def __init__(
         self,
-        prompt_manager=None,
+        response_generator: PharmacyResponseGenerator | None = None,
         capability_detector: CapabilityQuestionDetector | None = None,
         pharmacy_info_service: PharmacyInfoService | None = None,
         hours_formatter: PharmacyHoursFormatter | None = None,
@@ -47,12 +45,12 @@ class PharmacyInfoHandler(BasePharmacyHandler):
         Initialize the handler with injected dependencies.
 
         Args:
-            prompt_manager: Optional PromptManager instance
+            response_generator: Optional ResponseGenerator instance
             capability_detector: Optional capability question detector
             pharmacy_info_service: Optional pharmacy info service
             hours_formatter: Optional hours formatter
         """
-        super().__init__(prompt_manager)
+        super().__init__(response_generator)
         self._capability_detector = capability_detector or CapabilityQuestionDetector()
         self._pharmacy_info_service = pharmacy_info_service or PharmacyInfoService()
         self._hours_formatter = hours_formatter or PharmacyHoursFormatter()
@@ -79,9 +77,7 @@ class PharmacyInfoHandler(BasePharmacyHandler):
         # PRIORITY: Check if this is a capability question
         if self._capability_detector.is_capability_question(message):
             self.logger.info(f"Capability question detected: '{message[:50]}...'")
-            return await self._handle_capability_question(
-                customer_name, pharmacy_name, state
-            )
+            return await self._handle_capability_question(customer_name, pharmacy_name, state)
 
         # Handle pharmacy info queries (address, phone, hours, etc.)
         return await self._handle_info_query(message, state)
@@ -103,20 +99,16 @@ class PharmacyInfoHandler(BasePharmacyHandler):
         Returns:
             State updates with capability response
         """
-        try:
-            response = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_INFO_QUERY_CAPABILITY,
-                variables={
-                    "customer_name": customer_name,
-                    "pharmacy_name": pharmacy_name,
-                },
-            )
-        except Exception as e:
-            self.logger.warning(f"Failed to load capability prompt: {e}")
-            response = self._get_fallback_capability_response(customer_name, pharmacy_name)
+        response_state = {**state, "customer_name": customer_name, "pharmacy_name": pharmacy_name}
+        result_content = await self._generate_response(
+            intent="info_query_capability",
+            state=response_state,
+            user_message="",
+            current_task="Explica las capacidades del bot.",
+        )
 
         return self._format_state_update(
-            message=response,
+            message=result_content,
             intent_type="info_query",
             workflow_step="capability_query_answered",
             state=state,
@@ -189,24 +181,16 @@ class PharmacyInfoHandler(BasePharmacyHandler):
         Returns:
             State updates with no-info response
         """
-        try:
-            response = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_INFO_QUERY_NO_INFO,
-                variables={
-                    "customer_name": customer_name,
-                    "pharmacy_name": pharmacy_name,
-                },
-            )
-        except Exception as e:
-            self.logger.warning(f"Failed to load no_info prompt: {e}")
-            response = (
-                f"Disculpa {customer_name}, no tengo acceso a la información "
-                f"de contacto de {pharmacy_name} en este momento.\n\n"
-                "Por favor, intenta comunicarte por otro medio."
-            )
+        response_state = {**state, "customer_name": customer_name, "pharmacy_name": pharmacy_name}
+        result_content = await self._generate_response(
+            intent="info_query_no_info",
+            state=response_state,
+            user_message="",
+            current_task="Informa que no hay información disponible de la farmacia.",
+        )
 
         return self._format_state_update(
-            message=response,
+            message=result_content,
             intent_type="info_query",
             workflow_step="info_query_no_data",
             state=state,
@@ -231,24 +215,26 @@ class PharmacyInfoHandler(BasePharmacyHandler):
         """
         hours_text = self._hours_formatter.format(pharmacy_info)
 
-        response = await self._generate_llm_response(
-            template_key=PromptRegistry.PHARMACY_INFO_QUERY_GENERATE,
-            variables={
-                "user_question": user_question,
-                "customer_name": customer_name,
-                "pharmacy_name": pharmacy_info.get("name", "la farmacia"),
-                "pharmacy_address": pharmacy_info.get("address") or "No disponible",
-                "pharmacy_phone": pharmacy_info.get("phone") or "No disponible",
-                "pharmacy_email": pharmacy_info.get("email") or "No disponible",
-                "pharmacy_website": pharmacy_info.get("website") or "No disponible",
-                "pharmacy_hours": hours_text,
-            },
-            complexity=ModelComplexity.SIMPLE,
-            temperature=INFO_QUERY_LLM_TEMPERATURE,
+        response_state = {
+            "user_question": user_question,
+            "customer_name": customer_name,
+            "pharmacy_name": pharmacy_info.get("name", "la farmacia"),
+            "pharmacy_address": pharmacy_info.get("address") or "No disponible",
+            "pharmacy_phone": pharmacy_info.get("phone") or "No disponible",
+            "pharmacy_email": pharmacy_info.get("email") or "No disponible",
+            "pharmacy_website": pharmacy_info.get("website") or "No disponible",
+            "pharmacy_hours": hours_text,
+        }
+
+        result_content = await self._generate_response(
+            intent="info_query_generate",
+            state=response_state,
+            user_message=user_question,
+            current_task="Responde la pregunta sobre información de la farmacia.",
         )
 
-        if response:
-            return response
+        if result_content:
+            return result_content
         return self._get_fallback_info_response(user_question, pharmacy_info)
 
     def _is_general_info_question(self, message: str) -> bool:
@@ -282,11 +268,29 @@ class PharmacyInfoHandler(BasePharmacyHandler):
 
         # Specific patterns - asking for one thing
         specific_patterns = [
-            "direccion", "dirección", "donde queda", "dónde queda", "ubicacion", "ubicación",
-            "horario", "hora", "abren", "cierran", "atienden",
-            "telefono", "teléfono", "numero", "número", "llamar",
-            "mail", "email", "correo",
-            "web", "pagina", "página", "sitio",
+            "direccion",
+            "dirección",
+            "donde queda",
+            "dónde queda",
+            "ubicacion",
+            "ubicación",
+            "horario",
+            "hora",
+            "abren",
+            "cierran",
+            "atienden",
+            "telefono",
+            "teléfono",
+            "numero",
+            "número",
+            "llamar",
+            "mail",
+            "email",
+            "correo",
+            "web",
+            "pagina",
+            "página",
+            "sitio",
         ]
 
         # Check if it's a general pattern
@@ -299,7 +303,7 @@ class PharmacyInfoHandler(BasePharmacyHandler):
 
         return False
 
-    def _get_fallback_capability_response(
+    async def _get_fallback_capability_response(
         self,
         customer_name: str,
         pharmacy_name: str,
@@ -314,21 +318,18 @@ class PharmacyInfoHandler(BasePharmacyHandler):
         Returns:
             Capability explanation
         """
-        return f"""¡Hola {customer_name}! Soy tu asistente virtual de {pharmacy_name}.
-
-**Puedo ayudarte con:**
-• **Consultar tu deuda** - Te muestro cuánto debes actualmente
-• **Generar link de pago** - Para que pagues tu deuda de forma fácil
-• **Pagos parciales** - Si quieres abonar una parte de tu deuda
-• **Información de la farmacia** - Dirección, teléfono, horarios
-
-Solo escríbeme lo que necesitas.
-
-¿En qué puedo ayudarte hoy?"""
+        return await self._render_fallback_template(
+            template_key="info_query_capability",
+            variables={
+                "customer_name": customer_name,
+                "pharmacy_name": pharmacy_name,
+            },
+            yaml_file="pharmacy/fallback_templates.yaml",
+        )
 
     def _get_fallback_info_response(
         self,
-        question: str,
+        _: str,
         pharmacy_info: dict[str, Any],
     ) -> str:
         """

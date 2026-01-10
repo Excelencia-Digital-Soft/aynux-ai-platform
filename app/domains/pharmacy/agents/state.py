@@ -185,6 +185,105 @@ class PharmacyState(TypedDict):
     # Identification State (turn tracking)
     # =========================================================================
     just_identified: bool  # True if customer was just identified this turn
+    identification_step: str | None  # "awaiting_identifier", "name", None
+    identification_retries: int  # Number of identification attempts (max 3)
+
+    # =========================================================================
+    # Person Resolution State (NEW - Registered Persons Flow)
+    # =========================================================================
+    registered_persons: list[dict[str, Any]] | None  # List of valid registrations for this phone
+    active_registered_person_id: str | None  # Selected registered person UUID
+    awaiting_person_selection: bool  # Waiting for user to select a person from list
+    awaiting_own_or_other: bool  # Waiting for "own debt" or "other's debt" answer
+    is_querying_for_other: bool  # True if querying debt for someone else
+    is_self: bool  # True if current customer is the phone owner
+
+    # Person Selection State
+    selection_list_shown: bool  # True if person selection list was displayed
+    selection_options_map: dict[str, Any] | None  # Maps option numbers to person data
+    include_self_in_list: bool  # Include phone owner in person selection list
+    self_plex_customer: dict[str, Any] | None  # PLEX customer matching phone (is_self=True)
+
+    # Person Validation State
+    validation_step: str | None  # "dni", "name", "confirm" - current validation step
+    dni_requested: bool  # True if we already asked for DNI (distinguishes first time vs retry)
+    pending_dni: str | None  # DNI being validated
+    plex_candidates: list[dict[str, Any]] | None  # Multiple PLEX matches for disambiguation
+    is_new_person_flow: bool  # True if user requested to add new person
+    name_mismatch_count: int  # Count of name mismatches for retry limiting
+    plex_customer_to_confirm: dict[str, Any] | None  # PLEX customer pending confirmation
+    provided_name_to_confirm: str | None  # Name provided by user pending confirmation
+
+    # Node Routing
+    next_node: str | None  # Next node to route to (for explicit routing)
+
+    # =========================================================================
+    # Partial Payment Flow State
+    # =========================================================================
+    awaiting_partial_payment_question: bool  # Asked if user wants partial payment (after NO)
+    awaiting_payment_amount_input: bool  # Waiting for user to enter amount
+    partial_payment_declined: bool  # User said NO to partial payment too
+    minimum_payment_amount: float | None  # Minimum allowed partial payment (from config)
+
+    # =========================================================================
+    # Smart Debt Negotiation State
+    # =========================================================================
+    auth_level: str | None  # "STRONG", "MEDIUM", "WEAK" - for context-based ofuscation
+    payment_options_map: dict[str, float] | None  # Pre-calculated options {"full": 15000, "half": 7500, ...}
+    selected_payment_option: str | None  # "full", "half", "minimum", "custom"
+    awaiting_payment_option_selection: bool  # Waiting for user to select 1/2/3/4
+
+    # =========================================================================
+    # Entry Validation State (CASO 0 - pharmacy_flujo_mejorado_v2.md)
+    # =========================================================================
+    validation_passed: bool  # True if entry validation passed
+    rate_limited: bool  # True if user is rate limited
+    rate_limit_reason: str | None  # Reason for rate limiting
+    message_id: str | None  # WhatsApp message ID for deduplication
+    is_within_service_hours: bool  # True if within bot service hours
+    service_hours_message: str | None  # Message to show if outside hours
+    emergency_phone: str | None  # Emergency contact number
+
+    # =========================================================================
+    # Menu Navigation State (CASO 2 - pharmacy_flujo_mejorado_v2.md)
+    # =========================================================================
+    current_menu: str | None  # "main", "help", "debt_action", "payment_problem"
+    menu_history: list[str] | None  # Navigation history for "volver"
+    show_reduced_menu: bool  # True to show reduced menu for recurring users
+    first_interaction_today: bool  # True if this is first interaction today
+    last_interaction_date: str | None  # ISO date YYYY-MM-DD of last interaction
+
+    # =========================================================================
+    # Debt Action Menu State (CASO 3 - pharmacy_flujo_mejorado_v2.md)
+    # =========================================================================
+    awaiting_debt_action: bool  # Waiting for user to select 1/2/3/4 after debt display
+    debt_items: list[dict[str, Any]] | None  # Detailed invoice items from PLEX
+    debt_fetched_at: str | None  # ISO timestamp when debt was fetched
+
+    # =========================================================================
+    # Payment Confirmation State (CASO 4 - pharmacy_flujo_mejorado_v2.md)
+    # =========================================================================
+    awaiting_payment_confirmation: bool  # Waiting for SI/NO before generating link
+    payment_confirmation_shown: bool  # True if confirmation message was shown
+
+    # =========================================================================
+    # Help Center State (CASO 8 - pharmacy_flujo_mejorado_v2.md)
+    # =========================================================================
+    help_submenu: str | None  # "payment_problem", "debt_dispute", None
+    escalation_reason: str | None  # Reason for human escalation
+    wants_callback_notification: bool  # User wants callback when agent available
+
+    # =========================================================================
+    # Interruption Handling State (pharmacy_flujo_mejorado_v2.md)
+    # =========================================================================
+    pending_flow: str | None  # Flow that was interrupted (e.g., "payment_confirmation")
+    pending_flow_context: dict[str, Any] | None  # Context of interrupted flow
+
+    # =========================================================================
+    # Person Selection Pagination (CASO 9 - pharmacy_flujo_mejorado_v2.md)
+    # =========================================================================
+    person_selection_page: int  # Current page in person selection (0-indexed)
+    person_selection_total_pages: int  # Total pages available
 
 
 # Alias for compatibility

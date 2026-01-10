@@ -1,135 +1,61 @@
 """
 Pharmacy Pattern Matchers
 
-Functions for matching confirmation, greeting, and payment patterns.
+Functions for matching payment patterns using database-driven patterns.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.domains.pharmacy.agents.intent_patterns import (
-    CONFIDENCE_CONTAINS,
-    CONFIDENCE_EXACT_MATCH,
-    CONFIRMATION_PATTERNS,
-    GREETING_EXACT,
-    GREETING_PREFIXES,
-    PAYMENT_PHRASES,
-    PAYMENT_VERBS,
-)
-from app.domains.pharmacy.agents.intent_result import PharmacyIntentResult
 
-
-def match_confirmation(text_lower: str) -> PharmacyIntentResult | None:
+def is_payment_intent_from_patterns(
+    text_lower: str,
+    entities: dict[str, Any],
+    patterns: dict[str, Any] | None,
+) -> bool:
     """
-    Match confirmation/rejection patterns.
+    Detect payment intent using database patterns.
 
-    Args:
-        text_lower: Lowercase message text
-
-    Returns:
-        PharmacyIntentResult if matched, None otherwise
-    """
-    for intent, patterns in CONFIRMATION_PATTERNS.items():
-        # Check exact matches first
-        if text_lower in patterns["exact"]:
-            return create_match_result(intent, CONFIDENCE_EXACT_MATCH, "exact", text_lower)
-
-        # Check contains patterns
-        for pattern in patterns["contains"]:
-            if pattern in text_lower:
-                return create_match_result(intent, CONFIDENCE_CONTAINS, "contains", pattern)
-
-    return None
-
-
-def match_greeting(text_lower: str) -> PharmacyIntentResult | None:
-    """
-    Match greeting patterns with high priority.
-
-    This runs BEFORE general intent scoring to ensure greetings are
-    always detected reliably, even for short messages like "hola".
-
-    Args:
-        text_lower: Lowercase message text
-
-    Returns:
-        PharmacyIntentResult if matched, None otherwise
-    """
-    # Exact match (highest confidence)
-    if text_lower in GREETING_EXACT:
-        return PharmacyIntentResult(
-            intent="greeting",
-            confidence=CONFIDENCE_EXACT_MATCH,
-            is_out_of_scope=False,
-            entities={},
-            method="greeting_priority",
-            analysis={"matched_pattern": text_lower, "match_type": "exact"},
-        )
-
-    # Prefix match (high confidence)
-    for prefix in GREETING_PREFIXES:
-        if text_lower.startswith(prefix):
-            return PharmacyIntentResult(
-                intent="greeting",
-                confidence=CONFIDENCE_CONTAINS,
-                is_out_of_scope=False,
-                entities={},
-                method="greeting_priority",
-                analysis={"matched_pattern": prefix, "match_type": "prefix"},
-            )
-
-    return None
-
-
-def is_payment_intent(text_lower: str, entities: dict[str, Any]) -> bool:
-    """
-    Detect if the message is clearly a payment intent.
-
-    This runs with high priority to catch patterns like "pagar 50 mil"
-    that would otherwise be misclassified as data_query.
+    Uses patterns from invoice intent in database. Returns False if
+    patterns are not available (database not seeded).
 
     Args:
         text_lower: Lowercase message text
         entities: Extracted entities dictionary
+        patterns: Loaded intent patterns from database (can be None)
 
     Returns:
         True if payment intent detected
     """
-    has_payment_verb = any(verb in text_lower for verb in PAYMENT_VERBS)
+    if not patterns:
+        return False
+
     has_amount = entities.get("amount") is not None
 
-    # "pagar X" with amount = definitely payment
+    invoice = patterns.get("intents", {}).get("invoice", {})
+    if not invoice:
+        return False
+
+    # Get lemmas (payment verbs) from database
+    db_lemmas = invoice.get("lemmas", [])
+    payment_verbs = {lemma.lower() for lemma in db_lemmas if isinstance(lemma, str)}
+
+    # Get phrases from database
+    db_phrases = invoice.get("phrases", [])
+    payment_phrases = {
+        p["phrase"].lower()
+        for p in db_phrases
+        if isinstance(p, dict) and "phrase" in p
+    }
+
+    if not payment_verbs and not payment_phrases:
+        return False
+
+    # Check for payment verb + amount
+    has_payment_verb = any(verb in text_lower for verb in payment_verbs)
     if has_payment_verb and has_amount:
         return True
 
-    # Explicit payment phrases (with and without amount)
-    return any(phrase in text_lower for phrase in PAYMENT_PHRASES)
-
-
-def create_match_result(
-    intent: str,
-    confidence: float,
-    match_type: str,
-    pattern: str,
-) -> PharmacyIntentResult:
-    """
-    Factory for pattern match results.
-
-    Args:
-        intent: Detected intent
-        confidence: Confidence score
-        match_type: Type of match (exact, contains, prefix)
-        pattern: Pattern that matched
-
-    Returns:
-        PharmacyIntentResult instance
-    """
-    return PharmacyIntentResult(
-        intent=intent,
-        confidence=confidence,
-        is_out_of_scope=False,
-        entities={},
-        method="pattern_match",
-        analysis={"matched_pattern": pattern, "match_type": match_type},
-    )
+    # Check payment phrases
+    return any(phrase in text_lower for phrase in payment_phrases)

@@ -36,25 +36,6 @@ class ModuleType(str, Enum):
         return names.get(self, self.value.title())
 
 
-class SupportTicketStatus(str, Enum):
-    """Support ticket status."""
-
-    OPEN = "open"
-    IN_PROGRESS = "in_progress"
-    WAITING_CUSTOMER = "waiting_customer"
-    RESOLVED = "resolved"
-    CLOSED = "closed"
-
-
-class SupportPriority(str, Enum):
-    """Support ticket priority."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
 class LicenseType(str, Enum):
     """License types."""
 

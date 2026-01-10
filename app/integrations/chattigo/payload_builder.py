@@ -159,3 +159,161 @@ class ChattigoPayloadBuilder:
             "type": "template",
             "template": template_data,
         }
+
+    @staticmethod
+    def build_interactive_buttons_payload(
+        to: str,
+        body: str,
+        buttons: list[dict],
+        header: str | None = None,
+        footer: str | None = None,
+    ) -> dict:
+        """
+        Build interactive buttons message payload.
+
+        Args:
+            to: Recipient phone number
+            body: Message body text
+            buttons: List of button dicts with "id" and "title" keys (max 3)
+            header: Optional header text
+            footer: Optional footer text
+
+        Returns:
+            Formatted payload dict for WhatsApp Cloud API
+
+        Example buttons:
+            [{"id": "btn_1", "title": "Option 1"}, {"id": "btn_2", "title": "Option 2"}]
+        """
+        action_buttons = [
+            {"type": "reply", "reply": {"id": btn["id"], "title": btn["title"][:20]}}
+            for btn in buttons[:3]  # WhatsApp allows max 3 buttons
+        ]
+
+        interactive_data: dict = {
+            "type": "button",
+            "body": {"text": body},
+            "action": {"buttons": action_buttons},
+        }
+
+        if header:
+            interactive_data["header"] = {"type": "text", "text": header}
+        if footer:
+            interactive_data["footer"] = {"text": footer}
+
+        return {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to,
+            "type": "interactive",
+            "interactive": interactive_data,
+        }
+
+    @staticmethod
+    def build_interactive_list_payload(
+        to: str,
+        body: str,
+        button_text: str,
+        sections: list[dict],
+        header: str | None = None,
+        footer: str | None = None,
+    ) -> dict:
+        """
+        Build interactive list message payload.
+
+        Args:
+            to: Recipient phone number
+            body: Message body text
+            button_text: Text for the list button (max 20 chars)
+            sections: List of section dicts with "title" and "rows" keys
+            header: Optional header text
+            footer: Optional footer text
+
+        Returns:
+            Formatted payload dict for WhatsApp Cloud API
+
+        Example sections:
+            [{
+                "title": "Section 1",
+                "rows": [
+                    {"id": "row_1", "title": "Row 1", "description": "Desc 1"},
+                    {"id": "row_2", "title": "Row 2", "description": "Desc 2"}
+                ]
+            }]
+        """
+        interactive_data: dict = {
+            "type": "list",
+            "body": {"text": body},
+            "action": {
+                "button": button_text[:20],
+                "sections": sections,
+            },
+        }
+
+        if header:
+            interactive_data["header"] = {"type": "text", "text": header}
+        if footer:
+            interactive_data["footer"] = {"text": footer}
+
+        return {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to,
+            "type": "interactive",
+            "interactive": interactive_data,
+        }
+
+    @staticmethod
+    def build_interactive_flow_payload(
+        to: str,
+        body: str,
+        flow_id: str,
+        flow_cta: str,
+        screen: str,
+        header: str | None = None,
+        footer: str | None = None,
+        flow_action: str = "navigate",
+    ) -> dict:
+        """
+        Build WhatsApp Flow message payload.
+
+        Args:
+            to: Recipient phone number
+            body: Message body text
+            flow_id: WhatsApp Flow ID
+            flow_cta: Call-to-action button text (max 20 chars)
+            screen: Initial screen to navigate to
+            header: Optional header text
+            footer: Optional footer text
+            flow_action: Flow action type (default: "navigate")
+
+        Returns:
+            Formatted payload dict for WhatsApp Cloud API
+        """
+        interactive_data: dict = {
+            "type": "flow",
+            "body": {"text": body},
+            "action": {
+                "name": "flow",
+                "parameters": {
+                    "flow_message_version": "3",
+                    "flow_action": flow_action,
+                    "flow_token": "unused",
+                    "flow_id": flow_id,
+                    "flow_cta": flow_cta[:20],
+                    "flow_action_payload": {"screen": screen},
+                },
+            },
+        }
+
+        if header:
+            interactive_data["header"] = {"type": "text", "text": header}
+        if footer:
+            interactive_data["footer"] = {"text": footer}
+
+        return {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to,
+            "type": "interactive",
+            "interactive": interactive_data,
+        }

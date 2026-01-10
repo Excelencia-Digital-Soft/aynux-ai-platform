@@ -54,6 +54,7 @@ dependencies = [
     "alembic>=1.13.0",
     "nest-asyncio>=1.6.0",
     "fpdf2>=2.8.0", # PDF receipt generation
+    "rapidfuzz>=3.6.0", # Fast fuzzy string matching for name comparison
 ]
 
 [dependency-groups]

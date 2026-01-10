@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 class NodeType:
     """Node type constants."""
 
+    # New entry point nodes (Person Resolution Flow)
+    PERSON_RESOLUTION = "person_resolution_node"
+    PERSON_SELECTION = "person_selection_node"
+    PERSON_VALIDATION = "person_validation_node"
+
+    # Existing nodes
     CUSTOMER_IDENTIFICATION = "customer_identification_node"
     CUSTOMER_REGISTRATION = "customer_registration_node"
     ROUTER = "pharmacy_router"
@@ -67,9 +73,17 @@ class PharmacyNodeFactory:
             DebtCheckNode,
             InvoiceGenerationNode,
             PaymentLinkNode,
+            PersonResolutionNode,
+            PersonSelectionNode,
+            PersonValidationNode,
         )
 
         return {
+            # New entry point nodes (Person Resolution Flow)
+            NodeType.PERSON_RESOLUTION: (PersonResolutionNode, "person_resolution"),
+            NodeType.PERSON_SELECTION: (PersonSelectionNode, "person_selection"),
+            NodeType.PERSON_VALIDATION: (PersonValidationNode, "person_validation"),
+            # Existing nodes
             NodeType.CUSTOMER_IDENTIFICATION: (CustomerIdentificationNode, "customer_identification"),
             NodeType.CUSTOMER_REGISTRATION: (CustomerRegistrationNode, "customer_registration"),
             NodeType.DEBT_CHECK: (DebtCheckNode, "debt_check"),

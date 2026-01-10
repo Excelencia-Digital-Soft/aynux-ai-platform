@@ -1,0 +1,33 @@
+# Medical Appointments Greeting Templates
+# NOTE: These templates are for reference. The actual greeting uses
+# institution_name from TenantInstitutionConfig database table.
+prompts:
+  - key: medical_appointments.greeting.welcome
+    name: Welcome Greeting
+    description: Welcome message for medical appointments booking
+    version: "1.0.0"
+    template: |
+      ¡Hola! 👋 Bienvenido al sistema de turnos de {institution_name}.
+
+      Para agendar un turno, por favor ingresá tu número de DNI (sin puntos).
+    metadata:
+      variables:
+        required:
+          - institution_name
+        optional: []
+
+  - key: medical_appointments.greeting.returning_patient
+    name: Returning Patient Greeting
+    description: Greeting for identified patients
+    version: "1.0.0"
+    template: |
+      ¡Hola {patient_name}! 👋
+
+      Bienvenido nuevamente al sistema de turnos de {institution_name}.
+      ¿En qué puedo ayudarte hoy?
+    metadata:
+      variables:
+        required:
+          - institution_name
+          - patient_name
+        optional: []

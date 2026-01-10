@@ -261,3 +261,259 @@ class ChattigoMultiDIDAdapter:
                 "name": self._credentials.name,
                 "error": str(e),
             }
+
+    # =========================================================================
+    # Interactive Messages (Buttons, Lists, Flows)
+    # =========================================================================
+
+    async def send_interactive_buttons(
+        self,
+        msisdn: str,
+        body: str,
+        buttons: list[dict],
+        header: str | None = None,
+        footer: str | None = None,
+    ) -> dict:
+        """
+        Send interactive buttons message via WhatsApp Cloud API.
+
+        Args:
+            msisdn: Recipient phone number
+            body: Message body text
+            buttons: List of button dicts with "id" and "title" keys (max 3)
+            header: Optional header text
+            footer: Optional footer text
+
+        Returns:
+            API response dict
+
+        Raises:
+            ChattigoTokenError: If authentication fails
+            httpx.HTTPError: If request fails
+
+        Example:
+            await adapter.send_interactive_buttons(
+                msisdn="5492641234567",
+                body="Seleccione una opcion:",
+                buttons=[
+                    {"id": "confirm", "title": "Confirmar"},
+                    {"id": "cancel", "title": "Cancelar"},
+                ],
+            )
+        """
+        payload = self._payload_builder.build_interactive_buttons_payload(
+            to=msisdn,
+            body=body,
+            buttons=buttons,
+            header=header,
+            footer=footer,
+        )
+
+        try:
+            client = self._get_http_client()
+            result = await client.post_with_retry(
+                url=self._build_message_url(),
+                payload=payload,
+            )
+            logger.info(
+                f"Interactive buttons sent via DID {self._credentials.did} to {msisdn}"
+            )
+            return {"status": "ok", "data": result}
+
+        except httpx.HTTPError as e:
+            logger.error(
+                f"Failed to send interactive buttons via DID {self._credentials.did}: {e}"
+            )
+            raise
+
+    async def send_interactive_list(
+        self,
+        msisdn: str,
+        body: str,
+        button_text: str,
+        sections: list[dict],
+        header: str | None = None,
+        footer: str | None = None,
+    ) -> dict:
+        """
+        Send interactive list message via WhatsApp Cloud API.
+
+        Args:
+            msisdn: Recipient phone number
+            body: Message body text
+            button_text: Text for the list button (max 20 chars)
+            sections: List of section dicts with "title" and "rows" keys
+            header: Optional header text
+            footer: Optional footer text
+
+        Returns:
+            API response dict
+
+        Raises:
+            ChattigoTokenError: If authentication fails
+            httpx.HTTPError: If request fails
+
+        Example:
+            await adapter.send_interactive_list(
+                msisdn="5492641234567",
+                body="Seleccione una especialidad:",
+                button_text="Ver opciones",
+                sections=[{
+                    "title": "Especialidades",
+                    "rows": [
+                        {"id": "gastro", "title": "Gastroenterologia"},
+                        {"id": "cardio", "title": "Cardiologia"},
+                    ]
+                }],
+            )
+        """
+        payload = self._payload_builder.build_interactive_list_payload(
+            to=msisdn,
+            body=body,
+            button_text=button_text,
+            sections=sections,
+            header=header,
+            footer=footer,
+        )
+
+        try:
+            client = self._get_http_client()
+            result = await client.post_with_retry(
+                url=self._build_message_url(),
+                payload=payload,
+            )
+            logger.info(
+                f"Interactive list sent via DID {self._credentials.did} to {msisdn}"
+            )
+            return {"status": "ok", "data": result}
+
+        except httpx.HTTPError as e:
+            logger.error(
+                f"Failed to send interactive list via DID {self._credentials.did}: {e}"
+            )
+            raise
+
+    async def send_whatsapp_flow(
+        self,
+        msisdn: str,
+        body: str,
+        flow_id: str,
+        flow_cta: str,
+        screen: str,
+        header: str | None = None,
+        footer: str | None = None,
+    ) -> dict:
+        """
+        Send WhatsApp Flow message via WhatsApp Cloud API.
+
+        Args:
+            msisdn: Recipient phone number
+            body: Message body text
+            flow_id: WhatsApp Flow ID
+            flow_cta: Call-to-action button text (max 20 chars)
+            screen: Initial screen to navigate to
+            header: Optional header text
+            footer: Optional footer text
+
+        Returns:
+            API response dict
+
+        Raises:
+            ChattigoTokenError: If authentication fails
+            httpx.HTTPError: If request fails
+
+        Example:
+            await adapter.send_whatsapp_flow(
+                msisdn="5492641234567",
+                body="Complete el formulario de registro",
+                flow_id="2244089509373557",
+                flow_cta="Registrarse",
+                screen="Screen_A",
+            )
+        """
+        payload = self._payload_builder.build_interactive_flow_payload(
+            to=msisdn,
+            body=body,
+            flow_id=flow_id,
+            flow_cta=flow_cta,
+            screen=screen,
+            header=header,
+            footer=footer,
+        )
+
+        try:
+            client = self._get_http_client()
+            result = await client.post_with_retry(
+                url=self._build_message_url(),
+                payload=payload,
+            )
+            logger.info(
+                f"WhatsApp Flow sent via DID {self._credentials.did} to {msisdn}"
+            )
+            return {"status": "ok", "data": result}
+
+        except httpx.HTTPError as e:
+            logger.error(
+                f"Failed to send WhatsApp Flow via DID {self._credentials.did}: {e}"
+            )
+            raise
+
+    async def send_template(
+        self,
+        msisdn: str,
+        template_name: str,
+        language_code: str = "es",
+        components: list[dict] | None = None,
+    ) -> dict:
+        """
+        Send template message via WhatsApp Cloud API.
+
+        Args:
+            msisdn: Recipient phone number
+            template_name: Name of the pre-approved template
+            language_code: Template language code (default: "es")
+            components: Optional template components (header, body, buttons)
+
+        Returns:
+            API response dict
+
+        Raises:
+            ChattigoTokenError: If authentication fails
+            httpx.HTTPError: If request fails
+
+        Example:
+            await adapter.send_template(
+                msisdn="5492641234567",
+                template_name="recordatorio_turno",
+                components=[
+                    {"type": "body", "parameters": [
+                        {"type": "text", "text": "Juan Perez"},
+                        {"type": "text", "text": "15/01/2025"},
+                        {"type": "text", "text": "10:30"},
+                    ]}
+                ],
+            )
+        """
+        payload = self._payload_builder.build_template_payload(
+            to=msisdn,
+            template_name=template_name,
+            language_code=language_code,
+            components=components,
+        )
+
+        try:
+            client = self._get_http_client()
+            result = await client.post_with_retry(
+                url=self._build_message_url(),
+                payload=payload,
+            )
+            logger.info(
+                f"Template '{template_name}' sent via DID {self._credentials.did} to {msisdn}"
+            )
+            return {"status": "ok", "data": result}
+
+        except httpx.HTTPError as e:
+            logger.error(
+                f"Failed to send template via DID {self._credentials.did}: {e}"
+            )
+            raise

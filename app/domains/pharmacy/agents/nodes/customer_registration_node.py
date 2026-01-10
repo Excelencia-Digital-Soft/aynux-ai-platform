@@ -2,7 +2,7 @@
 Customer Registration Node
 
 Pharmacy domain node for registering new customers in Plex ERP.
-Refactored to use PromptRegistry for type-safe prompt references.
+Uses LLM-driven ResponseGenerator for natural language responses.
 """
 
 from __future__ import annotations
@@ -11,6 +11,11 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from app.core.agents import BaseAgent
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.response_generator import (
+    PharmacyResponseGenerator,
+    get_response_generator,
+)
 from app.domains.pharmacy.application.use_cases.register_customer import (
     RegisterCustomerRequest,
     RegisterCustomerUseCase,
@@ -18,8 +23,6 @@ from app.domains.pharmacy.application.use_cases.register_customer import (
     RegistrationStatus,
     RegistrationStep,
 )
-from app.prompts.manager import PromptManager
-from app.prompts.registry import PromptRegistry
 
 if TYPE_CHECKING:
     from app.clients.plex_client import PlexClient
@@ -39,19 +42,18 @@ class CustomerRegistrationNode(BaseAgent):
         self,
         plex_client: PlexClient | None = None,
         config: dict[str, Any] | None = None,
-        prompt_manager: PromptManager | None = None,
+        response_generator: PharmacyResponseGenerator | None = None,
     ):
         super().__init__("customer_registration_node", config or {})
         self._plex_client = plex_client
-        self._prompt_manager = prompt_manager
+        self._response_generator = response_generator
         self._use_case: RegisterCustomerUseCase | None = None
 
-    @property
-    def prompt_manager(self) -> PromptManager:
-        """Get or create PromptManager instance."""
-        if self._prompt_manager is None:
-            self._prompt_manager = PromptManager()
-        return self._prompt_manager
+    def _get_response_generator(self) -> PharmacyResponseGenerator:
+        """Get or create ResponseGenerator instance."""
+        if self._response_generator is None:
+            self._response_generator = get_response_generator()
+        return self._response_generator
 
     def _get_plex_client(self) -> PlexClient:
         """Get or create Plex client."""
@@ -81,9 +83,20 @@ class CustomerRegistrationNode(BaseAgent):
         """Factory for standard responses."""
         return {"messages": [{"role": "assistant", "content": content}], "is_complete": complete, **updates}
 
-    async def _get_prompt(self, key: str, **variables: Any) -> str:
-        """Get prompt from PromptManager."""
-        return await self.prompt_manager.get_prompt(key, variables=variables)
+    async def _get_response(self, intent: str, state: dict[str, Any], task: str = "") -> str:
+        """Get response from ResponseGenerator."""
+        response_content = await generate_response(
+
+            state=state,
+
+            intent=intent,
+
+            user_message="",
+
+            current_task=task,
+
+        )
+        return response_content
 
     # --- Main processing ---
 
@@ -120,10 +133,11 @@ class CustomerRegistrationNode(BaseAgent):
             return await self._start_registration(state_dict)
         if self._is_no(message):
             return await self._handle_cancellation()
-        prompt = await self._get_prompt(
-            PromptRegistry.PHARMACY_REGISTRATION_YES_NO_VALIDATION,
-            action="registrarte",
-            cancel_action="salir",
+        response_state = {**state_dict, "action": "registrarte", "cancel_action": "salir"}
+        prompt = await self._get_response(
+            "registration_yes_no_validation",
+            response_state,
+            "Solicita confirmación SI o NO para registrarse.",
         )
         return self._response(prompt, awaiting_registration_data=True, pharmacy_intent_type="register_prompt")
 
@@ -135,7 +149,11 @@ class CustomerRegistrationNode(BaseAgent):
         registration_data: dict[str, Any] = {"telefono": phone}
         if pre_document:
             registration_data["documento"] = pre_document
-        prompt = await self._get_prompt(PromptRegistry.PHARMACY_REGISTRATION_START)
+        prompt = await self._get_response(
+            "registration_start",
+            state_dict,
+            "Inicia el registro solicitando el nombre completo.",
+        )
         return self._response(
             prompt,
             awaiting_registration_data=True,
@@ -148,7 +166,11 @@ class CustomerRegistrationNode(BaseAgent):
         """Process name input."""
         name = message.strip()
         if len(name) < 3:
-            prompt = await self._get_prompt(PromptRegistry.PHARMACY_REGISTRATION_NAME_ERROR)
+            prompt = await self._get_response(
+                "registration_name_error",
+                state_dict,
+                "Informa que el nombre es demasiado corto.",
+            )
             return self._response(prompt, awaiting_registration_data=True)
 
         current_data = state_dict.get("registration_data") or {}
@@ -156,32 +178,42 @@ class CustomerRegistrationNode(BaseAgent):
 
         # If document was pre-provided, skip to confirmation step
         if new_data.get("documento"):
-            prompt = await self._get_prompt(
-                PromptRegistry.PHARMACY_REGISTRATION_CONFIRM_DATA,
-                nombre=name.upper(),
-                documento=new_data["documento"],
+            response_state = {**state_dict, "nombre": name.upper(), "documento": new_data["documento"]}
+            prompt = await self._get_response(
+                "registration_confirm_data",
+                response_state,
+                "Muestra los datos para confirmación.",
             )
             return self._response(
                 prompt, registration_step=RegistrationStep.CONFIRMAR.value, registration_data=new_data
             )
 
         # Otherwise ask for document
-        prompt = await self._get_prompt(PromptRegistry.PHARMACY_REGISTRATION_DOCUMENT_PROMPT)
+        prompt = await self._get_response(
+            "registration_document_prompt",
+            state_dict,
+            "Solicita el número de documento.",
+        )
         return self._response(prompt, registration_step=RegistrationStep.DOCUMENTO.value, registration_data=new_data)
 
     async def _process_document_step(self, message: str, state_dict: dict[str, Any]) -> dict[str, Any]:
         """Process document input."""
         document = "".join(c for c in message.strip() if c.isdigit())
         if len(document) < 6 or len(document) > 11:
-            prompt = await self._get_prompt(PromptRegistry.PHARMACY_REGISTRATION_DOCUMENT_ERROR)
+            prompt = await self._get_response(
+                "registration_document_error",
+                state_dict,
+                "Informa que el documento no es válido.",
+            )
             return self._response(prompt, awaiting_registration_data=True)
 
         current_data = state_dict.get("registration_data") or {}
         new_data = {**current_data, "documento": document}
-        prompt = await self._get_prompt(
-            PromptRegistry.PHARMACY_REGISTRATION_CONFIRM_DATA,
-            nombre=current_data.get("nombre", ""),
-            documento=document,
+        response_state = {**state_dict, "nombre": current_data.get("nombre", ""), "documento": document}
+        prompt = await self._get_response(
+            "registration_confirm_data",
+            response_state,
+            "Muestra los datos para confirmación.",
         )
         return self._response(prompt, registration_step=RegistrationStep.CONFIRMAR.value, registration_data=new_data)
 
@@ -190,10 +222,11 @@ class CustomerRegistrationNode(BaseAgent):
         if self._is_no(message):
             return await self._handle_cancellation()
         if not self._is_yes(message):
-            prompt = await self._get_prompt(
-                PromptRegistry.PHARMACY_REGISTRATION_YES_NO_VALIDATION,
-                action="confirmar",
-                cancel_action="cancelar",
+            response_state = {**state_dict, "action": "confirmar", "cancel_action": "cancelar"}
+            prompt = await self._get_response(
+                "registration_yes_no_validation",
+                response_state,
+                "Solicita confirmación SI o NO.",
             )
             return self._response(
                 prompt, awaiting_registration_data=True, registration_step=RegistrationStep.CONFIRMAR.value
@@ -243,9 +276,11 @@ class CustomerRegistrationNode(BaseAgent):
         if not customer:
             return await self._handle_registration_error("No customer data returned")
 
-        prompt = await self._get_prompt(
-            PromptRegistry.PHARMACY_REGISTRATION_SUCCESS,
-            customer_name=customer.display_name,
+        response_state = {"customer_name": customer.display_name}
+        prompt = await self._get_response(
+            "registration_success",
+            response_state,
+            "Confirma el registro exitoso.",
         )
         return self._response(
             prompt,
@@ -262,9 +297,11 @@ class CustomerRegistrationNode(BaseAgent):
     async def _handle_duplicate(self, customer: PlexCustomer | None) -> dict[str, Any]:
         """Handle duplicate customer."""
         if customer:
-            prompt = await self._get_prompt(
-                PromptRegistry.PHARMACY_REGISTRATION_DUPLICATE_WITH_NAME,
-                customer_name=customer.display_name,
+            response_state = {"customer_name": customer.display_name}
+            prompt = await self._get_response(
+                "registration_duplicate_with_name",
+                response_state,
+                "Informa que el cliente ya existe.",
             )
             return self._response(
                 prompt,
@@ -277,21 +314,33 @@ class CustomerRegistrationNode(BaseAgent):
                 registration_data=None,
                 workflow_step="identified",
             )
-        prompt = await self._get_prompt(PromptRegistry.PHARMACY_REGISTRATION_DUPLICATE_NO_NAME)
+        prompt = await self._get_response(
+            "registration_duplicate_no_name",
+            {},
+            "Informa que el documento ya está registrado.",
+        )
         return self._response(
             prompt, complete=True, awaiting_registration_data=False, registration_step=None, registration_data=None
         )
 
     async def _handle_not_supported(self) -> dict[str, Any]:
         """Handle registration not supported."""
-        prompt = await self._get_prompt(PromptRegistry.PHARMACY_REGISTRATION_NOT_SUPPORTED)
+        prompt = await self._get_response(
+            "registration_not_supported",
+            {},
+            "Informa que el registro no está disponible.",
+        )
         return self._response(prompt, complete=True, awaiting_registration_data=False)
 
     async def _handle_registration_error(self, error: str | None) -> dict[str, Any]:
         """Handle registration error."""
         error_msg = error or "Error desconocido"
         logger.error(f"Registration failed: {error_msg}")
-        prompt = await self._get_prompt(PromptRegistry.PHARMACY_REGISTRATION_ERROR, error=error_msg)
+        prompt = await self._get_response(
+            "registration_error",
+            {"error": error_msg},
+            "Informa del error en el registro.",
+        )
         return self._response(prompt, complete=True, awaiting_registration_data=False, requires_human=True)
 
     # --- Helper methods ---
@@ -315,7 +364,11 @@ class CustomerRegistrationNode(BaseAgent):
 
     async def _handle_cancellation(self) -> dict[str, Any]:
         """Handle registration cancellation."""
-        prompt = await self._get_prompt(PromptRegistry.PHARMACY_REGISTRATION_CANCELLED)
+        prompt = await self._get_response(
+            "registration_cancelled",
+            {},
+            "Confirma la cancelación del registro.",
+        )
         return self._response(
             prompt,
             complete=True,
@@ -328,5 +381,9 @@ class CustomerRegistrationNode(BaseAgent):
     async def _handle_error(self, state_dict: dict[str, Any]) -> dict[str, Any]:
         """Handle processing error."""
         error_count = state_dict.get("error_count", 0) + 1
-        prompt = await self._get_prompt(PromptRegistry.PHARMACY_REGISTRATION_EXCEPTION)
+        prompt = await self._get_response(
+            "registration_exception",
+            state_dict,
+            "Informa del error y sugiere intentar de nuevo.",
+        )
         return self._response(prompt, error_count=error_count)

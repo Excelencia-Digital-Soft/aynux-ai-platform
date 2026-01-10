@@ -1,30 +1,44 @@
 """
 Pharmacy Greeting Handler
 
-Handles greeting messages using LLM for natural responses.
-Refactored to use PromptRegistry for type-safe prompt references.
+Handles greeting messages using PharmacyResponseGenerator for LLM-driven responses.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.integrations.llm import ModelComplexity
-from app.prompts.registry import PromptRegistry
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.response_generator import (
+    PharmacyResponseGenerator,
+    get_response_generator,
+)
 
 from .base_handler import BasePharmacyHandler
-
-# LLM configuration
-GREETING_LLM_TEMPERATURE = 0.7
 
 
 class GreetingHandler(BasePharmacyHandler):
     """
     Handle greeting messages for pharmacy domain.
 
-    Uses LLM to generate natural, personalized greeting responses
-    with fallback to inline templates.
+    Uses PharmacyResponseGenerator for LLM-driven natural responses
+    with automatic fallback to templates.
     """
+
+    def __init__(
+        self,
+        response_generator: PharmacyResponseGenerator | None = None,
+        **kwargs: Any,
+    ):
+        """Initialize with optional response generator."""
+        super().__init__(**kwargs)
+        self._response_generator = response_generator
+
+    def _get_response_generator(self) -> PharmacyResponseGenerator:
+        """Get or create response generator."""
+        if self._response_generator is None:
+            self._response_generator = get_response_generator()
+        return self._response_generator
 
     async def handle(
         self,
@@ -42,78 +56,23 @@ class GreetingHandler(BasePharmacyHandler):
             State updates with greeting response
         """
         state = state or {}
-        customer_name = state.get("customer_name", "")
-        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
 
-        try:
-            capabilities = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_RESPONSE_CAPABILITIES
-            )
-            greeting = await self._generate_greeting_with_llm(
-                user_message=message,
-                customer_name=customer_name,
-                pharmacy_name=pharmacy_name,
-                capabilities=capabilities,
-            )
-        except Exception as e:
-            self.logger.warning(f"LLM greeting failed, using fallback: {e}")
-            greeting = self._get_inline_greeting(customer_name, pharmacy_name)
+        # Use ResponseGenerator for LLM-driven greeting
+        response_content = await generate_response(
+
+            state=state,
+
+            intent="greeting",
+
+            user_message=message,
+
+            current_task="Saluda al cliente cordialmente y ofrece ayuda con lo que puedes hacer.",
+
+        )
 
         return self._format_state_update(
-            message=greeting,
+            message=response_content,
             intent_type="greeting",
             workflow_step="greeted",
             state=state,
         )
-
-    async def _generate_greeting_with_llm(
-        self,
-        user_message: str,
-        customer_name: str,
-        pharmacy_name: str,
-        capabilities: str,
-    ) -> str:
-        """
-        Generate natural greeting using LLM.
-
-        Args:
-            user_message: Original user greeting message
-            customer_name: Customer name if identified
-            pharmacy_name: Pharmacy name for personalization
-            capabilities: Bot capabilities text
-
-        Returns:
-            Generated greeting text
-        """
-        response = await self._generate_llm_response(
-            template_key=PromptRegistry.PHARMACY_GREETING_GENERATE,
-            variables={
-                "user_message": user_message,
-                "customer_name": customer_name or "Cliente",
-                "pharmacy_name": pharmacy_name,
-                "capabilities": capabilities,
-            },
-            complexity=ModelComplexity.SIMPLE,
-            temperature=GREETING_LLM_TEMPERATURE,
-        )
-
-        if response:
-            return response
-
-        self.logger.warning("LLM response empty, using fallback")
-        return self._get_inline_greeting(customer_name, pharmacy_name)
-
-    def _get_inline_greeting(
-        self, customer_name: str = "", pharmacy_name: str = "la farmacia"
-    ) -> str:
-        """Get inline greeting response when template is unavailable."""
-        name_part = f" {customer_name}" if customer_name else ""
-        greeting_start = f"¡Hola{name_part}!" if name_part else "¡Hola!"
-        return f"""{greeting_start} Soy el asistente virtual de {pharmacy_name}.
-
-Actualmente puedo ayudarte con:
-• Consulta de deuda en cuenta corriente
-• Envio de link de pago
-
-Para otros asuntos, te indicare los canales adecuados.
-¿En que puedo asistirte?"""

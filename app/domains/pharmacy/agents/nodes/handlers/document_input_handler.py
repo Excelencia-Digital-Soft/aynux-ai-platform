@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
 from app.domains.pharmacy.agents.nodes.handlers.base_handler import BasePharmacyHandler
@@ -30,7 +31,9 @@ from app.domains.pharmacy.application.use_cases.identify_customer import (
 )
 
 if TYPE_CHECKING:
-    from app.prompts.manager import PromptManager
+    from app.domains.pharmacy.agents.utils.response_generator import (
+        PharmacyResponseGenerator,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +52,7 @@ class DocumentInputHandler(BasePharmacyHandler):
         intent_analyzer: PharmacyIntentAnalyzer | None = None,
         response_handler: IdentificationResponseHandler | None = None,
         disambiguation_handler: DisambiguationHandler | None = None,
-        prompt_manager: PromptManager | None = None,
+        response_generator: PharmacyResponseGenerator | None = None,
     ):
         """
         Initialize document input handler.
@@ -59,13 +62,27 @@ class DocumentInputHandler(BasePharmacyHandler):
             intent_analyzer: PharmacyIntentAnalyzer for intent detection
             response_handler: IdentificationResponseHandler for responses
             disambiguation_handler: DisambiguationHandler for disambiguation
-            prompt_manager: PromptManager for templates
+            response_generator: ResponseGenerator for LLM-driven responses
         """
-        super().__init__(prompt_manager)
+        super().__init__(response_generator)
         self._use_case = use_case
         self._intent_analyzer = intent_analyzer or PharmacyIntentAnalyzer()
-        self._response_handler = response_handler or IdentificationResponseHandler(prompt_manager)
-        self._disambiguation_handler = disambiguation_handler or DisambiguationHandler(prompt_manager)
+        self._response_handler = response_handler or IdentificationResponseHandler(response_generator)
+        self._disambiguation_handler = disambiguation_handler or DisambiguationHandler(response_generator)
+
+    def _get_organization_id(self, state: dict[str, Any]) -> UUID:
+        """Extract organization_id from state for multi-tenant intent analysis."""
+        org_id = state.get("organization_id")
+        if org_id is None:
+            # Fallback to system org for backward compatibility
+            return UUID("00000000-0000-0000-0000-000000000000")
+        if isinstance(org_id, UUID):
+            return org_id
+        try:
+            return UUID(str(org_id))
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid organization_id in state: {org_id}")
+            return UUID("00000000-0000-0000-0000-000000000000")
 
     async def handle(
         self,
@@ -85,6 +102,9 @@ class DocumentInputHandler(BasePharmacyHandler):
         # First, try to detect DNI directly in the message
         detected_dni = self.detect_dni_in_message(message)
 
+        # Extract organization_id for multi-tenant intent analysis
+        org_id = self._get_organization_id(state)
+
         # Check intent with proper context
         intent_result = await self._intent_analyzer.analyze(
             message,
@@ -92,6 +112,7 @@ class DocumentInputHandler(BasePharmacyHandler):
                 "customer_identified": False,
                 "awaiting_document_input": True,
             },
+            organization_id=org_id,
         )
 
         # Handle info_query first - it's PUBLIC data that doesn't require identification
@@ -110,7 +131,7 @@ class DocumentInputHandler(BasePharmacyHandler):
                 f"Non-document intent '{intent_result.intent}' while awaiting document, "
                 "reminding user to provide DNI first"
             )
-            return self._response_handler.format_document_reminder_message(state)
+            return await self._response_handler.format_document_reminder_message(state)
 
         # Use detected DNI or try to extract from message
         if detected_dni:
@@ -119,7 +140,7 @@ class DocumentInputHandler(BasePharmacyHandler):
             # Validate document from full message
             is_valid, cleaned_doc = self.validate_document(message)
             if not is_valid:
-                return self._response_handler.format_invalid_document_message(state)
+                return await self._response_handler.format_invalid_document_message(state)
 
         logger.info(f"Searching customer by document: {cleaned_doc}")
 
@@ -133,7 +154,7 @@ class DocumentInputHandler(BasePharmacyHandler):
         if response.status == IdentificationStatus.IDENTIFIED:
             customer = response.customer
             if customer is None:
-                return self._response_handler.format_registration_offer(phone, state, cleaned_doc)
+                return await self._response_handler.format_registration_offer(phone, state, cleaned_doc)
 
             logger.info(f"Customer identified by document: {customer}")
             return self._response_handler.format_identified_customer(
@@ -151,7 +172,7 @@ class DocumentInputHandler(BasePharmacyHandler):
         else:
             # Not found - offer registration (pass document to skip DNI step)
             logger.info("Customer not found by document, offering registration")
-            return self._response_handler.format_registration_offer(phone, state, cleaned_doc)
+            return await self._response_handler.format_registration_offer(phone, state, cleaned_doc)
 
     def detect_dni_in_message(self, message: str) -> str | None:
         """

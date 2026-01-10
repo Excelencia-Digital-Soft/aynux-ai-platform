@@ -5,7 +5,7 @@ Facade pattern that maintains backward compatibility with PharmacyGraph
 by delegating to specialized handlers.
 
 Original monolithic handler (688 lines) has been refactored into:
-- handlers/base_handler.py - Shared LLM utilities
+- handlers/base_handler.py - Shared ResponseGenerator utilities
 - handlers/greeting_handler.py - Greeting messages
 - handlers/summary_handler.py - Summary generation
 - handlers/data_query_handler.py - Data analysis queries
@@ -15,9 +15,9 @@ Original monolithic handler (688 lines) has been refactored into:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from app.prompts.manager import PromptManager
+from app.domains.pharmacy.agents.utils.response_generator import get_response_generator
 
 from .handlers import (
     DataQueryHandler,
@@ -26,6 +26,11 @@ from .handlers import (
     PharmacyInfoHandler,
     SummaryHandler,
 )
+
+if TYPE_CHECKING:
+    from app.domains.pharmacy.agents.utils.response_generator import (
+        PharmacyResponseGenerator,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -38,19 +43,19 @@ class PharmacyFallbackHandler:
     by delegating to specialized handlers. Each handler follows SRP.
     """
 
-    def __init__(self, prompt_manager: PromptManager | None = None):
+    def __init__(self, response_generator: PharmacyResponseGenerator | None = None):
         """
-        Initialize all handlers with shared PromptManager.
+        Initialize all handlers with shared ResponseGenerator.
 
         Args:
-            prompt_manager: PromptManager instance (creates one if not provided)
+            response_generator: ResponseGenerator instance (creates one if not provided)
         """
-        pm = prompt_manager or PromptManager()
-        self._greeting = GreetingHandler(pm)
-        self._summary = SummaryHandler(pm)
-        self._data_query = DataQueryHandler(pm)
-        self._info = PharmacyInfoHandler(pm)
-        self._fallback = FallbackHandler(pm)
+        rg = response_generator or get_response_generator()
+        self._greeting = GreetingHandler(rg)
+        self._summary = SummaryHandler(rg)
+        self._data_query = DataQueryHandler(rg)
+        self._info = PharmacyInfoHandler(rg)
+        self._fallback = FallbackHandler(rg)
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     async def handle_greeting(

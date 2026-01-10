@@ -11,11 +11,24 @@ from app.domains.pharmacy.agents.utils.greeting_detector import GreetingDetector
 from app.domains.pharmacy.agents.utils.greeting_manager import GreetingManager
 from app.domains.pharmacy.agents.utils.message_extractor import MessageExtractor
 from app.domains.pharmacy.agents.utils.message_formatter import MessageFormatter
+from app.domains.pharmacy.agents.utils.name_matcher import LLMNameMatcher, NameMatchResult
+from app.domains.pharmacy.agents.utils.response_generator import (
+    GeneratedResponse,
+    PharmacyResponseGenerator,
+    ResponseType,
+    get_response_generator,
+)
 
 __all__ = [
     "ConversationContextBuilder",
+    "GeneratedResponse",
     "GreetingDetector",
     "GreetingManager",
+    "LLMNameMatcher",
     "MessageExtractor",
     "MessageFormatter",
+    "NameMatchResult",
+    "PharmacyResponseGenerator",
+    "ResponseType",
+    "get_response_generator",
 ]

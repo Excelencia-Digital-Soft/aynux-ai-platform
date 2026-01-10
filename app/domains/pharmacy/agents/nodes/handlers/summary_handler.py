@@ -2,20 +2,14 @@
 Pharmacy Summary Handler
 
 Handles summary requests for debt items analysis using LLM.
-Refactored to use PromptRegistry for type-safe prompt references.
+Uses LLM-driven ResponseGenerator for natural language responses.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.integrations.llm import ModelComplexity
-from app.prompts.registry import PromptRegistry
-
 from .base_handler import BasePharmacyHandler
-
-# LLM configuration
-SUMMARY_LLM_TEMPERATURE = 0.5
 
 
 class SummaryHandler(BasePharmacyHandler):
@@ -46,11 +40,14 @@ class SummaryHandler(BasePharmacyHandler):
         debt_data = state.get("debt_data", {})
 
         if not debt_data or not debt_data.get("items"):
+            result_content = await self._generate_response(
+                intent="summary_no_data",
+                state=state,
+                user_message=message,
+                current_task="Informa que no hay datos de productos para resumir.",
+            )
             return self._format_state_update(
-                message=(
-                    f"Hola {customer_name}, no tengo información de productos para resumir.\n\n"
-                    "Primero necesito que consultes tu deuda. Escribe *deuda* o *cuánto debo*."
-                ),
+                message=result_content,
                 intent_type="summary",
                 workflow_step="summary_no_data",
                 state=state,
@@ -97,21 +94,23 @@ class SummaryHandler(BasePharmacyHandler):
             [f"- {item.get('description', 'Item')}: ${float(item.get('amount', 0)):,.2f}" for item in items]
         )
 
-        response = await self._generate_llm_response(
-            template_key=PromptRegistry.PHARMACY_SUMMARY_GENERATE,
-            variables={
-                "user_message": user_message,
-                "customer_name": customer_name,
-                "total_debt": f"${float(total_debt):,.2f}",
-                "item_count": len(items),
-                "items_list": items_text,
-            },
-            complexity=ModelComplexity.SIMPLE,
-            temperature=SUMMARY_LLM_TEMPERATURE,
+        response_state = {
+            "user_message": user_message,
+            "customer_name": customer_name,
+            "total_debt": f"${float(total_debt):,.2f}",
+            "item_count": str(len(items)),
+            "items_list": items_text,
+        }
+
+        result_content = await self._generate_response(
+            intent="summary_generate",
+            state=response_state,
+            user_message=user_message,
+            current_task="Genera un resumen de los productos y deuda del cliente.",
         )
 
-        if response:
-            return response
+        if result_content:
+            return result_content
 
         return self._get_inline_summary(customer_name, debt_data)
 

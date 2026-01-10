@@ -33,6 +33,9 @@ from app.api.schemas.prompts import (
     RollbackRequest,
     StatsResponse,
     TemplateUsage,
+    TestPromptRequest,
+    TestPromptResponse,
+    TokenUsage,
 )
 from app.prompts import PromptManager, PromptRegistry
 
@@ -171,6 +174,119 @@ async def get_available_models(
             status_code=500,
             detail=f"Error getting available models: {str(e)}",
         ) from e
+
+
+# ===== TEST ENDPOINT =====
+
+
+@router.post("/{key:path}/test", response_model=TestPromptResponse)
+async def test_prompt(
+    key: str,
+    request: TestPromptRequest,
+    prompt_manager: PromptManager = Depends(get_prompt_manager),  # noqa: B008
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Test a prompt template by rendering it with provided variables and optionally calling the LLM.
+
+    Returns the rendered template and, if a model is configured, the LLM response.
+    """
+    import time
+
+    start_time = time.time()
+
+    try:
+        # Get the template
+        template = await prompt_manager.get_template(key)
+        if not template:
+            raise HTTPException(status_code=404, detail=f"Prompt not found: {key}")
+
+        # Render the template with provided variables
+        try:
+            # PromptTemplate.template is the raw string with {variables}
+            rendered_prompt = template.template.format(**request.variables)
+        except KeyError as e:
+            return TestPromptResponse(
+                success=False,
+                errors=[f"Missing required variable: {e}"],
+                execution_time=(time.time() - start_time) * 1000,
+            )
+        except Exception as e:
+            return TestPromptResponse(
+                success=False,
+                errors=[f"Error rendering template: {str(e)}"],
+                execution_time=(time.time() - start_time) * 1000,
+            )
+
+        # Determine model settings
+        model_name = request.model or template.metadata.get("model", "default")
+        temperature = request.temperature if request.temperature is not None else template.metadata.get("temperature", 0.7)
+        max_tokens = request.max_tokens if request.max_tokens is not None else template.metadata.get("max_tokens", 1000)
+
+        # If model is 'default' or not specified, just return the rendered prompt
+        if model_name in ("default", "none", ""):
+            return TestPromptResponse(
+                success=True,
+                rendered_prompt=rendered_prompt,
+                model_response=None,
+                execution_time=(time.time() - start_time) * 1000,
+                warnings=["No model specified - returning rendered template only"],
+            )
+
+        # Try to call the LLM if a valid model is specified
+        try:
+            from app.integrations.llm import VllmLLM
+
+            llm_provider = VllmLLM()
+            llm = llm_provider.get_llm()
+
+            # Call the LLM
+            response = await llm.ainvoke(rendered_prompt)
+            model_response = response.content if hasattr(response, "content") else str(response)
+
+            # Calculate token usage (approximate)
+            token_usage = TokenUsage(
+                prompt_tokens=len(rendered_prompt.split()) * 4 // 3,  # Rough estimate
+                completion_tokens=len(model_response.split()) * 4 // 3,
+                total_tokens=0,
+            )
+            token_usage.total_tokens = token_usage.prompt_tokens + token_usage.completion_tokens
+
+            return TestPromptResponse(
+                success=True,
+                rendered_prompt=rendered_prompt,
+                model_response=model_response,
+                execution_time=(time.time() - start_time) * 1000,
+                token_usage=token_usage,
+            )
+
+        except ImportError:
+            return TestPromptResponse(
+                success=True,
+                rendered_prompt=rendered_prompt,
+                model_response=None,
+                execution_time=(time.time() - start_time) * 1000,
+                warnings=["LLM integration not available - returning rendered template only"],
+            )
+        except Exception as e:
+            logger.warning(f"LLM call failed during test: {e}")
+            return TestPromptResponse(
+                success=True,
+                rendered_prompt=rendered_prompt,
+                model_response=None,
+                execution_time=(time.time() - start_time) * 1000,
+                warnings=[f"LLM call failed: {str(e)} - returning rendered template only"],
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error testing prompt: {e}")
+        return TestPromptResponse(
+            success=False,
+            errors=[str(e)],
+            execution_time=(time.time() - start_time) * 1000,
+        )
 
 
 # ===== LOCK MANAGEMENT ENDPOINTS (STUBS) =====

@@ -51,6 +51,29 @@ sql = text("SELECT * FROM docs WHERE 1 - (embedding <=> CAST(:vec AS vector)) > 
 
 **Affected operations**: All vector searches and updates using named parameters.
 
+### 5. Pharmacy Response Configuration - Database Only
+
+La configuración de respuestas del dominio Pharmacy DEBE estar en base de datos:
+
+```python
+# ❌ PROHIBIDO en response_generator.py
+CRITICAL_INTENTS = frozenset({...})  # Hardcoded set - ELIMINADO
+task_mapping = {"intent": "description"}  # Hardcoded dict - ELIMINADO
+fallback_mapping = {"intent": "key"}  # Hardcoded dict - ELIMINADO
+
+# ✅ CORRECTO
+from app.core.cache.response_config_cache import response_config_cache
+from app.domains.pharmacy.agents.utils.exceptions import ResponseConfigNotFoundError
+
+config = await response_config_cache.get_config(db, org_id, intent)
+if not config:
+    raise ResponseConfigNotFoundError(intent, org_id)  # Error explícito, no defaults
+```
+
+**Tabla**: `core.response_configs` (multi-dominio via `domain_key`)
+**Cache**: 3 niveles (Memory 60s → Redis 5min → DB)
+**API**: `/api/v1/admin/response-configs/` (multi-domain via `domain_key` param)
+
 ## Documentation Reference
 
 **Before changes, review `docs/`**:

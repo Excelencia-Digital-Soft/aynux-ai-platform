@@ -310,6 +310,10 @@ class BypassRule(Base, TimestampMixin):
             enabled=True,
         )
 
+    # NOTE: create_medical_appointments_bypass_rule removed
+    # Medical appointments bypass rules should be created using create_whatsapp_id_rule
+    # with institution-specific configuration from tenant_institution_configs table
+
     @classmethod
     def create_pharmacy_bypass_rule(
         cls,

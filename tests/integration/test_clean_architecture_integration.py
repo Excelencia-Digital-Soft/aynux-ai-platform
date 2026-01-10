@@ -10,11 +10,11 @@ These tests verify that:
 4. Complete request/response flow works end-to-end
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from app.core.container import DependencyContainer, reset_container
-from app.core.interfaces.agent import IAgent
 from app.core.interfaces.llm import ILLM
 from app.core.interfaces.repository import IRepository
 from app.core.interfaces.vector_store import IVectorStore
@@ -74,6 +74,10 @@ def test_container(mock_llm, mock_vector_store, mock_product_repository):
     container.create_product_repository = MagicMock(return_value=mock_product_repository)
     container.get_embedding_model = MagicMock(return_value=AsyncMock())
 
+    # Also mock _base.get_llm since AgentsContainer uses it directly
+    container._base.get_llm = MagicMock(return_value=mock_llm)
+    container._agents._base.get_llm = MagicMock(return_value=mock_llm)
+
     yield container
 
     # Cleanup
@@ -100,7 +104,7 @@ async def test_container_creates_super_orchestrator(test_container):
     assert "credit" in orchestrator.domain_agents
 
     # Verify agents are IAgent instances
-    for domain_name, agent in orchestrator.domain_agents.items():
+    for _domain_name, agent in orchestrator.domain_agents.items():
         assert hasattr(agent, "execute")
         assert hasattr(agent, "validate_input")
         assert hasattr(agent, "agent_type")

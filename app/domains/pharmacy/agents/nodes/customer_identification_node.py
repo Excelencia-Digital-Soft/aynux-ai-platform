@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from app.core.agents import BaseAgent
 from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
@@ -40,7 +41,10 @@ from app.domains.pharmacy.application.use_cases.identify_customer import (
     IdentifyCustomerUseCase,
 )
 from app.domains.pharmacy.services.pharmacy_config_service import PharmacyConfigService
-from app.prompts.manager import PromptManager
+from app.domains.pharmacy.agents.utils.response_generator import (
+    PharmacyResponseGenerator,
+    get_response_generator,
+)
 
 if TYPE_CHECKING:
     from app.clients.plex_client import PlexClient
@@ -95,7 +99,7 @@ class CustomerIdentificationNode(BaseAgent):
         # Services (lazy initialization)
         self._config_service = config_service
         self._intent_analyzer = intent_analyzer
-        self._prompt_manager: PromptManager | None = None
+        self._response_generator: PharmacyResponseGenerator | None = None
         self._greeting_manager = greeting_manager
 
         # Handlers (lazy initialization)
@@ -129,11 +133,11 @@ class CustomerIdentificationNode(BaseAgent):
             self._intent_analyzer = PharmacyIntentAnalyzer()
         return self._intent_analyzer
 
-    def _get_prompt_manager(self) -> PromptManager:
-        """Get or create prompt manager."""
-        if self._prompt_manager is None:
-            self._prompt_manager = PromptManager()
-        return self._prompt_manager
+    def _get_response_generator(self) -> PharmacyResponseGenerator:
+        """Get or create response generator."""
+        if self._response_generator is None:
+            self._response_generator = get_response_generator()
+        return self._response_generator
 
     def _get_greeting_manager(self) -> GreetingManager:
         """Get or create greeting manager."""
@@ -145,7 +149,7 @@ class CustomerIdentificationNode(BaseAgent):
         """Get or create response handler."""
         if self._response_handler is None:
             self._response_handler = IdentificationResponseHandler(
-                self._get_prompt_manager(),
+                self._get_response_generator(),
                 self._get_greeting_manager(),
             )
         return self._response_handler
@@ -154,7 +158,7 @@ class CustomerIdentificationNode(BaseAgent):
         """Get or create disambiguation handler."""
         if self._disambiguation_handler is None:
             self._disambiguation_handler = DisambiguationHandler(
-                self._get_prompt_manager(),
+                self._get_response_generator(),
                 self._get_greeting_manager(),
             )
         return self._disambiguation_handler
@@ -167,9 +171,22 @@ class CustomerIdentificationNode(BaseAgent):
                 self._get_intent_analyzer(),
                 self._get_response_handler(),
                 self._get_disambiguation_handler(),
-                self._get_prompt_manager(),
+                self._get_response_generator(),
             )
         return self._document_handler
+
+    def _get_organization_id(self, state_dict: dict[str, Any]) -> UUID | None:
+        """Extract organization_id from state for multi-tenant intent analysis."""
+        org_id = state_dict.get("organization_id")
+        if org_id is None:
+            return None
+        if isinstance(org_id, UUID):
+            return org_id
+        try:
+            return UUID(str(org_id))
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid organization_id in state: {org_id}")
+            return None
 
     async def _ensure_pharmacy_config(
         self,
@@ -287,9 +304,11 @@ class CustomerIdentificationNode(BaseAgent):
         if not phone:
             logger.warning("No phone number available for identification")
             # Check if message is out-of-scope before requesting DNI
+            org_id = self._get_organization_id(state_dict)
             intent_result = await self._get_intent_analyzer().analyze(
                 message,
                 {"customer_identified": False},
+                organization_id=org_id,
             )
             # Handle info_query first - it's PUBLIC data that doesn't require identification
             if intent_result.intent == "info_query":
@@ -328,9 +347,11 @@ class CustomerIdentificationNode(BaseAgent):
 
         elif response.status == IdentificationStatus.NOT_FOUND:
             # Check if message is out-of-scope before requesting DNI
+            org_id = self._get_organization_id(state_dict)
             intent_result = await self._get_intent_analyzer().analyze(
                 message,
                 {"customer_identified": False},
+                organization_id=org_id,
             )
             # Handle info_query first - it's PUBLIC data that doesn't require identification
             if intent_result.intent == "info_query":

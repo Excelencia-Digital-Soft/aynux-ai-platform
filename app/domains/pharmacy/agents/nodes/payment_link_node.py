@@ -4,6 +4,11 @@ Payment Link Generation Node
 Pharmacy domain node for generating Mercado Pago payment links.
 Creates a Checkout Pro preference and sends the payment link to the customer.
 
+Implements CASO 4 from docs/pharmacy_flujo_mejorado_v2.md:
+- Confirmation before generating payment link
+- Partial payment support with amount validation
+- Clear messages showing payment details and remaining balance
+
 Requires pharmacy_id in state to load pharmacy-specific configuration from database.
 The pharmacy_id is propagated from bypass routing when a BypassRule is linked to a pharmacy.
 """
@@ -171,7 +176,7 @@ class PaymentLinkNode(BaseAgent):
 
             logger.info(f"MP preference created: {preference_id}, link={init_point[:50]}...")
 
-            # Format response message
+            # Format response message with pharmacy name
             response_text = self._format_payment_link_message(
                 customer_name=customer_name,
                 amount=float(amount),
@@ -179,6 +184,7 @@ class PaymentLinkNode(BaseAgent):
                 remaining_balance=float(total_debt - amount) if is_partial else 0.0,
                 payment_url=init_point,
                 is_partial=is_partial,
+                pharmacy_name=pharmacy_config.pharmacy_name or "Farmacia",
             )
 
             return {
@@ -230,40 +236,79 @@ class PaymentLinkNode(BaseAgent):
         remaining_balance: float,
         payment_url: str,
         is_partial: bool = False,
+        pharmacy_name: str = "Farmacia",
     ) -> str:
-        """Format payment link message for WhatsApp."""
+        """
+        Format payment link message for WhatsApp.
+
+        CASO 4 from pharmacy_flujo_mejorado_v2.md:
+        Clear, formatted message with all payment details.
+
+        Args:
+            customer_name: Customer's name
+            amount: Amount to pay
+            total_debt: Total debt amount
+            remaining_balance: Remaining balance after payment
+            payment_url: Mercado Pago payment URL
+            is_partial: True if this is a partial payment
+            pharmacy_name: Name of the pharmacy
+
+        Returns:
+            Formatted message for WhatsApp
+        """
+        # Use Argentine number formatting (. as thousand separator)
+        amount_str = f"${amount:,.2f}".replace(",", ".")
+        total_str = f"${total_debt:,.2f}".replace(",", ".")
+        remaining_str = f"${remaining_balance:,.2f}".replace(",", ".")
+
         if is_partial:
-            return f"""**Link de Pago Parcial Generado**
+            return f"""💊 *{pharmacy_name}*
 
-{customer_name}, aqui esta tu link de pago:
+━━━━━━━━━━━━━━━━━━━━
+💳 *LINK DE PAGO PARCIAL*
+━━━━━━━━━━━━━━━━━━━━
 
-**Monto a pagar:** ${amount:,.2f}
-**Deuda total:** ${total_debt:,.2f}
-**Saldo pendiente despues del pago:** ${remaining_balance:,.2f}
+Hola *{customer_name}*, tu link de pago está listo:
 
-**Link de pago:**
+💰 *Monto a pagar:* {amount_str}
+📊 Deuda total: {total_str}
+📝 Saldo pendiente después del pago: *{remaining_str}*
+
+━━━━━━━━━━━━━━━━━━━━
+🔗 *Link de pago:*
 {payment_url}
+━━━━━━━━━━━━━━━━━━━━
 
-Haz clic en el link para pagar con Mercado Pago.
+📱 Haz clic en el link para pagar con Mercado Pago.
 
-Recibiras una confirmacion automatica cuando el pago se procese.
+✅ Recibirás una confirmación automática cuando el pago se procese.
 
-_Este link es valido por 24 horas._"""
+⏰ _Este link es válido por 24 horas._
+
+¿Necesitas ayuda? Escribe *AYUDA*"""
         else:
-            return f"""**Link de Pago Generado**
+            return f"""💊 *{pharmacy_name}*
 
-{customer_name}, aqui esta tu link de pago:
+━━━━━━━━━━━━━━━━━━━━
+💳 *LINK DE PAGO GENERADO*
+━━━━━━━━━━━━━━━━━━━━
 
-**Monto a pagar:** ${amount:,.2f}
+Hola *{customer_name}*, tu link de pago está listo:
 
-**Link de pago:**
+💰 *Monto a pagar:* {amount_str}
+
+━━━━━━━━━━━━━━━━━━━━
+🔗 *Link de pago:*
 {payment_url}
+━━━━━━━━━━━━━━━━━━━━
 
-Haz clic en el link para pagar con Mercado Pago.
+📱 Haz clic en el link para pagar con Mercado Pago.
 
-Recibiras una confirmacion automatica cuando el pago se procese.
+✅ Recibirás una confirmación automática cuando el pago se procese.
 
-_Este link es valido por 24 horas._"""
+⏰ _Este link es válido por 24 horas._
+
+¿Necesitas ayuda? Escribe *AYUDA*"""
 
     def _handle_no_organization(self) -> dict[str, Any]:
         """Handle when organization_id is missing."""

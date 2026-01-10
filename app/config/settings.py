@@ -198,7 +198,6 @@ class Settings(BaseSettings):
     # Agent Enablement Configuration
     # NOTE: Agents are now managed via database (core.agents table)
     # Use the Admin API: /api/v1/admin/agents for CRUD operations
-    # The old ENABLED_AGENTS env var has been removed - run migration to seed agents
 
     # LangSmith Configuration
     LANGSMITH_TRACING: bool = Field(False, description="Enable LangSmith tracing")
@@ -217,6 +216,9 @@ class Settings(BaseSettings):
         description="32-byte key for encrypting credentials at rest (generate with secrets.token_urlsafe(32))",
     )
 
+    # NOTE: Medical Appointments settings removed - now configured per-institution in DB
+    # See: tenant_institution_configs table and InstitutionConfigService
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",
@@ -226,7 +228,6 @@ class Settings(BaseSettings):
 
     def __init__(self, **data: Any):
         super().__init__(**data)
-
 
     @field_validator("PRODUCT_AGENT_DATA_SOURCE")
     @classmethod

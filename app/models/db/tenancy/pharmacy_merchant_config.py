@@ -121,6 +121,26 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
         comment="Whether pharmacy operates 24 hours",
     )
 
+    # Bot service hours (separate from physical pharmacy hours)
+    bot_service_hours = Column(
+        JSONB,
+        nullable=True,
+        comment="Bot service hours by day (JSONB format, e.g., {'lunes': '08:00-20:00'})",
+    )
+
+    bot_service_enabled = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="Whether to enforce bot service hours (if False, bot is always available)",
+    )
+
+    emergency_phone = Column(
+        String(50),
+        nullable=True,
+        comment="Emergency contact phone for outside service hours",
+    )
+
     # Mercado Pago credentials
     mp_enabled = Column(
         Boolean,
@@ -159,6 +179,28 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
         nullable=False,
         default=30,
         comment="Timeout for Mercado Pago API requests in seconds",
+    )
+
+    # Payment options configuration (Smart Debt Negotiation)
+    payment_option_half_percent = Column(
+        Integer,
+        nullable=False,
+        default=50,
+        comment="Percentage for 'half' payment option (e.g., 50 for 50%)",
+    )
+
+    payment_option_minimum_percent = Column(
+        Integer,
+        nullable=False,
+        default=30,
+        comment="Percentage for 'minimum' payment option (e.g., 30 for 30%)",
+    )
+
+    payment_minimum_amount = Column(
+        Integer,
+        nullable=False,
+        default=1000,
+        comment="Minimum payment amount in currency units (e.g., 1000 for $1000)",
     )
 
     # URLs
@@ -217,12 +259,20 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
             "pharmacy_website": self.pharmacy_website,
             "pharmacy_hours": self.pharmacy_hours,
             "pharmacy_is_24h": self.pharmacy_is_24h,
+            # Bot service hours
+            "bot_service_hours": self.bot_service_hours,
+            "bot_service_enabled": self.bot_service_enabled,
+            "emergency_phone": self.emergency_phone,
             "mp_enabled": self.mp_enabled,
             "mp_sandbox": self.mp_sandbox,
             "mp_timeout": self.mp_timeout,
             "mp_notification_url": self.mp_notification_url,
             "receipt_public_url_base": self.receipt_public_url_base,
             "whatsapp_phone_number": self.whatsapp_phone_number,
+            # Payment options configuration
+            "payment_option_half_percent": self.payment_option_half_percent,
+            "payment_option_minimum_percent": self.payment_option_minimum_percent,
+            "payment_minimum_amount": self.payment_minimum_amount,
             # Mask secrets for security
             "mp_access_token": "***" if self.mp_access_token else None,
             "mp_public_key": "***" if self.mp_public_key else None,
@@ -240,4 +290,8 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
             mp_enabled=False,
             mp_sandbox=True,
             mp_timeout=30,
+            # Payment options defaults
+            payment_option_half_percent=50,
+            payment_option_minimum_percent=30,
+            payment_minimum_amount=1000,
         )
