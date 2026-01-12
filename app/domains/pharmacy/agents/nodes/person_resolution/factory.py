@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from app.domains.pharmacy.agents.nodes.person_resolution.handlers.account_selection_handler import (
+    AccountSelectionHandler,
+)
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.error_handler import (
     ErrorHandler,
 )
@@ -75,6 +78,7 @@ class PersonResolutionFactory:
         self._own_other_handler: OwnOrOtherHandler | None = None
         self._escalation_handler: EscalationHandler | None = None
         self._error_handler: ErrorHandler | None = None
+        self._account_selection_handler: AccountSelectionHandler | None = None
 
     # =========================================================================
     # Services
@@ -141,6 +145,12 @@ class PersonResolutionFactory:
         if self._error_handler is None:
             self._error_handler = ErrorHandler()
         return self._error_handler
+
+    def get_account_selection_handler(self) -> AccountSelectionHandler:
+        """Get or create AccountSelectionHandler."""
+        if self._account_selection_handler is None:
+            self._account_selection_handler = AccountSelectionHandler()
+        return self._account_selection_handler
 
 
 __all__ = ["PersonResolutionFactory"]

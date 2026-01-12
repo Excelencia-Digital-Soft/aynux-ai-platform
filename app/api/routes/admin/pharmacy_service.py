@@ -116,6 +116,14 @@ async def invoke_pharmacy_graph(
     if graph.app is None:
         raise RuntimeError("PharmacyGraph app not initialized")
 
+    # DEBUG: Print graph ASCII representation
+    try:
+        ascii_graph = graph.app.get_graph().draw_ascii()
+        logger.debug(f"[DEBUG] PharmacyGraph ASCII:\n{ascii_graph}")
+        print(f"\n[DEBUG] PharmacyGraph ASCII:\n{ascii_graph}\n")
+    except Exception as e:
+        logger.warning(f"[DEBUG] Could not draw graph ASCII: {e}")
+
     # Build config with thread_id for checkpointer
     invoke_config: RunnableConfig = {"recursion_limit": recursion_limit}
     if conversation_id:

@@ -103,9 +103,9 @@ class PersonSelectionNode(BaseAgent):
         """Get or create registered person repository."""
         if self._registered_person_repo is None:
             if self._db_session is None:
-                from app.database.async_db import get_async_db
+                from app.database.async_db import create_async_session
 
-                self._db_session = await anext(get_async_db())
+                self._db_session = await create_async_session()
             self._registered_person_repo = RegisteredPersonRepository(self._db_session)
         return self._registered_person_repo
 

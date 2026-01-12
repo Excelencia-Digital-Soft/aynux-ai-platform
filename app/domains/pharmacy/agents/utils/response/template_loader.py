@@ -44,7 +44,15 @@ class PharmacyTemplateLoader:
 
     SYSTEM_CONTEXT_FILE = "pharmacy/system_context.yaml"
     CRITICAL_TEMPLATES_FILE = "pharmacy/critical_templates.yaml"
-    FALLBACK_TEMPLATES_FILE = "pharmacy/fallback_templates.yaml"
+
+    # Fallback templates split into multiple files for maintainability
+    FALLBACK_TEMPLATES_FILES = [
+        "pharmacy/fallback_greeting.yaml",
+        "pharmacy/fallback_identification.yaml",
+        "pharmacy/fallback_payment.yaml",
+        "pharmacy/fallback_registration.yaml",
+        "pharmacy/fallback_errors.yaml",
+    ]
 
     def __init__(self, templates_dir: Path | str | None = None) -> None:
         """
@@ -111,9 +119,20 @@ class PharmacyTemplateLoader:
         return await self._load_template_file(path, "critical")
 
     async def _load_fallback_templates(self) -> dict[str, str]:
-        """Load fallback templates YAML."""
-        path = self._templates_dir / self.FALLBACK_TEMPLATES_FILE
-        return await self._load_template_file(path, "fallback")
+        """Load and merge fallback templates from multiple YAML files."""
+        all_templates: dict[str, str] = {}
+
+        for yaml_file in self.FALLBACK_TEMPLATES_FILES:
+            path = self._templates_dir / yaml_file
+            templates = await self._load_template_file(path, "fallback")
+            all_templates.update(templates)
+
+        logger.debug(
+            "Loaded %d total fallback templates from %d files",
+            len(all_templates),
+            len(self.FALLBACK_TEMPLATES_FILES),
+        )
+        return all_templates
 
     async def _load_template_file(
         self, path: Path, template_type: str

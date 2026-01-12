@@ -55,6 +55,7 @@ dependencies = [
     "nest-asyncio>=1.6.0",
     "fpdf2>=2.8.0", # PDF receipt generation
     "rapidfuzz>=3.6.0", # Fast fuzzy string matching for name comparison
+    "grandalf>=0.8", # ASCII graph visualization for LangGraph
 ]
 
 [dependency-groups]

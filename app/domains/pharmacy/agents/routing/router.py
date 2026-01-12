@@ -216,6 +216,36 @@ class PharmacyRouter:
                     identification_updates,
                 )
 
+            # Check if intent requires authentication
+            requires_auth = intent_result.intent in {
+                "debt_query", "payment_link", "payment_history", "change_person"
+            }
+            if requires_auth and not state.get("customer_identified"):
+                logger.info(
+                    f"Intent '{intent_result.intent}' requires auth - "
+                    f"routing to person_resolution_node"
+                )
+                updates = {
+                    "pharmacy_intent_type": intent_result.intent,
+                    "pending_flow": intent_result.intent,
+                    "next_agent": "person_resolution_node",
+                    "routing_decision": {
+                        "intent": intent_result.intent,
+                        "confidence": intent_result.confidence,
+                        "method": intent_result.method,
+                        "requires_auth": True,
+                    },
+                }
+                # Preserve payment amount if extracted
+                extracted_amount = intent_result.entities.get("amount")
+                if extracted_amount and extracted_amount > 0:
+                    updates["payment_amount"] = extracted_amount
+                    logger.info(f"Preserving payment_amount={extracted_amount} for post-auth")
+
+                return self.state_builder.merge_identification_updates(
+                    updates, identification_updates
+                )
+
             # Build standard routing update
             next_node = INTENT_NODE_MAP.get(intent_result.intent, DEFAULT_NODE)
             updates = self.state_builder.build_intent_state_update(

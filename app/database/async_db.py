@@ -104,7 +104,11 @@ AsyncSessionLocal = async_sessionmaker(
 
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    Dependency para obtener la sesión de base de datos asíncrona
+    Dependency para obtener la sesión de base de datos asíncrona.
+
+    Note: The async context manager already handles session.close() in __aexit__.
+    Do NOT add explicit session.close() calls - this causes IllegalStateChangeError
+    when close() is called while another operation is in progress.
     """
     async with AsyncSessionLocal() as session:
         try:
@@ -114,14 +118,16 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
             logger.error(f"Async database error: {e}")
             await session.rollback()
             raise
-        finally:
-            await session.close()
 
 
 @asynccontextmanager
 async def get_async_db_context():
     """
-    Context manager para operaciones de base de datos asíncronas
+    Context manager para operaciones de base de datos asíncronas.
+
+    Note: The async context manager already handles session.close() in __aexit__.
+    Do NOT add explicit session.close() calls - this causes IllegalStateChangeError
+    when close() is called while another operation is in progress.
     """
     async with AsyncSessionLocal() as session:
         try:
@@ -131,5 +137,31 @@ async def get_async_db_context():
             logger.error(f"Async database error: {e}")
             await session.rollback()
             raise
+
+
+async def create_async_session() -> AsyncSession:
+    """
+    Create a new async database session for long-lived use cases.
+
+    IMPORTANT: The caller is responsible for closing the session when done.
+    This function should be used when you need a session that persists across
+    multiple method calls within a single processing context (e.g., agent nodes).
+
+    For FastAPI dependency injection, use get_async_db() instead.
+    For scoped operations, use get_async_db_context() instead.
+
+    Usage:
+        session = await create_async_session()
+        try:
+            # use session for multiple operations
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         finally:
             await session.close()
+
+    Returns:
+        AsyncSession: A new async database session
+    """
+    return AsyncSessionLocal()

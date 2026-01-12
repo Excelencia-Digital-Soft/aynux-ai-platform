@@ -85,7 +85,7 @@ class PharmacyTemplateRenderer:
             "detected_intent": intent,
             # Person validation
             "registered_persons_count": str(
-                len(state.get("registered_persons", []))
+                len(state.get("registered_persons") or [])
             ),
             "pending_dni": state.get("pending_dni", "No ingresado"),
             "expected_name": state.get("expected_name", "No disponible"),

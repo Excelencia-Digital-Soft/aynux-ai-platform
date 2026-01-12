@@ -19,6 +19,8 @@ from .orders import Order, OrderItem
 # Domain Intents (Multi-domain, JSONB patterns) - replaces legacy pharmacy_intents
 from .domain_intents import DomainIntent
 from .response_configs import ResponseConfig, PharmacyResponseConfig  # PharmacyResponseConfig is deprecated alias
+# Intent Configs (replaces hardcoded intent_validator.py mappings)
+from .intent_configs import FlowAgentConfig, IntentAgentMapping, KeywordAgentMapping
 from .promotions import Promotion
 from .prompts import Prompt, PromptVersion
 from .rag_query_log import RagQueryLog
@@ -132,4 +134,8 @@ __all__ = [
     # Response Configs (Multi-domain)
     "ResponseConfig",
     "PharmacyResponseConfig",  # Deprecated alias for backward compatibility
+    # Intent Configs (replaces hardcoded intent_validator.py mappings)
+    "IntentAgentMapping",
+    "FlowAgentConfig",
+    "KeywordAgentMapping",
 ]

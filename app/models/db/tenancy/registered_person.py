@@ -27,7 +27,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from ..base import Base, TimestampMixin
-from ..schemas import CORE_SCHEMA
+from ..schemas import PHARMACY_SCHEMA
 
 # Registration validity period in days
 REGISTRATION_VALIDITY_DAYS = 180
@@ -95,7 +95,7 @@ class RegisteredPerson(Base, TimestampMixin):
     # Foreign key to pharmacy_merchant_configs (multi-tenant)
     pharmacy_id = Column(
         UUID(as_uuid=True),
-        ForeignKey(f"{CORE_SCHEMA}.pharmacy_merchant_configs.id", ondelete="CASCADE"),
+        ForeignKey(f"{PHARMACY_SCHEMA}.pharmacy_merchant_configs.id", ondelete="CASCADE"),
         nullable=False,
         comment="Pharmacy this registration belongs to",
     )
@@ -145,7 +145,7 @@ class RegisteredPerson(Base, TimestampMixin):
             "pharmacy_id",
             name="uq_registered_persons_phone_dni_pharmacy",
         ),
-        {"schema": CORE_SCHEMA},
+        {"schema": PHARMACY_SCHEMA},
     )
 
     def __repr__(self) -> str:

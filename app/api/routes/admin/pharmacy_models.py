@@ -70,6 +70,13 @@ class PharmacySessionState(BaseModel):
     awaiting_registration_data: bool = False
     registration_step: str | None = None
 
+    # Person resolution state (CRITICAL for multi-turn identification)
+    identification_step: str | None = None
+    plex_customer_to_confirm: dict[str, Any] | None = None
+    name_mismatch_count: int = 0
+    awaiting_own_or_other: bool = False
+    validation_step: str | None = None
+
     # Metadata
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())

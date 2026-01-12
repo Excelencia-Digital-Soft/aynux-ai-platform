@@ -129,21 +129,31 @@ class PersonIdentificationService:
         - Client number: digits
         - CUIT/CUIL: XX-XXXXXXXX-X format
 
+        Extracts identifier from messages that may contain additional text.
+        E.g., "2259863 Adela Pedrozo" → "2259863"
+
         Args:
             value: Raw identifier input
 
         Returns:
             Normalized identifier or None if invalid
         """
-        cleaned = re.sub(r"[\s\-\.]", "", value.strip())
+        text = value.strip()
 
-        if cleaned.isdigit():
-            if 1 <= len(cleaned) <= 11:
-                return cleaned
-            return None
-
-        cuit_match = re.match(r"^(\d{2})(\d{8})(\d)$", cleaned)
+        # First, try to find CUIT/CUIL format (XX-XXXXXXXX-X)
+        cuit_match = re.search(r"\b(\d{2})-?(\d{8})-?(\d)\b", text)
         if cuit_match:
+            return cuit_match.group(1) + cuit_match.group(2) + cuit_match.group(3)
+
+        # Then, try to find a standalone number (DNI or client number)
+        # Look for 6-11 digit sequences that are likely identifiers
+        number_match = re.search(r"\b(\d{6,11})\b", text)
+        if number_match:
+            return number_match.group(1)
+
+        # Fallback: clean the entire input and check if it's all digits
+        cleaned = re.sub(r"[\s\-\.]", "", text)
+        if cleaned.isdigit() and 1 <= len(cleaned) <= 11:
             return cleaned
 
         return None
@@ -195,11 +205,19 @@ class PersonIdentificationService:
 
     def calculate_name_similarity(self, name1: str, name2: str) -> float:
         """
-        Calculate similarity between two names using Jaccard similarity.
+        Calculate similarity between two names using smart matching.
+
+        Uses a combination of:
+        1. Subset matching: If all tokens from shorter name are in longer name
+        2. Jaccard similarity as fallback
+
+        This handles cases like:
+        - "Adela Pedrozo" vs "PEDROZO, ADELA MARIA DE CTA CTE" → match (subset)
+        - "Juan Perez" vs "PEREZ, JUAN CARLOS" → match (subset)
 
         Args:
-            name1: First name
-            name2: Second name
+            name1: First name (typically user input)
+            name2: Second name (typically from database)
 
         Returns:
             Similarity score between 0 and 1
@@ -210,16 +228,40 @@ class PersonIdentificationService:
         if not n1 or not n2:
             return 0.0
 
-        tokens1 = set(n1.split())
-        tokens2 = set(n2.split())
+        # Filter out common noise words that don't identify a person
+        noise_words = {"de", "la", "el", "los", "las", "del", "cta", "cte", "sra", "sr"}
+
+        tokens1 = {t for t in n1.split() if t not in noise_words and len(t) > 1}
+        tokens2 = {t for t in n2.split() if t not in noise_words and len(t) > 1}
 
         if not tokens1 or not tokens2:
             return 0.0
 
+        # Check subset matching: if all tokens from one name are in the other
+        # This handles "Adela Pedrozo" matching "PEDROZO, ADELA MARIA"
+        if tokens1 <= tokens2:
+            # All user tokens are in the expected name
+            # Score based on how many of the expected tokens were matched
+            return min(1.0, 0.8 + (len(tokens1) / len(tokens2)) * 0.2)
+
+        if tokens2 <= tokens1:
+            # All expected tokens are in the user's input
+            return min(1.0, 0.8 + (len(tokens2) / len(tokens1)) * 0.2)
+
+        # Partial overlap: use Jaccard but boost if significant overlap
         intersection = len(tokens1 & tokens2)
         union = len(tokens1 | tokens2)
+        jaccard = intersection / union if union > 0 else 0.0
 
-        return intersection / union if union > 0 else 0.0
+        # Boost score if most of the smaller set matches
+        smaller_set = min(len(tokens1), len(tokens2))
+        if smaller_set > 0:
+            overlap_ratio = intersection / smaller_set
+            if overlap_ratio >= 0.8:
+                # Most tokens match, boost the score
+                jaccard = min(1.0, jaccard + 0.3)
+
+        return jaccard
 
     def normalize_name(self, name: str) -> str:
         """
@@ -229,11 +271,14 @@ class PersonIdentificationService:
             name: Raw name string
 
         Returns:
-            Normalized name (lowercase, no accents, no extra spaces)
+            Normalized name (lowercase, no accents, no punctuation, no extra spaces)
         """
         name = name.lower().strip()
+        # Remove accents
         name = unicodedata.normalize("NFD", name)
         name = "".join(c for c in name if unicodedata.category(c) != "Mn")
+        # Remove punctuation (commas, periods, etc.)
+        name = re.sub(r"[^\w\s]", " ", name)
         return " ".join(name.split())
 
     def _customer_to_dict(

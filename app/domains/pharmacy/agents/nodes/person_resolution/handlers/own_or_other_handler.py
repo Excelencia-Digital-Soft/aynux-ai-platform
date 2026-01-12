@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.domains.pharmacy.agents.nodes.person_resolution.constants import (
-    OTHER_INDICATORS,
-    OWN_INDICATORS,
-)
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.base_handler import (
     PersonResolutionBaseHandler,
 )
@@ -53,7 +49,7 @@ class OwnOrOtherHandler(PersonResolutionBaseHandler):
             "messages": [{"role": "assistant", "content": response_content}],
             "awaiting_own_or_other": True,
             "self_plex_customer": plex_customer,
-            **self._preserve_pharmacy_config(state_dict),
+            **self._preserve_all(state_dict),
         }
 
     async def handle_response(
@@ -73,19 +69,26 @@ class OwnOrOtherHandler(PersonResolutionBaseHandler):
         """
         message_lower = message.lower().strip()
 
-        is_own = any(ind in message_lower for ind in OWN_INDICATORS)
-        is_other = any(ind in message_lower for ind in OTHER_INDICATORS)
+        # DB-driven pattern matching
+        is_own = await self._match_confirmation_pattern(
+            message_lower, "own_or_other_own", state_dict
+        )
+        is_other = await self._match_confirmation_pattern(
+            message_lower, "own_or_other_other", state_dict
+        )
 
         if is_own and not is_other:
             return {
                 "decision": "own",
                 "self_plex_customer": state_dict.get("self_plex_customer"),
+                **self._preserve_all(state_dict),
             }
 
         if is_other and not is_own:
             return {
                 "decision": "other",
                 "is_querying_for_other": True,
+                **self._preserve_all(state_dict),
             }
 
         # Ambiguous response
@@ -100,6 +103,7 @@ class OwnOrOtherHandler(PersonResolutionBaseHandler):
             "messages": [{"role": "assistant", "content": response_content}],
             "awaiting_own_or_other": True,
             "self_plex_customer": state_dict.get("self_plex_customer"),
+            **self._preserve_all(state_dict),
         }
 
 

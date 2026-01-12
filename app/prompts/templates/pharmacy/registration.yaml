@@ -12,11 +12,15 @@ prompts:
   - key: pharmacy.registration.start
     name: Registration Start
     description: Initial message when starting registration flow
-    version: "1.0.0"
+    version: "1.1.0"
     template: |
-      ¡Perfecto! Vamos a registrarte.
+      ¡Genial! Vamos a crear tu cuenta.
 
-      Por favor ingresa tu nombre completo:
+      Es muy rápido, solo necesito:
+      1. Tu nombre completo
+      2. Tu número de DNI
+
+      Empecemos: ¿Cuál es tu nombre completo?
 
   - key: pharmacy.registration.name_error
     name: Name Validation Error

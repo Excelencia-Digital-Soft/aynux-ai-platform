@@ -128,8 +128,9 @@ class DebtCheckNode(BaseAgent):
     async def _get_db_session(self) -> AsyncSession:
         """Get or create database session."""
         if self._db_session is None:
-            from app.database.async_db import get_async_db
-            self._db_session = await anext(get_async_db())
+            from app.database.async_db import create_async_session
+
+            self._db_session = await create_async_session()
         return self._db_session
 
     def _get_debt_action_handler(self) -> DebtActionHandler:
@@ -310,13 +311,16 @@ class DebtCheckNode(BaseAgent):
         # Get minimum payment from pharmacy config
         min_payment = PaymentOptionsService.get_minimum_payment(pharmacy_config)
 
-        # Check if this was auto-triggered from "quiero pagar" intent
-        auto_proceed_to_invoice = state_dict.get("auto_proceed_to_invoice", False)
+        # Check for payment amount from various sources
         extracted_entities = state_dict.get("extracted_entities", {})
-        payment_amount = extracted_entities.get("amount")
+        # Check payment_amount from multiple sources:
+        # 1. Directly in state (from PersonResolutionNode extraction)
+        # 2. In extracted_entities (from router)
+        payment_amount = state_dict.get("payment_amount") or extracted_entities.get("amount")
 
-        # Format response based on context
-        if auto_proceed_to_invoice and payment_amount:
+        # If user specified a payment amount (e.g., "quiero pagar 3000"),
+        # proceed directly to payment confirmation instead of showing menu
+        if payment_amount and payment_amount > 0:
             response_text = DebtFormatterService.format_payment_ready_response(
                 debt, payment_amount
             )

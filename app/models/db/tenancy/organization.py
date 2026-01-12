@@ -232,6 +232,25 @@ class Organization(Base, TimestampMixin):
         cascade="all, delete-orphan",
     )
 
+    # Intent configurations (replaces hardcoded intent_validator.py mappings)
+    intent_agent_mappings = relationship(
+        "IntentAgentMapping",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
+    flow_agent_configs = relationship(
+        "FlowAgentConfig",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
+    keyword_agent_mappings = relationship(
+        "KeywordAgentMapping",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
     # Table configuration
     __table_args__ = (
         Index("idx_organizations_slug", slug),

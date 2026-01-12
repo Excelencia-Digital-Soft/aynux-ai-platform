@@ -75,9 +75,13 @@ class NameVerificationHandler(PersonResolutionBaseHandler):
 
         if similarity >= NAME_MATCH_THRESHOLD:
             # Name matches - signal completion
+            # Preserve state fields for proper state machine transition
             return {
                 "identification_complete": True,
                 "plex_customer_verified": plex_customer,
+                "identification_step": STEP_NAME,  # Preserve for state continuity
+                "plex_customer_to_confirm": plex_customer,  # Preserve customer data
+                **self._preserve_all(state_dict),  # Preserve pharmacy config
             }
 
         # Name doesn't match
@@ -88,6 +92,7 @@ class NameVerificationHandler(PersonResolutionBaseHandler):
             return {
                 "name_verification_failed": True,
                 "name_mismatch_count": mismatch_count,
+                **self._preserve_all(state_dict),
             }
 
         # Ask to retry
@@ -109,6 +114,7 @@ class NameVerificationHandler(PersonResolutionBaseHandler):
             "identification_step": STEP_NAME,
             "name_mismatch_count": mismatch_count,
             "plex_customer_to_confirm": plex_customer,
+            **self._preserve_all(state_dict),
         }
 
 

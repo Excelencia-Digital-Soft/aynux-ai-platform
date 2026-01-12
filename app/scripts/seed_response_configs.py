@@ -197,7 +197,7 @@ def _get_pharmacy_configs() -> list[dict]:
         # ======================================================================
         {
             "intent_key": "dni_not_found",
-            "is_critical": False,
+            "is_critical": True,
             "task_description": "Informa que el DNI no fue encontrado.",
             "fallback_template_key": "dni_not_found",
             "display_name": "DNI No Encontrado",
@@ -611,6 +611,85 @@ def _get_pharmacy_configs() -> list[dict]:
             "display_name": "Mensaje Bienvenida",
         },
         {
+            "intent_key": "welcome_new_user",
+            "is_critical": True,
+            "task_description": "Muestra mensaje de bienvenida con 3 opciones para usuario nuevo.",
+            "fallback_template_key": "welcome_new_user",
+            "display_name": "Bienvenida Usuario Nuevo",
+        },
+        {
+            "intent_key": "welcome_with_payment_intent",
+            "is_critical": False,
+            "task_description": (
+                "El usuario quiere pagar {payment_amount}. "
+                "Reconoce su intención de pago y ofrece ayuda para completarlo."
+            ),
+            "fallback_template_key": "welcome_with_payment_intent",
+            "display_name": "Bienvenida con Intención de Pago",
+        },
+        {
+            "intent_key": "explain_identity_verification",
+            "is_critical": False,
+            "task_description": (
+                "Explica por qué es necesaria la verificación de identidad "
+                "para proteger datos personales."
+            ),
+            "fallback_template_key": "explain_identity_verification",
+            "display_name": "Explicar Verificación",
+        },
+        {
+            "intent_key": "ambiguous_welcome_response",
+            "is_critical": True,
+            "task_description": "Pide que elija 1, 2 o 3 porque no se reconoció la respuesta.",
+            "fallback_template_key": "ambiguous_welcome_response",
+            "display_name": "Respuesta Ambigua Bienvenida",
+        },
+        {
+            "intent_key": "decline_welcome_options",
+            "is_critical": False,
+            "task_description": (
+                "El usuario rechazó las opciones de bienvenida. "
+                "Ofrece ayuda alternativa sin requerir autenticación."
+            ),
+            "fallback_template_key": "decline_welcome_options",
+            "display_name": "Rechazo Opciones Bienvenida",
+        },
+        {
+            "intent_key": "request_identifier",
+            "is_critical": False,
+            "task_description": "Solicita DNI, número de cliente o CUIT/CUIL para identificar al usuario.",
+            "fallback_template_key": "request_identifier",
+            "display_name": "Solicitar Identificador",
+        },
+        {
+            "intent_key": "invalid_identifier_format",
+            "is_critical": True,
+            "task_description": "Informa que el formato del identificador no es válido.",
+            "fallback_template_key": "invalid_identifier_format",
+            "display_name": "Formato Identificador Inválido",
+        },
+        {
+            "intent_key": "identifier_not_found",
+            "is_critical": True,
+            "task_description": "No se encontró cliente con ese dato. Ofrece reintentar o contactar farmacia.",
+            "fallback_template_key": "identifier_not_found",
+            "display_name": "Identificador No Encontrado",
+        },
+        {
+            "intent_key": "request_name_verification",
+            "is_critical": False,
+            "task_description": "Pide que ingrese su nombre completo para verificar identidad.",
+            "fallback_template_key": "request_name_verification",
+            "display_name": "Verificar Nombre",
+        },
+        {
+            "intent_key": "identification_success",
+            "is_critical": False,
+            "task_description": "Confirma identificación exitosa y muestra menú principal.",
+            "fallback_template_key": "identification_success",
+            "display_name": "Identificación Exitosa",
+        },
+        {
             "intent_key": "invalid_document",
             "is_critical": False,
             "task_description": "Informa que el documento es inválido.",
@@ -671,14 +750,14 @@ def _get_pharmacy_configs() -> list[dict]:
         },
         {
             "intent_key": "generic_error",
-            "is_critical": False,
+            "is_critical": True,
             "task_description": "Informa de un error y pide que intente de nuevo.",
             "fallback_template_key": "generic_error",
             "display_name": "Error Genérico",
         },
         {
             "intent_key": "max_errors_reached",
-            "is_critical": False,
+            "is_critical": True,
             "task_description": "Informa que hubo muchos errores y sugiere contactar.",
             "fallback_template_key": "max_errors_reached",
             "display_name": "Máximo Errores",

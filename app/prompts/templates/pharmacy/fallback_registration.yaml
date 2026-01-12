@@ -1,0 +1,178 @@
+# Pharmacy Fallback Templates - Registro de Clientes
+# Extraído de fallback_templates.yaml para mejor mantenibilidad
+# Contiene templates del flujo de registro de nuevos clientes
+
+prompts:
+  # =========================================================================
+  # REGISTRO DE CLIENTES (CustomerRegistrationNode)
+  # =========================================================================
+
+  - key: pharmacy.fallback.registration_offer
+    name: Registration Offer
+    description: Oferta de registro
+    version: "1.0.0"
+    template: |
+      No encontré una cuenta con esos datos.
+      ¿Te gustaría registrarte como nuevo cliente?
+
+      Responde *SI* para registrarte o *NO* para salir.
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.registration_yes_no_validation
+    name: Registration Yes/No Validation
+    description: Solicitar confirmación SI/NO para registro
+    version: "1.0.0"
+    template: |
+      Por favor responde *SI* para {action} o *NO* para {cancel_action}.
+    metadata:
+      variables:
+        required:
+          - action
+          - cancel_action
+
+  - key: pharmacy.fallback.registration_start
+    name: Registration Start
+    description: Inicio del registro
+    version: "1.0.0"
+    template: |
+      Perfecto, vamos a registrarte.
+
+      Por favor, ingresa tu nombre completo:
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.registration_name_error
+    name: Registration Name Error
+    description: Error en nombre de registro
+    version: "1.0.0"
+    template: |
+      El nombre ingresado es muy corto.
+      Por favor ingresa tu nombre completo (mínimo 3 caracteres):
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.registration_document_prompt
+    name: Registration Document Prompt
+    description: Solicitar documento para registro
+    version: "1.0.0"
+    template: |
+      Ahora ingresa tu número de documento (DNI):
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.registration_document_error
+    name: Registration Document Error
+    description: Error en documento de registro
+    version: "1.0.0"
+    template: |
+      El documento ingresado no es válido.
+      Por favor ingresa solo números (entre 6 y 11 dígitos):
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.registration_confirm_data
+    name: Registration Confirm Data
+    description: Confirmar datos de registro
+    version: "1.0.0"
+    template: |
+      Por favor confirma tus datos:
+
+      **Nombre:** {nombre}
+      **Documento:** {documento}
+
+      ¿Es correcto? Responde *SI* para confirmar o *NO* para cancelar.
+    metadata:
+      variables:
+        required:
+          - nombre
+          - documento
+
+  - key: pharmacy.fallback.registration_success
+    name: Registration Success
+    description: Registro exitoso
+    version: "1.0.0"
+    template: |
+      ¡{customer_name}, tu registro fue exitoso!
+
+      Ya puedes consultar tu deuda y generar links de pago.
+      ¿En qué puedo ayudarte?
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  - key: pharmacy.fallback.registration_duplicate_with_name
+    name: Registration Duplicate With Name
+    description: Cliente duplicado con nombre
+    version: "1.0.0"
+    template: |
+      {customer_name}, ya tenés una cuenta registrada.
+
+      ¿En qué puedo ayudarte?
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  - key: pharmacy.fallback.registration_duplicate_no_name
+    name: Registration Duplicate No Name
+    description: Documento ya registrado
+    version: "1.0.0"
+    template: |
+      Ese documento ya está registrado en el sistema.
+      Por favor contacta a la farmacia para más información.
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.registration_not_supported
+    name: Registration Not Supported
+    description: Registro no disponible
+    version: "1.0.0"
+    template: |
+      El registro de nuevos clientes no está disponible en este momento.
+      Por favor contacta directamente a la farmacia.
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.registration_error
+    name: Registration Error
+    description: Error en registro
+    version: "1.0.0"
+    template: |
+      Hubo un error al procesar tu registro: {error}
+      Por favor contacta a la farmacia para asistencia.
+    metadata:
+      variables:
+        required:
+          - error
+
+  - key: pharmacy.fallback.registration_cancelled
+    name: Registration Cancelled
+    description: Registro cancelado
+    version: "1.0.0"
+    template: |
+      Entendido, el registro ha sido cancelado.
+
+      ¿Hay algo más en que pueda ayudarte?
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.registration_exception
+    name: Registration Exception
+    description: Error inesperado en registro
+    version: "1.0.0"
+    template: |
+      Tuve un problema procesando tu registro.
+      Por favor intenta de nuevo.
+    metadata:
+      variables:
+        required: []

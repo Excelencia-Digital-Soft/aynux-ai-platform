@@ -58,11 +58,12 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
         Handle identifier input (DNI/client number).
 
         Search PLEX for customer matching the identifier.
-        If found → STEP_NAME (name verification)
+        If found and name provided → verify directly
+        If found without name → STEP_NAME (ask for name)
         If not found → retry or escalate
 
         Args:
-            message: User's identifier input
+            message: User's identifier input (may include name)
             state_dict: Current state
 
         Returns:
@@ -83,12 +84,39 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
             return {
                 "messages": [{"role": "assistant", "content": response_content}],
                 "identification_step": STEP_AWAITING_IDENTIFIER,
+                **self._preserve_all(state_dict),
             }
+
+        # Extract name if provided alongside identifier
+        # E.g., "2259863 Pedrozo Adela" → identifier="2259863", name="Pedrozo Adela"
+        provided_name = self._extract_name_from_message(message, identifier)
 
         # Search PLEX
         plex_customer = await service.search_by_identifier(identifier)
 
         if plex_customer:
+            # If name was provided, try to verify directly
+            if provided_name:
+                expected_name = plex_customer.get("nombre", "")
+                from app.domains.pharmacy.agents.nodes.person_resolution.constants import (
+                    NAME_MATCH_THRESHOLD,
+                )
+
+                similarity = service.calculate_name_similarity(
+                    provided_name, expected_name
+                )
+
+                if similarity >= NAME_MATCH_THRESHOLD:
+                    # Name matches - complete identification directly
+                    return {
+                        "identification_complete": True,
+                        "plex_customer_verified": plex_customer,
+                        "identification_step": STEP_NAME,
+                        "plex_customer_to_confirm": plex_customer,
+                        **self._preserve_all(state_dict),
+                    }
+
+            # Name not provided or doesn't match - ask for verification
             return await self._ask_for_name_verification(plex_customer, state_dict)
 
         # Not found - increment retries
@@ -99,6 +127,7 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
             return {
                 "identification_failed": True,
                 "identification_retries": retries,
+                **self._preserve_all(state_dict),
             }
 
         # Ask to retry
@@ -119,7 +148,48 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_AWAITING_IDENTIFIER,
             "identification_retries": retries,
+            **self._preserve_all(state_dict),
         }
+
+    def _extract_name_from_message(
+        self,
+        message: str,
+        identifier: str,
+    ) -> str | None:
+        """
+        Extract name from message if provided alongside identifier.
+
+        Handles cases like:
+        - "2259863 Pedrozo Adela" → "Pedrozo Adela"
+        - "Adela Pedrozo 2259863" → "Adela Pedrozo"
+        - "2259863" → None
+
+        Args:
+            message: Original user message
+            identifier: Extracted identifier (DNI/client number)
+
+        Returns:
+            Extracted name or None if only identifier was provided
+        """
+        import re
+
+        # Remove the identifier from the message
+        # Handle identifier at start, end, or middle of message
+        remaining = message.strip()
+
+        # Remove identifier pattern (may have spaces/dashes around it)
+        remaining = re.sub(rf"\b{re.escape(identifier)}\b", " ", remaining)
+
+        # Clean up extra whitespace
+        remaining = " ".join(remaining.split()).strip()
+
+        # If something remains and it looks like a name (has letters), return it
+        if remaining and re.search(r"[a-záéíóúñ]", remaining, re.IGNORECASE):
+            # Must have at least 2 characters to be a valid name part
+            if len(remaining) >= 2:
+                return remaining
+
+        return None
 
     async def _ask_for_name_verification(
         self,
@@ -148,7 +218,7 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
             "identification_step": STEP_NAME,
             "plex_customer_to_confirm": plex_customer,
             "name_mismatch_count": 0,
-            **self._preserve_pharmacy_config(state_dict),
+            **self._preserve_all(state_dict),
         }
 
 

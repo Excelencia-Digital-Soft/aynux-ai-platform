@@ -304,6 +304,7 @@ class PharmacyGraphBuilder:
         - Phone owner detected, querying for self → debt_check
         - No detection, need validation → person_validation
         - Awaiting own/other answer → __end__ (wait for user input)
+        - Awaiting welcome/identifier/name input → __end__ (wait for user input)
 
         Args:
             state: Current state
@@ -311,32 +312,62 @@ class PharmacyGraphBuilder:
         Returns:
             Next node key
         """
+        # DEBUG: Log state for routing decision
+        logger.debug(
+            f"[DEBUG] _route_after_person_resolution - State: "
+            f"awaiting_own_or_other={state.get('awaiting_own_or_other')}, "
+            f"identification_step={state.get('identification_step')}, "
+            f"is_querying_for_other={state.get('is_querying_for_other')}, "
+            f"registered_persons={len(state.get('registered_persons') or [])}, "
+            f"customer_identified={state.get('customer_identified')}, "
+            f"plex_customer_id={state.get('plex_customer_id')}"
+        )
+
         # If awaiting user response for own/other question
         if state.get("awaiting_own_or_other"):
+            logger.debug("[DEBUG] Routing: __end__ (awaiting_own_or_other)")
             return "__end__"
+
+        # If awaiting user response for identification flow (welcome, identifier, name)
+        identification_step = state.get("identification_step")
+        if identification_step in ("awaiting_welcome", "awaiting_identifier", "name"):
+            logger.debug(f"[DEBUG] Routing: __end__ (identification_step={identification_step})")
+            return "__end__"
+
+        # If node explicitly requested routing to router (e.g., info_query that doesn't need auth)
+        explicit_next = state.get("next_node")
+        if explicit_next == "router":
+            logger.debug("[DEBUG] Routing: router (explicit next_node)")
+            return "router"
 
         # If user wants to query for someone else → validate that person
         if state.get("is_querying_for_other"):
+            logger.debug("[DEBUG] Routing: person_validation (is_querying_for_other)")
             return "person_validation"
 
         # If multiple registered persons available → show selection
         registered_persons = state.get("registered_persons") or []
         if len(registered_persons) > 1 or state.get("awaiting_person_selection"):
+            logger.debug("[DEBUG] Routing: person_selection")
             return "person_selection"
 
         # If customer already identified → proceed to debt check
         if state.get("customer_identified") and state.get("plex_customer_id"):
+            logger.debug("[DEBUG] Routing: debt_check (customer_identified)")
             return "debt_check"
 
         # If no detection and need validation
         if not state.get("customer_identified"):
+            logger.debug("[DEBUG] Routing: person_validation (not customer_identified)")
             return "person_validation"
 
         # Check termination conditions
         if self._check_termination(state):
+            logger.debug("[DEBUG] Routing: __end__ (termination)")
             return "__end__"
 
         # Default to router for existing flow compatibility
+        logger.debug("[DEBUG] Routing: router (default)")
         return "router"
 
     def _route_after_person_selection(self, state: PharmacyState) -> str:

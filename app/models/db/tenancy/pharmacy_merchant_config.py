@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from ..base import Base, TimestampMixin
-from ..schemas import CORE_SCHEMA
+from ..schemas import CORE_SCHEMA, PHARMACY_SCHEMA
 
 
 class PharmacyMerchantConfig(Base, TimestampMixin):
@@ -240,7 +240,7 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
     # Table configuration
     __table_args__ = (
         Index("idx_pharmacy_merchant_configs_org", organization_id),
-        {"schema": CORE_SCHEMA},
+        {"schema": PHARMACY_SCHEMA},
     )
 
     def __repr__(self) -> str:

@@ -118,6 +118,23 @@ class PharmacyOperationsAgent(BaseAgent):
                 "pharmacy_id": state_dict.get("pharmacy_id"),
                 "pharmacy_name": state_dict.get("pharmacy_name"),
                 "pharmacy_phone": state_dict.get("pharmacy_phone"),
+                # Organization ID (needed for DB-driven patterns)
+                "organization_id": state_dict.get("organization_id"),
+                # === PERSON RESOLUTION STATE (CRITICAL for multi-turn) ===
+                "identification_step": state_dict.get("identification_step"),
+                "identification_retries": state_dict.get("identification_retries", 0),
+                "plex_customer_to_confirm": state_dict.get("plex_customer_to_confirm"),
+                "name_mismatch_count": state_dict.get("name_mismatch_count", 0),
+                # Person selection state
+                "registered_persons": state_dict.get("registered_persons"),
+                "awaiting_person_selection": state_dict.get("awaiting_person_selection", False),
+                "awaiting_own_or_other": state_dict.get("awaiting_own_or_other", False),
+                "is_querying_for_other": state_dict.get("is_querying_for_other", False),
+                "is_self": state_dict.get("is_self", False),
+                "self_plex_customer": state_dict.get("self_plex_customer"),
+                # Validation state
+                "validation_step": state_dict.get("validation_step"),
+                "plex_candidates": state_dict.get("plex_candidates"),
                 # Carry over workflow state
                 "debt_id": state_dict.get("debt_id"),
                 "debt_data": state_dict.get("debt_data"),

@@ -7,6 +7,9 @@ All imports from this file will work as before.
 
 For new code, prefer importing directly from the package:
     from app.domains.pharmacy.agents.nodes.person_resolution import PersonResolutionNode
+
+For state preservation, use Pydantic models:
+    from app.domains.pharmacy.agents.models import StatePreserver, PreservedContext
 """
 
 from __future__ import annotations
@@ -15,14 +18,13 @@ from __future__ import annotations
 from app.domains.pharmacy.agents.nodes.person_resolution import (
     MAX_IDENTIFICATION_RETRIES,
     NAME_MATCH_THRESHOLD,
-    OTHER_INDICATORS,
-    OWN_INDICATORS,
     STEP_AWAITING_IDENTIFIER,
     STEP_AWAITING_WELCOME,
     STEP_NAME,
-    WELCOME_OPTIONS,
     PersonResolutionFactory,
     PersonResolutionNode,
+    PreservedContext,
+    StatePreserver,
 )
 
 __all__ = [
@@ -33,7 +35,8 @@ __all__ = [
     "STEP_NAME",
     "MAX_IDENTIFICATION_RETRIES",
     "NAME_MATCH_THRESHOLD",
-    "WELCOME_OPTIONS",
-    "OWN_INDICATORS",
-    "OTHER_INDICATORS",
+    # Pydantic state models (replaces PRESERVED_STATE_FIELDS)
+    "PreservedContext",
+    "StatePreserver",
+    # NOTE: WELCOME_OPTIONS, OWN_INDICATORS, OTHER_INDICATORS moved to database
 ]

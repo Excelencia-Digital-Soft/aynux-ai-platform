@@ -1,0 +1,348 @@
+# Pharmacy Fallback Templates - Identificación
+# Extraído de fallback_templates.yaml para mejor mantenibilidad
+# Contiene templates de solicitud de DNI, verificación y selección de personas
+
+prompts:
+  # =========================================================================
+  # SOLICITUD DE DNI
+  # =========================================================================
+
+  - key: pharmacy.fallback.request_dni
+    name: Request DNI Fallback
+    description: Solicitud de DNI cuando LLM falla
+    version: "1.0.0"
+    template: |
+      Para continuar, necesito verificar tu identidad.
+      Por favor ingresa tu número de DNI:
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.request_dni_welcome
+    name: Welcome with DNI Request
+    description: Bienvenida solicitando DNI
+    version: "1.0.0"
+    template: |
+      Hola! Soy el asistente virtual de {pharmacy_name}.
+
+      Para poder ayudarte con tu consulta de deuda, necesito verificar tu identidad.
+
+      Por favor, ingresa tu número de DNI:
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+
+  - key: pharmacy.fallback.request_name
+    name: Request Name Fallback
+    description: Solicitud de nombre cuando LLM falla
+    version: "1.0.0"
+    template: |
+      Encontré un registro con ese DNI.
+
+      Por motivos de seguridad, necesito que confirmes el nombre de la persona.
+      Por favor, escribe el nombre completo:
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.request_dni_for_other
+    name: Request DNI for Other Person
+    description: Solicitar DNI para otra persona
+    version: "1.0.0"
+    template: |
+      Para consultar la deuda de otra persona necesito verificar los datos.
+      Por favor, ingresa el número de DNI de la persona:
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.request_dni_disambiguation
+    name: Request DNI Disambiguation
+    description: Solicitar DNI para desambiguación
+    version: "1.0.0"
+    template: |
+      Entendido. Por favor ingresa tu número de documento (DNI):
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.request_identifier
+    name: Request Identifier
+    description: Solicitar DNI y nombre completo juntos
+    version: "2.0.0"
+    template: |
+      Para identificarte, necesito tu *DNI* y *nombre completo* en un solo mensaje.
+
+      Ejemplo: *12345678 Juan Pérez*
+
+      Por favor, escribilos a continuación:
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.explain_identity_verification
+    name: Explain Identity Verification
+    description: Explica por qué es necesaria la verificación de identidad
+    version: "1.2.0"
+    template: |
+      La verificación de identidad protege tus datos personales.
+
+      Solo el titular puede consultar información sensible como saldos de cuenta corriente.
+
+      Es un proceso rápido: solo necesitás tu DNI y confirmar tu nombre.
+
+      ¿Tenés alguna otra pregunta o continuamos?
+    metadata:
+      variables:
+        required: []
+
+  # NOTE: welcome_new_user and ambiguous_welcome_response templates
+  # are defined in fallback_greeting.yaml (single source of truth)
+
+  - key: pharmacy.fallback.decline_welcome_options
+    name: Decline Welcome Options
+    description: Usuario rechaza todas las opciones
+    version: "1.0.0"
+    template: |
+      Entiendo. ¿En qué puedo ayudarte entonces?
+
+      Puedo darte información sobre:
+      • Horarios y ubicación de la farmacia
+      • Productos disponibles
+      • Cómo registrarte como cliente
+
+      Escribe tu consulta o di "menú" para ver las opciones.
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.invalid_identifier_format
+    name: Invalid Identifier Format
+    description: Formato de identificador inválido
+    version: "2.0.0"
+    template: |
+      Ese dato no parece válido.
+
+      Por favor ingresá tu *DNI* (solo números) seguido de tu *nombre completo*.
+
+      Ejemplo: *12345678 Juan Pérez*
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.identifier_not_found
+    name: Identifier Not Found
+    description: Identificador no encontrado en el sistema
+    version: "1.1.0"
+    template: |
+      No encontré ese DNI en el sistema.
+
+      Podés:
+      • Verificar el número e intentar de nuevo
+      • Contactar a la farmacia al {pharmacy_phone} para darte de alta
+    metadata:
+      variables:
+        required:
+          - pharmacy_phone
+
+  - key: pharmacy.fallback.request_name_verification
+    name: Request Name Verification
+    description: Solicitar nombre cuando el usuario solo envió DNI
+    version: "2.0.0"
+    template: |
+      Encontré tu DNI en el sistema, pero necesito también tu *nombre completo* para verificar tu identidad.
+
+      Por favor, escribí tu nombre y apellido:
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.identification_success
+    name: Identification Success
+    description: Identificación exitosa
+    version: "1.0.0"
+    template: |
+      Perfecto {customer_name}, tu identidad ha sido verificada.
+
+      ¿En qué puedo ayudarte hoy?
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  # =========================================================================
+  # VALIDACIÓN DE DOCUMENTOS
+  # =========================================================================
+
+  - key: pharmacy.fallback.invalid_document
+    name: Invalid Document
+    description: Documento inválido
+    version: "1.0.0"
+    template: |
+      El número de documento ingresado no parece válido.
+      Por favor ingresa tu DNI (solo números, mínimo 6 dígitos):
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.document_reminder
+    name: Document Reminder
+    description: Recordatorio de documento
+    version: "1.0.0"
+    template: |
+      Entiendo que quieres realizar esa acción, pero primero necesito identificarte.
+
+      Por favor, proporcioname tu número de DNI o documento de identidad (7-8 dígitos) para poder continuar.
+    metadata:
+      variables:
+        required: []
+
+  # =========================================================================
+  # ERRORES DE IDENTIFICACIÓN
+  # =========================================================================
+
+  - key: pharmacy.fallback.dni_not_found
+    name: DNI Not Found Fallback
+    description: DNI no encontrado
+    version: "1.1.0"
+    template: |
+      No encontré el DNI {dni} en el sistema.
+
+      Podés:
+      • Verificar el número e intentar de nuevo
+      • Contactar a la farmacia al {pharmacy_phone}
+    metadata:
+      variables:
+        required:
+          - dni
+          - pharmacy_phone
+
+  - key: pharmacy.fallback.name_mismatch
+    name: Name Mismatch Fallback
+    description: Nombre no coincide
+    version: "1.1.0"
+    template: |
+      El nombre ingresado no coincide con nuestros registros.
+
+      Sugerencias:
+      • Escribe nombre y apellido completos
+      • Usa el formato de tu DNI (ej: JUAN PÉREZ)
+      • No te preocupes por mayúsculas o acentos
+
+      Intento {attempt} de 3.
+    metadata:
+      variables:
+        required:
+          - attempt
+
+  # =========================================================================
+  # SELECCIÓN DE CUENTAS EXISTENTES (AccountSelectionHandler)
+  # =========================================================================
+
+  - key: pharmacy.fallback.offer_existing_accounts
+    name: Offer Existing Accounts
+    description: Ofrecer cuentas validadas anteriormente al usuario que vuelve
+    version: "1.0.0"
+    template: |
+      ¡Hola! Ya te conozco. ¿Con quién querés operar hoy?
+
+      {account_list}
+
+      Escribí el *número* de la opción o "*nueva*" para usar otra cuenta.
+    metadata:
+      variables:
+        required:
+          - account_list
+
+  - key: pharmacy.fallback.invalid_account_selection
+    name: Invalid Account Selection
+    description: Selección de cuenta inválida
+    version: "1.0.0"
+    template: |
+      No entendí tu selección.
+
+      Por favor escribí el *número* de la cuenta que querés usar, o "*nueva*" para registrar otra cuenta.
+    metadata:
+      variables:
+        required: []
+
+  # =========================================================================
+  # SELECCIÓN DE PERSONAS (PersonSelectionNode)
+  # =========================================================================
+
+  - key: pharmacy.fallback.person_list
+    name: Person Selection List
+    description: Lista de personas registradas para usuario que vuelve
+    version: "1.1.0"
+    template: |
+      ¡Hola! Soy el asistente de {pharmacy_name}.
+
+      Tengo registradas estas personas:
+
+      {person_list}
+
+      ¿De quién querés ver la deuda? También podés:
+      • Consultar *otro DNI*
+      • Pedir *información* de la farmacia
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+          - person_list
+
+  - key: pharmacy.fallback.add_new_person
+    name: Add New Person
+    description: Consultar otro DNI
+    version: "1.1.0"
+    template: |
+      Dale, ingresá el DNI que querés consultar:
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.selection_confirmed
+    name: Selection Confirmed
+    description: Selección de persona confirmada
+    version: "1.0.0"
+    template: |
+      Perfecto, consultando la deuda de {customer_name}...
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  - key: pharmacy.fallback.unclear_selection
+    name: Unclear Selection
+    description: Selección no clara
+    version: "1.1.0"
+    template: |
+      No entendí. ¿De quién querés ver la deuda?
+
+      Podés escribir el nombre o decirme *otro DNI* si querés consultar a otra persona.
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.proceed_with_customer
+    name: Proceed With Customer
+    description: Confirmar cliente seleccionado
+    version: "1.0.0"
+    template: |
+      Perfecto {customer_name}, consultando tu deuda...
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  - key: pharmacy.fallback.ambiguous_own_other
+    name: Ambiguous Own Or Other Response
+    description: Respuesta ambigua a propia/otra
+    version: "1.0.0"
+    template: |
+      No entendí tu respuesta. Por favor indica:
+      1. Consultar mi propia deuda
+      2. Consultar deuda de otra persona
+    metadata:
+      variables:
+        required: []

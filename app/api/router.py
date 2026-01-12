@@ -29,6 +29,7 @@ from app.api.routes.admin import (
     chattigo_credentials,
     domains,
     institution_configs,
+    intent_configs,
     modules as modules_admin,
     org_users,
     organizations,
@@ -220,4 +221,11 @@ api_router.include_router(
     response_configs.router,
     prefix="/admin/response-configs",
     tags=["Response Configs"],
+)
+
+# Admin routes - Intent Configs (intent-agent mappings, flow agents, keywords)
+api_router.include_router(
+    intent_configs.router,
+    prefix="/admin/intent-configs",
+    tags=["Intent Configs"],
 )

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import logging
+import re
 import traceback
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from app.domains.pharmacy.agents.nodes.handlers.base_handler import BasePharmacyHandler
 from app.domains.pharmacy.agents.nodes.identification_constants import (
     OUT_OF_SCOPE_INTENTS,
+)
+from app.domains.pharmacy.agents.nodes.person_resolution.handlers.base_handler import (
+    PersonResolutionBaseHandler,
 )
 from app.domains.pharmacy.agents.utils.db_helpers import generate_response
 
@@ -19,7 +22,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class ErrorHandler(BasePharmacyHandler):
+class ErrorHandler(PersonResolutionBaseHandler):
     """
     Handler for error scenarios.
 
@@ -73,6 +76,23 @@ class ErrorHandler(BasePharmacyHandler):
         Returns:
             State updates
         """
+        # PRIORITY CHECK: If we're already waiting for DNI and message looks like a DNI,
+        # forward directly to PersonValidationNode instead of running intent analysis.
+        # This fixes the bug where "2259863" was analyzed as intent and classified as out-of-scope.
+        validation_step = state_dict.get("validation_step")
+        if validation_step == "dni":
+            dni_match = re.search(r"\b(\d{7,8})\b", message)
+            if dni_match:
+                logger.info(
+                    f"[handle_no_phone] DNI detected in message during validation_step=dni: "
+                    f"'{dni_match.group(1)}'. Forwarding to PersonValidationNode."
+                )
+                return {
+                    "validation_step": "dni",
+                    "next_node": "person_validation_node",
+                    **self._preserve_all(state_dict),
+                }
+
         org_id = self._get_organization_id_safe(state_dict)
         intent_result = await self._get_intent_analyzer().analyze(
             message,
@@ -84,6 +104,7 @@ class ErrorHandler(BasePharmacyHandler):
             return {
                 "intent": "info_query",
                 "next_node": "router",
+                **self._preserve_all(state_dict),
             }
 
         if intent_result.is_out_of_scope or intent_result.intent in OUT_OF_SCOPE_INTENTS:
@@ -91,6 +112,7 @@ class ErrorHandler(BasePharmacyHandler):
                 "intent": intent_result.intent,
                 "is_out_of_scope": True,
                 "next_node": "router",
+                **self._preserve_all(state_dict),
             }
 
         # Route to validation without phone context
@@ -107,6 +129,7 @@ class ErrorHandler(BasePharmacyHandler):
             "next_node": "person_validation_node",
             "pharmacy_name": state_dict.get("pharmacy_name"),
             "pharmacy_phone": state_dict.get("pharmacy_phone"),
+            **self._preserve_all(state_dict),
         }
 
     async def handle_no_pharmacy(
@@ -137,6 +160,7 @@ class ErrorHandler(BasePharmacyHandler):
             "messages": [{"role": "assistant", "content": response_content}],
             "is_complete": True,
             "requires_human": True,
+            **self._preserve_all(state_dict),
         }
 
     async def handle_error(
@@ -171,6 +195,7 @@ class ErrorHandler(BasePharmacyHandler):
                 "error_count": error_count,
                 "is_complete": True,
                 "requires_human": True,
+                **self._preserve_all(state_dict),
             }
 
         response_content = await generate_response(
@@ -182,6 +207,7 @@ class ErrorHandler(BasePharmacyHandler):
         return {
             "messages": [{"role": "assistant", "content": response_content}],
             "error_count": error_count,
+            **self._preserve_all(state_dict),
         }
 
 

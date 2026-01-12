@@ -51,7 +51,7 @@ class EscalationHandler(PersonResolutionBaseHandler):
             "identification_step": None,
             "requires_human": True,
             "escalation_reason": "identification_failed",
-            **self._preserve_pharmacy_config(state_dict),
+            **self._preserve_all(state_dict),
         }
 
     async def escalate_name_verification_failure(
@@ -87,7 +87,7 @@ class EscalationHandler(PersonResolutionBaseHandler):
             "plex_customer_to_confirm": None,
             "requires_human": True,
             "escalation_reason": "name_verification_failed",
-            **self._preserve_pharmacy_config(state_dict),
+            **self._preserve_all(state_dict),
         }
 
 

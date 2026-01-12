@@ -23,6 +23,7 @@ from . import (
     domain_intents,
     domains,
     institution_configs,
+    intent_configs,
     modules,
     org_users,
     organizations,
@@ -55,4 +56,5 @@ __all__ = [
     "institution_configs",
     "domain_intents",
     "response_configs",
+    "intent_configs",
 ]
