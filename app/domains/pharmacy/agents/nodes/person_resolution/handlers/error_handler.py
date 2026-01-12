@@ -14,7 +14,8 @@ from app.domains.pharmacy.agents.nodes.identification_constants import (
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.base_handler import (
     PersonResolutionBaseHandler,
 )
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 
 if TYPE_CHECKING:
     from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
@@ -88,9 +89,9 @@ class ErrorHandler(PersonResolutionBaseHandler):
                     f"'{dni_match.group(1)}'. Forwarding to PersonValidationNode."
                 )
                 return {
+                    **self._preserve_all(state_dict),
                     "validation_step": "dni",
                     "next_node": "person_validation_node",
-                    **self._preserve_all(state_dict),
                 }
 
         org_id = self._get_organization_id_safe(state_dict)
@@ -102,17 +103,17 @@ class ErrorHandler(PersonResolutionBaseHandler):
 
         if intent_result.intent == "info_query":
             return {
+                **self._preserve_all(state_dict),
                 "intent": "info_query",
                 "next_node": "router",
-                **self._preserve_all(state_dict),
             }
 
         if intent_result.is_out_of_scope or intent_result.intent in OUT_OF_SCOPE_INTENTS:
             return {
+                **self._preserve_all(state_dict),
                 "intent": intent_result.intent,
                 "is_out_of_scope": True,
                 "next_node": "router",
-                **self._preserve_all(state_dict),
             }
 
         # Route to validation without phone context
@@ -120,16 +121,16 @@ class ErrorHandler(PersonResolutionBaseHandler):
             state=state_dict,
             intent="request_dni_welcome",
             user_message="",
-            current_task="Da la bienvenida y solicita el DNI para verificar identidad.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_REQUEST_IDENTIFIER),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "validation_step": "dni",
             "next_node": "person_validation_node",
             "pharmacy_name": state_dict.get("pharmacy_name"),
             "pharmacy_phone": state_dict.get("pharmacy_phone"),
-            **self._preserve_all(state_dict),
         }
 
     async def handle_no_pharmacy(
@@ -153,14 +154,14 @@ class ErrorHandler(PersonResolutionBaseHandler):
             state=state_dict,
             intent="no_pharmacy_error",
             user_message="",
-            current_task="Informa que no se pudo identificar la farmacia.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_ERROR_PHARMACY_NOT_FOUND),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "is_complete": True,
             "requires_human": True,
-            **self._preserve_all(state_dict),
         }
 
     async def handle_error(
@@ -188,26 +189,26 @@ class ErrorHandler(PersonResolutionBaseHandler):
                 state=state_dict,
                 intent="max_errors_reached",
                 user_message="",
-                current_task="Informa que hubo varios errores y sugiere contactar la farmacia.",
+                current_task=await get_current_task(TaskRegistry.PHARMACY_ERROR_MULTIPLE_FAILURES),
             )
             return {
+                **self._preserve_all(state_dict),
                 "messages": [{"role": "assistant", "content": response_content}],
                 "error_count": error_count,
                 "is_complete": True,
                 "requires_human": True,
-                **self._preserve_all(state_dict),
             }
 
         response_content = await generate_response(
             state=state_dict,
             intent="generic_error",
             user_message="",
-            current_task="Informa del error y pide que intente de nuevo.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_ERROR_RETRY),
         )
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "error_count": error_count,
-            **self._preserve_all(state_dict),
         }
 
 

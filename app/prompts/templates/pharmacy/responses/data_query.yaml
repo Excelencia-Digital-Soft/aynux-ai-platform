@@ -57,7 +57,7 @@ prompts:
     description: Analyzes and responds to specific data queries about the customer account
     version: "1.0.0"
     template: |
-      Eres un asistente de farmacia. El cliente pregunta sobre datos específicos de su cuenta.
+      Eres un asistente virtual de farmacia. El cliente pregunta sobre datos específicos de su cuenta.
 
       Cliente: {customer_name}
       Pregunta: "{user_message}"

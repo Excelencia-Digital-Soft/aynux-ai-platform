@@ -210,14 +210,36 @@ class PharmacyConfigService:
         )
 
     async def _load_from_db(self, org_id: UUID) -> PharmacyMerchantConfig | None:
-        """Load config from database by organization_id."""
+        """
+        Load config from database by organization_id.
+
+        Note: If an organization has multiple pharmacies, this returns the first one.
+        For specific pharmacy lookup, use get_config_by_id() instead.
+        """
         from app.models.db.tenancy.pharmacy_merchant_config import PharmacyMerchantConfig
 
-        stmt = select(PharmacyMerchantConfig).where(
-            PharmacyMerchantConfig.organization_id == org_id
+        stmt = (
+            select(PharmacyMerchantConfig)
+            .where(PharmacyMerchantConfig.organization_id == org_id)
+            .limit(1)
         )
         result = await self._db.execute(stmt)
-        return result.scalar_one_or_none()
+        config = result.scalar_one_or_none()
+
+        # Check if there are multiple configs (for logging)
+        if config:
+            count_stmt = select(PharmacyMerchantConfig).where(
+                PharmacyMerchantConfig.organization_id == org_id
+            )
+            count_result = await self._db.execute(count_stmt)
+            all_configs = count_result.scalars().all()
+            if len(all_configs) > 1:
+                logger.warning(
+                    f"Organization {org_id} has {len(all_configs)} pharmacy configs. "
+                    f"Using first one: {config.id}. Consider using get_config_by_id() for specificity."
+                )
+
+        return config
 
     async def get_any_active_mp_config(self) -> PharmacyConfig:
         """

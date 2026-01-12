@@ -12,7 +12,8 @@ from uuid import UUID
 
 from app.core.agents import BaseAgent
 from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 from app.domains.pharmacy.agents.utils.response_generator import (
     PharmacyResponseGenerator,
     get_response_generator,
@@ -197,7 +198,7 @@ class ConfirmationNode(BaseAgent):
 
             user_message="",
 
-            current_task="Confirma que la operación fue cancelada.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_CONFIRMATION_CANCELLED),
 
         )
 
@@ -218,7 +219,7 @@ class ConfirmationNode(BaseAgent):
 
             user_message="",
 
-            current_task="Solicita una respuesta clara SI o NO.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_CONFIRMATION_REQUEST),
 
         )
 
@@ -262,7 +263,7 @@ class ConfirmationNode(BaseAgent):
 
                 user_message="",
 
-                current_task="Informa que está consultando la deuda.",
+                current_task=await get_current_task(TaskRegistry.PHARMACY_CONFIRMATION_CONSULTING_DEBT),
 
             )
             wait_message = response_content
@@ -345,7 +346,7 @@ class ConfirmationNode(BaseAgent):
 
             user_message="",
 
-            current_task="Informa del error y sugiere consultar deuda manualmente.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_CONFIRMATION_ERROR),
 
         )
 
@@ -365,7 +366,7 @@ class ConfirmationNode(BaseAgent):
 
             user_message="",
 
-            current_task="Informa que no se identificó al cliente.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_CONFIRMATION_NOT_IDENTIFIED),
 
         )
 
@@ -391,7 +392,7 @@ class ConfirmationNode(BaseAgent):
             user_message="",
 
 
-            current_task="Informa del error y pide que intente de nuevo.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_ERROR_RETRY),
 
 
         )

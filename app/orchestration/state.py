@@ -28,6 +28,27 @@ def add_routing_decisions(
     return left + right
 
 
+def merge_domain_states(
+    left: dict[str, dict[str, Any]],
+    right: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """
+    Reducer for domain states - deep merge per domain.
+
+    Merges domain-specific state dictionaries, preserving existing
+    state while updating with new values per domain.
+    """
+    result = {**left}
+    for domain_key, state in right.items():
+        if domain_key in result:
+            # Merge existing domain state with updates
+            result[domain_key] = {**result[domain_key], **state}
+        else:
+            # Add new domain state
+            result[domain_key] = state
+    return result
+
+
 class OrchestrationState(TypedDict):
     """
     State schema for the super orchestrator.
@@ -83,6 +104,18 @@ class OrchestrationState(TypedDict):
     timestamp: str | None
     language: str
 
+    # =========================================================================
+    # GENERIC DOMAIN STATE CONTAINER
+    # =========================================================================
+    # Stores domain-specific state for any domain (pharmacy, ecommerce, etc.)
+    # Replaces hardcoded domain fields with a generic container.
+    # Each domain's state is stored under its domain_key.
+    # Example: {"pharmacy": {...}, "ecommerce": {...}}
+    domain_states: Annotated[dict[str, dict[str, Any]], merge_domain_states]
+
+    # Multi-tenant context (shared across all domains)
+    organization_id: str | None
+
 
 class DomainContext(TypedDict, total=False):
     """Common context shared between domains."""
@@ -112,6 +145,8 @@ def create_initial_state(
     message: str | None = None,
     customer: dict[str, Any] | None = None,
     conversation_id: str | None = None,
+    domain_key: str | None = None,
+    organization_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Create initial orchestration state.
@@ -120,12 +155,25 @@ def create_initial_state(
         message: Initial user message
         customer: Customer context
         conversation_id: Conversation identifier
+        domain_key: Optional domain to pre-initialize state for
+        organization_id: Organization UUID for multi-tenant context
 
     Returns:
         Initial state dictionary
     """
     from datetime import datetime
+
     from langchain_core.messages import HumanMessage
+
+    from app.orchestration.domain_state_registry import DomainStateRegistry
+
+    # Initialize domain_states with requested domain (or empty)
+    domain_states: dict[str, dict[str, Any]] = {}
+    if domain_key:
+        domain_states[domain_key] = DomainStateRegistry.get_defaults(domain_key)
+        # Set whatsapp_phone in pharmacy domain state if customer has phone
+        if domain_key == "pharmacy" and customer and customer.get("phone"):
+            domain_states[domain_key]["whatsapp_phone"] = customer.get("phone")
 
     state: dict[str, Any] = {
         "messages": [],
@@ -156,6 +204,10 @@ def create_initial_state(
         "thread_id": conversation_id,
         "timestamp": datetime.now().isoformat(),
         "language": "es",
+        # Generic domain state container
+        "domain_states": domain_states,
+        # Multi-tenant context
+        "organization_id": organization_id,
     }
 
     if message:
@@ -235,3 +287,110 @@ def update_state_after_domain(
         updates["is_complete"] = True
 
     return updates
+
+
+# =============================================================================
+# Domain State Helper Functions
+# =============================================================================
+
+
+def get_domain_state(state: dict[str, Any], domain_key: str) -> dict[str, Any]:
+    """
+    Extract domain-specific state from orchestration state.
+
+    Args:
+        state: Orchestration state dictionary
+        domain_key: Domain identifier (e.g., 'pharmacy', 'ecommerce')
+
+    Returns:
+        Domain-specific state dictionary, or empty dict if not found
+    """
+    domain_states = state.get("domain_states", {})
+    return domain_states.get(domain_key, {})
+
+
+def update_domain_state(
+    state: dict[str, Any],
+    domain_key: str,
+    updates: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Create state updates for a specific domain.
+
+    Returns a dictionary that can be merged with the orchestration state
+    to update domain-specific fields.
+
+    Args:
+        state: Current orchestration state
+        domain_key: Domain identifier
+        updates: Fields to update in the domain state
+
+    Returns:
+        State update dictionary with domain_states key
+    """
+    current_domain_state = get_domain_state(state, domain_key)
+    return {
+        "domain_states": {
+            domain_key: {**current_domain_state, **updates}
+        }
+    }
+
+
+def ensure_domain_initialized(
+    state: dict[str, Any],
+    domain_key: str,
+) -> dict[str, Any]:
+    """
+    Ensure domain state is initialized with defaults.
+
+    If the domain state doesn't exist, initializes it with default values
+    from the DomainStateRegistry.
+
+    Args:
+        state: Current orchestration state
+        domain_key: Domain identifier
+
+    Returns:
+        State update dictionary with initialized domain_states
+    """
+    from app.orchestration.domain_state_registry import DomainStateRegistry
+
+    domain_states = state.get("domain_states", {})
+
+    if domain_key not in domain_states:
+        domain_states = {
+            **domain_states,
+            domain_key: DomainStateRegistry.get_defaults(domain_key),
+        }
+
+    return {"domain_states": domain_states}
+
+
+def extract_domain_fields_from_result(
+    result: dict[str, Any],
+    domain_key: str,
+) -> dict[str, Any]:
+    """
+    Extract domain-specific fields from a subgraph result.
+
+    Uses the DomainStateRegistry to identify which fields belong
+    to the domain's state schema.
+
+    Args:
+        result: Result dictionary from subgraph execution
+        domain_key: Domain identifier
+
+    Returns:
+        Dictionary containing only domain-specific fields
+    """
+    from app.orchestration.domain_state_registry import DomainStateRegistry
+
+    field_names = DomainStateRegistry.get_field_names(domain_key)
+    domain_fields: dict[str, Any] = {}
+
+    for field in field_names:
+        # Skip 'messages' as it's handled separately by the reducer
+        if field in result and field != "messages":
+            domain_fields[field] = result[field]
+
+    return domain_fields

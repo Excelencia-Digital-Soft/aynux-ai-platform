@@ -230,7 +230,7 @@ class BasePharmacyHandler:
         Load templates from a YAML file (with caching).
 
         Args:
-            yaml_file: Relative path to YAML file (e.g., "pharmacy/data_query.yaml")
+            yaml_file: Relative path to YAML file (e.g., "pharmacy/responses/data_query.yaml")
 
         Returns:
             Dictionary mapping short template keys to template strings
@@ -304,7 +304,7 @@ class BasePharmacyHandler:
         self,
         template_key: str,
         variables: dict[str, Any],
-        yaml_file: str = "pharmacy/data_query.yaml",
+        yaml_file: str = "pharmacy/responses/data_query.yaml",
     ) -> str:
         """
         Load and render a fallback template from YAML.
@@ -316,7 +316,7 @@ class BasePharmacyHandler:
         Args:
             template_key: Short key for template (e.g., "product_found")
             variables: Variables to substitute in template
-            yaml_file: YAML file to load from (default: pharmacy/data_query.yaml)
+            yaml_file: YAML file to load from (default: pharmacy/responses/data_query.yaml)
 
         Returns:
             Rendered template string
@@ -334,3 +334,71 @@ class BasePharmacyHandler:
             raise ValueError(f"Template not found: {template_key}")
 
         return self._render_template_string(template, variables)
+
+    # =========================================================================
+    # Database-Driven Pattern Matching
+    # =========================================================================
+
+    async def _match_confirmation_pattern(
+        self,
+        message: str,
+        intent_key: str,
+        state: dict[str, Any],
+    ) -> bool:
+        """
+        Check if message matches confirmation patterns for an intent.
+
+        Loads patterns from domain_intent_cache (DB-driven, not hardcoded).
+        Supports both "exact" and "contains" pattern types.
+
+        Args:
+            message: User message (should be lowercase, stripped)
+            intent_key: Intent key to match patterns for
+            state: Current state (must contain organization_id)
+
+        Returns:
+            True if message matches any pattern for the intent
+        """
+        from app.core.cache.domain_intent_cache import domain_intent_cache
+        from app.database.async_db import get_async_db_context
+
+        org_id = state.get("organization_id")
+        if org_id is None:
+            self.logger.warning("No organization_id in state for pattern matching")
+            return False
+
+        try:
+            if not isinstance(org_id, UUID):
+                org_id = UUID(str(org_id))
+
+            async with get_async_db_context() as db:
+                patterns = await domain_intent_cache.get_patterns(db, org_id, "pharmacy")
+
+            confirmation = patterns.get("confirmation_patterns", {}).get(intent_key, {})
+            exact_patterns = confirmation.get("exact", set())
+            contains_patterns = confirmation.get("contains", set())
+
+            # Convert lists to sets if needed (from JSON deserialization)
+            if isinstance(exact_patterns, list):
+                exact_patterns = set(exact_patterns)
+            if isinstance(contains_patterns, list):
+                contains_patterns = set(contains_patterns)
+
+            # Exact match first (highest priority)
+            if message in exact_patterns:
+                self.logger.debug(f"Exact pattern match: '{message}' for intent '{intent_key}'")
+                return True
+
+            # Contains match (phrase matching)
+            for pattern in contains_patterns:
+                if pattern in message:
+                    self.logger.debug(
+                        f"Contains pattern match: '{pattern}' in '{message}' for intent '{intent_key}'"
+                    )
+                    return True
+
+            return False
+
+        except Exception as e:
+            self.logger.warning(f"Error matching confirmation pattern: {e}")
+            return False

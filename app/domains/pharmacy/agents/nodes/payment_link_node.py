@@ -201,6 +201,11 @@ class PaymentLinkNode(BaseAgent):
                 "debt_status": "payment_pending",
                 "workflow_step": "payment_link_sent",
                 "is_complete": True,  # Conversation ends, webhook handles the rest
+                # Clear routing flags to prevent stuck state
+                "next_agent": None,
+                "awaiting_debt_action": False,
+                "awaiting_payment_amount_input": False,
+                "awaiting_payment_option_selection": False,
             }
 
         except Exception as e:
@@ -324,6 +329,11 @@ Hola *{customer_name}*, tu link de pago está listo:
             ],
             "current_agent": self.name,
             "is_complete": True,
+            # Clear routing flags to prevent stuck state
+            "next_agent": None,
+            "awaiting_debt_action": False,
+            "awaiting_payment_amount_input": False,
+            "debt_status": None,
         }
 
     def _handle_config_not_found(self) -> dict[str, Any]:
@@ -340,6 +350,11 @@ Hola *{customer_name}*, tu link de pago está listo:
             ],
             "current_agent": self.name,
             "is_complete": True,
+            # Clear routing flags to prevent stuck state
+            "next_agent": None,
+            "awaiting_debt_action": False,
+            "awaiting_payment_amount_input": False,
+            "debt_status": None,
         }
 
     def _handle_mp_disabled(self) -> dict[str, Any]:
@@ -356,6 +371,11 @@ Hola *{customer_name}*, tu link de pago está listo:
             ],
             "current_agent": self.name,
             "is_complete": True,
+            # Clear routing flags to prevent stuck state
+            "next_agent": None,
+            "awaiting_debt_action": False,
+            "awaiting_payment_amount_input": False,
+            "debt_status": None,
         }
 
     def _handle_mp_not_configured(self) -> dict[str, Any]:
@@ -372,6 +392,11 @@ Hola *{customer_name}*, tu link de pago está listo:
             ],
             "current_agent": self.name,
             "is_complete": True,
+            # Clear routing flags to prevent stuck state
+            "next_agent": None,
+            "awaiting_debt_action": False,
+            "awaiting_payment_amount_input": False,
+            "debt_status": None,
         }
 
     def _handle_not_confirmed(self) -> dict[str, Any]:
@@ -388,6 +413,9 @@ Hola *{customer_name}*, tu link de pago está listo:
             ],
             "current_agent": self.name,
             "is_complete": False,
+            # Clear routing to prevent loop, but keep debt flow awaiting confirmation
+            "next_agent": None,
+            "awaiting_debt_action": True,
         }
 
     def _handle_no_customer(self) -> dict[str, Any]:
@@ -404,6 +432,11 @@ Hola *{customer_name}*, tu link de pago está listo:
             ],
             "current_agent": self.name,
             "is_complete": True,
+            # Clear routing flags to prevent stuck state
+            "next_agent": None,
+            "awaiting_debt_action": False,
+            "awaiting_payment_amount_input": False,
+            "debt_status": None,
         }
 
     def _handle_invalid_amount(self) -> dict[str, Any]:
@@ -420,6 +453,11 @@ Hola *{customer_name}*, tu link de pago está listo:
             ],
             "current_agent": self.name,
             "is_complete": True,
+            # Clear routing flags to prevent stuck state
+            "next_agent": None,
+            "awaiting_debt_action": False,
+            "awaiting_payment_amount_input": False,
+            "debt_status": None,
         }
 
     def _handle_error(self, error: str, state_dict: dict[str, Any]) -> dict[str, Any]:
@@ -437,5 +475,10 @@ Hola *{customer_name}*, tu link de pago está listo:
             ],
             "current_agent": self.name,
             "error_count": state_dict.get("error_count", 0) + 1,
-            "is_complete": False,
+            "is_complete": True,
+            # Clear routing flags to prevent stuck state
+            "next_agent": None,
+            "awaiting_debt_action": False,
+            "awaiting_payment_amount_input": False,
+            "debt_status": None,
         }

@@ -25,14 +25,29 @@ from app.domains.pharmacy.agents.nodes.person_resolution.handlers.own_or_other_h
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.welcome_flow_handler import (
     WelcomeFlowHandler,
 )
+from app.domains.pharmacy.agents.nodes.person_resolution.services.initial_resolution_service import (
+    InitialResolutionService,
+)
+from app.domains.pharmacy.agents.nodes.person_resolution.services.payment_amount_extractor import (
+    PaymentAmountExtractor,
+)
 from app.domains.pharmacy.agents.nodes.person_resolution.services.payment_state_service import (
     PaymentStateService,
 )
 from app.domains.pharmacy.agents.nodes.person_resolution.services.person_identification_service import (
     PersonIdentificationService,
 )
+from app.domains.pharmacy.agents.nodes.person_resolution.services.person_registration_service import (
+    PersonRegistrationService,
+)
+from app.domains.pharmacy.agents.nodes.person_resolution.services.response_builder import (
+    ResponseBuilder,
+)
 from app.domains.pharmacy.agents.nodes.person_resolution.services.state_management_service import (
     StateManagementService,
+)
+from app.domains.pharmacy.agents.nodes.person_resolution.services.workflow_orchestrator import (
+    WorkflowOrchestrator,
 )
 
 if TYPE_CHECKING:
@@ -68,8 +83,13 @@ class PersonResolutionFactory:
 
         # Lazy-initialized services
         self._identification_service: PersonIdentificationService | None = None
+        self._initial_resolution_service: InitialResolutionService | None = None
         self._state_service: StateManagementService | None = None
         self._payment_service: PaymentStateService | None = None
+        self._payment_amount_extractor: PaymentAmountExtractor | None = None
+        self._person_registration_service: PersonRegistrationService | None = None
+        self._response_builder: ResponseBuilder | None = None
+        self._workflow_orchestrator: WorkflowOrchestrator | None = None
 
         # Lazy-initialized handlers
         self._welcome_handler: WelcomeFlowHandler | None = None
@@ -90,6 +110,15 @@ class PersonResolutionFactory:
             self._identification_service = PersonIdentificationService(self._plex_client)
         return self._identification_service
 
+    def get_initial_resolution_service(self) -> InitialResolutionService:
+        """Get or create InitialResolutionService."""
+        if self._initial_resolution_service is None:
+            self._initial_resolution_service = InitialResolutionService(
+                self._db_session,
+                self._config.get("organization_id"),
+            )
+        return self._initial_resolution_service
+
     def get_state_service(self) -> StateManagementService:
         """Get or create StateManagementService."""
         if self._state_service is None:
@@ -101,6 +130,30 @@ class PersonResolutionFactory:
         if self._payment_service is None:
             self._payment_service = PaymentStateService()
         return self._payment_service
+
+    def get_payment_amount_extractor(self) -> PaymentAmountExtractor:
+        """Get or create PaymentAmountExtractor."""
+        if self._payment_amount_extractor is None:
+            self._payment_amount_extractor = PaymentAmountExtractor()
+        return self._payment_amount_extractor
+
+    def get_person_registration_service(self) -> PersonRegistrationService:
+        """Get or create PersonRegistrationService."""
+        if self._person_registration_service is None:
+            self._person_registration_service = PersonRegistrationService(self._db_session)
+        return self._person_registration_service
+
+    def get_response_builder(self) -> ResponseBuilder:
+        """Get or create ResponseBuilder."""
+        if self._response_builder is None:
+            self._response_builder = ResponseBuilder(self._db_session)
+        return self._response_builder
+
+    def get_workflow_orchestrator(self) -> WorkflowOrchestrator:
+        """Get or create WorkflowOrchestrator."""
+        if self._workflow_orchestrator is None:
+            self._workflow_orchestrator = WorkflowOrchestrator(self)
+        return self._workflow_orchestrator
 
     # =========================================================================
     # Handlers

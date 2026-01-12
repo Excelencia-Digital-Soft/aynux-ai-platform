@@ -1,0 +1,16 @@
+tasks:
+  - key: pharmacy.greeting.default
+    name: "Saludo por defecto"
+    description: |
+      Saluda al cliente cordialmente y ofrece ayuda con lo que puedes hacer.
+    metadata:
+      flow: greeting
+      tags: [greeting, welcome]
+
+  - key: pharmacy.greeting.returning
+    name: "Saludo cliente recurrente"
+    description: |
+      Saluda cordialmente al cliente y ofrece ayuda.
+    metadata:
+      flow: greeting
+      tags: [greeting, returning]

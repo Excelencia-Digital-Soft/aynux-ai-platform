@@ -7,11 +7,14 @@ Used by nodes and handlers that need to generate responses.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 # Default system organization UUID
 SYSTEM_ORG_ID = UUID("00000000-0000-0000-0000-000000000000")
@@ -94,9 +97,58 @@ async def generate_response(
         return result.content
 
 
+# Task manager singleton for efficient caching
+_task_manager = None
+
+
+def _get_task_manager():
+    """Get or create TaskManager singleton."""
+    global _task_manager
+    if _task_manager is None:
+        from app.tasks import TaskManager
+
+        _task_manager = TaskManager()
+    return _task_manager
+
+
+async def get_current_task(
+    key: str,
+    variables: dict[str, Any] | None = None,
+) -> str:
+    """
+    Get current task description from YAML configuration.
+
+    This function loads task descriptions from YAML files in app/tasks/templates/.
+    Use TaskRegistry constants for type-safe key access.
+
+    Args:
+        key: Task key (e.g., TaskRegistry.PHARMACY_IDENTIFICATION_REQUEST_DNI)
+        variables: Optional variables for template substitution
+
+    Returns:
+        Task description string, rendered with variables if provided
+
+    Raises:
+        ValueError: If task not found
+
+    Example:
+        from app.tasks import TaskRegistry
+
+        task = await get_current_task(TaskRegistry.PHARMACY_GREETING_DEFAULT)
+        # Returns: "Saluda al cliente cordialmente y ofrece ayuda..."
+    """
+    manager = _get_task_manager()
+    try:
+        return await manager.get_task(key, variables)
+    except ValueError:
+        logger.warning(f"Task not found: {key}, returning empty string")
+        return ""
+
+
 __all__ = [
     "SYSTEM_ORG_ID",
     "get_organization_id",
     "get_db_session",
     "generate_response",
+    "get_current_task",
 ]

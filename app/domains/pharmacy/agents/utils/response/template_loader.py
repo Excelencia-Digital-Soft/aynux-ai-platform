@@ -42,16 +42,13 @@ class PharmacyTemplateLoader:
     Single Responsibility: Loading and caching YAML template files.
     """
 
-    SYSTEM_CONTEXT_FILE = "pharmacy/system_context.yaml"
-    CRITICAL_TEMPLATES_FILE = "pharmacy/critical_templates.yaml"
+    # New folder structure (2026-01-12)
+    SYSTEM_CONTEXT_FILE = "pharmacy/core/system_context.yaml"
+    CRITICAL_TEMPLATES_FILE = "pharmacy/critical/critical_templates.yaml"
 
-    # Fallback templates split into multiple files for maintainability
+    # Fallback templates consolidated into single file
     FALLBACK_TEMPLATES_FILES = [
-        "pharmacy/fallback_greeting.yaml",
-        "pharmacy/fallback_identification.yaml",
-        "pharmacy/fallback_payment.yaml",
-        "pharmacy/fallback_registration.yaml",
-        "pharmacy/fallback_errors.yaml",
+        "pharmacy/fallback/fallback.yaml",
     ]
 
     def __init__(self, templates_dir: Path | str | None = None) -> None:

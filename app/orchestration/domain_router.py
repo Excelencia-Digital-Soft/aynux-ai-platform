@@ -14,13 +14,17 @@ Routes incoming messages to appropriate domain services based on intent analysis
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, TypedDict
+from typing import Any, TypedDict, Union
 
 from app.orchestration.strategies import (
     AIBasedRoutingStrategy,
     HybridRoutingStrategy,
     KeywordRoutingStrategy,
+    RoutingResult,
 )
+
+# Type alias for any routing result
+AnyRoutingResult = Union[RoutingResult, Any]  # Any covers AI and Hybrid results
 
 logger = logging.getLogger(__name__)
 
@@ -142,8 +146,13 @@ class DomainRouter:
         self._stats["total_requests"] += 1
 
         try:
-            # Use configured strategy
-            result = await self.strategy.route(message, context)
+            # Use configured strategy (handle both sync and async routes)
+            # KeywordRoutingStrategy.route() is sync, others are async
+            if isinstance(self.strategy, KeywordRoutingStrategy):
+                result: AnyRoutingResult = self.strategy.route(message, context)
+            else:
+                # AIBasedRoutingStrategy and HybridRoutingStrategy are async
+                result = await self.strategy.route(message, context)
 
             # Validate domain is enabled
             domain = result.domain if result.domain in self.enabled_domains else self.default_domain
@@ -201,16 +210,21 @@ class DomainRouter:
             secondary_keywords: Supporting keywords
             patterns: Regex patterns
         """
-        if hasattr(self.strategy, "add_domain_keywords"):
-            from app.orchestration.strategies.keyword_routing import DomainKeywords
+        from app.orchestration.strategies.keyword_routing import DomainKeywords
 
-            config = DomainKeywords(
-                domain=domain,
-                primary_keywords=primary_keywords,
-                secondary_keywords=secondary_keywords or [],
-                patterns=patterns or [],
-            )
+        config = DomainKeywords(
+            domain=domain,
+            primary_keywords=primary_keywords,
+            secondary_keywords=secondary_keywords or [],
+            patterns=patterns or [],
+        )
+
+        # HybridRoutingStrategy has add_domain_keywords
+        if isinstance(self.strategy, HybridRoutingStrategy):
             self.strategy.add_domain_keywords(config)
+        # KeywordRoutingStrategy has add_domain
+        elif isinstance(self.strategy, KeywordRoutingStrategy):
+            self.strategy.add_domain(config)
 
     def get_available_domains(self) -> list[str]:
         """Get list of enabled domains."""

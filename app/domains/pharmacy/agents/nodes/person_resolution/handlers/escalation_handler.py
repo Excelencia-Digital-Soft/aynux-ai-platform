@@ -7,7 +7,8 @@ from typing import Any
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.base_handler import (
     PersonResolutionBaseHandler,
 )
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 
 
 class EscalationHandler(PersonResolutionBaseHandler):
@@ -43,15 +44,15 @@ class EscalationHandler(PersonResolutionBaseHandler):
             state=response_state,
             intent="identification_escalation",
             user_message="",
-            current_task="No se pudo identificar después de varios intentos. Sugiere contactar farmacia.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_ESCALATION),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": None,
             "requires_human": True,
             "escalation_reason": "identification_failed",
-            **self._preserve_all(state_dict),
         }
 
     async def escalate_name_verification_failure(
@@ -78,16 +79,16 @@ class EscalationHandler(PersonResolutionBaseHandler):
             state=response_state,
             intent="name_verification_escalation",
             user_message="",
-            current_task="No se pudo verificar identidad. Sugiere contactar farmacia.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_ESCALATION_VERIFICATION),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": None,
             "plex_customer_to_confirm": None,
             "requires_human": True,
             "escalation_reason": "name_verification_failed",
-            **self._preserve_all(state_dict),
         }
 
 

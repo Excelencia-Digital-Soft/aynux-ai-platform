@@ -1,0 +1,64 @@
+tasks:
+  - key: pharmacy.confirmation.request
+    name: "Solicitar Confirmacion"
+    description: |
+      Solicita una respuesta clara SI o NO.
+    metadata:
+      flow: confirmation
+      tags: [confirmation, yes_no]
+
+  - key: pharmacy.confirmation.cancelled
+    name: "Operacion Cancelada"
+    description: |
+      Confirma que la operacion fue cancelada.
+    metadata:
+      flow: confirmation
+      tags: [cancellation]
+
+  - key: pharmacy.confirmation.consulting_debt
+    name: "Consultando Deuda"
+    description: |
+      Informa que esta consultando la deuda.
+    metadata:
+      flow: confirmation
+      tags: [loading, debt]
+
+  - key: pharmacy.confirmation.error
+    name: "Error en Confirmacion"
+    description: |
+      Informa del error y sugiere consultar deuda manualmente.
+    metadata:
+      flow: confirmation
+      tags: [error]
+
+  - key: pharmacy.confirmation.not_identified
+    name: "No Identificado para Confirmar"
+    description: |
+      Informa que no se identifico al cliente.
+    metadata:
+      flow: confirmation
+      tags: [error, identification]
+
+  - key: pharmacy.confirmation.selected
+    name: "Cliente Seleccionado"
+    description: |
+      Confirma al cliente seleccionado y procede a consultar su deuda.
+    metadata:
+      flow: confirmation
+      tags: [selection, success]
+
+  - key: pharmacy.confirmation.payment_success
+    name: "Pago Exitoso"
+    description: |
+      Confirma que el pago fue procesado exitosamente.
+    metadata:
+      flow: confirmation
+      tags: [payment, success]
+
+  - key: pharmacy.confirmation.payment_link
+    name: "Enlace de Pago"
+    description: |
+      Proporciona el enlace de pago al cliente.
+    metadata:
+      flow: confirmation
+      tags: [payment, link]

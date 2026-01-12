@@ -77,7 +77,7 @@ class PharmacyIntentAnalyzer:
     LLM_TEMPERATURE = 0.2
 
     # YAML template path (relative to prompts/templates)
-    TEMPLATE_FILE = "pharmacy/intent_analyzer.yaml"
+    TEMPLATE_FILE = "pharmacy/core/intent_analyzer.yaml"
 
     # Cache patterns per organization to avoid reloading across calls
     _patterns_cache: dict[UUID, dict[str, Any]] = {}
@@ -109,7 +109,7 @@ class PharmacyIntentAnalyzer:
 
         # Template loading
         if templates_dir is None:
-            self._templates_dir = Path(__file__).parents[4] / "prompts" / "templates"
+            self._templates_dir = Path(__file__).parents[3] / "prompts" / "templates"
         else:
             self._templates_dir = Path(templates_dir)
         self._prompt_templates: dict[str, str] = {}

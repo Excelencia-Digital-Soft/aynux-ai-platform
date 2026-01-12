@@ -204,6 +204,10 @@ class PharmacyState(TypedDict):
     include_self_in_list: bool  # Include phone owner in person selection list
     self_plex_customer: dict[str, Any] | None  # PLEX customer matching phone (is_self=True)
 
+    # Account Selection State (for returning users with registered accounts)
+    registered_accounts_for_selection: list[dict[str, Any]] | None  # List of registered accounts to select from
+    account_count: int | None  # Number of accounts in selection list
+
     # Person Validation State
     validation_step: str | None  # "dni", "name", "confirm" - current validation step
     dni_requested: bool  # True if we already asked for DNI (distinguishes first time vs retry)
@@ -284,6 +288,186 @@ class PharmacyState(TypedDict):
     # =========================================================================
     person_selection_page: int  # Current page in person selection (0-indexed)
     person_selection_total_pages: int  # Total pages available
+
+
+# =============================================================================
+# Domain State Registry Interface
+# =============================================================================
+# These module-level constants and functions enable auto-discovery by
+# DomainStateRegistry for generic state management.
+
+DOMAIN_KEY = "pharmacy"
+"""Domain key for registry discovery."""
+
+STATE_CLASS = PharmacyState
+"""State TypedDict class for this domain."""
+
+
+def get_state_defaults() -> dict[str, Any]:
+    """
+    Return default values for all pharmacy state fields.
+
+    Used by DomainStateRegistry for generic state initialization.
+    """
+    return {
+        # Core messages (handled by reducer, but need initial value)
+        "messages": [],
+        # Customer Context
+        "customer_id": None,
+        "customer_name": None,
+        # Plex Customer Identification
+        "plex_customer_id": None,
+        "plex_customer": None,
+        "customer_identified": False,
+        "requires_disambiguation": False,
+        "disambiguation_candidates": None,
+        "awaiting_document_input": False,
+        "whatsapp_phone": None,
+        "normalized_phone": None,
+        # Customer Registration
+        "awaiting_registration_data": False,
+        "registration_step": None,
+        "registration_data": None,
+        "registration_document": None,
+        # Debt Context
+        "debt_id": None,
+        "debt_data": None,
+        "debt_status": None,
+        "total_debt": None,
+        "has_debt": False,
+        # Payment Context
+        "payment_amount": None,
+        "is_partial_payment": False,
+        "remaining_balance": None,
+        # Mercado Pago Payment Context
+        "mp_preference_id": None,
+        "mp_payment_id": None,
+        "mp_init_point": None,
+        "mp_payment_status": None,
+        "mp_external_reference": None,
+        "awaiting_payment": False,
+        "plex_receipt_number": None,
+        "plex_new_balance": None,
+        # Invoice/Receipt Context
+        "invoice_id": None,
+        "invoice_number": None,
+        "pdf_url": None,
+        "receipt_number": None,
+        # Workflow State
+        "workflow_step": None,
+        "awaiting_confirmation": False,
+        "confirmation_received": False,
+        # Intent and Routing
+        "current_intent": None,
+        "pharmacy_intent_type": None,
+        "extracted_entities": None,
+        # Auto-Flow Flags
+        "auto_proceed_to_invoice": False,
+        "auto_return_to_query": False,
+        "pending_data_query": None,
+        # Agent Flow State
+        "current_agent": None,
+        "next_agent": None,
+        "agent_history": [],
+        # Retrieved Data
+        "retrieved_data": {},
+        # Control Flow
+        "is_complete": False,
+        "is_out_of_scope": False,
+        "out_of_scope_handled": False,
+        "error_count": 0,
+        "max_errors": 3,
+        "requires_human": False,
+        # Routing Decisions
+        "routing_decision": None,
+        # Conversation Metadata
+        "conversation_id": None,
+        "timestamp": None,
+        # Bypass Indicator
+        "is_bypass_route": False,
+        # Multi-Tenant Context
+        "organization_id": None,
+        "pharmacy_id": None,
+        # Pharmacy Configuration
+        "pharmacy_name": None,
+        "pharmacy_phone": None,
+        # Greeting State
+        "greeted_today": False,
+        "last_greeting_date": None,
+        "pending_greeting": None,
+        "greeting_sent": False,
+        # Identification State
+        "just_identified": False,
+        "identification_step": None,
+        "identification_retries": 0,
+        # Person Resolution State
+        "registered_persons": None,
+        "active_registered_person_id": None,
+        "awaiting_person_selection": False,
+        "awaiting_own_or_other": False,
+        "is_querying_for_other": False,
+        "is_self": False,
+        # Person Selection State
+        "selection_list_shown": False,
+        "selection_options_map": None,
+        "include_self_in_list": False,
+        "self_plex_customer": None,
+        # Account Selection State
+        "registered_accounts_for_selection": None,
+        "account_count": None,
+        # Person Validation State
+        "validation_step": None,
+        "dni_requested": False,
+        "pending_dni": None,
+        "plex_candidates": None,
+        "is_new_person_flow": False,
+        "name_mismatch_count": 0,
+        "plex_customer_to_confirm": None,
+        "provided_name_to_confirm": None,
+        # Node Routing
+        "next_node": None,
+        # Partial Payment Flow State
+        "awaiting_partial_payment_question": False,
+        "awaiting_payment_amount_input": False,
+        "partial_payment_declined": False,
+        "minimum_payment_amount": None,
+        # Smart Debt Negotiation State
+        "auth_level": None,
+        "payment_options_map": None,
+        "selected_payment_option": None,
+        "awaiting_payment_option_selection": False,
+        # Entry Validation State
+        "validation_passed": False,
+        "rate_limited": False,
+        "rate_limit_reason": None,
+        "message_id": None,
+        "is_within_service_hours": False,
+        "service_hours_message": None,
+        "emergency_phone": None,
+        # Menu Navigation State
+        "current_menu": None,
+        "menu_history": None,
+        "show_reduced_menu": False,
+        "first_interaction_today": False,
+        "last_interaction_date": None,
+        # Debt Action Menu State
+        "awaiting_debt_action": False,
+        "debt_items": None,
+        "debt_fetched_at": None,
+        # Payment Confirmation State
+        "awaiting_payment_confirmation": False,
+        "payment_confirmation_shown": False,
+        # Help Center State
+        "help_submenu": None,
+        "escalation_reason": None,
+        "wants_callback_notification": False,
+        # Interruption Handling State
+        "pending_flow": None,
+        "pending_flow_context": None,
+        # Person Selection Pagination
+        "person_selection_page": 0,
+        "person_selection_total_pages": 0,
+    }
 
 
 # Alias for compatibility

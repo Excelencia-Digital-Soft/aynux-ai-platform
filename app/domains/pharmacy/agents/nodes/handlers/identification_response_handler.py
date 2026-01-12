@@ -12,10 +12,12 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from app.domains.pharmacy.agents.nodes.handlers.base_handler import BasePharmacyHandler
+from app.domains.pharmacy.agents.utils.db_helpers import get_current_task
 from app.domains.pharmacy.agents.utils.greeting_manager import GreetingManager
 from app.domains.pharmacy.agents.utils.response_generator import (
     PharmacyResponseGenerator,
 )
+from app.tasks import TaskRegistry
 
 if TYPE_CHECKING:
     from app.domains.pharmacy.domain.entities.plex_customer import PlexCustomer
@@ -67,13 +69,14 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         customer_identified = state.get("customer_identified")
 
         # Use different intent based on identification status
-        intent = "out_of_scope_identified" if customer_identified else "out_of_scope_not_identified"
+        # NOTE: out_of_scope_identified was identical to out_of_scope, so we use out_of_scope
+        intent = "out_of_scope" if customer_identified else "out_of_scope_not_identified"
 
         result_content = await self._generate_response(
             intent=intent,
             state=state,
             user_message=message,
-            current_task="Explica qué puedes hacer y sugiere contactar la farmacia para otros temas.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_FALLBACK_OUT_OF_SCOPE),
         )
 
         logger.info(f"Returning out-of-scope response for: '{message[:30]}...'")
@@ -139,7 +142,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             intent="welcome_message",
             state=state,
             user_message="",
-            current_task="Da la bienvenida y solicita el DNI para identificar al cliente.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_REQUEST_IDENTIFIER),
         )
 
         return {
@@ -172,7 +175,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             intent="registration_offer",
             state=state,
             user_message="",
-            current_task="Ofrece registrarse como nuevo cliente.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_OFFER_REGISTRATION),
         )
 
         result: dict[str, Any] = {
@@ -252,7 +255,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             intent="invalid_document",
             state=state,
             user_message="",
-            current_task="Informa que el documento no es válido y solicita el formato correcto.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_NAME_INVALID),
         )
 
         return {
@@ -282,7 +285,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             intent="document_reminder",
             state=state,
             user_message="",
-            current_task="Recuerda que necesita identificarse antes de realizar la acción.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_REQUIRE_ID),
         )
 
         return {

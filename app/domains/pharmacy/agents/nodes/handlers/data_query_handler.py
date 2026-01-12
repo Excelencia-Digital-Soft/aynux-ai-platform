@@ -11,6 +11,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.domains.pharmacy.agents.utils.db_helpers import get_current_task
+from app.tasks import TaskRegistry
+
 from .base_handler import BasePharmacyHandler
 
 
@@ -62,7 +65,7 @@ class DataQueryHandler(BasePharmacyHandler):
                 intent="data_query_no_data",
                 state=state,
                 user_message=message,
-                current_task="Informa que no hay datos de cuenta para la consulta.",
+                current_task=await get_current_task(TaskRegistry.PHARMACY_DATA_QUERY_NO_DATA),
             )
             return self._format_state_update(
                 message=response_content,
@@ -200,7 +203,7 @@ class DataQueryHandler(BasePharmacyHandler):
             intent="data_query_analyze",
             state=response_state,
             user_message=user_question,
-            current_task="Analiza los datos de deuda y responde la pregunta del cliente.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_DATA_QUERY_ANALYZE),
         )
 
         if response_content:

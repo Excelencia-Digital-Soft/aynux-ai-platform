@@ -55,7 +55,7 @@ class LLMNameMatcher:
     MATCH_THRESHOLD = 0.75
 
     # YAML template path (relative to prompts/templates)
-    TEMPLATE_FILE = "pharmacy/name_matcher.yaml"
+    TEMPLATE_FILE = "pharmacy/core/name_matcher.yaml"
 
     # Fallback prompt if template not found
     FALLBACK_PROMPT = """Eres un experto en comparación de nombres en español argentino.

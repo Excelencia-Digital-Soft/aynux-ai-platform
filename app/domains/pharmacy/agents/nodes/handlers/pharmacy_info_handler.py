@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.domains.pharmacy.agents.utils.db_helpers import get_current_task
 from app.domains.pharmacy.agents.utils.response_generator import (
     PharmacyResponseGenerator,
 )
+from app.tasks import TaskRegistry
 from app.domains.pharmacy.services import (
     CapabilityQuestionDetector,
     PharmacyHoursFormatter,
@@ -104,7 +106,7 @@ class PharmacyInfoHandler(BasePharmacyHandler):
             intent="info_query_capability",
             state=response_state,
             user_message="",
-            current_task="Explica las capacidades del bot.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_INFO_CAPABILITIES),
         )
 
         return self._format_state_update(
@@ -186,7 +188,7 @@ class PharmacyInfoHandler(BasePharmacyHandler):
             intent="info_query_no_info",
             state=response_state,
             user_message="",
-            current_task="Informa que no hay información disponible de la farmacia.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_INFO_NO_INFO),
         )
 
         return self._format_state_update(
@@ -230,7 +232,7 @@ class PharmacyInfoHandler(BasePharmacyHandler):
             intent="info_query_generate",
             state=response_state,
             user_message=user_question,
-            current_task="Responde la pregunta sobre información de la farmacia.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_INFO_QUERY),
         )
 
         if result_content:
@@ -324,7 +326,7 @@ class PharmacyInfoHandler(BasePharmacyHandler):
                 "customer_name": customer_name,
                 "pharmacy_name": pharmacy_name,
             },
-            yaml_file="pharmacy/fallback_templates.yaml",
+            yaml_file="pharmacy/fallback/fallback.yaml",
         )
 
     def _get_fallback_info_response(

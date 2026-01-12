@@ -95,7 +95,7 @@ class PersonResolutionBaseHandler(BasePharmacyHandler):
         self,
         message: str,
         intent_key: str,
-        state_dict: dict[str, Any],
+        state: dict[str, Any],
     ) -> bool:
         """
         Check if message matches confirmation patterns for an intent.
@@ -105,7 +105,7 @@ class PersonResolutionBaseHandler(BasePharmacyHandler):
         Args:
             message: User message (should be lowercase, stripped)
             intent_key: Intent key to match against (e.g., 'welcome_existing_client')
-            state_dict: State dict with organization_id
+            state: State dict with organization_id
 
         Returns:
             True if message matches any pattern (exact or contains)
@@ -115,7 +115,7 @@ class PersonResolutionBaseHandler(BasePharmacyHandler):
         from app.core.cache.domain_intent_cache import domain_intent_cache
         from app.database.async_db import get_async_db_context
 
-        org_id = state_dict.get("organization_id")
+        org_id = state.get("organization_id")
         if not org_id:
             self.logger.warning("No organization_id in state for pattern matching")
             return False

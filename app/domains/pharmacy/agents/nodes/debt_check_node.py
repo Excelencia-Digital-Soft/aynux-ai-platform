@@ -39,7 +39,8 @@ from app.domains.pharmacy.agents.nodes.handlers.payment_confirmation_handler imp
 from app.domains.pharmacy.agents.nodes.handlers.payment_option_handler import (
     PaymentOptionHandler,
 )
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 from app.domains.pharmacy.agents.utils.debt_formatter_service import DebtFormatterService
 from app.domains.pharmacy.agents.utils.plex_debt_mapper import PlexDebtMapper
 from app.domains.pharmacy.agents.utils.response_generator import (
@@ -384,7 +385,7 @@ class DebtCheckNode(BaseAgent):
             state={},
             intent="no_customer",
             user_message="",
-            current_task="Informa que no se identificó al cliente y pide DNI.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_NOT_IDENTIFIED),
         )
 
         return {
@@ -400,7 +401,7 @@ class DebtCheckNode(BaseAgent):
             state={"customer_name": customer_name},
             intent="no_debt",
             user_message="",
-            current_task="Informa que el cliente no tiene deuda pendiente.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_DEBT_NO_DEBT),
         )
 
         return {
@@ -418,7 +419,7 @@ class DebtCheckNode(BaseAgent):
             state=state_dict,
             intent="generic_error",
             user_message="",
-            current_task="Informa del error y pide que intente de nuevo.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_DEBT_ERROR),
         )
 
         return {

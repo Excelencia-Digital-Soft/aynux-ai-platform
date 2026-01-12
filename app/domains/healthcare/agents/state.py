@@ -95,5 +95,75 @@ class HealthcareState(TypedDict):
     timestamp: str | None
 
 
+# =============================================================================
+# Domain State Registry Interface
+# =============================================================================
+# These module-level constants and functions enable auto-discovery by
+# DomainStateRegistry for generic state management.
+
+DOMAIN_KEY = "healthcare"
+"""Domain key for registry discovery."""
+
+STATE_CLASS = HealthcareState
+"""State TypedDict class for this domain."""
+
+
+def get_state_defaults() -> dict[str, Any]:
+    """
+    Return default values for all healthcare state fields.
+
+    Used by DomainStateRegistry for generic state initialization.
+    """
+    return {
+        # Core messages
+        "messages": [],
+        # Patient context
+        "patient": None,
+        "patient_id": None,
+        "patient_phone": None,
+        # Healthcare specific context
+        "current_appointment": None,
+        "upcoming_appointments": None,
+        "medical_history": None,
+        # Intent and routing
+        "current_intent": None,
+        "healthcare_intent_type": None,
+        # Agent flow state
+        "current_agent": None,
+        "next_agent": None,
+        "agent_history": [],
+        # Responses and data
+        "agent_responses": [],
+        "retrieved_data": {},
+        # Appointment specific
+        "available_slots": None,
+        "selected_slot": None,
+        "appointment_confirmation": None,
+        "doctor_info": None,
+        # Triage specific
+        "triage_priority": None,
+        "symptoms": None,
+        "vital_signs": None,
+        "wait_time_estimate": None,
+        # Medical records specific
+        "recent_visits": None,
+        "prescriptions": None,
+        "lab_results": None,
+        # Emergency handling
+        "is_emergency": False,
+        "emergency_instructions": None,
+        # Control flow
+        "is_complete": False,
+        "error_count": 0,
+        "max_errors": 3,
+        "requires_human": False,
+        # Routing decisions
+        "routing_decision": None,
+        # Conversation metadata
+        "conversation_id": None,
+        "timestamp": None,
+    }
+
+
 # Alias for compatibility
 HealthcareDomainState = HealthcareState

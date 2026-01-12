@@ -1,0 +1,24 @@
+tasks:
+  - key: pharmacy.info.query
+    name: "Consulta de Informacion"
+    description: |
+      Responde la pregunta sobre informacion de la farmacia.
+    metadata:
+      flow: info
+      tags: [info, query]
+
+  - key: pharmacy.info.no_info
+    name: "Sin Informacion"
+    description: |
+      Informa que no hay informacion disponible de la farmacia.
+    metadata:
+      flow: info
+      tags: [no_info]
+
+  - key: pharmacy.info.capabilities
+    name: "Capacidades"
+    description: |
+      Explica las capacidades del bot.
+    metadata:
+      flow: info
+      tags: [capabilities]

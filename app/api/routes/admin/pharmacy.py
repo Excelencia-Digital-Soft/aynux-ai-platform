@@ -115,6 +115,19 @@ async def send_test_message(
         if existing_session:
             session = existing_session
             previous_messages = deserialize_messages(session.messages)
+
+            # SAFETY: Validate session state consistency
+            # If identification_step is set, customer SHOULD NOT be identified yet
+            if session.identification_step is not None and session.customer_identified:
+                logger.warning(
+                    f"[SESSION] Inconsistent state in session {session_id}: "
+                    f"identification_step={session.identification_step} but "
+                    f"customer_identified={session.customer_identified}. "
+                    f"Resetting identification state."
+                )
+                session.customer_identified = False
+                session.plex_customer_id = None
+                session.plex_customer = None
         else:
             session = PharmacySessionState(
                 session_id=session_id,

@@ -85,22 +85,22 @@ class DebtActionHandler(BasePharmacyHandler):
         debt_items = state.get("debt_items", [])
         parser = self._get_parser()
 
-        # Option 1: Pay total
-        if message_clean in {"1", "1️⃣", "total", "pagar todo", "pagar total"}:
+        # Option 1: Pay total (DB-driven pattern matching)
+        if await self._match_confirmation_pattern(message_clean, "debt_menu_pay_total", state):
             return self._handle_pay_total(customer_name, payment_options, total_debt)
 
-        # Option 2: Pay partial
-        if message_clean in {"2", "2️⃣", "parcial", "pagar parcial"}:
+        # Option 2: Pay partial (DB-driven pattern matching)
+        if await self._match_confirmation_pattern(message_clean, "debt_menu_pay_partial", state):
             return await self._handle_pay_partial(
                 customer_name, total_debt, payment_options, state
             )
 
-        # Option 3: View invoice details
-        if message_clean in {"3", "3️⃣", "detalle", "detalles", "facturas", "ver detalle"}:
+        # Option 3: View invoice details (DB-driven pattern matching)
+        if await self._match_confirmation_pattern(message_clean, "debt_menu_view_details", state):
             return self._handle_view_details(debt_items, total_debt)
 
-        # Option 4: Return to main menu
-        if message_clean in {"4", "4️⃣", "menu", "menú", "volver", "salir"}:
+        # Option 4: Return to main menu (DB-driven pattern matching)
+        if await self._match_confirmation_pattern(message_clean, "debt_menu_return", state):
             return self._handle_return_to_menu(total_debt)
 
         # Check if user entered a specific amount directly
@@ -275,7 +275,11 @@ class DebtActionHandler(BasePharmacyHandler):
         self,
         state: dict[str, Any],
     ) -> PharmacyConfig | None:
-        """Load pharmacy config from database."""
+        """
+        Load pharmacy config from database.
+
+        Prefers pharmacy_id (specific pharmacy) over organization_id (may have multiple).
+        """
         if self._pharmacy_config is not None:
             return self._pharmacy_config
 
@@ -283,14 +287,33 @@ class DebtActionHandler(BasePharmacyHandler):
 
         from app.core.tenancy.pharmacy_config_service import PharmacyConfigService
 
+        # Prefer pharmacy_id if available (more specific, avoids multiple rows issue)
+        pharmacy_id_str = state.get("pharmacy_id")
         org_id_str = state.get("organization_id")
-        if not org_id_str:
+
+        if not pharmacy_id_str and not org_id_str:
             return None
 
         try:
-            org_id = UUID(str(org_id_str)) if not isinstance(org_id_str, UUID) else org_id_str
             async with await self._get_db_session() as db:
                 config_service = PharmacyConfigService(db)
+
+                # Try pharmacy_id first (specific pharmacy)
+                if pharmacy_id_str:
+                    pharmacy_id = (
+                        UUID(str(pharmacy_id_str))
+                        if not isinstance(pharmacy_id_str, UUID)
+                        else pharmacy_id_str
+                    )
+                    self._pharmacy_config = await config_service.get_config_by_id(pharmacy_id)
+                    return self._pharmacy_config
+
+                # Fall back to organization_id
+                org_id = (
+                    UUID(str(org_id_str))
+                    if not isinstance(org_id_str, UUID)
+                    else org_id_str
+                )
                 self._pharmacy_config = await config_service.get_config(org_id)
                 return self._pharmacy_config
         except Exception as e:

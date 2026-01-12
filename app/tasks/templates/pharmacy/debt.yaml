@@ -1,0 +1,24 @@
+tasks:
+  - key: pharmacy.debt.show_info
+    name: "Mostrar Informacion de Deuda"
+    description: |
+      Muestra la informacion de deuda del cliente.
+    metadata:
+      flow: debt
+      tags: [debt, info]
+
+  - key: pharmacy.debt.no_debt
+    name: "Sin Deuda"
+    description: |
+      Informa que el cliente no tiene deuda pendiente.
+    metadata:
+      flow: debt
+      tags: [debt, no_debt]
+
+  - key: pharmacy.debt.error
+    name: "Error al Consultar Deuda"
+    description: |
+      Informa del error y pide que intente de nuevo.
+    metadata:
+      flow: debt
+      tags: [error, debt]

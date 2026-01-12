@@ -159,6 +159,9 @@ def build_graph_state(
         "name_mismatch_count": session.name_mismatch_count,
         "awaiting_own_or_other": session.awaiting_own_or_other,
         "validation_step": session.validation_step,
+        # Account selection state
+        "registered_accounts_for_selection": session.registered_accounts_for_selection,
+        "account_count": session.account_count,
     }
 
 
@@ -207,6 +210,9 @@ def update_session_from_result(
     session.name_mismatch_count = result.get("name_mismatch_count", 0)
     session.awaiting_own_or_other = result.get("awaiting_own_or_other", False)
     session.validation_step = result.get("validation_step")
+    # Account selection state
+    session.registered_accounts_for_selection = result.get("registered_accounts_for_selection")
+    session.account_count = result.get("account_count")
 
 
 # ============================================================

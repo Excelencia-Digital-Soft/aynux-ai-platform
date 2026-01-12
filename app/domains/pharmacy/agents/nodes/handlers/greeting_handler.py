@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 from app.domains.pharmacy.agents.utils.response_generator import (
     PharmacyResponseGenerator,
     get_response_generator,
@@ -59,15 +60,10 @@ class GreetingHandler(BasePharmacyHandler):
 
         # Use ResponseGenerator for LLM-driven greeting
         response_content = await generate_response(
-
             state=state,
-
             intent="greeting",
-
             user_message=message,
-
-            current_task="Saluda al cliente cordialmente y ofrece ayuda con lo que puedes hacer.",
-
+            current_task=await get_current_task(TaskRegistry.PHARMACY_GREETING_DEFAULT),
         )
 
         return self._format_state_update(

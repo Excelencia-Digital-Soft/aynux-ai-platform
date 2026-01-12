@@ -12,7 +12,8 @@ from app.domains.pharmacy.agents.nodes.person_resolution.constants import (
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.base_handler import (
     PersonResolutionBaseHandler,
 )
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 
 if TYPE_CHECKING:
     from app.domains.pharmacy.agents.nodes.person_resolution.services.person_identification_service import (
@@ -69,9 +70,13 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
         Returns:
             State updates
         """
+        self.logger.info(f"[IDENT] handle() called with message='{message[:50]}...'")
+
         service = self._get_identification_service()
         identifier = service.normalize_identifier(message)
         retries = state_dict.get("identification_retries", 0)
+
+        self.logger.info(f"[IDENT] normalized identifier={identifier}, retries={retries}")
 
         if not identifier:
             # Invalid format
@@ -79,20 +84,25 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
                 state=state_dict,
                 intent="invalid_identifier_format",
                 user_message=message,
-                current_task="El formato del identificador no es válido. Pide que reintente.",
+                current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_IDENTIFIER_INVALID),
             )
             return {
+                **self._preserve_all(state_dict),
                 "messages": [{"role": "assistant", "content": response_content}],
                 "identification_step": STEP_AWAITING_IDENTIFIER,
-                **self._preserve_all(state_dict),
             }
 
         # Extract name if provided alongside identifier
         # E.g., "2259863 Pedrozo Adela" → identifier="2259863", name="Pedrozo Adela"
         provided_name = self._extract_name_from_message(message, identifier)
+        self.logger.info(f"[IDENT] extracted provided_name='{provided_name}'")
 
         # Search PLEX
         plex_customer = await service.search_by_identifier(identifier)
+        self.logger.info(
+            f"[IDENT] plex_customer found={plex_customer is not None}, "
+            f"nombre={plex_customer.get('nombre') if plex_customer else 'N/A'}"
+        )
 
         if plex_customer:
             # If name was provided, try to verify directly
@@ -105,15 +115,20 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
                 similarity = service.calculate_name_similarity(
                     provided_name, expected_name
                 )
+                self.logger.info(
+                    f"[IDENT] name verification: provided='{provided_name}', "
+                    f"expected='{expected_name}', similarity={similarity:.2f}, "
+                    f"threshold={NAME_MATCH_THRESHOLD}"
+                )
 
                 if similarity >= NAME_MATCH_THRESHOLD:
                     # Name matches - complete identification directly
                     return {
+                        **self._preserve_all(state_dict),
                         "identification_complete": True,
                         "plex_customer_verified": plex_customer,
                         "identification_step": STEP_NAME,
                         "plex_customer_to_confirm": plex_customer,
-                        **self._preserve_all(state_dict),
                     }
 
             # Name not provided or doesn't match - ask for verification
@@ -125,9 +140,9 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
         if retries >= MAX_IDENTIFICATION_RETRIES:
             # Signal escalation needed
             return {
+                **self._preserve_all(state_dict),
                 "identification_failed": True,
                 "identification_retries": retries,
-                **self._preserve_all(state_dict),
             }
 
         # Ask to retry
@@ -141,14 +156,14 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
             state=response_state,
             intent="identifier_not_found",
             user_message=message,
-            current_task="No se encontró cliente con ese dato. Ofrece reintentar, registrarse o contactar.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_IDENTIFIER_NOT_FOUND),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_AWAITING_IDENTIFIER,
             "identification_retries": retries,
-            **self._preserve_all(state_dict),
         }
 
     def _extract_name_from_message(
@@ -210,15 +225,15 @@ class IdentifierFlowHandler(PersonResolutionBaseHandler):
             state=state_dict,
             intent="request_name_verification",
             user_message="",
-            current_task="Pide que ingrese su nombre completo para verificar identidad.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_NAME_VERIFICATION),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_NAME,
             "plex_customer_to_confirm": plex_customer,
             "name_mismatch_count": 0,
-            **self._preserve_all(state_dict),
         }
 
 

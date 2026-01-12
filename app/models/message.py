@@ -160,7 +160,7 @@ class ChattigoToWhatsAppAdapter:
         wa_type = type_mapping.get(message_type, "text")
 
         return WhatsAppMessage(
-            **{
+            **{  # type: ignore[reportCallIssue]
                 "from": msisdn,
                 "id": message_id,
                 "timestamp": timestamp,

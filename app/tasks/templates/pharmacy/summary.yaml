@@ -1,0 +1,16 @@
+tasks:
+  - key: pharmacy.summary.generate
+    name: "Generar Resumen"
+    description: |
+      Genera un resumen de los productos y deuda del cliente.
+    metadata:
+      flow: summary
+      tags: [summary, products]
+
+  - key: pharmacy.summary.no_data
+    name: "Sin Datos para Resumen"
+    description: |
+      Informa que no hay datos de productos para resumir.
+    metadata:
+      flow: summary
+      tags: [no_data]

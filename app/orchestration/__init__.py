@@ -18,10 +18,9 @@ Domain Graphs are available via direct import from their respective modules:
 """
 
 # High-level domain orchestrator
-from .super_orchestrator import SuperOrchestrator
-
-# Domain routing
-from .domain_router import DomainRouter, RoutingDecision
+# Re-export graph-level agents from their new locations
+# These are tightly coupled with the LangGraph execution model
+from app.core.graph.agents import OrchestratorAgent, SupervisorAgent
 
 # Context management
 from .context_manager import (
@@ -30,27 +29,35 @@ from .context_manager import (
     get_context_manager,
 )
 
+# Domain routing
+from .domain_router import DomainRouter, RoutingDecision
+
+# Domain state registry
+from .domain_state_registry import DomainStateRegistry
+
 # Orchestration state
 from .state import (
-    OrchestrationState,
     DomainContext,
+    OrchestrationState,
     create_initial_state,
+    ensure_domain_initialized,
     extract_domain_context,
+    extract_domain_fields_from_result,
+    # Domain state helpers
+    get_domain_state,
+    update_domain_state,
     update_state_after_domain,
 )
 
 # Routing strategies
 from .strategies import (
-    KeywordRoutingStrategy,
     AIBasedRoutingStrategy,
-    HybridRoutingStrategy,
-    DomainKeywords,
     DomainDescription,
+    DomainKeywords,
+    HybridRoutingStrategy,
+    KeywordRoutingStrategy,
 )
-
-# Re-export graph-level agents from their new locations
-# These are tightly coupled with the LangGraph execution model
-from app.core.graph.agents import OrchestratorAgent, SupervisorAgent
+from .super_orchestrator import SuperOrchestrator
 
 __all__ = [
     # Super Orchestrator (domain-level routing)
@@ -68,6 +75,13 @@ __all__ = [
     "create_initial_state",
     "extract_domain_context",
     "update_state_after_domain",
+    # Domain state helpers
+    "get_domain_state",
+    "update_domain_state",
+    "ensure_domain_initialized",
+    "extract_domain_fields_from_result",
+    # Domain state registry
+    "DomainStateRegistry",
     # Routing Strategies
     "KeywordRoutingStrategy",
     "AIBasedRoutingStrategy",

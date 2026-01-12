@@ -12,11 +12,13 @@ import logging
 from typing import Any
 
 from app.domains.pharmacy.agents.nodes.handlers.base_handler import BasePharmacyHandler
+from app.domains.pharmacy.agents.utils.db_helpers import get_current_task
 from app.domains.pharmacy.agents.utils.greeting_manager import GreetingManager
 from app.domains.pharmacy.agents.utils.response_generator import (
     PharmacyResponseGenerator,
 )
 from app.domains.pharmacy.domain.entities.plex_customer import PlexCustomer
+from app.tasks import TaskRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +189,7 @@ class DisambiguationHandler(BasePharmacyHandler):
             intent="request_dni_disambiguation",
             state=state,
             user_message="",
-            current_task="Solicita el número de documento para identificar al cliente.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_MULTIPLE_MATCHES),
         )
 
         return {
