@@ -14,8 +14,6 @@ from app.domains.excelencia.domain.services import (
 from app.domains.excelencia.domain.value_objects import (
     LicenseType,
     ModuleType,
-    SupportPriority,
-    SupportTicketStatus,
 )
 
 __all__ = [
@@ -31,7 +29,5 @@ __all__ = [
     "IModuleRepository",
     # Value Objects
     "ModuleType",
-    "SupportTicketStatus",
-    "SupportPriority",
     "LicenseType",
 ]

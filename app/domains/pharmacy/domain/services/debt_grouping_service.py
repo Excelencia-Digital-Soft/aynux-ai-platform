@@ -153,7 +153,10 @@ class DebtGroupingService:
             if not group_items:
                 continue
 
-            total = sum(cls._get_item_amount(item) for item in group_items)
+            total = sum(
+                (cls._get_item_amount(item) for item in group_items),
+                start=Decimal(0),
+            )
 
             group = InvoiceGroup(
                 invoice_number=invoice_number,

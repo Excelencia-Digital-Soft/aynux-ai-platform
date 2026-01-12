@@ -1,0 +1,354 @@
+# Pharmacy Fallback Templates - Pagos y Deudas
+# Extraído de fallback_templates.yaml para mejor mantenibilidad
+# Contiene templates de consulta de deuda, pagos, confirmaciones y resúmenes
+
+prompts:
+  # =========================================================================
+  # CONSULTA DE DEUDA (DebtCheckNode)
+  # =========================================================================
+
+  - key: pharmacy.fallback.debt_query
+    name: Debt Query Fallback
+    description: Mostrar deuda cuando LLM falla
+    version: "1.0.0"
+    template: |
+      **Consulta de Deuda**
+
+      Hola {customer_name},
+
+      Tu deuda pendiente es de **{total_debt}**
+
+      Para confirmar y proceder con el pago, responde *SI*.
+      Para cancelar, responde *NO*.
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - total_debt
+
+  - key: pharmacy.fallback.no_debt
+    name: No Debt Found
+    description: Cliente sin deuda
+    version: "1.0.0"
+    template: |
+      {customer_name}, no tienes deudas pendientes.
+
+      ¿Hay algo más en que pueda ayudarte?
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  - key: pharmacy.fallback.no_customer
+    name: No Customer Identified
+    description: Cliente no identificado
+    version: "1.0.0"
+    template: |
+      No pude identificar tu cuenta.
+      Por favor escribe tu número de DNI para buscarte.
+    metadata:
+      variables:
+        required: []
+
+  # =========================================================================
+  # PAGOS PARCIALES
+  # =========================================================================
+
+  - key: pharmacy.fallback.partial_payment_offer
+    name: Partial Payment Offer
+    description: Oferta de pago parcial
+    version: "1.0.0"
+    template: |
+      Entendido. ¿Te gustaría hacer un **pago parcial** de tu deuda?
+
+      Tu deuda total es **{total_debt}**.
+      Puedes pagar cualquier monto desde **{min_payment}**.
+
+      ¿Querés realizar un pago parcial? Responde *SI* o *NO*.
+    metadata:
+      variables:
+        required:
+          - total_debt
+          - min_payment
+
+  - key: pharmacy.fallback.amount_request
+    name: Amount Request
+    description: Solicitar monto de pago
+    version: "1.0.0"
+    template: |
+      Perfecto. ¿Cuánto deseas pagar?
+
+      Tu deuda total: **{total_debt}**
+      Monto mínimo: **{min_payment}**
+
+      Escribe el monto que deseas abonar (ej: *5000* o *pagar 5000*).
+    metadata:
+      variables:
+        required:
+          - total_debt
+          - min_payment
+
+  - key: pharmacy.fallback.invalid_amount_input
+    name: Invalid Amount Input
+    description: Monto inválido ingresado
+    version: "1.0.0"
+    template: |
+      No pude identificar el monto.
+      Por favor escribe la cantidad que deseas pagar (ej: *5000*).
+
+      Monto mínimo: **{min_payment}**
+    metadata:
+      variables:
+        required:
+          - min_payment
+
+  - key: pharmacy.fallback.amount_below_minimum
+    name: Amount Below Minimum
+    description: Monto por debajo del mínimo
+    version: "1.0.0"
+    template: |
+      El monto mínimo de pago es **{min_payment}**.
+
+      Por favor ingresa un monto igual o mayor.
+    metadata:
+      variables:
+        required:
+          - min_payment
+
+  - key: pharmacy.fallback.amount_above_debt
+    name: Amount Above Debt
+    description: Monto superior a la deuda
+    version: "1.0.0"
+    template: |
+      El monto ingresado ({amount}) es mayor a tu deuda ({total_debt}).
+
+      Por favor ingresa un monto igual o menor a tu deuda.
+    metadata:
+      variables:
+        required:
+          - amount
+          - total_debt
+
+  # =========================================================================
+  # CONFIRMACIÓN DE PAGOS
+  # =========================================================================
+
+  - key: pharmacy.fallback.payment_confirmed
+    name: Payment Confirmed
+    description: Pago confirmado
+    version: "1.0.0"
+    template: |
+      Perfecto {customer_name}, generando link de pago por **{amount}**.
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - amount
+
+  - key: pharmacy.fallback.partial_payment_confirmed
+    name: Partial Payment Confirmed
+    description: Pago parcial confirmado
+    version: "1.0.0"
+    template: |
+      Perfecto {customer_name}, generando link de pago por **{amount}**.
+
+      Saldo restante después del pago: **{remaining}**
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - amount
+          - remaining
+
+  - key: pharmacy.fallback.payment_declined
+    name: Payment Declined
+    description: Pago rechazado
+    version: "1.0.0"
+    template: |
+      Entendido {customer_name}. Tu deuda de **{total_debt}** queda pendiente.
+
+      ¿Hay algo más en que pueda ayudarte?
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - total_debt
+
+  - key: pharmacy.fallback.unclear_confirmation
+    name: Unclear Confirmation
+    description: Confirmación no clara
+    version: "1.0.0"
+    template: |
+      Disculpa {customer_name}, no entendí tu respuesta.
+      ¿Deseas confirmar el pago? Responde *SI* o *NO*.
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  # =========================================================================
+  # CONFIRMACIÓN (ConfirmationNode)
+  # =========================================================================
+
+  - key: pharmacy.fallback.confirmation_cancelled
+    name: Confirmation Cancelled
+    description: Confirmación cancelada
+    version: "1.0.0"
+    template: |
+      Entendido, la confirmación ha sido cancelada.
+
+      ¿Hay algo más en que pueda ayudarte?
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.request_clear_confirmation
+    name: Request Clear Confirmation
+    description: Solicitar confirmación clara
+    version: "1.0.0"
+    template: |
+      Por favor responde *SI* para confirmar tu deuda o *NO* para cancelar.
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.auto_fetching_debt
+    name: Auto Fetching Debt
+    description: Consultando deuda automáticamente
+    version: "1.0.0"
+    template: |
+      Espera un momento, te voy a mostrar tu deuda...
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.confirmation_no_customer
+    name: Confirmation No Customer
+    description: Sin cliente para confirmar
+    version: "1.0.0"
+    template: |
+      No pude identificar tu cuenta.
+      Por favor contacta a soporte para asistencia.
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.confirmation_error
+    name: Confirmation Error
+    description: Error en confirmación
+    version: "1.0.0"
+    template: |
+      Disculpa, tuve un problema procesando la confirmación.
+      Por favor intenta de nuevo.
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.debt_confirmed_full
+    name: Debt Confirmed Full
+    description: Deuda confirmada (pago total)
+    version: "1.0.0"
+    template: |
+      Tu deuda de **{total_debt}** ha sido confirmada.
+
+      Generando link de pago...
+    metadata:
+      variables:
+        required:
+          - total_debt
+
+  - key: pharmacy.fallback.debt_confirmed_partial
+    name: Debt Confirmed Partial
+    description: Deuda confirmada (pago parcial)
+    version: "1.0.0"
+    template: |
+      Tu pago parcial de **{payment_amount}** ha sido confirmado.
+
+      **Resumen:**
+      - Deuda total: {total_debt}
+      - Monto a pagar: {payment_amount}
+      - Saldo pendiente: {remaining_balance}
+
+      Generando link de pago...
+    metadata:
+      variables:
+        required:
+          - payment_amount
+          - total_debt
+          - remaining_balance
+
+  # =========================================================================
+  # CONSULTA DE DATOS (DataQueryHandler)
+  # =========================================================================
+
+  - key: pharmacy.fallback.data_query_no_data
+    name: Data Query No Data
+    description: Sin datos para consulta
+    version: "1.0.0"
+    template: |
+      Hola {customer_name}, no tengo información de tu cuenta para responder esa pregunta.
+
+      Por favor escribe *deuda* para consultar tu saldo pendiente.
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  - key: pharmacy.fallback.data_query_analyze
+    name: Data Query Analyze
+    description: Análisis de datos de deuda
+    version: "1.0.0"
+    template: |
+      **{customer_name}**, aquí está la información de tu cuenta:
+
+      📦 **Total:** {total_debt}
+      📄 **Facturas:** {invoice_count}
+
+      {debt_details}
+
+      ¿Necesitas más detalles? Escribe *deuda* para ver el listado completo.
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - total_debt
+          - invoice_count
+          - debt_details
+
+  # =========================================================================
+  # RESUMEN (SummaryHandler)
+  # =========================================================================
+
+  - key: pharmacy.fallback.summary_no_data
+    name: Summary No Data
+    description: Sin datos para resumen
+    version: "1.0.0"
+    template: |
+      Hola {customer_name}, no tengo información de productos para resumir.
+
+      Primero necesito que consultes tu deuda. Escribe *deuda* o *cuánto debo*.
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  - key: pharmacy.fallback.summary_generate
+    name: Summary Generate
+    description: Resumen de deuda
+    version: "1.0.0"
+    template: |
+      **Resumen de tu cuenta, {customer_name}**
+
+      📦 **Productos:** {item_count}
+      💰 **Total:** {total_debt}
+
+      {items_list}
+
+      Para ver el detalle completo, escribe *deuda*.
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - item_count
+          - total_debt
+          - items_list

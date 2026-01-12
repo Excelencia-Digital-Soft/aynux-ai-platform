@@ -278,3 +278,10 @@ The agent is registered in:
 3. **Or via API**: `POST /admin/agents/{agent_id}/toggle`
 
 The agent must be enabled in `core.agents` table with `enabled=true`.
+
+## Development Rules
+
+See `CLAUDE.md` for critical development rules including:
+
+- **Section 5**: Prompt service usage - all prompts in `app/prompts/templates/pharmacy/`
+- **Section 6**: Database-driven spaCy intent patterns - NO hardcoding

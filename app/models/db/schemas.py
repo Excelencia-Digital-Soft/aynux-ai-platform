@@ -7,6 +7,7 @@ into logical groups:
 - healthcare: Healthcare domain (patients, doctors, appointments)
 - credit: Credit/finance domain (accounts, payments)
 - soporte: Support/incidents domain (tickets, categories, Jira integration)
+- pharmacy: Pharmacy domain (merchant configs, registered persons)
 """
 
 # Core system schema - auth, tenancy, and shared resources
@@ -27,8 +28,11 @@ SOPORTE_SCHEMA = "soporte"
 # Excelencia domain schema (Software Excelencia ERP)
 EXCELENCIA_SCHEMA = "excelencia"
 
+# Pharmacy domain schema (Farmacia operations)
+PHARMACY_SCHEMA = "pharmacy"
+
 # Default search path for SQLAlchemy connections
-DEFAULT_SEARCH_PATH = f"public,{CORE_SCHEMA},{ECOMMERCE_SCHEMA},{HEALTHCARE_SCHEMA},{CREDIT_SCHEMA},{SOPORTE_SCHEMA},{EXCELENCIA_SCHEMA}"
+DEFAULT_SEARCH_PATH = f"public,{CORE_SCHEMA},{ECOMMERCE_SCHEMA},{HEALTHCARE_SCHEMA},{CREDIT_SCHEMA},{SOPORTE_SCHEMA},{EXCELENCIA_SCHEMA},{PHARMACY_SCHEMA}"
 
 # All managed schemas (for Alembic configuration)
 MANAGED_SCHEMAS = frozenset({
@@ -39,4 +43,5 @@ MANAGED_SCHEMAS = frozenset({
     CREDIT_SCHEMA,
     SOPORTE_SCHEMA,
     EXCELENCIA_SCHEMA,
+    PHARMACY_SCHEMA,
 })

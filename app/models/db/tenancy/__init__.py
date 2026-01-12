@@ -21,10 +21,12 @@ from .chattigo_credentials import ChattigoCredentials
 from .organization import Organization
 from .organization_user import OrganizationUser
 from .pharmacy_merchant_config import PharmacyMerchantConfig
+from .registered_person import RegisteredPerson
 from .tenant_agent import TenantAgent
 from .tenant_config import TenantConfig
 from .tenant_credentials import TenantCredentials
 from .tenant_document import TenantDocument
+from .tenant_institution_config import TenantInstitutionConfig
 from .tenant_prompt import TenantPrompt
 
 __all__ = [
@@ -33,9 +35,11 @@ __all__ = [
     "Organization",
     "OrganizationUser",
     "PharmacyMerchantConfig",
+    "RegisteredPerson",
     "TenantConfig",
     "TenantCredentials",
     "TenantAgent",
+    "TenantInstitutionConfig",
     "TenantPrompt",
     "TenantDocument",
 ]

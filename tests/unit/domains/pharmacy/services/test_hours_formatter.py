@@ -27,7 +27,10 @@ class TestPharmacyHoursFormatter:
             assert result == "Abierto 24 horas, todos los días"
 
         def test_formats_regular_hours(self, formatter: PharmacyHoursFormatter):
-            """Test formatting regular hours dictionary."""
+            """Test formatting regular hours dictionary.
+
+            The formatter groups consecutive days with the same hours for better UX.
+            """
             info = {
                 "hours": {
                     "Lunes": "08:00 - 20:00",
@@ -37,9 +40,10 @@ class TestPharmacyHoursFormatter:
             }
             result = formatter.format(info)
 
-            assert "Lunes: 08:00 - 20:00" in result
-            assert "Martes: 08:00 - 20:00" in result
-            assert "Miércoles: 08:00 - 20:00" in result
+            # Formatter groups consecutive days with same hours
+            assert "Lunes a Miércoles" in result
+            assert "08:00" in result
+            assert "20:00" in result
 
         def test_returns_not_available_for_none(self, formatter: PharmacyHoursFormatter):
             """Test returning 'No disponible' for None input."""

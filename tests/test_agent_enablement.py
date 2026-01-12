@@ -92,7 +92,13 @@ class TestAgentFactory:
         assert "supervisor" not in enabled
 
     def test_factory_get_disabled_agent_names(self):
-        """Test get_disabled_agent_names method"""
+        """Test get_disabled_agent_names method.
+
+        Note: get_disabled_agent_names() now uses BUILTIN_AGENT_CLASSES keys,
+        so only agents with real class definitions are included.
+        Legacy agents like 'product_agent' that aren't in BUILTIN_AGENT_CLASSES
+        won't appear in the disabled list.
+        """
         mock_llm = MagicMock()
         mock_pgvector = MagicMock()
         mock_postgres = MagicMock()
@@ -104,9 +110,11 @@ class TestAgentFactory:
 
         disabled = factory.get_disabled_agent_names()
 
-        # Should return all agents NOT enabled
-        assert "product_agent" in disabled
-        assert "promotions_agent" in disabled
+        # Should return all agents from BUILTIN_AGENT_CLASSES that are NOT enabled
+        # These are agents with real class definitions
+        assert "fallback_agent" in disabled
+        assert "excelencia_agent" in disabled
+        assert "medical_appointments_agent" in disabled  # Now in BUILTIN_AGENT_CLASSES
         assert "greeting_agent" not in disabled
 
     def test_factory_is_agent_enabled(self):

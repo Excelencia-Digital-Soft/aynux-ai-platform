@@ -36,6 +36,17 @@ class RollbackRequest(BaseModel):
     version_id: str = Field(..., description="ID de la versión a restaurar")
 
 
+class TestPromptRequest(BaseModel):
+    """Request para testear un prompt."""
+
+    variables: dict[str, Any] = Field(default_factory=dict, description="Variables para renderizar el template")
+    context: dict[str, Any] | None = Field(None, description="Contexto adicional")
+    model: str | None = Field(None, description="Modelo a usar (override del default)")
+    temperature: float | None = Field(None, ge=0, le=2, description="Temperature (override)")
+    max_tokens: int | None = Field(None, ge=1, le=4096, description="Max tokens (override)")
+    timeout: int = Field(30, ge=5, le=120, description="Timeout en segundos")
+
+
 # ===== RESPONSE MODELS =====
 
 
@@ -208,3 +219,23 @@ class AnalyticsResponse(BaseModel):
     domains_count: dict[str, int]
     most_used_templates: list[TemplateUsage]
     recent_changes: list[RecentChange]
+
+
+class TokenUsage(BaseModel):
+    """Token usage statistics."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+class TestPromptResponse(BaseModel):
+    """Response from testing a prompt."""
+
+    success: bool
+    rendered_prompt: str | None = None
+    model_response: str | None = None
+    execution_time: float = 0  # milliseconds
+    token_usage: TokenUsage | None = None
+    errors: list[str] = []
+    warnings: list[str] = []

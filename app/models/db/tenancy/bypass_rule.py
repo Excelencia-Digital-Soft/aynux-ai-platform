@@ -21,7 +21,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..base import Base, TimestampMixin
-from ..schemas import CORE_SCHEMA
+from ..schemas import CORE_SCHEMA, PHARMACY_SCHEMA
 
 if TYPE_CHECKING:
     from .organization import Organization
@@ -77,7 +77,7 @@ class BypassRule(Base, TimestampMixin):
     # Optional link to pharmacy (for auto-created rules)
     pharmacy_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey(f"{CORE_SCHEMA}.pharmacy_merchant_configs.id", ondelete="SET NULL"),
+        ForeignKey(f"{PHARMACY_SCHEMA}.pharmacy_merchant_configs.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="Pharmacy that auto-created this rule (NULL for manual rules)",
@@ -309,6 +309,10 @@ class BypassRule(Base, TimestampMixin):
             priority=priority,
             enabled=True,
         )
+
+    # NOTE: create_medical_appointments_bypass_rule removed
+    # Medical appointments bypass rules should be created using create_whatsapp_id_rule
+    # with institution-specific configuration from tenant_institution_configs table
 
     @classmethod
     def create_pharmacy_bypass_rule(

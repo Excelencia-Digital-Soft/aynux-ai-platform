@@ -3,7 +3,7 @@ Pharmacy Data Query Handler
 
 Handles data analysis queries using LLM to answer customer questions
 about their debt items. Auto-fetches debt data from Plex if needed.
-Refactored to use PromptRegistry for type-safe prompt references.
+Uses LLM-driven ResponseGenerator for natural language responses.
 """
 
 from __future__ import annotations
@@ -11,13 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.integrations.llm import ModelComplexity, get_llm_for_task
-from app.prompts.registry import PromptRegistry
-
 from .base_handler import BasePharmacyHandler
-
-# LLM configuration
-DATA_QUERY_LLM_TEMPERATURE = 0.3
 
 
 class DataQueryHandler(BasePharmacyHandler):
@@ -64,12 +58,14 @@ class DataQueryHandler(BasePharmacyHandler):
                 state_updates["has_debt"] = True
 
         if not debt_data or not debt_data.get("items"):
+            response_content = await self._generate_response(
+                intent="data_query_no_data",
+                state=state,
+                user_message=message,
+                current_task="Informa que no hay datos de cuenta para la consulta.",
+            )
             return self._format_state_update(
-                message=(
-                    f"Hola {customer_name}, no tengo información de tu cuenta "
-                    "para responder esa pregunta.\n\n"
-                    "Por favor escribe *deuda* para consultar tu saldo pendiente."
-                ),
+                message=response_content,
                 intent_type="data_query",
                 workflow_step="data_query_no_data",
                 state=state,
@@ -83,7 +79,7 @@ class DataQueryHandler(BasePharmacyHandler):
             )
         except Exception as e:
             self.logger.warning(f"LLM data analysis failed, using fallback: {e}")
-            analysis = self._get_inline_data_analysis(message, customer_name, debt_data)
+            analysis = await self._get_inline_data_analysis(message, customer_name, debt_data)
 
         return {
             **state_updates,
@@ -191,31 +187,28 @@ class DataQueryHandler(BasePharmacyHandler):
                 grouped_lines.append(f"  ... y {group.item_count - 5} productos más")
         grouped_items_text = "\n".join(grouped_lines)
 
-        # Build prompt from YAML template using PromptRegistry
-        prompt = await self.prompt_manager.get_prompt(
-            PromptRegistry.PHARMACY_DATA_QUERY_ANALYZE,
-            variables={
-                "customer_name": customer_name,
-                "total_debt": f"${float(total_debt):,.2f}",
-                "invoice_count": str(invoice_count),
-                "user_message": user_question,  # Template expects 'user_message'
-                "debt_details": grouped_items_text,  # Template expects 'debt_details'
-            },
+        # Use ResponseGenerator for LLM analysis
+        response_state = {
+            "customer_name": customer_name,
+            "total_debt": f"${float(total_debt):,.2f}",
+            "invoice_count": str(invoice_count),
+            "user_message": user_question,
+            "debt_details": grouped_items_text,
+        }
+
+        response_content = await self._generate_response(
+            intent="data_query_analyze",
+            state=response_state,
+            user_message=user_question,
+            current_task="Analiza los datos de deuda y responde la pregunta del cliente.",
         )
 
-        llm = get_llm_for_task(
-            complexity=ModelComplexity.COMPLEX,
-            temperature=DATA_QUERY_LLM_TEMPERATURE,
-        )
-        response = await llm.ainvoke(prompt)
+        if response_content:
+            return response_content
 
-        content = self._extract_response_content(response)
-        if content:
-            return content
+        return await self._get_inline_data_analysis(user_question, customer_name, debt_data)
 
-        return self._get_inline_data_analysis(user_question, customer_name, debt_data)
-
-    def _get_inline_data_analysis(
+    async def _get_inline_data_analysis(
         self,
         question: str,
         customer_name: str,
@@ -239,8 +232,7 @@ class DataQueryHandler(BasePharmacyHandler):
 
         # Priority: Detect price/cost queries for specific products
         asks_for_price = any(
-            word in question_lower
-            for word in ["precio", "costo", "cuanto cuesta", "cuánto cuesta", "vale", "valor de"]
+            word in question_lower for word in ["precio", "costo", "cuanto cuesta", "cuánto cuesta", "vale", "valor de"]
         )
 
         if asks_for_price:
@@ -264,22 +256,22 @@ class DataQueryHandler(BasePharmacyHandler):
                         if invoice_date:
                             invoice_info += f" | Fecha: {invoice_date}"
 
-                    return (
-                        f"**{customer_name}**, encontré ese producto en tu cuenta:\n\n"
-                        f"💊 **{desc}**\n"
-                        f"💰 Precio: ${amount:,.2f}{invoice_info}\n\n"
-                        "Este es el precio registrado en tu última compra a cuenta."
+                    return await self._render_fallback_template(
+                        template_key="product_found",
+                        variables={
+                            "customer_name": customer_name,
+                            "product_desc": desc,
+                            "amount": f"{amount:,.2f}",
+                            "invoice_info": invoice_info,
+                        },
                     )
                 else:
                     # Not found - explain limitations clearly
-                    return (
-                        f"**{customer_name}**, no tengo información del precio de ese producto.\n\n"
-                        "📋 **¿Qué puedo hacer por ti?**\n"
-                        "Solo tengo acceso a información de productos que ya compraste "
-                        "a cuenta en la farmacia.\n\n"
-                        "💡 **Para consultar precios:**\n"
-                        "Te recomiendo visitar la farmacia o comunicarte directamente con ellos.\n\n"
-                        "📊 Si deseas ver los productos que tienes en tu cuenta, escribe *deuda*."
+                    return await self._render_fallback_template(
+                        template_key="product_not_found",
+                        variables={
+                            "customer_name": customer_name,
+                        },
                     )
 
         # Get grouped data
@@ -288,14 +280,8 @@ class DataQueryHandler(BasePharmacyHandler):
         highest_item = DebtGroupingService.get_highest_individual_item(items)
 
         # Detect context from question
-        asks_for_item = any(
-            word in question_lower
-            for word in ["medicamento", "producto", "remedio", "más caro"]
-        )
-        asks_for_invoice = any(
-            word in question_lower
-            for word in ["factura", "comprobante", "deuda total"]
-        )
+        asks_for_item = any(word in question_lower for word in ["medicamento", "producto", "remedio", "más caro"])
+        asks_for_invoice = any(word in question_lower for word in ["factura", "comprobante", "deuda total"])
 
         # Handle "mayor deuda" type questions with intelligent context
         if any(word in question_lower for word in ["más debo", "mayor", "mayor valor", "debo", "caro"]):
@@ -316,11 +302,15 @@ class DataQueryHandler(BasePharmacyHandler):
                 if invoice_num or invoice_date:
                     invoice_info = f"\n📄 Factura: {invoice_num or 'N/A'} | Fecha: {invoice_date or 'N/A'}"
 
-                return (
-                    f"**{customer_name}**, según tu deuda actual:\n\n"
-                    f"💊 El producto con mayor importe pendiente es:\n"
-                    f"**{max_desc}** - ${max_amount:,.2f}{invoice_info}\n\n"
-                    f"📊 Total de tu deuda: ${float(total_debt):,.2f}"
+                return await self._render_fallback_template(
+                    template_key="highest_item",
+                    variables={
+                        "customer_name": customer_name,
+                        "item_desc": max_desc,
+                        "amount": f"{max_amount:,.2f}",
+                        "total_debt": f"{float(total_debt):,.2f}",
+                        "invoice_info": invoice_info,
+                    },
                 )
 
             # Context: Asking for invoice/grouped debt (default for ambiguous queries)
@@ -344,13 +334,17 @@ class DataQueryHandler(BasePharmacyHandler):
                 if highest_invoice.invoice_date:
                     date_info = f"\n📅 Fecha: {highest_invoice.invoice_date}"
 
-                return (
-                    f"**{customer_name}**, según tu deuda actual:\n\n"
-                    f"📄 Tu mayor deuda es la factura **{highest_invoice.invoice_number}** "
-                    f"con un total de **${float(highest_invoice.total_amount):,.2f}**{date_info}\n\n"
-                    f"**Productos en esta factura:**\n{products_text}\n\n"
-                    f"📊 Total de tu deuda: ${float(total_debt):,.2f}\n"
-                    f"📦 Distribuida en {len(invoice_groups)} facturas"
+                return await self._render_fallback_template(
+                    template_key="highest_invoice",
+                    variables={
+                        "customer_name": customer_name,
+                        "invoice_number": highest_invoice.invoice_number,
+                        "invoice_total": f"{float(highest_invoice.total_amount):,.2f}",
+                        "date_info": date_info,
+                        "products_text": products_text,
+                        "total_debt": f"{float(total_debt):,.2f}",
+                        "invoice_count": str(len(invoice_groups)),
+                    },
                 )
 
         # Question about quantity
@@ -369,7 +363,9 @@ class DataQueryHandler(BasePharmacyHandler):
         highest_item_text = "N/A"
         if highest_item:
             if isinstance(highest_item, dict):
-                highest_item_text = f"{highest_item.get('description', 'Item')} (${float(highest_item.get('amount', 0)):,.2f})"
+                highest_item_text = (
+                    f"{highest_item.get('description', 'Item')} (${float(highest_item.get('amount', 0)):,.2f})"
+                )
             else:
                 highest_item_text = f"{highest_item.description} (${float(highest_item.amount):,.2f})"
 
@@ -380,12 +376,15 @@ class DataQueryHandler(BasePharmacyHandler):
                 f"(${float(highest_invoice.total_amount):,.2f})"
             )
 
-        return (
-            f"**{customer_name}**, aquí está la información de tu cuenta:\n\n"
-            f"📦 **Productos pendientes:** {len(items)}\n"
-            f"💰 **Total:** ${float(total_debt):,.2f}\n"
-            f"💊 **Mayor producto:** {highest_item_text}{highest_invoice_text}\n\n"
-            "¿Necesitas más detalles? Escribe *deuda* para ver el listado completo."
+        return await self._render_fallback_template(
+            template_key="summary",
+            variables={
+                "customer_name": customer_name,
+                "item_count": str(len(items)),
+                "total_debt": f"{float(total_debt):,.2f}",
+                "highest_item_text": highest_item_text,
+                "highest_invoice_text": highest_invoice_text,
+            },
         )
 
     def _extract_product_name(self, question: str) -> str | None:

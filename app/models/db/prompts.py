@@ -32,8 +32,15 @@ class Prompt(Base):
     is_dynamic = Column(Boolean, default=False, nullable=False)
     meta_data = Column(JSON, nullable=False, default=dict)
 
-    created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC), nullable=False)
+    # Use naive datetime (no timezone) to match TIMESTAMP WITHOUT TIME ZONE column
+    # datetime.now(UTC).replace(tzinfo=None) gives UTC time as naive datetime
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(UTC).replace(tzinfo=None),
+        nullable=False,
+    )
     created_by = Column(String(255), nullable=True)
 
     # Relaciones
@@ -82,7 +89,8 @@ class PromptVersion(Base):
     performance_metrics = Column(JSON, nullable=False, default=dict)
     is_active = Column(Boolean, default=False, nullable=False)
 
-    created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
+    # Use naive datetime (no timezone) to match TIMESTAMP WITHOUT TIME ZONE column
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
     created_by = Column(String(255), nullable=True)
 
     # Metadata adicional

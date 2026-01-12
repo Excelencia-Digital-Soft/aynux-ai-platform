@@ -28,11 +28,15 @@ from app.api.routes.admin import (
     chat_admin,
     chattigo_credentials,
     domains,
+    institution_configs,
+    intent_configs,
     modules as modules_admin,
     org_users,
     organizations,
+    domain_intents,
     pharmacy_config,
     pharmacy_conversations,
+    response_configs,
     tenant_agents,
     tenant_config,
     tenant_credentials,
@@ -129,6 +133,13 @@ api_router.include_router(
     tags=["Tenant Documents"],
 )
 
+# Admin routes - Institution Configs (per-org institution configurations)
+api_router.include_router(
+    institution_configs.router,
+    prefix="/admin/organizations",
+    tags=["Institution Configs"],
+)
+
 # Admin routes - Agent Knowledge Management (Global per-agent knowledge bases)
 api_router.include_router(
     agent_knowledge.router,
@@ -196,4 +207,25 @@ api_router.include_router(
     chattigo_credentials.router,
     prefix="/admin",
     tags=["Chattigo Credentials"],
+)
+
+# Admin routes - Domain Intent Patterns (multi-domain, unified structure)
+api_router.include_router(
+    domain_intents.router,
+    prefix="/admin/intents",
+    tags=["Domain Intents"],
+)
+
+# Admin routes - Response Configs (multi-domain response generation config)
+api_router.include_router(
+    response_configs.router,
+    prefix="/admin/response-configs",
+    tags=["Response Configs"],
+)
+
+# Admin routes - Intent Configs (intent-agent mappings, flow agents, keywords)
+api_router.include_router(
+    intent_configs.router,
+    prefix="/admin/intent-configs",
+    tags=["Intent Configs"],
 )

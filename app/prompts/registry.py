@@ -282,17 +282,9 @@ class PromptRegistry:
     PHARMACY_SUMMARY_GENERATE = "pharmacy.summary.generate"
     PHARMACY_SUMMARY_NO_DATA = "pharmacy.summary.no_data"
 
-    # === PHARMACY - GREETING ===
-    PHARMACY_GREETING_GENERATE = "pharmacy.greeting.generate"
-    PHARMACY_GREETING_CAPABILITY = "pharmacy.greeting.capability"
-
-    # === PHARMACY - FALLBACK ===
-    PHARMACY_FALLBACK_GENERAL = "pharmacy.fallback.general"
-    PHARMACY_FALLBACK_REJECT = "pharmacy.fallback.reject"
-    PHARMACY_FALLBACK_ERROR = "pharmacy.fallback.error"
-    PHARMACY_FALLBACK_UNKNOWN = "pharmacy.fallback.unknown"
-
     # === PHARMACY - RESPONSE TEMPLATES ===
+    # Note: Greeting and Fallback templates are now handled by PharmacyResponseGenerator
+    # using system_context.yaml, critical_templates.yaml, and fallback_templates.yaml
     PHARMACY_RESPONSE_DEBT_INFO = "pharmacy.response.debt_info"
     PHARMACY_RESPONSE_PAYMENT_LINK = "pharmacy.response.payment_link"
     PHARMACY_RESPONSE_CONFIRMATION = "pharmacy.response.confirmation"

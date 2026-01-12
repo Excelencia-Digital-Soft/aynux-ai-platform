@@ -30,6 +30,7 @@ from .credit import CreditContainer
 from .ecommerce import EcommerceContainer
 from .excelencia import ExcelenciaContainer
 from .healthcare import HealthcareContainer
+from .medical_appointments import MedicalAppointmentsContainer
 from .shared import SharedContainer
 from .tenant_container import (
     TenantConfigCache,
@@ -64,6 +65,7 @@ class DependencyContainer:
         self._credit = CreditContainer(self._base)
         self._healthcare = HealthcareContainer(self._base)
         self._excelencia = ExcelenciaContainer(self._base)
+        self._medical_appointments = MedicalAppointmentsContainer(self._base)
         self._shared = SharedContainer(self._base)
 
         # Agents container
@@ -198,10 +200,6 @@ class DependencyContainer:
         """Direct access to Excelencia container for admin operations."""
         return self._excelencia
 
-    def create_support_ticket_use_case(self, db):
-        """Create use case for support ticket creation."""
-        return self._excelencia.create_support_ticket_use_case(db)
-
     def create_incident_use_case(self, db):
         """Create use case for incident creation (new soporte schema)."""
         return self._excelencia.create_incident_use_case(db)
@@ -213,6 +211,23 @@ class DependencyContainer:
     def save_pending_ticket_use_case(self, db):
         """Create use case for saving pending tickets."""
         return self._excelencia.save_pending_ticket_use_case(db)
+
+    # ============================================================
+    # MEDICAL APPOINTMENTS (delegated to MedicalAppointmentsContainer)
+    # ============================================================
+
+    @property
+    def medical_appointments(self) -> MedicalAppointmentsContainer:
+        """Direct access to Medical Appointments container."""
+        return self._medical_appointments
+
+    def create_medical_appointments_agent(self, config: dict | None = None):
+        """Create Medical Appointments agent."""
+        return self._medical_appointments.create_medical_appointments_agent(config)
+
+    def get_reminder_scheduler_config(self) -> dict:
+        """Get reminder scheduler configuration."""
+        return self._medical_appointments.get_reminder_scheduler_config()
 
     # ============================================================
     # SHARED (delegated to SharedContainer)

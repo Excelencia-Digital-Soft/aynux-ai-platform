@@ -11,10 +11,10 @@ from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-_redis_client = None
+_redis_client: Any = None
 
 
-def get_redis_client():
+def get_redis_client() -> Any:
     """
     Get Redis client instance (singleton).
 
@@ -49,7 +49,7 @@ def get_redis_client():
         raise
 
 
-async def get_async_redis_client():
+async def get_async_redis_client() -> Any:
     """
     Get async Redis client instance.
 

@@ -33,22 +33,6 @@ class ExcelenciaContainer:
         """
         self._base = base
 
-    def create_support_ticket_use_case(self, db: AsyncSession):
-        """
-        Create a use case for creating support tickets (legacy).
-
-        Args:
-            db: Async database session
-
-        Returns:
-            CreateSupportTicketUseCase instance
-        """
-        from app.domains.excelencia.application.use_cases.support import (
-            CreateSupportTicketUseCase,
-        )
-
-        return CreateSupportTicketUseCase(db)
-
     def create_incident_use_case(self, db: AsyncSession):
         """
         Create a use case for creating incidents (new soporte schema).

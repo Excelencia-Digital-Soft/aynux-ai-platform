@@ -87,6 +87,11 @@ class PharmacyConfig:
     # Organization tracking
     organization_id: UUID
 
+    # Payment options configuration (Smart Debt Negotiation)
+    payment_option_half_percent: int = 50
+    payment_option_minimum_percent: int = 30
+    payment_minimum_amount: int = 1000
+
 
 class PharmacyConfigService:
     """
@@ -332,4 +337,8 @@ class PharmacyConfigService:
             mp_notification_url=db_config.mp_notification_url,
             receipt_public_url_base=db_config.receipt_public_url_base,
             organization_id=org_id,
+            # Payment options configuration (Smart Debt Negotiation)
+            payment_option_half_percent=db_config.payment_option_half_percent,
+            payment_option_minimum_percent=db_config.payment_option_minimum_percent,
+            payment_minimum_amount=db_config.payment_minimum_amount,
         )

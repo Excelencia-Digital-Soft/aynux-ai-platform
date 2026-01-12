@@ -7,11 +7,17 @@ Tests the complete flow:
 3. Full flow: support query → RAG → ticket creation
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.domains.excelencia.agents.nodes.excelencia_node import ExcelenciaNode
+from app.domains.excelencia.agents.nodes.handlers.intent_analyzer import (
+    IntentAnalysisHandler,
+)
+from app.domains.excelencia.agents.nodes.handlers.ticket_handler import TicketHandler
+from app.domains.excelencia.application.services.support_config import SupportConfig
 from app.domains.excelencia.application.use_cases.support import (
     CreateSupportTicketUseCase,
 )
@@ -57,11 +63,8 @@ class TestExcelenciaSupportRAGIntegration:
 
     @pytest.mark.asyncio
     async def test_support_document_types_include_all_expected(self):
-        """Test that support document types are properly defined."""
-        with patch("app.domains.excelencia.agents.nodes.excelencia_node.VllmLLM"):
-            node = ExcelenciaNode()
-
-        # Verify all expected types are present
+        """Test that support document types are properly defined in SupportConfig."""
+        # Verify all expected types are present in SupportConfig
         expected_types = {
             "support_faq",
             "support_guide",
@@ -69,25 +72,23 @@ class TestExcelenciaSupportRAGIntegration:
             "support_training",
             "support_module",
         }
-        actual_types = set(node.SUPPORT_DOCUMENT_TYPES)
+        actual_types = set(SupportConfig.DOCUMENT_TYPES)
 
         # All expected types should be in actual (faq is additional)
         assert expected_types.issubset(actual_types)
 
     @pytest.mark.asyncio
     async def test_query_types_include_incident_and_feedback(self):
-        """Test that incident and feedback query types are defined."""
-        with patch("app.domains.excelencia.agents.nodes.excelencia_node.VllmLLM"):
-            node = ExcelenciaNode()
-
-        assert "incident" in node.QUERY_TYPES
-        assert "feedback" in node.QUERY_TYPES
+        """Test that incident and feedback query types are defined in IntentAnalysisHandler."""
+        # Query types are now defined in IntentAnalysisHandler
+        assert "incident" in IntentAnalysisHandler.QUERY_TYPES
+        assert "feedback" in IntentAnalysisHandler.QUERY_TYPES
 
         # Verify keywords
-        assert "reportar" in node.QUERY_TYPES["incident"]
-        assert "incidencia" in node.QUERY_TYPES["incident"]
-        assert "sugerencia" in node.QUERY_TYPES["feedback"]
-        assert "feedback" in node.QUERY_TYPES["feedback"]
+        assert "reportar" in IntentAnalysisHandler.QUERY_TYPES["incident"]
+        assert "incidencia" in IntentAnalysisHandler.QUERY_TYPES["incident"]
+        assert "sugerencia" in IntentAnalysisHandler.QUERY_TYPES["feedback"]
+        assert "feedback" in IntentAnalysisHandler.QUERY_TYPES["feedback"]
 
 
 class TestTicketCreationIntegration:
@@ -183,34 +184,31 @@ class TestTicketCreationIntegration:
 class TestFullSupportFlow:
     """End-to-end integration tests for support workflow."""
 
-    @pytest.fixture
-    def node(self):
-        """Create ExcelenciaNode with mocked LLM."""
-        with patch("app.domains.excelencia.agents.nodes.excelencia_node.VllmLLM"):
-            return ExcelenciaNode()
-
-    def test_incident_keywords_exist_in_query_types(self, node):
+    def test_incident_keywords_exist_in_query_types(self):
         """Test that incident query type has expected keywords."""
-        assert "incident" in node.QUERY_TYPES
-        incident_keywords = node.QUERY_TYPES["incident"]
+        # Query types are now defined in IntentAnalysisHandler
+        assert "incident" in IntentAnalysisHandler.QUERY_TYPES
+        incident_keywords = IntentAnalysisHandler.QUERY_TYPES["incident"]
 
         # These are the specific keywords we added
         assert "reportar" in incident_keywords
         assert "incidencia" in incident_keywords
         assert "bug" in incident_keywords
 
-    def test_feedback_keywords_exist_in_query_types(self, node):
+    def test_feedback_keywords_exist_in_query_types(self):
         """Test that feedback query type has expected keywords."""
-        assert "feedback" in node.QUERY_TYPES
-        feedback_keywords = node.QUERY_TYPES["feedback"]
+        # Query types are now defined in IntentAnalysisHandler
+        assert "feedback" in IntentAnalysisHandler.QUERY_TYPES
+        feedback_keywords = IntentAnalysisHandler.QUERY_TYPES["feedback"]
 
         # These are the specific keywords we added
         assert "sugerencia" in feedback_keywords
         assert "feedback" in feedback_keywords
         assert "mejorar" in feedback_keywords
 
-    def test_support_document_types_include_required(self, node):
+    def test_support_document_types_include_required(self):
         """Test that support document types include all required types."""
+        # Document types are now defined in SupportConfig
         required_types = [
             "support_faq",
             "support_guide",
@@ -220,10 +218,13 @@ class TestFullSupportFlow:
         ]
 
         for doc_type in required_types:
-            assert doc_type in node.SUPPORT_DOCUMENT_TYPES
+            assert doc_type in SupportConfig.DOCUMENT_TYPES
 
-    def test_ticket_confirmation_format_incident(self, node):
+    def test_ticket_confirmation_format_incident(self):
         """Test incident confirmation message format."""
+        # TicketHandler just needs an LLM instance (can be mocked)
+        handler = TicketHandler(llm=MagicMock())
+
         ticket = {
             "id": "12345678-abcd-efgh-ijkl-123456789012",
             "ticket_id_short": "12345678",
@@ -231,21 +232,24 @@ class TestFullSupportFlow:
             "category": "tecnico",
         }
 
-        message = node._generate_ticket_confirmation(ticket, "incident")
+        message = handler._generate_confirmation(ticket, "incident")
 
         # Verify required elements
         assert "12345678" in message
         assert "tecnico" in message.lower() or "Abierto" in message
 
-    def test_ticket_confirmation_format_feedback(self, node):
+    def test_ticket_confirmation_format_feedback(self):
         """Test feedback confirmation message format."""
+        # TicketHandler just needs an LLM instance (can be mocked)
+        handler = TicketHandler(llm=MagicMock())
+
         ticket = {
             "id": "abcdefgh-1234-5678-9012-abcdefghijkl",
             "ticket_id_short": "ABCDEFGH",
             "status": "open",
         }
 
-        message = node._generate_ticket_confirmation(ticket, "feedback")
+        message = handler._generate_confirmation(ticket, "feedback")
 
         # Verify required elements
         assert "ABCDEFGH" in message

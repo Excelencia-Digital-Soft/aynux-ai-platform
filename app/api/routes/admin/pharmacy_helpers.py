@@ -153,6 +153,12 @@ def build_graph_state(
         "is_partial_payment": session.is_partial_payment,
         "awaiting_registration_data": session.awaiting_registration_data,
         "registration_step": session.registration_step,
+        # Person resolution state (CRITICAL for multi-turn identification)
+        "identification_step": session.identification_step,
+        "plex_customer_to_confirm": session.plex_customer_to_confirm,
+        "name_mismatch_count": session.name_mismatch_count,
+        "awaiting_own_or_other": session.awaiting_own_or_other,
+        "validation_step": session.validation_step,
     }
 
 
@@ -195,6 +201,12 @@ def update_session_from_result(
     session.is_partial_payment = result.get("is_partial_payment", False)
     session.awaiting_registration_data = result.get("awaiting_registration_data", False)
     session.registration_step = result.get("registration_step")
+    # Person resolution state (CRITICAL for multi-turn identification)
+    session.identification_step = result.get("identification_step")
+    session.plex_customer_to_confirm = result.get("plex_customer_to_confirm")
+    session.name_mismatch_count = result.get("name_mismatch_count", 0)
+    session.awaiting_own_or_other = result.get("awaiting_own_or_other", False)
+    session.validation_step = result.get("validation_step")
 
 
 # ============================================================

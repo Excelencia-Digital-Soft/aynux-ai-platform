@@ -31,7 +31,9 @@ from __future__ import annotations
 
 import importlib
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import agents directly to avoid circular imports
 from app.core.graph.agents.orchestrator_agent import OrchestratorAgent
@@ -41,21 +43,16 @@ from app.core.graph.agents.supervisor import SupervisorAgent
 from app.domains.ecommerce.agents.ecommerce_agent import EcommerceAgent
 
 # Legacy e-commerce nodes (kept for backward compatibility)
-from app.domains.ecommerce.agents.nodes import (
-    InvoiceNode as InvoiceAgent,
-)
-from app.domains.ecommerce.agents.nodes import (
-    PromotionsNode as PromotionsAgent,
-)
-from app.domains.ecommerce.agents.nodes import (
-    TrackingNode as TrackingAgent,
-)
+from app.domains.ecommerce.agents.nodes import InvoiceNode as InvoiceAgent
+from app.domains.ecommerce.agents.nodes import PromotionsNode as PromotionsAgent
+from app.domains.ecommerce.agents.nodes import TrackingNode as TrackingAgent
 from app.domains.excelencia.agents import (
     ExcelenciaAgent,
     ExcelenciaInvoiceAgent,
     ExcelenciaPromotionsAgent,
     ExcelenciaSupportAgent,
 )
+from app.domains.medical_appointments.agents import MedicalAppointmentsAgent
 from app.domains.pharmacy.agents import PharmacyOperationsAgent
 from app.domains.shared.agents import (
     DataInsightsAgent,
@@ -93,6 +90,8 @@ BUILTIN_AGENT_CLASSES: dict[str, type] = {
     "invoice_agent": InvoiceAgent,
     # Pharmacy domain agents (domain_key="pharmacy")
     "pharmacy_operations_agent": PharmacyOperationsAgent,
+    # Medical Appointments domain agents (domain_key="medical_appointments")
+    "medical_appointments_agent": MedicalAppointmentsAgent,
 }
 
 
@@ -129,12 +128,8 @@ class AgentFactory:
         # Determine enabled agents and domains from registry or config
         if tenant_registry is not None:
             # Use tenant registry for enabled agents
-            self.enabled_agents = [
-                agent.agent_key for agent in tenant_registry.get_enabled_agents()
-            ]
-            logger.info(
-                f"AgentFactory using TenantAgentRegistry for org {tenant_registry.organization_id}"
-            )
+            self.enabled_agents = [agent.agent_key for agent in tenant_registry.get_enabled_agents()]
+            logger.info(f"AgentFactory using TenantAgentRegistry for org {tenant_registry.organization_id}")
         else:
             # Use global config
             self.enabled_agents = config.get("enabled_agents", [])
@@ -155,9 +150,7 @@ class AgentFactory:
             registry: TenantAgentRegistry to use for agent configuration.
         """
         self._tenant_registry = registry
-        self.enabled_agents = [
-            agent.agent_key for agent in registry.get_enabled_agents()
-        ]
+        self.enabled_agents = [agent.agent_key for agent in registry.get_enabled_agents()]
         logger.info(f"Updated tenant registry for org {registry.organization_id}")
 
     def get_agent_config_from_registry(self, agent_key: str) -> dict[str, Any]:
@@ -269,9 +262,7 @@ class AgentFactory:
                     postgres=self.postgres,
                     config={"enabled_agents": self.enabled_agents},
                 ),
-                "farewell_agent": lambda: FarewellAgent(
-                    llm=self.llm, postgres=self.postgres, config={}
-                ),
+                "farewell_agent": lambda: FarewellAgent(llm=self.llm, postgres=self.postgres, config={}),
                 # Pharmacy domain agent
                 "pharmacy_operations_agent": lambda: PharmacyOperationsAgent(
                     config=self._extract_config(agent_configs, "pharmacy"),
@@ -355,29 +346,16 @@ class AgentFactory:
         return [name for name in self.agents.keys() if name not in ["orchestrator", "supervisor"]]
 
     def get_disabled_agent_names(self) -> list[str]:
-        """Get list of all disabled agent names."""
-        all_possible_agents = [
-            # Always available agents (domain_key=None)
-            "greeting_agent",
-            "farewell_agent",
-            "fallback_agent",
-            "support_agent",
-            # Excelencia domain agents (domain_key="excelencia")
-            "excelencia_agent",
-            "excelencia_invoice_agent",  # NEW: Client invoices
-            "excelencia_promotions_agent",  # NEW: Software promotions
-            "data_insights_agent",
-            # E-commerce domain agents (domain_key="ecommerce")
-            "ecommerce_agent",
-            # Pharmacy domain agents (domain_key="pharmacy")
-            "pharmacy_operations_agent",
-            # Legacy agents (deprecated)
-            "product_agent",
-            "promotions_agent",
-            "tracking_agent",
-            "invoice_agent",
+        """Get list of all disabled agent names.
+
+        Dynamically reads from BUILTIN_AGENT_CLASSES to stay in sync with
+        available agents, avoiding hardcoded lists.
+        """
+        return [
+            name
+            for name in BUILTIN_AGENT_CLASSES.keys()
+            if name not in self.agents and name not in ("orchestrator", "supervisor")
         ]
-        return [name for name in all_possible_agents if name not in self.agents]
 
     # =========================================================================
     # Dual-Mode Methods (Global vs Multi-Tenant)
@@ -415,10 +393,7 @@ class AgentFactory:
                 agent.apply_tenant_config(agent_config)
                 applied_count += 1
 
-        logger.info(
-            f"Applied tenant config to {applied_count} agents "
-            f"for org {registry.organization_id}"
-        )
+        logger.info(f"Applied tenant config to {applied_count} agents " f"for org {registry.organization_id}")
 
     def reset_agents_to_defaults(self) -> None:
         """
@@ -468,14 +443,10 @@ class AgentFactory:
             return agent_class
 
         except (ImportError, AttributeError, ValueError) as e:
-            logger.error(
-                f"Failed to load custom agent class '{agent_config.agent_class}': {e}"
-            )
+            logger.error(f"Failed to load custom agent class '{agent_config.agent_class}': {e}")
             return None
 
-    def create_agent_from_config(
-        self, agent_config: AgentConfig
-    ) -> BaseAgent | None:
+    def create_agent_from_config(self, agent_config: AgentConfig) -> BaseAgent | None:
         """
         Create an agent instance from AgentConfig.
 
@@ -540,3 +511,202 @@ class AgentFactory:
             "initialized_agents": list(self.agents.keys()),
             "tenant_registry_loaded": has_registry,
         }
+
+    # =========================================================================
+    # Database-Driven Agent Initialization
+    # =========================================================================
+
+    def _build_agent_default(
+        self,
+        agent_key: str,
+        agent_class: type,
+        db_config: dict[str, Any],
+    ) -> Any:
+        """
+        Default agent builder for agents without special requirements.
+
+        Attempts multiple instantiation patterns to support different agent types:
+        1. Full constructor (llm, postgres, config) - most agents
+        2. Config-only (subgraph agents like EcommerceAgent)
+        3. Name + config (agents like MedicalAppointmentsAgent)
+
+        Args:
+            agent_key: Agent key from database
+            agent_class: Agent class from BUILTIN_AGENT_CLASSES
+            db_config: Configuration dict from Agent.to_config_dict()
+
+        Returns:
+            Initialized agent instance
+        """
+        merged_config = {
+            **db_config.get("config", {}),
+            "enabled_agents": self.enabled_agents,
+            "enabled_domains": self.enabled_domains,
+        }
+
+        try:
+            # Pattern 1: Full constructor (llm, postgres, config)
+            return agent_class(
+                llm=self.llm,
+                postgres=self.postgres,
+                config=merged_config,
+            )
+        except TypeError:
+            try:
+                # Pattern 2: Config-only (subgraph agents)
+                return agent_class(config=merged_config)
+            except TypeError:
+                try:
+                    # Pattern 3: Name + config (some specialized agents)
+                    return agent_class(name=agent_key, config=merged_config)
+                except TypeError:
+                    # Pattern 4: No args (rare)
+                    return agent_class()
+
+    def _get_builder_overrides(self) -> dict[str, Callable[[dict[str, Any]], Any]]:
+        """
+        Get builder overrides for agents requiring special instantiation.
+
+        Some agents need specific constructor arguments or configuration
+        that can't be handled by the default builder patterns.
+
+        Returns:
+            Dictionary mapping agent_key to builder lambda functions.
+            Each lambda receives the db_config dict and returns an agent instance.
+        """
+        return {
+            "greeting_agent": lambda cfg: GreetingAgent(
+                llm=self.llm,
+                postgres=self.postgres,
+                config={
+                    "enabled_agents": self.enabled_agents,
+                    "enabled_domains": self.enabled_domains,
+                },
+            ),
+            "fallback_agent": lambda cfg: FallbackAgent(
+                llm=self.llm,
+                postgres=self.postgres,
+                config={"enabled_agents": self.enabled_agents},
+            ),
+            "farewell_agent": lambda cfg: FarewellAgent(
+                llm=self.llm,
+                postgres=self.postgres,
+                config={},
+            ),
+            "data_insights_agent": lambda cfg: DataInsightsAgent(
+                llm=self.llm,
+                postgres=self.postgres,
+                config=cfg.get("config", {}),
+            ),
+            "ecommerce_agent": lambda cfg: EcommerceAgent(
+                config={
+                    **cfg.get("config", {}),
+                    "integrations": {"postgres": {}},
+                },
+            ),
+            "excelencia_agent": lambda cfg: ExcelenciaAgent(
+                config=cfg.get("config", {}),
+            ),
+            "pharmacy_operations_agent": lambda cfg: PharmacyOperationsAgent(
+                config=cfg.get("config", {}),
+            ),
+            "medical_appointments_agent": lambda cfg: MedicalAppointmentsAgent(
+                name="medical_appointments_agent",
+                config=cfg.get("config", {}),
+            ),
+        }
+
+    async def initialize_all_agents_from_db(self, db: AsyncSession) -> dict[str, Any]:
+        """
+        Initialize agents based on database configuration.
+
+        Reads enabled agents from core.agents table and instantiates them
+        using BUILTIN_AGENT_CLASSES mapping and builder overrides.
+
+        This method provides a single source of truth for agent configuration,
+        ensuring that /agent-catalog (DB) and /agent-config (runtime) are
+        always synchronized.
+
+        Args:
+            db: AsyncSession for database access
+
+        Returns:
+            Dictionary of agent_key -> agent_instance
+        """
+        # Import here to avoid circular imports
+        from app.services.agent_service import AgentService
+
+        try:
+            # Get enabled agent configs from database
+            service = AgentService.with_session(db)
+            enabled_configs = await service.get_enabled_configs()
+
+            logger.info(f"Loading {len(enabled_configs)} enabled agents from database")
+
+            # Always create orchestrator and supervisor (required for system)
+            self.agents["orchestrator"] = OrchestratorAgent(llm=self.llm, config={})
+
+            supervisor_config = self._get_supervisor_config()
+            self.agents["supervisor"] = SupervisorAgent(llm=self.llm, config=supervisor_config)
+            logger.info("Core agents (orchestrator, supervisor) initialized")
+
+            # Update enabled_agents list from DB
+            self.enabled_agents = [cfg["agent_key"] for cfg in enabled_configs]
+
+            # Get builder overrides
+            overrides = self._get_builder_overrides()
+
+            # Initialize each enabled agent
+            enabled_count = 0
+            skipped_count = 0
+
+            for agent_cfg in enabled_configs:
+                agent_key = agent_cfg["agent_key"]
+
+                # Skip if already initialized (orchestrator, supervisor)
+                if agent_key in self.agents:
+                    continue
+
+                # Check if agent class exists in registry
+                if agent_key not in BUILTIN_AGENT_CLASSES:
+                    # Try custom agent loading for non-builtin agents
+                    if agent_cfg.get("agent_type") == "custom":
+                        logger.info(f"Attempting custom agent load for: {agent_key}")
+                        # Custom agent loading would go here
+                        # For now, skip with warning
+                    logger.warning(
+                        f"Agent '{agent_key}' enabled in DB but not found in "
+                        f"BUILTIN_AGENT_CLASSES. Available: {list(BUILTIN_AGENT_CLASSES.keys())}"
+                    )
+                    skipped_count += 1
+                    continue
+
+                # Use override builder if available, otherwise default builder
+                try:
+                    if agent_key in overrides:
+                        agent = overrides[agent_key](agent_cfg)
+                    else:
+                        agent_class = BUILTIN_AGENT_CLASSES[agent_key]
+                        agent = self._build_agent_default(agent_key, agent_class, agent_cfg)
+
+                    self.agents[agent_key] = agent
+                    logger.info(f"✓ Enabled agent (from DB): {agent_key}")
+                    enabled_count += 1
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to initialize agent '{agent_key}': {e}",
+                        exc_info=True,
+                    )
+                    skipped_count += 1
+
+            logger.info(
+                f"Agent initialization from DB complete: {len(self.agents)} total "
+                f"({enabled_count} from DB, {skipped_count} skipped)"
+            )
+
+            return self.agents
+
+        except Exception as e:
+            logger.error(f"Error initializing agents from DB: {e}", exc_info=True)
+            raise

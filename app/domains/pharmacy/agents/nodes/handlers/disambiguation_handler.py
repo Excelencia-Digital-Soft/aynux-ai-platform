@@ -3,20 +3,20 @@ Disambiguation Handler
 
 Handles the disambiguation flow when multiple customers match.
 Single responsibility: disambiguation selection and response formatting.
+Uses LLM-driven ResponseGenerator for natural language responses.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from app.domains.pharmacy.agents.nodes.handlers.base_handler import BasePharmacyHandler
 from app.domains.pharmacy.agents.utils.greeting_manager import GreetingManager
+from app.domains.pharmacy.agents.utils.response_generator import (
+    PharmacyResponseGenerator,
+)
 from app.domains.pharmacy.domain.entities.plex_customer import PlexCustomer
-from app.prompts.registry import PromptRegistry
-
-if TYPE_CHECKING:
-    from app.prompts.manager import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -31,17 +31,17 @@ class DisambiguationHandler(BasePharmacyHandler):
 
     def __init__(
         self,
-        prompt_manager: PromptManager | None = None,
+        response_generator: PharmacyResponseGenerator | None = None,
         greeting_manager: GreetingManager | None = None,
     ):
         """
         Initialize disambiguation handler.
 
         Args:
-            prompt_manager: PromptManager for templates
+            response_generator: ResponseGenerator for LLM-driven responses
             greeting_manager: GreetingManager for greeting state
         """
-        super().__init__(prompt_manager)
+        super().__init__(response_generator)
         self._greeting_manager = greeting_manager or GreetingManager()
 
     async def handle_selection(
@@ -149,10 +149,7 @@ class DisambiguationHandler(BasePharmacyHandler):
         Returns:
             State update with disambiguation options
         """
-        options = "\n".join([
-            f"{i + 1}. {c.display_name} (Doc: {c.masked_document})"
-            for i, c in enumerate(candidates)
-        ])
+        options = "\n".join([f"{i + 1}. {c.display_name} (Doc: {c.masked_document})" for i, c in enumerate(candidates)])
 
         return {
             "messages": [
@@ -186,15 +183,15 @@ class DisambiguationHandler(BasePharmacyHandler):
         Returns:
             State update requesting document input
         """
-        try:
-            message = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_IDENTIFICATION_REQUEST_DNI_DISAMBIGUATION
-            )
-        except ValueError:
-            message = "Entendido. Por favor ingresa tu número de documento (DNI):"
+        result_content = await self._generate_response(
+            intent="request_dni_disambiguation",
+            state=state,
+            user_message="",
+            current_task="Solicita el número de documento para identificar al cliente.",
+        )
 
         return {
-            "messages": [{"role": "assistant", "content": message}],
+            "messages": [{"role": "assistant", "content": result_content}],
             "awaiting_document_input": True,
             "requires_disambiguation": False,
             "disambiguation_candidates": None,

@@ -3,6 +3,7 @@ Identification Response Handler
 
 Formats all responses for the customer identification flow.
 Single responsibility: response formatting for identification.
+Uses LLM-driven ResponseGenerator for natural language responses.
 """
 
 from __future__ import annotations
@@ -12,11 +13,12 @@ from typing import TYPE_CHECKING, Any
 
 from app.domains.pharmacy.agents.nodes.handlers.base_handler import BasePharmacyHandler
 from app.domains.pharmacy.agents.utils.greeting_manager import GreetingManager
-from app.prompts.registry import PromptRegistry
+from app.domains.pharmacy.agents.utils.response_generator import (
+    PharmacyResponseGenerator,
+)
 
 if TYPE_CHECKING:
     from app.domains.pharmacy.domain.entities.plex_customer import PlexCustomer
-    from app.prompts.manager import PromptManager
 
 logger = logging.getLogger(__name__)
 
@@ -31,17 +33,17 @@ class IdentificationResponseHandler(BasePharmacyHandler):
 
     def __init__(
         self,
-        prompt_manager: PromptManager | None = None,
+        response_generator: PharmacyResponseGenerator | None = None,
         greeting_manager: GreetingManager | None = None,
     ):
         """
         Initialize response handler.
 
         Args:
-            prompt_manager: PromptManager for templates
+            response_generator: ResponseGenerator for LLM-driven responses
             greeting_manager: GreetingManager for greeting state
         """
-        super().__init__(prompt_manager)
+        super().__init__(response_generator)
         self._greeting_manager = greeting_manager or GreetingManager()
 
     async def format_out_of_scope_response(
@@ -62,36 +64,22 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         Returns:
             State update with out-of-scope response
         """
-        pharmacy_phone = state.get("pharmacy_phone") or "la farmacia"
         customer_identified = state.get("customer_identified")
 
-        try:
-            response = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_RESPONSE_OUT_OF_SCOPE,
-                variables={"pharmacy_phone": pharmacy_phone},
-            )
-        except ValueError:
-            response = (
-                "*Para mejor atencion*\n"
-                "Actualmente solo manejo consultas de deuda y envio de links de pago.\n"
-                "Para otros asuntos, te recomiendo contactar a nuestros canales especializados:\n"
-                f"• *Pedidos y entregas*: {pharmacy_phone}\n"
-                f"• *Consultas medicas/recetas*: {pharmacy_phone}\n"
-                f"• *Horarios y sucursales*: {pharmacy_phone}"
-            )
+        # Use different intent based on identification status
+        intent = "out_of_scope_identified" if customer_identified else "out_of_scope_not_identified"
 
-        # If NOT identified, suggest identification to use debt/payment services
-        if not customer_identified:
-            response += (
-                "\n\n*¿Quieres usar nuestros servicios?*\n"
-                "Puedo ayudarte con consulta de deuda y links de pago.\n"
-                "Solo necesito tu DNI o numero de cliente para identificarte."
-            )
+        result_content = await self._generate_response(
+            intent=intent,
+            state=state,
+            user_message=message,
+            current_task="Explica qué puedes hacer y sugiere contactar la farmacia para otros temas.",
+        )
 
         logger.info(f"Returning out-of-scope response for: '{message[:30]}...'")
 
         return {
-            "messages": [{"role": "assistant", "content": response}],
+            "messages": [{"role": "assistant", "content": result_content}],
             "is_complete": False,  # Keep conversation open
             "is_out_of_scope": True,
             "out_of_scope_handled": True,  # Prevents loop back to identification
@@ -125,7 +113,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
 
         logger.info(f"Handling info query without identification: '{message[:30]}...'")
 
-        handler = PharmacyInfoHandler(self._prompt_manager)
+        handler = PharmacyInfoHandler(self._response_generator)
         result = await handler.handle(message, state)
 
         # Keep conversation open for further queries or identification
@@ -147,29 +135,15 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         Returns:
             State update with welcome message
         """
-        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
-
-        try:
-            message = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_IDENTIFICATION_WELCOME,
-                variables={"pharmacy_name": pharmacy_name},
-            )
-        except ValueError:
-            message = (
-                f"¡Hola! Soy el asistente virtual de {pharmacy_name}.\n\n"
-                "Actualmente puedo ayudarte con:\n"
-                "• Consulta de deuda en cuenta corriente\n"
-                "• Envio de link de pago\n\n"
-                "Para consultar tu deuda, necesito que me proporciones tu numero de cliente o documento de identidad.\n"
-                "Por favor, envialo en el siguiente formato:\n"
-                "• Cliente: [tu numero]\n"
-                "o\n"
-                "• DNI: [tu documento]\n"
-                "Tu informacion sera tratada de forma confidencial."
-            )
+        result_content = await self._generate_response(
+            intent="welcome_message",
+            state=state,
+            user_message="",
+            current_task="Da la bienvenida y solicita el DNI para identificar al cliente.",
+        )
 
         return {
-            "messages": [{"role": "assistant", "content": message}],
+            "messages": [{"role": "assistant", "content": result_content}],
             "awaiting_document_input": True,
             "requires_disambiguation": False,
             "is_complete": False,
@@ -177,7 +151,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             "pharmacy_phone": state.get("pharmacy_phone"),
         }
 
-    def format_registration_offer(
+    async def format_registration_offer(
         self,
         phone: str | None,
         state: dict[str, Any],
@@ -194,17 +168,15 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         Returns:
             State update with registration offer
         """
+        response_content = await self._generate_response(
+            intent="registration_offer",
+            state=state,
+            user_message="",
+            current_task="Ofrece registrarse como nuevo cliente.",
+        )
+
         result: dict[str, Any] = {
-            "messages": [
-                {
-                    "role": "assistant",
-                    "content": (
-                        "No encontré una cuenta con esos datos. "
-                        "¿Te gustaría registrarte como nuevo cliente?\n\n"
-                        "Responde *SI* para registrarte o *NO* para salir."
-                    ),
-                }
-            ],
+            "messages": [{"role": "assistant", "content": response_content}],
             "awaiting_document_input": False,
             "awaiting_registration_data": True,
             "pharmacy_intent_type": "register_prompt",
@@ -266,7 +238,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
 
         return result
 
-    def format_invalid_document_message(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def format_invalid_document_message(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Format message for invalid document input.
 
@@ -276,16 +248,15 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         Returns:
             State update with validation error message
         """
+        response_content = await self._generate_response(
+            intent="invalid_document",
+            state=state,
+            user_message="",
+            current_task="Informa que el documento no es válido y solicita el formato correcto.",
+        )
+
         return {
-            "messages": [
-                {
-                    "role": "assistant",
-                    "content": (
-                        "El número de documento ingresado no parece válido. "
-                        "Por favor ingresa tu DNI (solo números, mínimo 6 dígitos)."
-                    ),
-                }
-            ],
+            "messages": [{"role": "assistant", "content": response_content}],
             "awaiting_document_input": True,
             "is_complete": False,
             # Preserve pharmacy config
@@ -294,7 +265,7 @@ class IdentificationResponseHandler(BasePharmacyHandler):
             "pharmacy_phone": state.get("pharmacy_phone"),
         }
 
-    def format_document_reminder_message(self, state: dict[str, Any]) -> dict[str, Any]:
+    async def format_document_reminder_message(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Format reminder message when user sends non-document intent while awaiting document.
 
@@ -307,17 +278,15 @@ class IdentificationResponseHandler(BasePharmacyHandler):
         Returns:
             State update with reminder message
         """
+        response_content = await self._generate_response(
+            intent="document_reminder",
+            state=state,
+            user_message="",
+            current_task="Recuerda que necesita identificarse antes de realizar la acción.",
+        )
+
         return {
-            "messages": [
-                {
-                    "role": "assistant",
-                    "content": (
-                        "Entiendo que quieres realizar esa acción, pero primero necesito identificarte.\n\n"
-                        "Por favor, proporcioname tu número de DNI o documento de identidad "
-                        "(7-8 dígitos) para poder continuar."
-                    ),
-                }
-            ],
+            "messages": [{"role": "assistant", "content": response_content}],
             "awaiting_document_input": True,
             "is_complete": False,
             # Preserve pharmacy config

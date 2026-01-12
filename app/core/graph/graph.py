@@ -74,9 +74,7 @@ class AynuxGraph:
         self.postgres = PostgreSQLIntegration()
 
         # Initialize factory and create agents
-        self.agent_factory = AgentFactory(
-            llm=self.llm, postgres=self.postgres, config=self.config
-        )
+        self.agent_factory = AgentFactory(llm=self.llm, postgres=self.postgres, config=self.config)
         self.agents = self.agent_factory.initialize_all_agents()
 
         # Initialize history agent for conversation context management
@@ -105,7 +103,12 @@ class AynuxGraph:
         self.tenant_manager = TenantConfigManager(self.agent_factory)
 
     async def initialize(self, db_url: Optional[str] = None) -> None:
-        """Initialize and compile the graph with PostgreSQL async checkpointer"""
+        """Initialize and compile the graph with PostgreSQL async checkpointer.
+
+        When PostgreSQL is available, this method also reinitializes agents
+        from the database, making core.agents the single source of truth
+        for agent configuration.
+        """
         try:
             checkpointer = None
             if self.use_postgres_checkpointer:
@@ -117,18 +120,69 @@ class AynuxGraph:
                     # Obtener checkpointer async
                     checkpointer = self.postgres.get_checkpointer()
                     logger.info("PostgreSQL async checkpointer enabled")
+
+                    # Reinitialize agents from database (DB as source of truth)
+                    await self._reinitialize_agents_from_db()
+
                 except Exception as e:
                     logger.warning(f"Could not setup PostgreSQL checkpointer: {e}")
                     checkpointer = None
 
             self.app = self.graph.compile(checkpointer=checkpointer)
-            logger.info(
-                f"Graph compiled with checkpointer={'enabled' if checkpointer else 'disabled'}"
-            )
+            logger.info(f"Graph compiled with checkpointer={'enabled' if checkpointer else 'disabled'}")
 
         except Exception as e:
             logger.error(f"Error initializing graph: {e}")
             raise
+
+    async def _reinitialize_agents_from_db(self) -> None:
+        """
+        Reinitialize agents from database configuration.
+
+        This makes core.agents table the single source of truth for which
+        agents are enabled, synchronizing /agent-config with /agent-catalog.
+
+        Called during initialize() when PostgreSQL is available.
+        """
+        try:
+            # Verify async_session is available
+            if self.postgres.async_session is None:
+                logger.warning("PostgreSQL async_session not available, skipping DB agent init")
+                return
+
+            async with self.postgres.async_session() as db:
+                # Use the new DB-driven initialization
+                self.agents = await self.agent_factory.initialize_all_agents_from_db(db)
+
+                # Update enabled_agents list to match DB
+                self.enabled_agents = self.agent_factory.enabled_agents
+
+                # Update executor with new agents
+                self.executor = NodeExecutor(self.agents, self.conversation_tracers)
+
+                # Update router with new enabled agents
+                self.router = GraphRouter(enabled_agents=self.enabled_agents)
+
+                # Update status manager
+                self.status_manager = AgentStatusManager(
+                    enabled_agents=self.enabled_agents,
+                    agents=self.agents,
+                    agent_factory=self.agent_factory,
+                )
+
+                # Rebuild graph with updated agents
+                builder = GraphBuilder(
+                    enabled_agents=self.enabled_agents,
+                    agents=self.agents,
+                    executor=self.executor,
+                    router=self.router,
+                )
+                self.graph = builder.build()
+
+                logger.info(f"Agents reinitialized from DB. " f"Enabled: {self.enabled_agents}")
+
+        except Exception as e:
+            logger.warning(f"Could not reinitialize agents from DB, using config-based agents: {e}")
 
     @trace_async_method(
         name="graph_invoke",
@@ -169,28 +223,19 @@ class AynuxGraph:
             conv_id = conversation_id or "default"
             user_id = kwargs.get("user_id")
 
-            if (
-                self.tracer.config.tracing_enabled
-                and conv_id not in self.conversation_tracers
-            ):
-                self.conversation_tracers[conv_id] = ConversationTracer(
-                    conv_id, user_id
-                )
+            if self.tracer.config.tracing_enabled and conv_id not in self.conversation_tracers:
+                self.conversation_tracers[conv_id] = ConversationTracer(conv_id, user_id)
                 logger.info(f"Started conversation tracking for {conv_id}")
 
             conv_tracker = self.conversation_tracers.get(conv_id)
 
             if conv_tracker:
-                conv_tracker.add_message(
-                    "user", message, {"timestamp": datetime.now().isoformat()}
-                )
+                conv_tracker.add_message("user", message, {"timestamp": datetime.now().isoformat()})
 
             # MIDDLEWARE: Prepare execution context using extracted components
             self.context_middleware.prepare_db_session(db_session)
             context = await self.context_middleware.load_context(conv_id, **kwargs)
-            initial_state = self.context_middleware.build_initial_state(
-                message, conv_id, user_id, context, **kwargs
-            )
+            initial_state = self.context_middleware.build_initial_state(message, conv_id, user_id, context, **kwargs)
             config = self.context_middleware.build_checkpointer_config(conv_id)
 
             # Execute graph with tracing
@@ -205,9 +250,7 @@ class AynuxGraph:
                 },
                 tags=["langgraph", "conversation", "multi_agent"],
             ):
-                result = await self.app.ainvoke(
-                    initial_state, cast(RunnableConfig, config)
-                )
+                result = await self.app.ainvoke(initial_state, cast(RunnableConfig, config))
 
                 # Track response
                 if conv_tracker and result.get("messages"):
@@ -223,9 +266,7 @@ class AynuxGraph:
                             )
 
                 # MIDDLEWARE: Update conversation context
-                await self.context_middleware.update_context(
-                    result, message, context, conv_id, self.response_processor
-                )
+                await self.context_middleware.update_context(result, message, context, conv_id, self.response_processor)
 
                 return result
 
@@ -267,27 +308,18 @@ class AynuxGraph:
             conv_id = conversation_id or "default"
             user_id = kwargs.get("user_id")
 
-            if (
-                self.tracer.config.tracing_enabled
-                and conv_id not in self.conversation_tracers
-            ):
-                self.conversation_tracers[conv_id] = ConversationTracer(
-                    conv_id, user_id
-                )
+            if self.tracer.config.tracing_enabled and conv_id not in self.conversation_tracers:
+                self.conversation_tracers[conv_id] = ConversationTracer(conv_id, user_id)
                 logger.info(f"Started conversation tracking for {conv_id}")
 
             conv_tracker = self.conversation_tracers.get(conv_id)
             if conv_tracker:
-                conv_tracker.add_message(
-                    "user", message, {"timestamp": datetime.now().isoformat()}
-                )
+                conv_tracker.add_message("user", message, {"timestamp": datetime.now().isoformat()})
 
             # MIDDLEWARE: Prepare execution context using extracted components
             self.context_middleware.prepare_db_session(db_session)
             context = await self.context_middleware.load_context(conv_id, **kwargs)
-            initial_state = self.context_middleware.build_initial_state(
-                message, conv_id, user_id, context, **kwargs
-            )
+            initial_state = self.context_middleware.build_initial_state(message, conv_id, user_id, context, **kwargs)
             config = self.context_middleware.build_checkpointer_config(conv_id)
 
             # Execute graph with streaming
@@ -296,9 +328,7 @@ class AynuxGraph:
 
             try:
                 # Stream through the graph execution
-                async for chunk in app.astream(
-                    initial_state, cast(RunnableConfig, config)
-                ):
+                async for chunk in app.astream(initial_state, cast(RunnableConfig, config)):
                     step_count += 1
 
                     # Emit progress events based on graph steps
@@ -311,9 +341,7 @@ class AynuxGraph:
                                 "data": {
                                     "current_node": node_name,
                                     "step_count": step_count,
-                                    "state_preview": self.response_processor.create_state_preview(
-                                        node_state
-                                    ),
+                                    "state_preview": self.response_processor.create_state_preview(node_state),
                                     "timestamp": datetime.now().isoformat(),
                                 },
                             }

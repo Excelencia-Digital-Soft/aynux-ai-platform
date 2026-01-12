@@ -68,6 +68,7 @@ class AppFactory:
             docs_url=f"{self._settings.API_V1_STR}/docs" if self._settings.DEBUG else None,
             redoc_url=f"{self._settings.API_V1_STR}/redoc" if self._settings.DEBUG else None,
             lifespan=lifespan,  # Modern lifespan pattern
+            redirect_slashes=False,  # Prevent 307 redirects for trailing slashes
         )
 
     def _configure_middleware(self, app: FastAPI) -> None:

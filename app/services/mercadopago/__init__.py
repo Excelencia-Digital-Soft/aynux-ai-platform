@@ -5,8 +5,13 @@ Provides utilities for:
 - HTML response page generation for payment redirects
 - Payment data extraction and normalization
 - Receipt generation and notification workflows
+- Payment idempotency and deduplication
 """
 
+from app.services.mercadopago.payment_idempotency import (
+    PaymentIdempotencyService,
+    get_idempotency_service,
+)
 from app.services.mercadopago.payment_mapper import MercadoPagoPaymentMapper
 from app.services.mercadopago.receipt_workflow import (
     generate_and_store_receipt,
@@ -18,7 +23,9 @@ from app.services.mercadopago.response_pages import MercadoPagoResponsePages
 __all__ = [
     "MercadoPagoPaymentMapper",
     "MercadoPagoResponsePages",
+    "PaymentIdempotencyService",
     "generate_and_store_receipt",
+    "get_idempotency_service",
     "send_payment_notification",
     "send_text_only_notification",
 ]

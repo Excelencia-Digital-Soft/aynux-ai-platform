@@ -8,7 +8,7 @@ Tests:
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from app.domains.excelencia.agents.nodes.handlers import (
     IntentAnalysisHandler,
@@ -39,8 +39,16 @@ class TestExcelenciaQueryTypeDetection:
     def test_all_query_types_defined(self):
         """Verify all expected query types are defined."""
         expected_types = [
-            "demo", "modules", "training", "support", "products",
-            "corporate", "clients", "general", "incident", "feedback"
+            "demo",
+            "modules",
+            "training",
+            "support",
+            "products",
+            "corporate",
+            "clients",
+            "general",
+            "incident",
+            "feedback",
         ]
         for qtype in expected_types:
             assert qtype in IntentAnalysisHandler.QUERY_TYPES, f"Missing query type: {qtype}"
@@ -52,7 +60,10 @@ class TestExcelenciaTicketConfirmation:
     @pytest.fixture
     def ticket_handler(self):
         """Create TicketHandler instance with mocked LLM."""
-        with patch("app.domains.excelencia.agents.nodes.handlers.ticket_handler.BaseExcelenciaHandler.__init__", return_value=None):
+        with patch(
+            "app.domains.excelencia.agents.nodes.handlers.ticket_handler.BaseExcelenciaHandler.__init__",
+            return_value=None,
+        ):
             handler = TicketHandler.__new__(TicketHandler)
             handler._llm = None
             handler.logger = patch("logging.getLogger").start()()
@@ -62,30 +73,30 @@ class TestExcelenciaTicketConfirmation:
         """Test incident ticket confirmation message."""
         ticket = {
             "id": "12345678-1234-1234-1234-123456789012",
-            "ticket_id_short": "12345678",
+            "folio": "INC-2024-00001",
             "status": "open",
-            "category": "tecnico",
+            "category_code": "TECNICO",
         }
 
         message = ticket_handler._generate_confirmation(ticket, "incident")
 
         assert "Incidencia Registrada" in message
-        assert "12345678" in message
-        assert "tecnico" in message
+        assert "INC-2024-00001" in message
+        assert "TECNICO" in message
         assert "Abierto" in message
 
     def test_feedback_confirmation_message(self, ticket_handler):
         """Test feedback confirmation message."""
         ticket = {
             "id": "abcdefgh-1234-1234-1234-123456789012",
-            "ticket_id_short": "ABCDEFGH",
+            "folio": "INC-2024-00002",
             "status": "open",
         }
 
         message = ticket_handler._generate_confirmation(ticket, "feedback")
 
         assert "Gracias por tu Feedback" in message
-        assert "ABCDEFGH" in message
+        assert "INC-2024-00002" in message
         assert "opinion" in message.lower()
 
     def test_failed_ticket_message(self, ticket_handler):
@@ -109,7 +120,10 @@ class TestExcelenciaFallbackResponses:
     @pytest.fixture
     def response_handler(self):
         """Create ResponseGenerationHandler instance with mocked LLM."""
-        with patch("app.domains.excelencia.agents.nodes.handlers.response_handler.BaseExcelenciaHandler.__init__", return_value=None):
+        with patch(
+            "app.domains.excelencia.agents.nodes.handlers.response_handler.BaseExcelenciaHandler.__init__",
+            return_value=None,
+        ):
             handler = ResponseGenerationHandler.__new__(ResponseGenerationHandler)
             handler._llm = None
             handler.logger = patch("logging.getLogger").start()()
@@ -141,73 +155,43 @@ class TestExcelenciaFallbackResponses:
         assert "zismed" in response.lower()
 
 
-class TestCreateSupportTicketUseCase:
-    """Tests for CreateSupportTicketUseCase."""
+class TestCreateIncidentUseCase:
+    """Tests for CreateIncidentUseCase category inference."""
 
-    @pytest.mark.asyncio
-    async def test_category_inference_tecnico(self):
+    def test_category_inference_tecnico(self):
         """Test category inference for technical issues."""
         from app.domains.excelencia.application.use_cases.support import (
-            CreateSupportTicketUseCase,
+            CreateIncidentUseCase,
         )
 
-        # Mock DB
-        mock_db = AsyncMock()
+        category = CreateIncidentUseCase.infer_category_code("El sistema no funciona, sale un error en pantalla")
+        assert category == "TECNICO"
 
-        use_case = CreateSupportTicketUseCase(mock_db)
-
-        # Test technical category inference
-        category = use_case._infer_category(
-            "El sistema no funciona, sale un error en pantalla",
-            "incident",
-        )
-        assert category == "tecnico"
-
-    @pytest.mark.asyncio
-    async def test_category_inference_facturacion(self):
+    def test_category_inference_facturacion(self):
         """Test category inference for billing issues."""
         from app.domains.excelencia.application.use_cases.support import (
-            CreateSupportTicketUseCase,
+            CreateIncidentUseCase,
         )
 
-        mock_db = AsyncMock()
-        use_case = CreateSupportTicketUseCase(mock_db)
+        category = CreateIncidentUseCase.infer_category_code("Necesito cancelar una factura CFDI del mes pasado")
+        assert category == "FACTURACION"
 
-        # Use a message that clearly indicates billing without "error" keyword
-        category = use_case._infer_category(
-            "Necesito cancelar una factura CFDI del mes pasado",
-            "incident",
-        )
-        assert category == "facturacion"
-
-    @pytest.mark.asyncio
-    async def test_category_inference_capacitacion(self):
+    def test_category_inference_capacitacion(self):
         """Test category inference for training requests."""
         from app.domains.excelencia.application.use_cases.support import (
-            CreateSupportTicketUseCase,
+            CreateIncidentUseCase,
         )
 
-        mock_db = AsyncMock()
-        use_case = CreateSupportTicketUseCase(mock_db)
-
-        category = use_case._infer_category(
-            "Necesito un curso de capacitacion para el modulo de ventas",
-            "question",
+        category = CreateIncidentUseCase.infer_category_code(
+            "Necesito un curso de capacitacion para el modulo de ventas"
         )
-        assert category == "capacitacion"
+        assert category == "CAPACITACION"
 
-    @pytest.mark.asyncio
-    async def test_category_inference_feedback(self):
-        """Test category inference for feedback."""
+    def test_category_inference_general(self):
+        """Test category inference defaults to GENERAL."""
         from app.domains.excelencia.application.use_cases.support import (
-            CreateSupportTicketUseCase,
+            CreateIncidentUseCase,
         )
 
-        mock_db = AsyncMock()
-        use_case = CreateSupportTicketUseCase(mock_db)
-
-        category = use_case._infer_category(
-            "Me gustaria que agregaran mas reportes",
-            "feedback",
-        )
-        assert category == "sugerencias"
+        category = CreateIncidentUseCase.infer_category_code("Me gustaria que agregaran mas reportes")
+        assert category == "GENERAL"

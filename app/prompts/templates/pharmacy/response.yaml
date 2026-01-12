@@ -359,3 +359,67 @@ prompts:
       ¡Cuidate mucho!
     metadata:
       variables: []
+
+  # =====================================================
+  # CONFIRMATION NODE TEMPLATES
+  # =====================================================
+
+  - key: pharmacy.response.no_debt_selected
+    name: No Debt Selected for Confirmation
+    description: Response when user tries to confirm without having queried their debt first
+    version: "1.0.0"
+    template: |
+      Primero necesito mostrarte tu deuda antes de confirmar.
+
+      Escribe *DEUDA* para consultar tu saldo pendiente.
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.confirmation_no_customer
+    name: Confirmation No Customer
+    description: Response when customer is not identified during confirmation
+    version: "1.0.0"
+    template: |
+      No pude identificar tu cuenta.
+      Por favor contacta a soporte para asistencia.
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.confirmation_error
+    name: Confirmation Error
+    description: Response when an error occurs during confirmation
+    version: "1.0.0"
+    template: |
+      Disculpa, tuve un problema procesando la confirmacion.
+      Por favor intenta de nuevo.
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.confirmation_cancelled
+    name: Confirmation Cancelled
+    description: Response when user cancels the confirmation
+    version: "1.0.0"
+    template: |
+      Entendido, la confirmacion ha sido cancelada.
+
+      ¿Hay algo mas en que pueda ayudarte?
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.request_clear_confirmation
+    name: Request Clear Confirmation Response
+    description: Response when user gives unclear confirmation response
+    version: "1.0.0"
+    template: |
+      Por favor responde *SI* para confirmar tu deuda o *NO* para cancelar.
+    metadata:
+      variables: []
+
+  - key: pharmacy.response.auto_fetching_debt
+    name: Auto Fetching Debt Message
+    description: Message shown when auto-fetching debt for user
+    version: "1.0.0"
+    template: |
+      Espera un momento, te voy a mostrar tu deuda...
+    metadata:
+      variables: []

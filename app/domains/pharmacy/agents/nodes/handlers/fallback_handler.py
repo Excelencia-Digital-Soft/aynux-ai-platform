@@ -2,14 +2,18 @@
 Pharmacy Fallback Handler
 
 Handles unknown intents, errors, cancellations, and out-of-scope messages.
-Refactored to use PromptRegistry for type-safe prompt references.
+Uses PharmacyResponseGenerator for LLM-driven responses.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.prompts.registry import PromptRegistry
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.response_generator import (
+    PharmacyResponseGenerator,
+    get_response_generator,
+)
 
 from .base_handler import BasePharmacyHandler
 
@@ -23,7 +27,25 @@ class FallbackHandler(BasePharmacyHandler):
     - Out-of-scope messages
     - Processing errors
     - User cancellations
+
+    Uses PharmacyResponseGenerator for LLM-driven responses
+    with automatic fallback to templates.
     """
+
+    def __init__(
+        self,
+        response_generator: PharmacyResponseGenerator | None = None,
+        **kwargs: Any,
+    ):
+        """Initialize with optional response generator."""
+        super().__init__(**kwargs)
+        self._response_generator = response_generator
+
+    def _get_response_generator(self) -> PharmacyResponseGenerator:
+        """Get or create response generator."""
+        if self._response_generator is None:
+            self._response_generator = get_response_generator()
+        return self._response_generator
 
     async def handle_unknown(
         self,
@@ -41,20 +63,28 @@ class FallbackHandler(BasePharmacyHandler):
             State updates with fallback response
         """
         state = state or {}
-        pharmacy_phone = state.get("pharmacy_phone", "la farmacia")
 
-        try:
-            response = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_RESPONSE_OUT_OF_SCOPE,
-                variables={"pharmacy_phone": pharmacy_phone},
-            )
-        except ValueError:
-            response = self._get_inline_fallback(pharmacy_phone)
+        response_content = await generate_response(
+
+
+            state=state,
+
+
+            intent="unknown",
+
+
+            user_message=message,
+
+
+            current_task="El usuario envió un mensaje que no entendiste. Indica qué puedes hacer.",
+
+
+        )
 
         self.logger.info(f"Handling unknown intent for message: '{message[:30]}...'")
 
         return self._format_state_update(
-            message=response,
+            message=response_content,
             intent_type="unknown",
             workflow_step="fallback",
             state=state,
@@ -79,23 +109,27 @@ class FallbackHandler(BasePharmacyHandler):
             State updates with out-of-scope response
         """
         state = state or {}
-        pharmacy_phone = state.get("pharmacy_phone", "la farmacia")
 
         if suggested_response:
-            response = suggested_response
+            response_content = suggested_response
         else:
-            try:
-                response = await self.prompt_manager.get_prompt(
-                    PromptRegistry.PHARMACY_RESPONSE_OUT_OF_SCOPE,
-                    variables={"pharmacy_phone": pharmacy_phone},
-                )
-            except ValueError:
-                response = self._get_inline_fallback(pharmacy_phone)
+            response_content = await generate_response(
+
+                state=state,
+
+                intent="out_of_scope",
+
+                user_message=message,
+
+                current_task="La consulta está fuera de tu alcance. Explica qué puedes hacer y sugiere contactar la farmacia.",
+
+            )
+            response_content = response_content
 
         self.logger.info(f"Out of scope message: '{message[:30]}...'")
 
         return self._format_state_update(
-            message=response,
+            message=response_content,
             intent_type="out_of_scope",
             workflow_step="fallback",
             state=state,
@@ -109,6 +143,7 @@ class FallbackHandler(BasePharmacyHandler):
     ) -> dict[str, Any]:
         """
         Handle processing error gracefully.
+        Uses critical template for consistency.
 
         Args:
             error: Error message or exception
@@ -119,17 +154,17 @@ class FallbackHandler(BasePharmacyHandler):
         """
         state = state or {}
 
-        try:
-            response = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_RESPONSE_ERROR
-            )
-        except ValueError:
-            response = "Disculpa, tuve un problema. Por favor intenta de nuevo."
+        response_content = await self._generate_response(
+            intent="system_error",
+            state=state,
+            user_message="",
+            current_task="Hubo un error técnico. Discúlpate y sugiere intentar de nuevo.",
+        )
 
         self.logger.error(f"Pharmacy error: {error}")
 
         return self._format_state_update(
-            message=response,
+            message=response_content,
             intent_type="error",
             workflow_step="error",
             state=state,
@@ -149,15 +184,27 @@ class FallbackHandler(BasePharmacyHandler):
         Returns:
             State updates with cancellation response
         """
-        try:
-            response = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_RESPONSE_DEBT_REJECTED
-            )
-        except ValueError:
-            response = "Entendido. La operación ha sido cancelada.\n\n" "¿Hay algo más en que pueda ayudarte?"
+        state = state or {}
+
+        response_content = await generate_response(
+
+
+            state=state,
+
+
+            intent="cancelled",
+
+
+            user_message="",
+
+
+            current_task="El usuario canceló la operación. Confirma la cancelación y ofrece más ayuda.",
+
+
+        )
 
         return self._format_state_update(
-            message=response,
+            message=response_content,
             intent_type="cancelled",
             workflow_step="cancelled",
             state=state,
@@ -165,15 +212,6 @@ class FallbackHandler(BasePharmacyHandler):
             awaiting_confirmation=False,
             debt_status="cancelled",
         )
-
-    def _get_inline_fallback(self, pharmacy_phone: str = "la farmacia") -> str:
-        """Get inline fallback response when template is unavailable."""
-        return f"""*Para mejor atencion*
-Actualmente solo manejo consultas de deuda y envio de links de pago.
-Para otros asuntos, te recomiendo contactar a nuestros canales especializados:
-• *Pedidos y entregas*: {pharmacy_phone}
-• *Consultas medicas/recetas*: {pharmacy_phone}
-• *Horarios y sucursales*: {pharmacy_phone}"""
 
     async def handle_farewell(
         self,
@@ -189,26 +227,26 @@ Para otros asuntos, te recomiendo contactar a nuestros canales especializados:
             State updates with farewell response
         """
         state = state or {}
-        pharmacy_name = state.get("pharmacy_name") or "la farmacia"
-        pharmacy_phone = state.get("pharmacy_phone") or "la farmacia"
 
-        try:
-            response = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_RESPONSE_FAREWELL,
-                variables={
-                    "pharmacy_name": pharmacy_name,
-                    "pharmacy_phone": pharmacy_phone,
-                },
-            )
-        except ValueError:
-            response = f"""Gracias por contactar a {pharmacy_name}.
-Recuerda que para:
-• Deudas: puedes escribirme directamente
-• Otros temas: {pharmacy_phone}
-¡Que tengas un excelente dia!"""
+        response_content = await generate_response(
+
+
+            state=state,
+
+
+            intent="farewell",
+
+
+            user_message="",
+
+
+            current_task="El usuario se despide. Despídete cordialmente y ofrece volver a contactar.",
+
+
+        )
 
         return self._format_state_update(
-            message=response,
+            message=response_content,
             intent_type="farewell",
             workflow_step="farewell",
             state=state,
@@ -228,17 +266,27 @@ Recuerda que para:
         Returns:
             State updates with thanks response
         """
-        try:
-            response = await self.prompt_manager.get_prompt(
-                PromptRegistry.PHARMACY_RESPONSE_THANKS
-            )
-        except ValueError:
-            response = """¡De nada! Es un placer poder ayudarte.
-No dudes en escribirme nuevamente si necesitas consultar tu deuda o solicitar el link de pago.
-¡Cuidate mucho!"""
+        state = state or {}
+
+        response_content = await generate_response(
+
+
+            state=state,
+
+
+            intent="thanks",
+
+
+            user_message="",
+
+
+            current_task="El usuario agradece. Responde cordialmente y ofrece seguir ayudando.",
+
+
+        )
 
         return self._format_state_update(
-            message=response,
+            message=response_content,
             intent_type="thanks",
             workflow_step="thanks",
             state=state,

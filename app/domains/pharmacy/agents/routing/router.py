@@ -3,12 +3,18 @@ Pharmacy Router
 
 Main routing component for intent analysis and node selection.
 Single responsibility: coordinate intent routing decisions.
+
+Implements CASO 2 and Interruptions from docs/pharmacy_flujo_mejorado_v2.md:
+- Menu number detection (1-6, 0)
+- Global keyword handling (MENU, AYUDA, CANCELAR, SALIR, HUMANO, INICIO)
+- Priority: Global keywords > Menu numbers > Intent analysis
 """
 
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from app.domains.pharmacy.agents.routing.fallback_router import FallbackRouter
 from app.domains.pharmacy.agents.routing.state_builder import RoutingStateBuilder
@@ -30,9 +36,55 @@ INTENT_NODE_MAP: dict[str, str] = {
     "invoice": "invoice_generation_node",
     "payment_link": "payment_link_node",
     "register": "customer_registration_node",
+    "info_query": "pharmacy_info_node",
+    "payment_history": "payment_history_node",
+    "help": "help_center_node",
+    "change_person": "person_selection_node",
+    "farewell": "farewell_node",
+    "show_menu": "main_menu_node",
+    "human_escalation": "human_escalation_node",
 }
 
 DEFAULT_NODE = "debt_check_node"
+
+# Menu option to intent mapping (CASO 2)
+MENU_OPTIONS: dict[str, str] = {
+    "1": "debt_query",
+    "2": "payment_link",
+    "3": "payment_history",
+    "4": "info_query",
+    "5": "change_person",
+    "6": "help",
+    "0": "farewell",
+}
+
+# Emoji to number mapping
+EMOJI_TO_NUMBER: dict[str, str] = {
+    "1️⃣": "1",
+    "2️⃣": "2",
+    "3️⃣": "3",
+    "4️⃣": "4",
+    "5️⃣": "5",
+    "6️⃣": "6",
+    "0️⃣": "0",
+}
+
+# Global keywords (Interruptions from pharmacy_flujo_mejorado_v2.md)
+GLOBAL_KEYWORDS: dict[str, str] = {
+    "menu": "show_menu",
+    "menú": "show_menu",
+    "ayuda": "help",
+    "cancelar": "cancel_flow",
+    "salir": "farewell",
+    "humano": "human_escalation",
+    "agente": "human_escalation",
+    "persona": "human_escalation",
+    "operador": "human_escalation",
+    "inicio": "show_menu",
+    "volver": "show_menu",
+    "atrás": "show_menu",
+    "atras": "show_menu",
+}
 
 
 class PharmacyRouter:
@@ -66,9 +118,27 @@ class PharmacyRouter:
         self.greeting_detector = greeting_detector or GreetingDetector()
         self.context_builder = context_builder or ConversationContextBuilder()
 
+    def _get_organization_id(self, state: "PharmacyState") -> UUID | None:
+        """Extract organization_id from state for multi-tenant intent analysis."""
+        org_id = state.get("organization_id")
+        if org_id is None:
+            return None
+        if isinstance(org_id, UUID):
+            return org_id
+        try:
+            return UUID(str(org_id))
+        except (ValueError, TypeError):
+            return None
+
     async def route(self, state: PharmacyState) -> dict[str, Any]:
         """
         Route incoming query to appropriate pharmacy node.
+
+        Priority order:
+        1. Handle just-identified customers
+        2. Check for global keywords (MENU, AYUDA, CANCELAR, SALIR, HUMANO)
+        3. Check for menu numbers (1-6, 0)
+        4. Run intent analysis
 
         Args:
             state: Current conversation state
@@ -96,11 +166,28 @@ class PharmacyRouter:
                     **identification_updates,
                 )
 
+            # === PRIORITY 1: Check global keywords ===
+            global_intent = self._detect_global_keyword(message_content)
+            if global_intent:
+                logger.info(f"Global keyword detected: {global_intent}")
+                return self._handle_global_keyword(global_intent, state, identification_updates)
+
+            # === PRIORITY 2: Check menu numbers (only if in menu context) ===
+            if state.get("current_menu"):
+                menu_intent = self._detect_menu_option(message_content)
+                if menu_intent:
+                    logger.info(f"Menu option detected: {menu_intent}")
+                    return self._handle_menu_option(menu_intent, state, identification_updates)
+
+            # === PRIORITY 3: Intent analysis ===
             # Build context for intent analysis
             context = self._build_analysis_context(state)
 
-            # Analyze intent
-            intent_result = await self.intent_analyzer.analyze(message_content, context)
+            # Analyze intent (pass organization_id for multi-tenant patterns)
+            org_id = self._get_organization_id(state)
+            intent_result = await self.intent_analyzer.analyze(
+                message_content, context, organization_id=org_id
+            )
             logger.info(
                 f"Intent: {intent_result.intent} "
                 f"(conf: {intent_result.confidence:.2f}, method: {intent_result.method})"
@@ -127,6 +214,36 @@ class PharmacyRouter:
                         entities=intent_result.entities,
                     ),
                     identification_updates,
+                )
+
+            # Check if intent requires authentication
+            requires_auth = intent_result.intent in {
+                "debt_query", "payment_link", "payment_history", "change_person"
+            }
+            if requires_auth and not state.get("customer_identified"):
+                logger.info(
+                    f"Intent '{intent_result.intent}' requires auth - "
+                    f"routing to person_resolution_node"
+                )
+                updates = {
+                    "pharmacy_intent_type": intent_result.intent,
+                    "pending_flow": intent_result.intent,
+                    "next_agent": "person_resolution_node",
+                    "routing_decision": {
+                        "intent": intent_result.intent,
+                        "confidence": intent_result.confidence,
+                        "method": intent_result.method,
+                        "requires_auth": True,
+                    },
+                }
+                # Preserve payment amount if extracted
+                extracted_amount = intent_result.entities.get("amount")
+                if extracted_amount and extracted_amount > 0:
+                    updates["payment_amount"] = extracted_amount
+                    logger.info(f"Preserving payment_amount={extracted_amount} for post-auth")
+
+                return self.state_builder.merge_identification_updates(
+                    updates, identification_updates
                 )
 
             # Build standard routing update
@@ -241,3 +358,170 @@ class PharmacyRouter:
             "has_debt": state.get("has_debt", False),
             "conversation_history": conversation_history,
         }
+
+    # =========================================================================
+    # Menu and Global Keyword Detection (pharmacy_flujo_mejorado_v2.md)
+    # =========================================================================
+
+    def _detect_global_keyword(self, message: str) -> str | None:
+        """
+        Detect global keywords that interrupt any flow.
+
+        Global keywords have highest priority and always trigger their action.
+
+        Args:
+            message: User's message
+
+        Returns:
+            Intent string if keyword detected, None otherwise
+        """
+        message_lower = message.strip().lower()
+
+        # Check for exact match first
+        if message_lower in GLOBAL_KEYWORDS:
+            return GLOBAL_KEYWORDS[message_lower]
+
+        # Check if message starts with keyword (for phrases like "ayuda por favor")
+        for keyword, intent in GLOBAL_KEYWORDS.items():
+            if message_lower.startswith(keyword):
+                return intent
+
+        return None
+
+    def _detect_menu_option(self, message: str) -> str | None:
+        """
+        Detect menu option numbers (1-6, 0) including emoji variants.
+
+        Args:
+            message: User's message
+
+        Returns:
+            Intent string if menu option detected, None otherwise
+        """
+        message_clean = message.strip()
+
+        # Check for exact number match
+        if message_clean in MENU_OPTIONS:
+            return MENU_OPTIONS[message_clean]
+
+        # Check for emoji numbers
+        for emoji, number in EMOJI_TO_NUMBER.items():
+            if emoji in message_clean:
+                return MENU_OPTIONS.get(number)
+
+        return None
+
+    def _handle_global_keyword(
+        self,
+        intent: str,
+        state: "PharmacyState",
+        identification_updates: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Handle global keyword intent.
+
+        Preserves pending flow context when interrupting.
+
+        Args:
+            intent: The detected intent
+            state: Current state
+            identification_updates: Updates from identification
+
+        Returns:
+            State update dictionary
+        """
+        # Preserve current flow context for potential resume
+        pending_flow = state.get("pending_flow")
+        current_flow_context = None
+
+        if not pending_flow and state.get("current_menu"):
+            # Save current context if interrupting a flow
+            current_flow_context = {
+                "current_menu": state.get("current_menu"),
+                "awaiting_debt_action": state.get("awaiting_debt_action"),
+                "awaiting_payment_confirmation": state.get("awaiting_payment_confirmation"),
+                "awaiting_payment_amount_input": state.get("awaiting_payment_amount_input"),
+            }
+
+        # Build routing update
+        next_node = INTENT_NODE_MAP.get(intent, "main_menu_node")
+
+        updates: dict[str, Any] = {
+            "pharmacy_intent_type": intent,
+            "next_agent": next_node,
+            "routing_decision": {
+                "intent": intent,
+                "confidence": 1.0,
+                "method": "global_keyword",
+            },
+        }
+
+        # Handle cancel flow
+        if intent == "cancel_flow":
+            updates.update({
+                "pending_flow": None,
+                "pending_flow_context": None,
+                "awaiting_debt_action": False,
+                "awaiting_payment_confirmation": False,
+                "awaiting_payment_amount_input": False,
+                "next_agent": "main_menu_node",
+            })
+        elif current_flow_context:
+            updates["pending_flow"] = state.get("current_menu")
+            updates["pending_flow_context"] = current_flow_context
+
+        return self.state_builder.merge_identification_updates(
+            updates, identification_updates
+        )
+
+    def _handle_menu_option(
+        self,
+        intent: str,
+        state: "PharmacyState",
+        identification_updates: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Handle menu option selection.
+
+        Routes directly to the appropriate node based on menu selection.
+
+        Args:
+            intent: The detected intent from menu option
+            state: Current state
+            identification_updates: Updates from identification
+
+        Returns:
+            State update dictionary
+        """
+        next_node = INTENT_NODE_MAP.get(intent, DEFAULT_NODE)
+
+        # Check if customer needs to be identified for this intent
+        requires_auth = intent in ["debt_query", "payment_link", "payment_history", "change_person"]
+        if requires_auth and not state.get("customer_identified"):
+            # Route to identification first
+            updates = {
+                "pharmacy_intent_type": intent,
+                "pending_flow": intent,
+                "next_agent": "person_resolution_node",
+                "routing_decision": {
+                    "intent": intent,
+                    "confidence": 1.0,
+                    "method": "menu_option",
+                    "requires_auth": True,
+                },
+            }
+        else:
+            updates = {
+                "pharmacy_intent_type": intent,
+                "next_agent": next_node,
+                "current_menu": None,  # Clear menu context after selection
+                "routing_decision": {
+                    "intent": intent,
+                    "confidence": 1.0,
+                    "method": "menu_option",
+                },
+            }
+
+        return self.state_builder.merge_identification_updates(
+            updates, identification_updates
+        )

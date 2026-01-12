@@ -1,0 +1,179 @@
+# Pharmacy Fallback Templates - Saludos y Bienvenida
+# Extraído de fallback_templates.yaml para mejor mantenibilidad
+# Contiene templates de saludos, despedidas y confirmaciones simples
+
+prompts:
+  # =========================================================================
+  # SALUDOS Y BIENVENIDA
+  # =========================================================================
+
+  - key: pharmacy.fallback.greeting
+    name: Greeting Fallback
+    description: Saludo cuando LLM falla
+    version: "1.0.0"
+    template: |
+      Hola! Soy el asistente virtual de {pharmacy_name}.
+
+      Puedo ayudarte con:
+      • Consulta de deuda
+      • Link de pago
+      • Información de la farmacia
+
+      ¿En qué puedo asistirte?
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+
+  - key: pharmacy.fallback.greeting_identified
+    name: Greeting Identified Customer
+    description: Saludo a cliente identificado
+    version: "1.0.0"
+    template: |
+      Hola {customer_name}! Soy el asistente de {pharmacy_name}.
+
+      ¿En qué puedo ayudarte hoy?
+    metadata:
+      variables:
+        required:
+          - customer_name
+          - pharmacy_name
+
+  - key: pharmacy.fallback.welcome_message
+    name: Welcome Message
+    description: Mensaje de bienvenida
+    version: "1.0.0"
+    template: |
+      ¡Hola! Soy el asistente virtual de {pharmacy_name}.
+
+      Puedo ayudarte con:
+      • Consulta de deuda en cuenta corriente
+      • Envío de link de pago
+
+      Para consultar tu deuda, necesito que me proporciones tu número de cliente o documento de identidad.
+
+      Por favor, envíalo en el siguiente formato:
+      • Cliente: [tu número]
+      o
+      • DNI: [tu documento]
+
+      Tu información será tratada de forma confidencial.
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+
+  - key: pharmacy.fallback.welcome_new_user
+    name: Welcome New User
+    description: Mensaje de bienvenida para usuario nuevo (sin DNIs guardados)
+    version: "1.3.0"
+    template: |
+      ¡Hola! Soy el asistente de {pharmacy_name}.
+
+      Puedo ayudarte a:
+      • *Ver tu deuda* o *pagar* (necesito tu DNI)
+      • Darte *información* de la farmacia
+
+      ¿Qué necesitás?
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+
+  - key: pharmacy.fallback.ambiguous_welcome_response
+    name: Ambiguous Welcome Response
+    description: Respuesta ambigua al mensaje de bienvenida
+    version: "1.2.0"
+    template: |
+      No entendí tu respuesta.
+
+      Puedo ayudarte con:
+      • *Ver tu deuda* o *pagar*
+      • *Información* de la farmacia
+
+      ¿Qué necesitás?
+    metadata:
+      variables:
+        required: []
+
+  # =========================================================================
+  # SELECCIÓN DE PERSONAS
+  # =========================================================================
+
+  - key: pharmacy.fallback.ask_own_or_other
+    name: Ask Own or Other Person
+    description: Preguntar si deuda propia u otra persona
+    version: "1.0.0"
+    template: |
+      Hola {customer_name}!
+
+      ¿Deseas consultar tu propia deuda o la de otra persona?
+
+      Responde:
+      • *Propia* - Para consultar tu deuda
+      • *Otra persona* - Para consultar la deuda de un familiar o conocido
+    metadata:
+      variables:
+        required:
+          - customer_name
+
+  # =========================================================================
+  # DESPEDIDAS Y AGRADECIMIENTOS
+  # =========================================================================
+
+  - key: pharmacy.fallback.farewell
+    name: Farewell Fallback
+    description: Despedida
+    version: "1.0.0"
+    template: |
+      Gracias por contactar a {pharmacy_name}.
+
+      Recuerda que para:
+      • Deudas: puedes escribirme directamente
+      • Otros temas: {pharmacy_phone}
+
+      ¡Que tengas un excelente día!
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+          - pharmacy_phone
+
+  - key: pharmacy.fallback.thanks
+    name: Thanks Response Fallback
+    description: Respuesta a agradecimiento
+    version: "1.0.0"
+    template: |
+      ¡De nada! Es un placer ayudarte.
+
+      No dudes en escribirme si necesitas consultar tu deuda o generar un link de pago.
+    metadata:
+      variables:
+        required: []
+
+  - key: pharmacy.fallback.cancelled
+    name: Cancelled Operation
+    description: Operación cancelada
+    version: "1.0.0"
+    template: |
+      Entendido, la operación ha sido cancelada.
+
+      ¿Hay algo más en que pueda ayudarte?
+    metadata:
+      variables:
+        required: []
+
+  # =========================================================================
+  # CONFIRMACIONES SIMPLES
+  # =========================================================================
+
+  - key: pharmacy.fallback.processing
+    name: Processing Message
+    description: Mensaje mientras se procesa
+    version: "1.0.0"
+    template: |
+      Consultando tu información...
+      Por favor espera unos segundos.
+    metadata:
+      variables:
+        required: []
