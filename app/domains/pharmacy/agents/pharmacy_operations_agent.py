@@ -85,6 +85,9 @@ class PharmacyOperationsAgent(BaseAgent):
         """
         Process message through the pharmacy subgraph.
 
+        Uses generic domain state management to extract and merge
+        pharmacy-specific state from the orchestration state.
+
         Args:
             message: User message to process
             state_dict: Current state dictionary
@@ -92,60 +95,42 @@ class PharmacyOperationsAgent(BaseAgent):
         Returns:
             Updated state from subgraph execution
         """
+        from app.orchestration.state import (
+            extract_domain_fields_from_result,
+            get_domain_state,
+            update_domain_state,
+        )
+
         try:
             # Ensure graph is initialized with checkpointer
             graph = await self._ensure_graph_initialized()
 
-            # Pass relevant state to subgraph
-            # Extract user phone from multiple possible sources (context_middleware uses user_phone/sender)
+            # Extract pharmacy state from generic domain_states container
+            pharmacy_state = get_domain_state(state_dict, "pharmacy")
+
+            # Extract user phone from multiple possible sources
             user_phone = (
                 state_dict.get("customer_id")
                 or state_dict.get("user_id")
                 or state_dict.get("user_phone")
                 or state_dict.get("sender")
             )
+
+            # Build subgraph kwargs from common fields + domain state
+            # Common fields from orchestration state
             subgraph_kwargs = {
                 "customer_id": user_phone,
                 "customer_name": state_dict.get("customer_name"),
                 "conversation_id": state_dict.get("conversation_id"),
-                "is_bypass_route": state_dict.get("is_bypass_route", False),
-                # Customer identification state (CRITICAL for persistence)
-                "customer_identified": state_dict.get("customer_identified", False),
-                "plex_customer_id": state_dict.get("plex_customer_id"),
-                "plex_customer": state_dict.get("plex_customer"),
-                "whatsapp_phone": state_dict.get("whatsapp_phone") or user_phone,
-                # Pharmacy configuration (CRITICAL - must propagate for multi-turn)
-                "pharmacy_id": state_dict.get("pharmacy_id"),
-                "pharmacy_name": state_dict.get("pharmacy_name"),
-                "pharmacy_phone": state_dict.get("pharmacy_phone"),
-                # Organization ID (needed for DB-driven patterns)
                 "organization_id": state_dict.get("organization_id"),
-                # === PERSON RESOLUTION STATE (CRITICAL for multi-turn) ===
-                "identification_step": state_dict.get("identification_step"),
-                "identification_retries": state_dict.get("identification_retries", 0),
-                "plex_customer_to_confirm": state_dict.get("plex_customer_to_confirm"),
-                "name_mismatch_count": state_dict.get("name_mismatch_count", 0),
-                # Person selection state
-                "registered_persons": state_dict.get("registered_persons"),
-                "awaiting_person_selection": state_dict.get("awaiting_person_selection", False),
-                "awaiting_own_or_other": state_dict.get("awaiting_own_or_other", False),
-                "is_querying_for_other": state_dict.get("is_querying_for_other", False),
-                "is_self": state_dict.get("is_self", False),
-                "self_plex_customer": state_dict.get("self_plex_customer"),
-                # Validation state
-                "validation_step": state_dict.get("validation_step"),
-                "plex_candidates": state_dict.get("plex_candidates"),
-                # Carry over workflow state
-                "debt_id": state_dict.get("debt_id"),
-                "debt_data": state_dict.get("debt_data"),
-                "debt_status": state_dict.get("debt_status"),
-                "total_debt": state_dict.get("total_debt"),
-                "has_debt": state_dict.get("has_debt", False),
-                "awaiting_confirmation": state_dict.get("awaiting_confirmation", False),
-                "confirmation_received": state_dict.get("confirmation_received", False),
-                "invoice_number": state_dict.get("invoice_number"),
-                "pdf_url": state_dict.get("pdf_url"),
+                "is_bypass_route": state_dict.get("is_bypass_route", False),
+                # Spread pharmacy-specific state from domain_states
+                **pharmacy_state,
             }
+
+            # Ensure whatsapp_phone is set
+            if not subgraph_kwargs.get("whatsapp_phone"):
+                subgraph_kwargs["whatsapp_phone"] = user_phone
 
             # Invoke subgraph
             result = await graph.invoke(
@@ -153,15 +138,24 @@ class PharmacyOperationsAgent(BaseAgent):
                 **subgraph_kwargs,
             )
 
-            # Merge subgraph result with agent tracking
+            # Extract pharmacy-specific fields from result
+            pharmacy_result_fields = extract_domain_fields_from_result(result, "pharmacy")
+
+            # Build agent tracking updates
             agent_history = state_dict.get("agent_history", [])
             if self.agent_name not in agent_history:
                 agent_history = agent_history + [self.agent_name]
 
+            # Merge result: messages go to root, pharmacy fields to domain_states
+            domain_state_update = update_domain_state(
+                state_dict, "pharmacy", pharmacy_result_fields
+            )
+
             return {
-                **result,
+                "messages": result.get("messages", []),
                 "current_agent": self.agent_name,
                 "agent_history": agent_history,
+                **domain_state_update,
             }
 
         except Exception as e:

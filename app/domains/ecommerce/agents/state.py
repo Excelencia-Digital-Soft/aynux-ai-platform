@@ -88,5 +88,68 @@ class EcommerceState(TypedDict):
     timestamp: str | None
 
 
+# =============================================================================
+# Domain State Registry Interface
+# =============================================================================
+# These module-level constants and functions enable auto-discovery by
+# DomainStateRegistry for generic state management.
+
+DOMAIN_KEY = "ecommerce"
+"""Domain key for registry discovery."""
+
+STATE_CLASS = EcommerceState
+"""State TypedDict class for this domain."""
+
+
+def get_state_defaults() -> dict[str, Any]:
+    """
+    Return default values for all e-commerce state fields.
+
+    Used by DomainStateRegistry for generic state initialization.
+    """
+    return {
+        # Core messages
+        "messages": [],
+        # Customer context
+        "customer": None,
+        # E-commerce specific context
+        "cart": None,
+        "current_order": None,
+        "product_context": None,
+        # Intent and routing
+        "current_intent": None,
+        "ecommerce_intent_type": None,
+        # Agent flow state
+        "current_agent": None,
+        "next_agent": None,
+        "agent_history": [],
+        # Responses and data
+        "agent_responses": [],
+        "retrieved_data": {},
+        # Product search specific
+        "search_results": None,
+        "search_metadata": None,
+        "selected_products": None,
+        # Order tracking specific
+        "tracking_info": None,
+        # Promotions specific
+        "active_promotions": None,
+        "applied_coupons": None,
+        # Billing/Invoice specific
+        "invoice_info": None,
+        "payment_status": None,
+        # Control flow
+        "is_complete": False,
+        "error_count": 0,
+        "max_errors": 3,
+        "requires_human": False,
+        # Routing decisions
+        "routing_decision": None,
+        # Conversation metadata
+        "conversation_id": None,
+        "timestamp": None,
+    }
+
+
 # Alias for compatibility
 EcommerceDomainState = EcommerceState

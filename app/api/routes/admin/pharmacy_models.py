@@ -77,6 +77,10 @@ class PharmacySessionState(BaseModel):
     awaiting_own_or_other: bool = False
     validation_step: str | None = None
 
+    # Account selection state (for returning users with registered accounts)
+    registered_accounts_for_selection: list[dict[str, Any]] | None = None
+    account_count: int | None = None
+
     # Metadata
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())

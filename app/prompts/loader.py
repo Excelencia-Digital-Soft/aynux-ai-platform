@@ -227,7 +227,7 @@ class PromptLoader:
                     template=str(prompt.template),
                     description=str(prompt.description),
                     version=str(prompt.version),
-                    metadata=prompt.meta_data,
+                    metadata=prompt.meta_data or {},  # type: ignore[reportArgumentType]
                 )
 
                 # Cachear a nivel de clase

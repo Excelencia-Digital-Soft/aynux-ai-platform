@@ -92,5 +92,72 @@ class CreditState(TypedDict):
     timestamp: str | None
 
 
+# =============================================================================
+# Domain State Registry Interface
+# =============================================================================
+# These module-level constants and functions enable auto-discovery by
+# DomainStateRegistry for generic state management.
+
+DOMAIN_KEY = "credit"
+"""Domain key for registry discovery."""
+
+STATE_CLASS = CreditState
+"""State TypedDict class for this domain."""
+
+
+def get_state_defaults() -> dict[str, Any]:
+    """
+    Return default values for all credit state fields.
+
+    Used by DomainStateRegistry for generic state initialization.
+    """
+    return {
+        # Core messages
+        "messages": [],
+        # Customer context
+        "customer": None,
+        # Credit specific context
+        "credit_account": None,
+        "credit_account_id": None,
+        "account_status": None,
+        # Intent and routing
+        "current_intent": None,
+        "credit_intent_type": None,
+        # Agent flow state
+        "current_agent": None,
+        "next_agent": None,
+        "agent_history": [],
+        # Responses and data
+        "agent_responses": [],
+        "retrieved_data": {},
+        # Balance specific
+        "credit_balance": None,
+        "credit_limit": None,
+        "used_credit": None,
+        "available_credit": None,
+        # Payment specific
+        "payment_info": None,
+        "pending_payments": None,
+        "payment_history": None,
+        # Schedule specific
+        "payment_schedule": None,
+        "next_payment": None,
+        # Collections specific
+        "collection_status": None,
+        "overdue_amount": None,
+        "days_overdue": None,
+        # Control flow
+        "is_complete": False,
+        "error_count": 0,
+        "max_errors": 3,
+        "requires_human": False,
+        # Routing decisions
+        "routing_decision": None,
+        # Conversation metadata
+        "conversation_id": None,
+        "timestamp": None,
+    }
+
+
 # Alias for compatibility
 CreditDomainState = CreditState

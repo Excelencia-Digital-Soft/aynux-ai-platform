@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 from app.domains.pharmacy.agents.utils.response_generator import (
     PharmacyResponseGenerator,
     get_response_generator,
@@ -65,20 +66,10 @@ class FallbackHandler(BasePharmacyHandler):
         state = state or {}
 
         response_content = await generate_response(
-
-
             state=state,
-
-
             intent="unknown",
-
-
             user_message=message,
-
-
-            current_task="El usuario envió un mensaje que no entendiste. Indica qué puedes hacer.",
-
-
+            current_task=await get_current_task(TaskRegistry.PHARMACY_FALLBACK_DEFAULT),
         )
 
         self.logger.info(f"Handling unknown intent for message: '{message[:30]}...'")
@@ -114,15 +105,10 @@ class FallbackHandler(BasePharmacyHandler):
             response_content = suggested_response
         else:
             response_content = await generate_response(
-
                 state=state,
-
                 intent="out_of_scope",
-
                 user_message=message,
-
-                current_task="La consulta está fuera de tu alcance. Explica qué puedes hacer y sugiere contactar la farmacia.",
-
+                current_task=await get_current_task(TaskRegistry.PHARMACY_FALLBACK_OUT_OF_SCOPE),
             )
             response_content = response_content
 
@@ -158,7 +144,7 @@ class FallbackHandler(BasePharmacyHandler):
             intent="system_error",
             state=state,
             user_message="",
-            current_task="Hubo un error técnico. Discúlpate y sugiere intentar de nuevo.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_ERROR_TECHNICAL),
         )
 
         self.logger.error(f"Pharmacy error: {error}")
@@ -187,20 +173,10 @@ class FallbackHandler(BasePharmacyHandler):
         state = state or {}
 
         response_content = await generate_response(
-
-
             state=state,
-
-
             intent="cancelled",
-
-
             user_message="",
-
-
-            current_task="El usuario canceló la operación. Confirma la cancelación y ofrece más ayuda.",
-
-
+            current_task=await get_current_task(TaskRegistry.PHARMACY_FALLBACK_CANCELLATION),
         )
 
         return self._format_state_update(
@@ -229,20 +205,10 @@ class FallbackHandler(BasePharmacyHandler):
         state = state or {}
 
         response_content = await generate_response(
-
-
             state=state,
-
-
             intent="farewell",
-
-
             user_message="",
-
-
-            current_task="El usuario se despide. Despídete cordialmente y ofrece volver a contactar.",
-
-
+            current_task=await get_current_task(TaskRegistry.PHARMACY_FALLBACK_FAREWELL),
         )
 
         return self._format_state_update(
@@ -269,20 +235,10 @@ class FallbackHandler(BasePharmacyHandler):
         state = state or {}
 
         response_content = await generate_response(
-
-
             state=state,
-
-
             intent="thanks",
-
-
             user_message="",
-
-
-            current_task="El usuario agradece. Responde cordialmente y ofrece seguir ayudando.",
-
-
+            current_task=await get_current_task(TaskRegistry.PHARMACY_FALLBACK_THANKS),
         )
 
         return self._format_state_update(

@@ -589,13 +589,8 @@ def _get_pharmacy_configs() -> list[dict]:
         # ======================================================================
         # IDENTIFICATION
         # ======================================================================
-        {
-            "intent_key": "out_of_scope_identified",
-            "is_critical": False,
-            "task_description": "Explica límites y sugiere contactar farmacia.",
-            "fallback_template_key": "out_of_scope_identified",
-            "display_name": "Fuera Alcance Identificado",
-        },
+        # NOTE: out_of_scope_identified ELIMINADO - era idéntico a out_of_scope
+        # El código ahora usa "out_of_scope" para clientes identificados
         {
             "intent_key": "out_of_scope_not_identified",
             "is_critical": False,

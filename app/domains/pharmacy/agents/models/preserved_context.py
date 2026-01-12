@@ -109,6 +109,48 @@ class PreservedContext(PharmacyStateModel):
         description="Organization UUID for multi-tenant config"
     )
 
+    # Identification flow state (CRITICAL for multi-turn identification)
+    identification_step: str | None = Field(
+        default=None,
+        description="Current step in identification flow: awaiting_welcome, awaiting_identifier, name"
+    )
+    plex_customer_to_confirm: dict[str, Any] | None = Field(
+        default=None,
+        description="Customer from PLEX awaiting name verification"
+    )
+    name_mismatch_count: int = Field(
+        default=0,
+        description="Number of name verification failures"
+    )
+    awaiting_own_or_other: bool = Field(
+        default=False,
+        description="Waiting for user to confirm own account or other"
+    )
+    validation_step: str | None = Field(
+        default=None,
+        description="Legacy validation step identifier"
+    )
+
+    # Registration flow state
+    awaiting_registration_data: bool = Field(
+        default=False,
+        description="Waiting for registration data (name, document, etc.)"
+    )
+    registration_step: str | None = Field(
+        default=None,
+        description="Current step in registration flow: nombre, documento, confirmar"
+    )
+
+    # Account selection state
+    registered_accounts_for_selection: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="List of registered accounts available for selection"
+    )
+    account_count: int | None = Field(
+        default=None,
+        description="Number of registered accounts"
+    )
+
     def has_payment_context(self) -> bool:
         """Check if this context has payment information."""
         return self.payment_amount is not None or self.selected_payment_option is not None

@@ -12,7 +12,8 @@ from app.domains.pharmacy.agents.nodes.person_resolution.constants import (
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.base_handler import (
     PersonResolutionBaseHandler,
 )
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 
 if TYPE_CHECKING:
     from app.domains.pharmacy.agents.nodes.person_resolution.services.person_identification_service import (
@@ -77,11 +78,11 @@ class NameVerificationHandler(PersonResolutionBaseHandler):
             # Name matches - signal completion
             # Preserve state fields for proper state machine transition
             return {
+                **self._preserve_all(state_dict),  # Preserve pharmacy config first
                 "identification_complete": True,
                 "plex_customer_verified": plex_customer,
                 "identification_step": STEP_NAME,  # Preserve for state continuity
                 "plex_customer_to_confirm": plex_customer,  # Preserve customer data
-                **self._preserve_all(state_dict),  # Preserve pharmacy config
             }
 
         # Name doesn't match
@@ -90,9 +91,9 @@ class NameVerificationHandler(PersonResolutionBaseHandler):
         if mismatch_count >= MAX_IDENTIFICATION_RETRIES:
             # Signal escalation needed
             return {
+                **self._preserve_all(state_dict),
                 "name_verification_failed": True,
                 "name_mismatch_count": mismatch_count,
-                **self._preserve_all(state_dict),
             }
 
         # Ask to retry
@@ -106,15 +107,15 @@ class NameVerificationHandler(PersonResolutionBaseHandler):
             state=response_state,
             intent="name_mismatch",
             user_message=message,
-            current_task="El nombre no coincide. Pide que reintente con el nombre exacto.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_NAME_MISMATCH),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_NAME,
             "name_mismatch_count": mismatch_count,
             "plex_customer_to_confirm": plex_customer,
-            **self._preserve_all(state_dict),
         }
 
 

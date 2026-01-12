@@ -251,6 +251,15 @@ class PharmacyGraphBuilder:
         if state.get("is_complete") or state.get("awaiting_confirmation"):
             return "__end__"
 
+        # If awaiting any user input for debt/payment flow, wait for response
+        if (
+            state.get("awaiting_debt_action")
+            or state.get("awaiting_payment_option_selection")
+            or state.get("awaiting_payment_amount_input")
+            or state.get("awaiting_partial_payment_question")
+        ):
+            return "__end__"
+
         # If debt is confirmed but not awaiting payment, continue flow
         if state.get("debt_status") == "confirmed" and not state.get("awaiting_payment"):
             return "payment_link"
@@ -328,9 +337,14 @@ class PharmacyGraphBuilder:
             logger.debug("[DEBUG] Routing: __end__ (awaiting_own_or_other)")
             return "__end__"
 
-        # If awaiting user response for identification flow (welcome, identifier, name)
+        # If awaiting user response for identification flow
         identification_step = state.get("identification_step")
-        if identification_step in ("awaiting_welcome", "awaiting_identifier", "name"):
+        if identification_step in (
+            "awaiting_welcome",
+            "awaiting_identifier",
+            "name",
+            "awaiting_account_selection",
+        ):
             logger.debug(f"[DEBUG] Routing: __end__ (identification_step={identification_step})")
             return "__end__"
 

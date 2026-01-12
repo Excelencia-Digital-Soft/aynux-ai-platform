@@ -4,7 +4,7 @@ prompts:
     name: Yes/No Validation
     description: Prompts user for yes/no response during registration
     version: "1.0.0"
-    template: "Por favor responde SI para {action} o NO para {cancel_action}."
+    template: "Por favor responde *SI* para {action} o *NO* para {cancel_action}."
     metadata:
       variables:
         required: [action, cancel_action]

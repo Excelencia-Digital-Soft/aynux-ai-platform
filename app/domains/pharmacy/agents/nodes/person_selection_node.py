@@ -19,7 +19,8 @@ from uuid import UUID
 
 from app.core.agents import BaseAgent
 from app.domains.pharmacy.agents.utils.name_matcher import LLMNameMatcher
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 from app.domains.pharmacy.agents.utils.response_generator import (
     PharmacyResponseGenerator,
     get_response_generator,
@@ -218,7 +219,7 @@ class PersonSelectionNode(BaseAgent):
             user_message="",
 
 
-            current_task="Muestra la lista de personas registradas y pide que seleccione una.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_ACCOUNT_SELECTION),
 
 
         )
@@ -441,7 +442,7 @@ class PersonSelectionNode(BaseAgent):
 
             user_message="",
 
-            current_task="Inicia el proceso para registrar una nueva persona.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_START_REGISTRATION),
 
         )
 
@@ -475,7 +476,7 @@ class PersonSelectionNode(BaseAgent):
 
             user_message="",
 
-            current_task="Confirma la selección y procede a consultar la deuda.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_ACCOUNT_SELECTED),
 
         )
 
@@ -536,7 +537,7 @@ class PersonSelectionNode(BaseAgent):
 
             user_message="",
 
-            current_task="Confirma la selección y procede a consultar la deuda.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_ACCOUNT_SELECTED),
 
         )
 
@@ -576,7 +577,7 @@ class PersonSelectionNode(BaseAgent):
             user_message="",
 
 
-            current_task="Pide clarificación sobre la selección.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_ACCOUNT_UNCLEAR),
 
 
         )
@@ -610,7 +611,7 @@ class PersonSelectionNode(BaseAgent):
             user_message="",
 
 
-            current_task="Informa del error y pide que intente de nuevo.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_ERROR_RETRY),
 
 
         )

@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.domains.pharmacy.agents.utils.db_helpers import get_current_task
+from app.tasks import TaskRegistry
+
 from .base_handler import BasePharmacyHandler
 
 
@@ -44,7 +47,7 @@ class SummaryHandler(BasePharmacyHandler):
                 intent="summary_no_data",
                 state=state,
                 user_message=message,
-                current_task="Informa que no hay datos de productos para resumir.",
+                current_task=await get_current_task(TaskRegistry.PHARMACY_SUMMARY_NO_DATA),
             )
             return self._format_state_update(
                 message=result_content,
@@ -106,7 +109,7 @@ class SummaryHandler(BasePharmacyHandler):
             intent="summary_generate",
             state=response_state,
             user_message=user_message,
-            current_task="Genera un resumen de los productos y deuda del cliente.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_SUMMARY_GENERATE),
         )
 
         if result_content:

@@ -1,0 +1,48 @@
+tasks:
+  - key: pharmacy.fallback.default
+    name: "Fallback por Defecto"
+    description: |
+      El usuario envio un mensaje que no entendiste. Indica que puedes hacer.
+    metadata:
+      flow: fallback
+      tags: [fallback, help]
+
+  - key: pharmacy.fallback.out_of_scope
+    name: "Fuera de Alcance"
+    description: |
+      La consulta esta fuera de tu alcance. Explica que puedes hacer y sugiere contactar la farmacia.
+    metadata:
+      flow: fallback
+      tags: [fallback, out_of_scope]
+
+  - key: pharmacy.fallback.capabilities
+    name: "Capacidades del Bot"
+    description: |
+      Indica amablemente que puedes hacer y ofrece opciones.
+    metadata:
+      flow: fallback
+      tags: [fallback, capabilities]
+
+  - key: pharmacy.fallback.cancellation
+    name: "Cancelacion"
+    description: |
+      El usuario cancelo la operacion. Confirma la cancelacion y ofrece mas ayuda.
+    metadata:
+      flow: fallback
+      tags: [fallback, cancellation]
+
+  - key: pharmacy.fallback.farewell
+    name: "Despedida"
+    description: |
+      El usuario se despide. Despidete cordialmente y ofrece volver a contactar.
+    metadata:
+      flow: fallback
+      tags: [fallback, farewell]
+
+  - key: pharmacy.fallback.thanks
+    name: "Agradecimiento"
+    description: |
+      El usuario agradece. Responde cordialmente y ofrece seguir ayudando.
+    metadata:
+      flow: fallback
+      tags: [fallback, thanks]

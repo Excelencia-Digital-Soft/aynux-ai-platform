@@ -16,7 +16,8 @@ from app.domains.pharmacy.agents.nodes.person_resolution.constants import (
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.base_handler import (
     PersonResolutionBaseHandler,
 )
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 
 if TYPE_CHECKING:
     from app.models.db.tenancy.registered_person import RegisteredPerson
@@ -68,18 +69,15 @@ class AccountSelectionHandler(PersonResolutionBaseHandler):
             state=response_state,
             intent="offer_existing_accounts",
             user_message="",
-            current_task=(
-                "El usuario tiene cuentas validadas anteriormente. "
-                "Muestra las opciones con nombres (NO DNI) y opción para cuenta nueva."
-            ),
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_OFFER_EXISTING_ACCOUNTS),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_AWAITING_ACCOUNT_SELECTION,
             "registered_accounts_for_selection": [r.to_dict() for r in registrations],
             "account_count": len(registrations),
-            **self._preserve_all(state_dict),
         }
 
     async def handle_selection(
@@ -89,6 +87,8 @@ class AccountSelectionHandler(PersonResolutionBaseHandler):
     ) -> dict[str, Any]:
         """
         Process user's account selection.
+
+        Uses database-driven patterns for selection detection.
 
         Args:
             message: User's selection (number or "nueva")
@@ -105,9 +105,18 @@ class AccountSelectionHandler(PersonResolutionBaseHandler):
             self.logger.warning("No registrations in state for selection")
             return await self._route_to_identifier(state_dict)
 
-        # Check for "nueva" or "new" option
-        if self._is_new_account_request(message_clean):
+        # Check for "nueva" or "new" option (DB-driven patterns)
+        if await self._match_confirmation_pattern(
+            message_clean, "account_selection_new", state_dict
+        ):
             return await self._route_to_identifier(state_dict)
+
+        # Check for "existing account" keywords (DB-driven patterns)
+        if await self._match_confirmation_pattern(
+            message_clean, "account_selection_existing", state_dict
+        ):
+            selected_reg = registrations_data[0]
+            return await self._select_existing_account(selected_reg, state_dict)
 
         # Try to extract number selection
         selection = self._extract_number_selection(message_clean)
@@ -128,25 +137,15 @@ class AccountSelectionHandler(PersonResolutionBaseHandler):
         if name_match:
             return await self._select_existing_account(name_match, state_dict)
 
+        # If only one account and user gives affirmative response (DB-driven)
+        if account_count == 1 and await self._match_confirmation_pattern(
+            message_clean, "affirmative_response", state_dict
+        ):
+            selected_reg = registrations_data[0]
+            return await self._select_existing_account(selected_reg, state_dict)
+
         # Invalid selection
         return await self._invalid_selection(state_dict)
-
-    def _is_new_account_request(self, message: str) -> bool:
-        """Check if user wants to use a new account."""
-        new_keywords = {
-            "nueva",
-            "nuevo",
-            "otra",
-            "otro",
-            "new",
-            "diferente",
-            "distinta",
-            "distinto",
-            "otra cuenta",
-            "nuevo dni",
-            "otra persona",
-        }
-        return any(kw in message for kw in new_keywords)
 
     def _extract_number_selection(self, message: str) -> int | None:
         """Extract number from message if present."""
@@ -209,10 +208,11 @@ class AccountSelectionHandler(PersonResolutionBaseHandler):
             state=response_state,
             intent="proceed_with_customer",
             user_message="",
-            current_task="Confirma el cliente seleccionado y procede a consultar su deuda.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_ACCOUNT_SELECTED),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "plex_customer_id": plex_customer_id,
             "plex_customer": {
@@ -229,7 +229,6 @@ class AccountSelectionHandler(PersonResolutionBaseHandler):
             "next_node": "debt_check_node",
             # Internal field for node to renew expiration
             "_selected_registration_id": registration.get("id"),
-            **self._preserve_all(state_dict),
         }
 
     async def _route_to_identifier(
@@ -249,19 +248,16 @@ class AccountSelectionHandler(PersonResolutionBaseHandler):
             state=state_dict,
             intent="request_identifier",
             user_message="",
-            current_task=(
-                "El usuario quiere usar otra cuenta. "
-                "Pide DNI y nombre completo en un solo mensaje."
-            ),
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_REQUEST_IDENTIFIER),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_AWAITING_IDENTIFIER,
             "identification_retries": 0,
             "registered_accounts_for_selection": None,
             "account_count": None,
-            **self._preserve_all(state_dict),
         }
 
     async def _invalid_selection(
@@ -281,16 +277,16 @@ class AccountSelectionHandler(PersonResolutionBaseHandler):
             state=state_dict,
             intent="invalid_account_selection",
             user_message="",
-            current_task=(
-                "El usuario no seleccionó una opción válida. "
-                "Pide que elija un número de la lista o 'nueva' para otra cuenta."
-            ),
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_ACCOUNT_INVALID),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_AWAITING_ACCOUNT_SELECTION,
-            **self._preserve_all(state_dict),
+            # Preserve account selection fields (not in StatePreserver since they're temporary)
+            "registered_accounts_for_selection": state_dict.get("registered_accounts_for_selection"),
+            "account_count": state_dict.get("account_count"),
         }
 
 

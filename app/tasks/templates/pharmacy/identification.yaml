@@ -1,0 +1,80 @@
+tasks:
+  - key: pharmacy.identification.request_identifier
+    name: "Solicitar DNI y Nombre"
+    description: |
+      Da la bienvenida y solicita el DNI para identificar al cliente.
+    metadata:
+      flow: identification
+      tags: [dni, identity]
+
+  - key: pharmacy.identification.dni_invalid
+    name: "DNI Invalido"
+    description: |
+      Indica que el formato del DNI es invalido y pide que ingrese solo numeros.
+    metadata:
+      flow: identification
+      tags: [error, validation]
+
+  - key: pharmacy.identification.dni_not_found
+    name: "DNI No Encontrado"
+    description: |
+      Informa que el DNI {dni} no fue encontrado. Se empatico y sugiere verificar el numero.
+    metadata:
+      flow: identification
+      tags: [error, not_found]
+
+  - key: pharmacy.identification.name_invalid
+    name: "Nombre Invalido"
+    description: |
+      Informa que el documento no es valido y solicita el formato correcto.
+    metadata:
+      flow: identification
+      tags: [error, validation]
+
+  - key: pharmacy.identification.request_name
+    name: "Solicitar Nombre"
+    description: |
+      Solicita el nombre completo para verificar identidad.
+    metadata:
+      flow: identification
+      tags: [name, identity]
+
+  - key: pharmacy.identification.multiple_matches
+    name: "Multiples Coincidencias"
+    description: |
+      Solicita el numero de documento para identificar al cliente.
+    metadata:
+      flow: identification
+      tags: [disambiguation]
+
+  - key: pharmacy.identification.verified
+    name: "Identificacion Verificada"
+    description: |
+      Confirma identificacion exitosa y muestra menu principal.
+    metadata:
+      flow: identification
+      tags: [success]
+
+  - key: pharmacy.identification.require_id
+    name: "Requiere Identificacion"
+    description: |
+      Recuerda que necesita identificarse antes de realizar la accion.
+    metadata:
+      flow: identification
+      tags: [reminder]
+
+  - key: pharmacy.identification.not_identified
+    name: "Cliente No Identificado"
+    description: |
+      Informa que no se identifico al cliente y pide DNI.
+    metadata:
+      flow: identification
+      tags: [error]
+
+  - key: pharmacy.identification.offer_registration
+    name: "Ofrecer Registro"
+    description: |
+      Ofrece registrarse como nuevo cliente.
+    metadata:
+      flow: identification
+      tags: [registration]

@@ -1,0 +1,139 @@
+tasks:
+  - key: pharmacy.person_resolution.own_or_other
+    name: "Propia o de Otra Persona"
+    description: |
+      Pregunta si el cliente desea consultar su propia deuda o la de otra persona.
+    metadata:
+      flow: person_resolution
+      tags: [selection, own_other]
+
+  - key: pharmacy.person_resolution.own_or_other_unclear
+    name: "Respuesta Ambigua Propia/Otra"
+    description: |
+      El usuario dio una respuesta ambigua. Pide clarificacion.
+    metadata:
+      flow: person_resolution
+      tags: [clarification]
+
+  - key: pharmacy.person_resolution.account_selection
+    name: "Seleccion de Cuenta"
+    description: |
+      Muestra la lista de personas registradas y pide que seleccione una.
+    metadata:
+      flow: person_resolution
+      tags: [selection, account]
+
+  - key: pharmacy.person_resolution.offer_existing_accounts
+    name: "Ofrecer Cuentas Existentes"
+    description: |
+      El usuario tiene cuentas validadas anteriormente.
+      Muestra las opciones con nombres (NO DNI) y opcion para cuenta nueva.
+    metadata:
+      flow: person_resolution
+      tags: [selection, existing_accounts]
+
+  - key: pharmacy.person_resolution.account_selected
+    name: "Cuenta Seleccionada"
+    description: |
+      Confirma el cliente seleccionado y procede a consultar su deuda.
+    metadata:
+      flow: person_resolution
+      tags: [selection, confirmed]
+
+  - key: pharmacy.person_resolution.account_unclear
+    name: "Seleccion No Clara"
+    description: |
+      Pide clarificacion sobre la seleccion.
+    metadata:
+      flow: person_resolution
+      tags: [clarification, selection]
+
+  - key: pharmacy.person_resolution.account_invalid
+    name: "Seleccion Invalida"
+    description: |
+      La seleccion no es valida. Muestra opciones disponibles y pide que seleccione nuevamente.
+    metadata:
+      flow: person_resolution
+      tags: [error, selection]
+
+  - key: pharmacy.person_resolution.name_verification
+    name: "Verificacion de Nombre"
+    description: |
+      Pide que ingrese su nombre completo para verificar identidad.
+    metadata:
+      flow: person_resolution
+      tags: [verification, name]
+
+  - key: pharmacy.person_resolution.name_mismatch
+    name: "Nombre No Coincide"
+    description: |
+      El nombre no coincide. Pide que reintente con el nombre exacto.
+    metadata:
+      flow: person_resolution
+      tags: [error, name]
+
+  - key: pharmacy.person_resolution.escalation
+    name: "Escalacion"
+    description: |
+      No se pudo identificar despues de varios intentos. Sugiere contactar farmacia.
+    metadata:
+      flow: person_resolution
+      tags: [escalation]
+
+  - key: pharmacy.person_resolution.escalation_verification
+    name: "Escalacion por Verificacion"
+    description: |
+      No se pudo verificar identidad. Sugiere contactar farmacia.
+    metadata:
+      flow: person_resolution
+      tags: [escalation, verification]
+
+  - key: pharmacy.person_resolution.identifier_invalid
+    name: "Identificador Invalido"
+    description: |
+      El formato del identificador no es valido. Pide que reintente.
+    metadata:
+      flow: person_resolution
+      tags: [error, validation]
+
+  - key: pharmacy.person_resolution.identifier_not_found
+    name: "Identificador No Encontrado"
+    description: |
+      No se encontro cliente con ese dato. Ofrece reintentar, registrarse o contactar.
+    metadata:
+      flow: person_resolution
+      tags: [not_found]
+
+  - key: pharmacy.person_resolution.request_other_dni
+    name: "Solicitar DNI de Otra Persona"
+    description: |
+      Solicita el DNI de la otra persona para validar su identidad.
+    metadata:
+      flow: person_resolution
+      tags: [other, dni]
+
+  - key: pharmacy.person_resolution.start_registration
+    name: "Iniciar Registro"
+    description: |
+      Inicia el proceso para registrar una nueva persona.
+    metadata:
+      flow: person_resolution
+      tags: [registration]
+
+  - key: pharmacy.person_resolution.request_identifier
+    name: "Solicitar Identificador"
+    description: |
+      Solicita que ingrese su DNI y nombre completo en un solo mensaje.
+      Ejemplo: '12345678 Juan Perez'.
+    metadata:
+      flow: person_resolution
+      tags: [identification]
+
+  - key: pharmacy.person_resolution.welcome_request_dni
+    name: "Bienvenida y Solicitar DNI"
+    description: |
+      Da la bienvenida al cliente y solicita su DNI para verificar identidad.
+      Explica que es necesario por seguridad.
+    metadata:
+      flow: person_resolution
+      tags: [welcome, dni, security]

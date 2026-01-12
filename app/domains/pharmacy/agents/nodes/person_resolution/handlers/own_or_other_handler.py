@@ -7,7 +7,8 @@ from typing import Any
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.base_handler import (
     PersonResolutionBaseHandler,
 )
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 
 
 class OwnOrOtherHandler(PersonResolutionBaseHandler):
@@ -42,14 +43,14 @@ class OwnOrOtherHandler(PersonResolutionBaseHandler):
             state=response_state,
             intent="ask_own_or_other",
             user_message="",
-            current_task="Pregunta si el cliente desea consultar su propia deuda o la de otra persona.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_OWN_OR_OTHER),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "awaiting_own_or_other": True,
             "self_plex_customer": plex_customer,
-            **self._preserve_all(state_dict),
         }
 
     async def handle_response(
@@ -79,16 +80,16 @@ class OwnOrOtherHandler(PersonResolutionBaseHandler):
 
         if is_own and not is_other:
             return {
+                **self._preserve_all(state_dict),
                 "decision": "own",
                 "self_plex_customer": state_dict.get("self_plex_customer"),
-                **self._preserve_all(state_dict),
             }
 
         if is_other and not is_own:
             return {
+                **self._preserve_all(state_dict),
                 "decision": "other",
                 "is_querying_for_other": True,
-                **self._preserve_all(state_dict),
             }
 
         # Ambiguous response
@@ -96,14 +97,14 @@ class OwnOrOtherHandler(PersonResolutionBaseHandler):
             state=state_dict,
             intent="ambiguous_own_other",
             user_message=message,
-            current_task="El usuario dio una respuesta ambigua. Pide clarificación.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_OWN_OR_OTHER_UNCLEAR),
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "awaiting_own_or_other": True,
             "self_plex_customer": state_dict.get("self_plex_customer"),
-            **self._preserve_all(state_dict),
         }
 
 

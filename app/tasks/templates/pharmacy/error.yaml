@@ -1,0 +1,48 @@
+tasks:
+  - key: pharmacy.error.technical
+    name: "Error Tecnico"
+    description: |
+      Hubo un error tecnico. Disculpate y sugiere intentar de nuevo.
+    metadata:
+      flow: error
+      tags: [error, technical]
+
+  - key: pharmacy.error.validation
+    name: "Error de Validacion"
+    description: |
+      Informa del error de validacion y como corregirlo.
+    metadata:
+      flow: error
+      tags: [error, validation]
+
+  - key: pharmacy.error.not_found
+    name: "No Encontrado"
+    description: |
+      Informa que el recurso no fue encontrado.
+    metadata:
+      flow: error
+      tags: [error, not_found]
+
+  - key: pharmacy.error.retry
+    name: "Reintentar"
+    description: |
+      Informa del error y pide que intente de nuevo.
+    metadata:
+      flow: error
+      tags: [error, retry]
+
+  - key: pharmacy.error.multiple_failures
+    name: "Multiples Errores"
+    description: |
+      Informa que hubo varios errores y sugiere contactar la farmacia.
+    metadata:
+      flow: error
+      tags: [error, escalation]
+
+  - key: pharmacy.error.pharmacy_not_found
+    name: "Farmacia No Encontrada"
+    description: |
+      Informa que no se pudo identificar la farmacia.
+    metadata:
+      flow: error
+      tags: [error, pharmacy]

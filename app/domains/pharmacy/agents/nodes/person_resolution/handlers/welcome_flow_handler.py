@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from app.domains.pharmacy.agents.models import WelcomeFlowState
 from app.domains.pharmacy.agents.nodes.person_resolution.constants import (
@@ -69,10 +70,10 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
             )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_AWAITING_WELCOME,
             "identification_retries": 0,
-            **self._preserve_all(state_dict),
         }
 
     async def handle_response(
@@ -81,7 +82,7 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
         state_dict: dict[str, Any],
     ) -> dict[str, Any]:
         """
-        Handle user's response to welcome message (1/2/3).
+        Handle user's response to welcome message.
 
         Args:
             message: User's response
@@ -109,10 +110,10 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
         # Option 3: Just info - route to info flow (DB-driven patterns)
         if await self._match_confirmation_pattern(message_clean, "welcome_info_only", state_dict):
             return {
+                **self._preserve_all(state_dict),
                 "identification_step": None,
                 "pharmacy_intent_type": "info_query",
                 "next_node": "router",
-                **self._preserve_all(state_dict),
             }
 
         # Option 4: User declines all options (DB-driven patterns)
@@ -122,12 +123,26 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
         # Check if user sent a DNI directly (bypassing welcome options)
         # This handles cases like "quiero pagar" -> welcome -> "2259863" (DNI)
         if self._looks_like_dni(message):
-            self.logger.info(f"Detected DNI input '{message}' during welcome flow, " "routing to identifier handler")
+            self.logger.info(f"Detected DNI input '{message}' during welcome flow, routing to identifier handler")
             return {
+                **self._preserve_all(state_dict),
                 "identification_step": STEP_AWAITING_IDENTIFIER,
                 "pending_identifier_message": message,
-                **self._preserve_all(state_dict),
             }
+
+        # Check for service intents (debt_query, payment_link, etc.)
+        # This handles cases like "ver deuda" or "quiero pagar" where user
+        # expresses a service intent instead of selecting welcome options.
+        # We treat these as implicit "option 1" (existing client).
+        service_intent = await self._detect_service_intent(message, state_dict)
+        if service_intent:
+            self.logger.info(
+                f"Detected service intent '{service_intent}' during welcome, "
+                "treating as existing client (option 1)"
+            )
+            # Store the pending intent so it can be processed after identification
+            updated_state = {**state_dict, "pending_flow": service_intent}
+            return await self._ask_for_identifier(updated_state)
 
         # Ambiguous response - ask again
         # Task description comes from DB via response_config_cache
@@ -138,9 +153,9 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_AWAITING_WELCOME,
-            **self._preserve_all(state_dict),
         }
 
     def _looks_like_dni(self, message: str) -> bool:
@@ -166,6 +181,89 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
         dni_pattern = r"^\d{6,11}(?:\s|$)"
         return bool(re.match(dni_pattern, cleaned))
 
+    def _get_organization_id_safe(self, state_dict: dict[str, Any]) -> UUID | None:
+        """Extract organization_id from state safely (returns None instead of raising)."""
+        org_id = state_dict.get("organization_id")
+        if org_id is None:
+            return None
+        if isinstance(org_id, UUID):
+            return org_id
+        try:
+            return UUID(str(org_id))
+        except (ValueError, TypeError):
+            self.logger.warning(f"Invalid organization_id in state: {org_id}")
+            return None
+
+    # Common single-word/short responses that clearly indicate debt_query intent
+    # Used as fallback when intent analyzer confidence is low for short responses
+    _DEBT_QUERY_KEYWORDS = frozenset({
+        "consultar", "deuda", "debo", "cuenta", "saldo", "ver",
+        "1", "uno", "opcion 1", "opción 1",
+    })
+
+    async def _detect_service_intent(
+        self,
+        message: str,
+        state_dict: dict[str, Any],
+    ) -> str | None:
+        """
+        Detect if message contains a service intent requiring identification.
+
+        This handles cases where user responds to welcome with a service
+        request like "ver deuda" or "quiero pagar" instead of selecting
+        one of the offered options (1, 2, 3).
+
+        These intents implicitly mean "I'm a customer and want to do X",
+        so we treat them as option 1 (existing client) and route to
+        identifier request.
+
+        Args:
+            message: User message to analyze
+            state_dict: Current state for analyzer context
+
+        Returns:
+            Intent key if service intent detected, None otherwise
+        """
+        from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
+
+        if not message:
+            return None
+
+        # Quick check for common debt-related keywords (fallback for short responses)
+        message_lower = message.strip().lower()
+        if message_lower in self._DEBT_QUERY_KEYWORDS:
+            self.logger.debug(f"Detected debt_query via keyword match: '{message_lower}'")
+            return "debt_query"
+
+        org_id = self._get_organization_id_safe(state_dict)
+        analyzer = PharmacyIntentAnalyzer()
+        result = await analyzer.analyze(
+            message=message,
+            context=state_dict,
+            organization_id=org_id,
+        )
+
+        # Service intents that require customer identification
+        auth_required_intents = {
+            "debt_query",
+            "payment_link",
+            "payment_history",
+            "confirm",
+            "invoice",
+        }
+
+        # Lower threshold (0.35) for welcome flow context since users often
+        # respond with short words/phrases after seeing menu options.
+        # Single lemma match = 0.4, which should be accepted here.
+        if result.intent in auth_required_intents and result.confidence >= 0.35:
+            self.logger.debug(
+                f"Detected service intent '{result.intent}' "
+                f"(confidence={result.confidence:.2f}) during welcome flow"
+            )
+            return result.intent
+
+        return None
+
     async def _ask_for_identifier(
         self,
         state_dict: dict[str, Any],
@@ -187,10 +285,10 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_AWAITING_IDENTIFIER,
             "identification_retries": 0,
-            **self._preserve_all(state_dict),
         }
 
     def _route_to_registration(
@@ -207,11 +305,11 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
             State updates for registration
         """
         return {
+            **self._preserve_all(state_dict),
             "identification_step": None,
             "awaiting_registration_data": True,
             "registration_step": REGISTRATION_STEP_NAME,
             "next_node": "customer_registration_node",
-            **self._preserve_all(state_dict),
         }
 
     async def _is_verification_question(
@@ -263,9 +361,9 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": STEP_AWAITING_WELCOME,
-            **self._preserve_all(state_dict),
         }
 
     async def _handle_decline(
@@ -291,10 +389,10 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
         )
 
         return {
+            **self._preserve_all(state_dict),
             "messages": [{"role": "assistant", "content": response_content}],
             "identification_step": None,
             "next_node": "router",
-            **self._preserve_all(state_dict),
         }
 
 

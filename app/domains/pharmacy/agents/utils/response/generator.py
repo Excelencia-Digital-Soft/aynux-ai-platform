@@ -34,6 +34,8 @@ from .config_provider import PharmacyConfigProvider
 from .llm_provider import PharmacyLLMProvider
 from .template_loader import PharmacyTemplateLoader
 from .template_renderer import PharmacyTemplateRenderer
+from app.domains.pharmacy.agents.utils.db_helpers import get_current_task
+from app.tasks import TaskRegistry
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -262,7 +264,7 @@ class PharmacyResponseGenerator:
             intent=intent,
             state=state,
             user_message=user_message,
-            current_task="Saluda cordialmente al cliente y ofrece ayuda.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_GREETING_DEFAULT),
         )
         return response.content
 
@@ -283,7 +285,7 @@ class PharmacyResponseGenerator:
             intent=intent,
             state=state,
             user_message=user_message,
-            current_task="Solicita el DNI del cliente explicando que es para verificar su identidad.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_REQUEST_IDENTIFIER),
         )
         return response.content
 
@@ -301,7 +303,7 @@ class PharmacyResponseGenerator:
             intent="request_name",
             state=state,
             user_message=user_message,
-            current_task="Solicita el nombre completo para verificar identidad.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_REQUEST_NAME),
         )
         return response.content
 
@@ -322,7 +324,7 @@ class PharmacyResponseGenerator:
             intent=intent,
             state=state,
             user_message=user_message,
-            current_task="Indica amablemente qué puedes hacer y ofrece opciones.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_FALLBACK_CAPABILITIES),
         )
         return response.content
 

@@ -1,0 +1,16 @@
+tasks:
+  - key: pharmacy.data_query.analyze
+    name: "Analizar Datos"
+    description: |
+      Analiza los datos de deuda y responde la pregunta del cliente.
+    metadata:
+      flow: data_query
+      tags: [analysis, debt]
+
+  - key: pharmacy.data_query.no_data
+    name: "Sin Datos"
+    description: |
+      Informa que no hay datos de cuenta para la consulta.
+    metadata:
+      flow: data_query
+      tags: [no_data]

@@ -20,7 +20,8 @@ from uuid import UUID
 
 from app.core.agents import BaseAgent
 from app.core.cache.domain_intent_cache import domain_intent_cache
-from app.domains.pharmacy.agents.utils.db_helpers import generate_response
+from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
+from app.tasks import TaskRegistry
 from app.domains.pharmacy.agents.utils.name_matcher import LLMNameMatcher
 from app.domains.pharmacy.agents.utils.response_generator import (
     PharmacyResponseGenerator,
@@ -693,10 +694,7 @@ class PersonValidationNode(BaseAgent):
             state=state_dict,
             intent="request_dni_welcome",
             user_message="",
-            current_task=(
-                "Da la bienvenida al cliente y solicita su DNI para verificar identidad. "
-                "Explica que es necesario por seguridad."
-            ),
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_WELCOME_REQUEST_DNI),
         )
 
         return {
@@ -717,7 +715,7 @@ class PersonValidationNode(BaseAgent):
             state=state_dict,
             intent="invalid_dni_format",
             user_message="",
-            current_task="Indica que el formato del DNI es inválido y pide que ingrese solo números.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_IDENTIFICATION_DNI_INVALID),
         )
 
         return {
@@ -738,7 +736,7 @@ class PersonValidationNode(BaseAgent):
             state=state_dict,
             intent="request_dni",
             user_message="",
-            current_task="Solicita el DNI de la otra persona para validar su identidad.",
+            current_task=await get_current_task(TaskRegistry.PHARMACY_PERSON_REQUEST_OTHER_DNI),
         )
 
         return {
@@ -759,7 +757,10 @@ class PersonValidationNode(BaseAgent):
             state=state_with_dni,
             intent="dni_not_found",
             user_message="",
-            current_task=f"Informa que el DNI {dni} no fue encontrado. Sé empático y sugiere verificar el número.",
+            current_task=await get_current_task(
+                TaskRegistry.PHARMACY_IDENTIFICATION_DNI_NOT_FOUND,
+                variables={"dni": dni},
+            ),
         )
 
         return {
