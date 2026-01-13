@@ -142,5 +142,8 @@ class LangGraphState(TypedDict):
     pharmacy_name: Optional[str]
     pharmacy_phone: Optional[str]
 
+    # MULTI-TENANT: Organization identifier (must persist for tenant isolation)
+    organization_id: Optional[str]
+
 
 GraphState = LangGraphState
