@@ -21,7 +21,10 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from app.core.agents import BaseAgent
-from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
+from app.domains.pharmacy.agents.intent_analyzer import (
+    PharmacyIntentAnalyzer,
+    get_pharmacy_intent_analyzer,
+)
 from app.domains.pharmacy.agents.nodes.handlers.disambiguation_handler import (
     DisambiguationHandler,
 )
@@ -130,7 +133,7 @@ class CustomerIdentificationNode(BaseAgent):
     def _get_intent_analyzer(self) -> PharmacyIntentAnalyzer:
         """Get or create intent analyzer."""
         if self._intent_analyzer is None:
-            self._intent_analyzer = PharmacyIntentAnalyzer()
+            self._intent_analyzer = get_pharmacy_intent_analyzer()
         return self._intent_analyzer
 
     def _get_response_generator(self) -> PharmacyResponseGenerator:

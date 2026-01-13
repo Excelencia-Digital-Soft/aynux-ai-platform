@@ -11,7 +11,10 @@ import logging
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
+from app.domains.pharmacy.agents.intent_analyzer import (
+    PharmacyIntentAnalyzer,
+    get_pharmacy_intent_analyzer,
+)
 from app.domains.pharmacy.agents.nodes.handlers.base_handler import BasePharmacyHandler
 from app.domains.pharmacy.agents.nodes.handlers.disambiguation_handler import (
     DisambiguationHandler,
@@ -66,7 +69,7 @@ class DocumentInputHandler(BasePharmacyHandler):
         """
         super().__init__(response_generator)
         self._use_case = use_case
-        self._intent_analyzer = intent_analyzer or PharmacyIntentAnalyzer()
+        self._intent_analyzer = intent_analyzer or get_pharmacy_intent_analyzer()
         self._response_handler = response_handler or IdentificationResponseHandler(response_generator)
         self._disambiguation_handler = disambiguation_handler or DisambiguationHandler(response_generator)
 

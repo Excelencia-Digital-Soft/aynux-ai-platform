@@ -45,9 +45,9 @@ class ErrorHandler(PersonResolutionBaseHandler):
     def _get_intent_analyzer(self) -> PharmacyIntentAnalyzer:
         """Get or create intent analyzer."""
         if self._intent_analyzer is None:
-            from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
+            from app.domains.pharmacy.agents.intent_analyzer import get_pharmacy_intent_analyzer
 
-            self._intent_analyzer = PharmacyIntentAnalyzer()
+            self._intent_analyzer = get_pharmacy_intent_analyzer()
         return self._intent_analyzer
 
     def _get_organization_id_safe(self, state_dict: dict[str, Any]) -> UUID | None:
