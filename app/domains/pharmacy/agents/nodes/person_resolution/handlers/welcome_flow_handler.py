@@ -224,7 +224,7 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
         Returns:
             Intent key if service intent detected, None otherwise
         """
-        from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
+        from app.domains.pharmacy.agents.intent_analyzer import get_pharmacy_intent_analyzer
 
         if not message:
             return None
@@ -236,7 +236,7 @@ class WelcomeFlowHandler(PersonResolutionBaseHandler):
             return "debt_query"
 
         org_id = self._get_organization_id_safe(state_dict)
-        analyzer = PharmacyIntentAnalyzer()
+        analyzer = get_pharmacy_intent_analyzer()
         result = await analyzer.analyze(
             message=message,
             context=state_dict,

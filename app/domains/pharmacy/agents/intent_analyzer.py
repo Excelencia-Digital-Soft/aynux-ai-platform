@@ -171,10 +171,12 @@ class PharmacyIntentAnalyzer:
         Args:
             db: Optional AsyncSession (uses self._db if not provided)
             organization_id: Optional organization UUID (uses self._organization_id if not provided)
+
+        Note:
+            If no db session is available, the cache will create its own session.
+            This enables lazy initialization for multi-tenant scenarios.
         """
         # Resolve org_id from parameters or instance attributes
-        # db is optional - cache can create its own session if needed
-        db = db or self._db
         org_id = organization_id or self._organization_id
 
         # Check if we need to load patterns (different org or first load)
@@ -186,9 +188,13 @@ class PharmacyIntentAnalyzer:
             self._patterns = {}
             return
 
+        # Resolve db session - cache can create its own if None
+        # This enables lazy initialization without requiring db at construction
+        resolved_db = db or self._db
+
         # Load patterns from cache (db can be None - cache will create own session)
         # Domain is always "pharmacy" for this analyzer
-        self._patterns = await domain_intent_cache.get_patterns(db, org_id, "pharmacy")
+        self._patterns = await domain_intent_cache.get_patterns(resolved_db, org_id, "pharmacy")
         self._current_org_id = org_id
 
         if not self._patterns.get("intents"):
@@ -620,3 +626,48 @@ Responde con JSON: intent, confidence, is_out_of_scope"""
             "organization_id": str(org_id) if org_id else None,
             "multi_tenant_mode": self._organization_id is None,
         }
+
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def get_pharmacy_intent_analyzer(
+    db: "AsyncSession | None" = None,
+    organization_id: UUID | None = None,
+    use_llm_fallback: bool = True,
+) -> PharmacyIntentAnalyzer:
+    """
+    Factory function to create a PharmacyIntentAnalyzer instance.
+
+    This is the recommended way to create analyzer instances, especially
+    in multi-tenant scenarios where db and organization_id may not be
+    available at construction time.
+
+    Args:
+        db: Optional AsyncSession for database access
+        organization_id: Optional tenant UUID for loading patterns
+        use_llm_fallback: Enable LLM fallback for low confidence (default True)
+
+    Returns:
+        Configured PharmacyIntentAnalyzer instance
+
+    Usage:
+        # Multi-tenant (recommended) - pass org_id to analyze()
+        analyzer = get_pharmacy_intent_analyzer()
+        result = await analyzer.analyze(msg, ctx, organization_id=org_id)
+
+        # With db session available
+        analyzer = get_pharmacy_intent_analyzer(db=session)
+        result = await analyzer.analyze(msg, ctx, organization_id=org_id)
+
+        # Single-tenant with all params
+        analyzer = get_pharmacy_intent_analyzer(db=session, organization_id=org_id)
+        result = await analyzer.analyze(msg, ctx)
+    """
+    return PharmacyIntentAnalyzer(
+        db=db,
+        organization_id=organization_id,
+        use_llm_fallback=use_llm_fallback,
+    )

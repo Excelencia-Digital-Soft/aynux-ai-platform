@@ -239,13 +239,13 @@ class InitialResolutionService:
         Returns:
             Intent key if service intent detected, None otherwise
         """
-        from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
+        from app.domains.pharmacy.agents.intent_analyzer import get_pharmacy_intent_analyzer
         from app.domains.pharmacy.agents.nodes.person_resolution.services import auth_requirement_service
 
         if not message:
             return None
 
-        analyzer = PharmacyIntentAnalyzer()
+        analyzer = get_pharmacy_intent_analyzer(db=self._db_session)
         result = await analyzer.analyze(
             message=message,
             context=state_dict,

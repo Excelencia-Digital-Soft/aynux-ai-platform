@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from app.core.agents import BaseAgent
-from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
+from app.domains.pharmacy.agents.intent_analyzer import get_pharmacy_intent_analyzer
 from app.domains.pharmacy.agents.utils.db_helpers import generate_response, get_current_task
 from app.tasks import TaskRegistry
 from app.domains.pharmacy.agents.utils.response_generator import (
@@ -52,7 +52,7 @@ class ConfirmationNode(BaseAgent):
         """
         super().__init__("confirmation_node", config or {})
         self._plex_client = plex_client
-        self._intent_analyzer = PharmacyIntentAnalyzer()
+        self._intent_analyzer = get_pharmacy_intent_analyzer()
         self._response_generator = response_generator
 
     def _get_response_generator(self) -> PharmacyResponseGenerator:

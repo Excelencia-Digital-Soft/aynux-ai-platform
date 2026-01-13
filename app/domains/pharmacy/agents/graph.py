@@ -27,7 +27,7 @@ from app.domains.pharmacy.agents.builders import (
     PharmacyNodeFactory,
 )
 from app.domains.pharmacy.agents.execution import NodeExecutor
-from app.domains.pharmacy.agents.intent_analyzer import PharmacyIntentAnalyzer
+from app.domains.pharmacy.agents.intent_analyzer import get_pharmacy_intent_analyzer
 from app.domains.pharmacy.agents.nodes.fallback_handler import PharmacyFallbackHandler
 from app.domains.pharmacy.agents.routing import (
     FallbackRouter,
@@ -91,7 +91,7 @@ class PharmacyGraph:
 
         # Create core dependencies
         self._plex_client = PlexClient()
-        self._intent_analyzer = PharmacyIntentAnalyzer(
+        self._intent_analyzer = get_pharmacy_intent_analyzer(
             use_llm_fallback=self.config.get("use_llm_fallback", True),
         )
         self._fallback_handler = PharmacyFallbackHandler()
