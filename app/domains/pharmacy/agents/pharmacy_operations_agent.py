@@ -142,6 +142,11 @@ class PharmacyOperationsAgent(BaseAgent):
             # These values come from parent graph's checkpointer
             subgraph_kwargs.update(pharmacy_state)
 
+            # Log for debugging state persistence
+            logger.info(
+                f"[PHARMACY_AGENT] Invoking subgraph with conversation_id={subgraph_kwargs.get('conversation_id')}"
+            )
+
             # Invoke subgraph
             result = await graph.invoke(
                 message=message,
