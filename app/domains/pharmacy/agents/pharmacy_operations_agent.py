@@ -138,13 +138,26 @@ class PharmacyOperationsAgent(BaseAgent):
             if state_dict.get("is_bypass_route"):
                 subgraph_kwargs["is_bypass_route"] = state_dict["is_bypass_route"]
 
+            # CRITICAL: Pass pharmacy config fields from root state (set by bypass routing)
+            # These are in root state, NOT in domain_states
+            if state_dict.get("pharmacy_id"):
+                subgraph_kwargs["pharmacy_id"] = state_dict["pharmacy_id"]
+
+            if state_dict.get("pharmacy_name"):
+                subgraph_kwargs["pharmacy_name"] = state_dict["pharmacy_name"]
+
+            if state_dict.get("pharmacy_phone"):
+                subgraph_kwargs["pharmacy_phone"] = state_dict["pharmacy_phone"]
+
             # Spread pharmacy-specific state from domain_states (already filtered by get_domain_state)
             # These values come from parent graph's checkpointer
             subgraph_kwargs.update(pharmacy_state)
 
             # Log for debugging state persistence
             logger.info(
-                f"[PHARMACY_AGENT] Invoking subgraph with conversation_id={subgraph_kwargs.get('conversation_id')}"
+                f"[PHARMACY_AGENT] Invoking subgraph with "
+                f"conversation_id={subgraph_kwargs.get('conversation_id')}, "
+                f"pharmacy_id={subgraph_kwargs.get('pharmacy_id')}"
             )
 
             # Invoke subgraph
