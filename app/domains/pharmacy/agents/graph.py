@@ -170,10 +170,22 @@ class PharmacyGraph:
         """
         Process a message through the pharmacy graph.
 
+        IMPORTANT: This method is designed to work with LangGraph's checkpointer.
+        The initial_state should only contain:
+        1. The new message (merged via add_messages reducer)
+        2. Per-request control flags (is_complete: False to allow processing)
+        3. Values from **kwargs (which come from domain_states of parent graph)
+
+        Persistent state fields (customer_identified, identification_step, etc.)
+        should NOT be set here with defaults, as that would override the checkpointer's
+        saved state. These values come from:
+        - The checkpointer (if exists) - loaded automatically by LangGraph
+        - **kwargs (passed from parent graph's domain_states)
+
         Args:
             message: User message content
             conversation_id: Optional conversation ID for state persistence
-            **kwargs: Additional state fields to pass through
+            **kwargs: Additional state fields from parent graph (includes domain_states)
 
         Returns:
             Final state dict after graph execution
@@ -182,22 +194,23 @@ class PharmacyGraph:
             raise RuntimeError("Graph not initialized. Call initialize() first")
 
         try:
+            # CRITICAL: Only include per-request values that MUST be reset each turn.
+            # Persistent state comes from checkpointer or **kwargs (domain_states).
+            # DO NOT add defaults for fields like customer_identified, identification_step,
+            # awaiting_confirmation, etc. - these would override checkpointer state.
             initial_state: dict[str, Any] = {
+                # New message - merged via add_messages reducer
                 "messages": [HumanMessage(content=message)],
+                # Request metadata
                 "conversation_id": conversation_id,
                 "timestamp": datetime.now().isoformat(),
+                # Per-request control flags (must reset each turn)
                 "is_complete": False,
-                "error_count": 0,
-                "max_errors": self.config.get("max_errors", 3),
-                "has_debt": False,
-                "awaiting_confirmation": False,
-                "confirmation_received": False,
-                "customer_identified": False,
-                "requires_disambiguation": False,
-                "awaiting_document_input": False,
-                "awaiting_registration_data": False,
-                "is_bypass_route": kwargs.get("is_bypass_route", False),
                 "requires_human": False,
+                # Config values
+                "max_errors": self.config.get("max_errors", 3),
+                # Spread kwargs LAST - these come from parent graph's domain_states
+                # and contain persisted values like customer_identified, identification_step
                 **kwargs,
             }
 

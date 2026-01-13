@@ -117,20 +117,30 @@ class PharmacyOperationsAgent(BaseAgent):
             )
 
             # Build subgraph kwargs from common fields + domain state
-            # Common fields from orchestration state
-            subgraph_kwargs = {
-                "customer_id": user_phone,
-                "customer_name": state_dict.get("customer_name"),
-                "conversation_id": state_dict.get("conversation_id"),
-                "organization_id": state_dict.get("organization_id"),
-                "is_bypass_route": state_dict.get("is_bypass_route", False),
-                # Spread pharmacy-specific state from domain_states
-                **pharmacy_state,
-            }
+            # IMPORTANT: Only pass non-None values to avoid overriding checkpointer state.
+            # If we pass customer_name=None, it would override a saved value from checkpoint.
+            subgraph_kwargs: dict[str, Any] = {}
 
-            # Ensure whatsapp_phone is set
-            if not subgraph_kwargs.get("whatsapp_phone"):
+            # Add required fields (always passed)
+            subgraph_kwargs["conversation_id"] = state_dict.get("conversation_id")
+
+            # Add optional fields only if they have values
+            if user_phone:
+                subgraph_kwargs["customer_id"] = user_phone
                 subgraph_kwargs["whatsapp_phone"] = user_phone
+
+            if state_dict.get("customer_name"):
+                subgraph_kwargs["customer_name"] = state_dict["customer_name"]
+
+            if state_dict.get("organization_id"):
+                subgraph_kwargs["organization_id"] = state_dict["organization_id"]
+
+            if state_dict.get("is_bypass_route"):
+                subgraph_kwargs["is_bypass_route"] = state_dict["is_bypass_route"]
+
+            # Spread pharmacy-specific state from domain_states (already filtered by get_domain_state)
+            # These values come from parent graph's checkpointer
+            subgraph_kwargs.update(pharmacy_state)
 
             # Invoke subgraph
             result = await graph.invoke(
