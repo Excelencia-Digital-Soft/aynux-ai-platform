@@ -197,10 +197,13 @@ class PharmacyGraph:
         logger.info(f"[PHARMACY_GRAPH] invoke called with conversation_id={conversation_id}")
 
         try:
-            # CRITICAL: Only include per-request values that MUST be reset each turn.
-            # Persistent state comes from checkpointer or **kwargs (domain_states).
-            # DO NOT add defaults for fields like customer_identified, identification_step,
-            # awaiting_confirmation, etc. - these would override checkpointer state.
+            # CRITICAL: Filter out None values from kwargs to prevent overwriting checkpoint state.
+            # For fields WITHOUT reducers, initial_state values OVERWRITE checkpoint values.
+            # If kwargs contains {"identification_step": None} from domain_states defaults,
+            # it would overwrite the checkpoint's saved "identification_step": "name".
+            # Only pass non-None values from kwargs to let checkpoint values be preserved.
+            filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
             initial_state: dict[str, Any] = {
                 # New message - merged via add_messages reducer
                 "messages": [HumanMessage(content=message)],
@@ -212,9 +215,8 @@ class PharmacyGraph:
                 "requires_human": False,
                 # Config values
                 "max_errors": self.config.get("max_errors", 3),
-                # Spread kwargs LAST - these come from parent graph's domain_states
-                # and contain persisted values like customer_identified, identification_step
-                **kwargs,
+                # Spread filtered kwargs - only non-None values to preserve checkpoint state
+                **filtered_kwargs,
             }
 
             config: dict[str, Any] = {}
