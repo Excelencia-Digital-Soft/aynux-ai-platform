@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from app.domains.pharmacy.agents.nodes.person_resolution.handlers.account_selection_handler import (
     AccountSelectionHandler,
@@ -110,12 +111,29 @@ class PersonResolutionFactory:
             self._identification_service = PersonIdentificationService(self._plex_client)
         return self._identification_service
 
-    def get_initial_resolution_service(self) -> InitialResolutionService:
-        """Get or create InitialResolutionService."""
+    def get_initial_resolution_service(
+        self,
+        organization_id: UUID | None = None,
+    ) -> InitialResolutionService:
+        """Get or create InitialResolutionService.
+
+        Args:
+            organization_id: Optional organization UUID from current request state.
+                            Takes precedence over config value for multi-tenant support.
+        """
+        # Use passed organization_id or fall back to config
+        resolved_org_id = organization_id or self._config.get("organization_id")
+
         if self._initial_resolution_service is None:
             self._initial_resolution_service = InitialResolutionService(
                 self._db_session,
-                self._config.get("organization_id"),
+                resolved_org_id,
+            )
+        elif resolved_org_id and self._initial_resolution_service._organization_id != resolved_org_id:
+            # Re-create service if organization_id changed (multi-tenant request)
+            self._initial_resolution_service = InitialResolutionService(
+                self._db_session,
+                resolved_org_id,
             )
         return self._initial_resolution_service
 
