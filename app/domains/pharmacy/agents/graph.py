@@ -193,6 +193,9 @@ class PharmacyGraph:
         if not self.app:
             raise RuntimeError("Graph not initialized. Call initialize() first")
 
+        # Log incoming conversation_id for debugging state persistence
+        logger.info(f"[PHARMACY_GRAPH] invoke called with conversation_id={conversation_id}")
+
         try:
             # CRITICAL: Only include per-request values that MUST be reset each turn.
             # Persistent state comes from checkpointer or **kwargs (domain_states).
@@ -216,7 +219,26 @@ class PharmacyGraph:
 
             config: dict[str, Any] = {}
             if conversation_id:
-                config["configurable"] = {"thread_id": conversation_id}
+                # CRITICAL: Use namespace to avoid conflict with parent graph's checkpointer.
+                # Both AynuxGraph and PharmacyGraph use the same PostgreSQL checkpoints table.
+                # Without namespace, they would overwrite each other's state.
+                pharmacy_thread_id = f"pharmacy:{conversation_id}"
+                config["configurable"] = {"thread_id": pharmacy_thread_id}
+
+                # Log previous state for debugging (if checkpointer is available)
+                if self._checkpointer:
+                    try:
+                        prev_state = await self.app.aget_state(config)
+                        if prev_state and prev_state.values:
+                            logger.info(
+                                f"[PHARMACY_GRAPH] Previous checkpoint state: "
+                                f"identification_step={prev_state.values.get('identification_step')}, "
+                                f"customer_identified={prev_state.values.get('customer_identified')}"
+                            )
+                        else:
+                            logger.info("[PHARMACY_GRAPH] No previous checkpoint state found (new conversation)")
+                    except Exception as e:
+                        logger.debug(f"[PHARMACY_GRAPH] Could not load previous state: {e}")
 
             result = await self.app.ainvoke(initial_state, cast(RunnableConfig, config))
             return dict(result)
