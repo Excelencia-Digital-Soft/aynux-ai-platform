@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from app.core.agents import BaseAgent
 from app.domains.pharmacy.agents.models import StatePreserver
@@ -168,7 +169,12 @@ class PersonResolutionNode(BaseAgent):
         """Perform initial person resolution using InitialResolutionService."""
         state_service = self._factory.get_state_service()
         id_service = self._factory.get_identification_service()
-        initial_resolution_service = self._factory.get_initial_resolution_service()  # type: ignore[reportAttributeAccessIssue]
+
+        # Extract organization_id from state for multi-tenant support
+        org_id = self._extract_organization_id(state_dict)
+        initial_resolution_service = self._factory.get_initial_resolution_service(
+            organization_id=org_id
+        )
 
         handlers = {
             "error_handler": self._factory.get_error_handler(),
@@ -185,6 +191,26 @@ class PersonResolutionNode(BaseAgent):
     # =========================================================================
     # Helper Methods
     # =========================================================================
+
+    def _extract_organization_id(self, state_dict: dict[str, Any]) -> UUID | None:
+        """Extract organization_id from state for multi-tenant support.
+
+        Args:
+            state_dict: Current state dictionary
+
+        Returns:
+            Organization UUID or None
+        """
+        org_id = state_dict.get("organization_id")
+        if org_id is None:
+            return None
+        if isinstance(org_id, UUID):
+            return org_id
+        try:
+            return UUID(str(org_id))
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid organization_id in state: {org_id}")
+            return None
 
     def _pass_through_identified(self, state_dict: dict[str, Any]) -> dict[str, Any]:
         """Return pass-through state for already identified customers."""
