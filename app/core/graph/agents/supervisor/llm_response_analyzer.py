@@ -130,6 +130,22 @@ class LLMResponseAnalyzer:
                 heuristic_score=heuristic_score or 0.5,
             )
 
+        # PHARMACY-AWARE: Skip LLM hallucination check for pharmacy domain agents
+        # Pharmacy agents use database templates (not RAG), so LLM falsely flags them
+        # as "hallucinations". Trust heuristic evaluation for pharmacy responses.
+        if self._is_pharmacy_agent(agent_name) and heuristic_score is not None:
+            if heuristic_score >= 0.65:
+                logger.info(
+                    f"[SKIP_LLM_PHARMACY] Skipping LLM for pharmacy agent '{agent_name}' - "
+                    f"heuristic={heuristic_score:.2f} (pharmacy uses DB templates, not RAG)"
+                )
+                return self._create_high_quality_result(heuristic_score)
+            else:
+                logger.info(
+                    f"[LLM_PHARMACY] Low heuristic for pharmacy agent '{agent_name}' - "
+                    f"score={heuristic_score:.2f}, proceeding with LLM analysis"
+                )
+
         # Optimization: Skip LLM if heuristic score is very high
         if heuristic_score is not None and heuristic_score >= self.skip_threshold:
             logger.info(
@@ -454,3 +470,46 @@ class LLMResponseAnalyzer:
             reasoning="High heuristic score, LLM analysis skipped for efficiency",
             confidence=0.9,
         )
+
+    def _is_pharmacy_agent(self, agent_name: str) -> bool:
+        """Check if agent belongs to pharmacy domain.
+
+        Pharmacy agents use database templates (not RAG) for responses,
+        so LLM hallucination detection produces false positives.
+
+        Args:
+            agent_name: Name of the agent to check
+
+        Returns:
+            True if agent is pharmacy-related
+        """
+        if not agent_name:
+            return False
+
+        agent_lower = agent_name.lower()
+
+        # Known pharmacy domain agents
+        pharmacy_agents = {
+            "pharmacy_operations_agent",
+            "person_resolution_node",
+            "person_selection_node",
+            "person_validation_node",
+            "customer_identification_node",
+            "debt_check_node",
+            "confirmation_node",
+            "payment_link_node",
+            "invoice_generation_node",
+            "pharmacy_info_node",
+            "payment_history_node",
+            "main_menu_node",
+            "help_center_node",
+            "farewell_node",
+        }
+
+        # Check exact match first
+        if agent_lower in pharmacy_agents:
+            return True
+
+        # Check prefix patterns
+        pharmacy_prefixes = ("pharmacy_", "person_", "debt_", "payment_", "plex_")
+        return any(agent_lower.startswith(prefix) for prefix in pharmacy_prefixes)
