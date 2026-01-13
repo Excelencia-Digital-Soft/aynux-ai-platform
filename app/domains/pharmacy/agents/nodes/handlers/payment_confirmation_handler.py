@@ -64,6 +64,10 @@ class PaymentConfirmationHandler(BasePharmacyHandler):
         Returns:
             State updates
         """
+        # Debug logging for WhatsApp message diagnosis
+        logger.debug(f"handle_confirmation - Raw message repr: {repr(message)}")
+        logger.debug(f"handle_confirmation - Message bytes: {message.encode('unicode_escape')}")
+
         message_lower = message.strip().lower()
         customer_name = state.get("customer_name", "Cliente")
         total_debt = state.get("total_debt", 0)
@@ -138,6 +142,10 @@ Puedes pagar cualquier monto desde **${min_payment:,.2f}**.
         Returns:
             State updates
         """
+        # Debug logging for WhatsApp message diagnosis
+        logger.debug(f"handle_partial_payment - Raw message repr: {repr(message)}")
+        logger.debug(f"handle_partial_payment - Message bytes: {message.encode('unicode_escape')}")
+
         message_lower = message.strip().lower()
         customer_name = state.get("customer_name", "Cliente")
         total_debt = state.get("total_debt", 0)

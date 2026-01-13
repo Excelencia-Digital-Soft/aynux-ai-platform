@@ -3,18 +3,26 @@ Pharmacy Operations Agent
 
 Main agent for the Pharmacy domain that wraps the PharmacyGraph subgraph.
 Extends BaseAgent for consistent agent behavior.
+
+Supports both V1 and V2 graph implementations via feature flag:
+- V1 (default): Original ~90 field state, 15+ nodes, hardcoded routing
+- V2 (USE_PHARMACY_V2=true): Simplified ~30 field state, 6 nodes, DB-driven routing
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import AIMessage
 
+from app.config.settings import get_settings
 from app.core.agents import BaseAgent
-from app.domains.pharmacy.agents.graph import PharmacyGraph
 from app.integrations.databases import PostgreSQLIntegration
+
+if TYPE_CHECKING:
+    from app.domains.pharmacy.agents.graph import PharmacyGraph
+    from app.domains.pharmacy.agents.graph_v2 import PharmacyGraphV2
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +39,10 @@ class PharmacyOperationsAgent(BaseAgent):
 
     This agent is designed to be routed to via bypass routing
     for dedicated pharmacy WhatsApp numbers.
+
+    Feature Flag Support:
+    - USE_PHARMACY_V2=false (default): Uses V1 graph (~90 fields, 15+ nodes)
+    - USE_PHARMACY_V2=true: Uses V2 graph (~30 fields, 6 nodes, DB routing)
     """
 
     def __init__(self, config: dict[str, Any] | None = None):
@@ -43,37 +55,50 @@ class PharmacyOperationsAgent(BaseAgent):
         super().__init__("pharmacy_operations_agent", config or {})
 
         # Initialize pharmacy subgraph (lazy init for async checkpointer)
-        self._graph: PharmacyGraph | None = None
+        self._graph: PharmacyGraph | PharmacyGraphV2 | None = None
         self._postgres: PostgreSQLIntegration | None = None
         self._graph_initialized = False
         self._agent_config = config
+        self._use_v2 = get_settings().USE_PHARMACY_V2
 
-        logger.info("PharmacyOperationsAgent initialized (graph will be initialized lazily)")
+        version = "V2" if self._use_v2 else "V1"
+        logger.info(f"PharmacyOperationsAgent initialized with {version} (graph will be initialized lazily)")
 
     @property
     def agent_name(self) -> str:
         """Agent name."""
         return "pharmacy_operations_agent"
 
-    async def _ensure_graph_initialized(self) -> PharmacyGraph:
+    async def _ensure_graph_initialized(self) -> "PharmacyGraph | PharmacyGraphV2":
         """
         Ensure the pharmacy graph is initialized with PostgreSQL checkpointer.
 
         This lazy initialization allows us to use async checkpointer setup.
+        Selects V1 or V2 graph based on USE_PHARMACY_V2 feature flag.
 
         Returns:
-            Initialized PharmacyGraph instance
+            Initialized PharmacyGraph (V1) or PharmacyGraphV2 instance
         """
         if self._graph is None or not self._graph_initialized:
             # Create PostgreSQL integration for checkpointer
             if self._postgres is None:
                 self._postgres = PostgreSQLIntegration()
 
-            # Create and initialize graph with checkpointer
-            self._graph = PharmacyGraph(self._agent_config)
-            await self._graph.initialize(postgres=self._postgres)
-            self._graph_initialized = True
-            logger.info("PharmacyGraph initialized with PostgreSQL checkpointer")
+            # Create and initialize graph based on feature flag
+            if self._use_v2:
+                from app.domains.pharmacy.agents.graph_v2 import PharmacyGraphV2
+
+                self._graph = PharmacyGraphV2(self._agent_config)
+                await self._graph.initialize(postgres=self._postgres)
+                self._graph_initialized = True
+                logger.info("PharmacyGraphV2 initialized with PostgreSQL checkpointer")
+            else:
+                from app.domains.pharmacy.agents.graph import PharmacyGraph
+
+                self._graph = PharmacyGraph(self._agent_config)
+                await self._graph.initialize(postgres=self._postgres)
+                self._graph_initialized = True
+                logger.info("PharmacyGraph (V1) initialized with PostgreSQL checkpointer")
 
         return self._graph
 

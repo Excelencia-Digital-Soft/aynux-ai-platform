@@ -25,6 +25,8 @@ from app.integrations.llm import VllmLLM
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from app.core.tenancy.pharmacy_config_service import PharmacyConfig
+
 
 class BasePharmacyHandler:
     """
@@ -53,6 +55,7 @@ class BasePharmacyHandler:
             response_generator: PharmacyResponseGenerator instance (creates one if not provided)
         """
         self._response_generator = response_generator
+        self._pharmacy_config: PharmacyConfig | None = None
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     def _get_response_generator(self) -> PharmacyResponseGenerator:
@@ -177,6 +180,60 @@ class BasePharmacyHandler:
         from app.database.async_db import AsyncSessionLocal
 
         return AsyncSessionLocal()
+
+    async def _load_pharmacy_config(
+        self,
+        state: dict[str, Any],
+    ) -> PharmacyConfig | None:
+        """
+        Load pharmacy config from database.
+
+        Prefers pharmacy_id (specific pharmacy) over organization_id (may have multiple).
+        Results are cached per handler instance for performance.
+
+        Args:
+            state: Current state dictionary with pharmacy_id or organization_id
+
+        Returns:
+            PharmacyConfig if found, None otherwise
+        """
+        if self._pharmacy_config is not None:
+            return self._pharmacy_config
+
+        from app.core.tenancy.pharmacy_config_service import PharmacyConfigService
+
+        # Prefer pharmacy_id if available (more specific, avoids multiple rows issue)
+        pharmacy_id_str = state.get("pharmacy_id")
+        org_id_str = state.get("organization_id")
+
+        if not pharmacy_id_str and not org_id_str:
+            return None
+
+        try:
+            async with await self._get_db_session() as db:
+                config_service = PharmacyConfigService(db)
+
+                # Try pharmacy_id first (specific pharmacy)
+                if pharmacy_id_str:
+                    pharmacy_id = (
+                        UUID(str(pharmacy_id_str))
+                        if not isinstance(pharmacy_id_str, UUID)
+                        else pharmacy_id_str
+                    )
+                    self._pharmacy_config = await config_service.get_config_by_id(pharmacy_id)
+                    return self._pharmacy_config
+
+                # Fall back to organization_id
+                org_id = (
+                    UUID(str(org_id_str))
+                    if not isinstance(org_id_str, UUID)
+                    else org_id_str
+                )
+                self._pharmacy_config = await config_service.get_config(org_id)
+                return self._pharmacy_config
+        except Exception as e:
+            self.logger.error(f"Failed to load pharmacy config: {e}")
+            return None
 
     async def _generate_response(
         self,
@@ -363,9 +420,22 @@ class BasePharmacyHandler:
         from app.database.async_db import get_async_db_context
 
         org_id = state.get("organization_id")
+
+        # If no organization_id, get it from PharmacyConfig via pharmacy_id
         if org_id is None:
-            self.logger.warning("No organization_id in state for pattern matching")
-            return False
+            pharmacy_id = state.get("pharmacy_id")
+            if pharmacy_id:
+                pharmacy_config = await self._load_pharmacy_config(state)
+                if pharmacy_config:
+                    org_id = str(pharmacy_config.organization_id)
+                    self.logger.debug(
+                        f"Got organization_id from PharmacyConfig: {org_id}"
+                    )
+
+        # Last resort: use system org for backward compatibility
+        if org_id is None:
+            org_id = "00000000-0000-0000-0000-000000000000"
+            self.logger.debug("Using system org for pattern matching (no org_id)")
 
         try:
             if not isinstance(org_id, UUID):

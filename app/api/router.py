@@ -37,6 +37,7 @@ from app.api.routes.admin import (
     pharmacy_config,
     pharmacy_conversations,
     response_configs,
+    routing_config,
     tenant_agents,
     tenant_config,
     tenant_credentials,
@@ -228,4 +229,11 @@ api_router.include_router(
     intent_configs.router,
     prefix="/admin/intent-configs",
     tags=["Intent Configs"],
+)
+
+# Admin routes - Routing Configs (DB-driven routing for pharmacy flow)
+api_router.include_router(
+    routing_config.router,
+    prefix="/admin",
+    tags=["Routing Configs"],
 )

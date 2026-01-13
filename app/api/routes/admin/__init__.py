@@ -29,6 +29,7 @@ from . import (
     organizations,
     prompts,
     response_configs,
+    routing_config,
     tenant_agents,
     tenant_config,
     tenant_credentials,
@@ -56,5 +57,6 @@ __all__ = [
     "institution_configs",
     "domain_intents",
     "response_configs",
+    "routing_config",
     "intent_configs",
 ]

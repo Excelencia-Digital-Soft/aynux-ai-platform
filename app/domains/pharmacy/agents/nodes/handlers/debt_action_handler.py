@@ -8,15 +8,12 @@ Handles the post-debt display menu with payment and detail options.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from app.domains.pharmacy.agents.nodes.handlers.base_handler import BasePharmacyHandler
 from app.domains.pharmacy.agents.utils.debt_formatter_service import DebtFormatterService
 from app.domains.pharmacy.agents.utils.message_parser import MessageParser, get_message_parser
 from app.domains.pharmacy.agents.utils.plex_debt_mapper import PlexDebtMapper
-
-if TYPE_CHECKING:
-    from app.core.tenancy.pharmacy_config_service import PharmacyConfig
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +46,6 @@ class DebtActionHandler(BasePharmacyHandler):
         """
         super().__init__()
         self._parser = message_parser
-        self._pharmacy_config: PharmacyConfig | None = None
 
     def _get_parser(self) -> MessageParser:
         """Get or create message parser."""
@@ -270,52 +266,3 @@ class DebtActionHandler(BasePharmacyHandler):
             )}],
             "current_agent": "debt_check_node",
         }
-
-    async def _load_pharmacy_config(
-        self,
-        state: dict[str, Any],
-    ) -> PharmacyConfig | None:
-        """
-        Load pharmacy config from database.
-
-        Prefers pharmacy_id (specific pharmacy) over organization_id (may have multiple).
-        """
-        if self._pharmacy_config is not None:
-            return self._pharmacy_config
-
-        from uuid import UUID
-
-        from app.core.tenancy.pharmacy_config_service import PharmacyConfigService
-
-        # Prefer pharmacy_id if available (more specific, avoids multiple rows issue)
-        pharmacy_id_str = state.get("pharmacy_id")
-        org_id_str = state.get("organization_id")
-
-        if not pharmacy_id_str and not org_id_str:
-            return None
-
-        try:
-            async with await self._get_db_session() as db:
-                config_service = PharmacyConfigService(db)
-
-                # Try pharmacy_id first (specific pharmacy)
-                if pharmacy_id_str:
-                    pharmacy_id = (
-                        UUID(str(pharmacy_id_str))
-                        if not isinstance(pharmacy_id_str, UUID)
-                        else pharmacy_id_str
-                    )
-                    self._pharmacy_config = await config_service.get_config_by_id(pharmacy_id)
-                    return self._pharmacy_config
-
-                # Fall back to organization_id
-                org_id = (
-                    UUID(str(org_id_str))
-                    if not isinstance(org_id_str, UUID)
-                    else org_id_str
-                )
-                self._pharmacy_config = await config_service.get_config(org_id)
-                return self._pharmacy_config
-        except Exception as e:
-            logger.error(f"Failed to load pharmacy config: {e}")
-            return None

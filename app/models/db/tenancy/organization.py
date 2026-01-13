@@ -251,6 +251,13 @@ class Organization(Base, TimestampMixin):
         cascade="all, delete-orphan",
     )
 
+    # Routing configurations (database-driven routing for pharmacy flow)
+    routing_configs = relationship(
+        "RoutingConfig",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
     # Table configuration
     __table_args__ = (
         Index("idx_organizations_slug", slug),
