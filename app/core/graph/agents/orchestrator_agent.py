@@ -90,7 +90,10 @@ class OrchestratorAgent(BaseAgent):
             # ================================================================
             bypass_agent = self._check_bypass_routing(state_dict)
             if bypass_agent:
-                logger.info(f"[BYPASS] Pre-routed bypass detected, routing directly to: {bypass_agent}")
+                logger.info(
+                    f"[BYPASS] Pre-routed bypass detected, routing directly to: {bypass_agent}, "
+                    f"org_id={state_dict.get('organization_id')}, pharmacy_id={state_dict.get('pharmacy_id')}"
+                )
                 return {
                     "next_agent": bypass_agent,
                     "routing_decision": {
