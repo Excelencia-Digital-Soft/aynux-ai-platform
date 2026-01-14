@@ -207,12 +207,12 @@ class PromptManager:
                     )
                     db.add(version)
 
-                    # Actualizar prompt
-                    existing.template = template
-                    existing.name = name
-                    existing.description = description
+                    # Actualizar prompt (SQLAlchemy Column descriptors accept Python values at runtime)
+                    existing.template = template  # type: ignore[assignment]
+                    existing.name = name  # type: ignore[assignment]
+                    existing.description = description  # type: ignore[assignment]
                     existing.metadata = metadata or {}
-                    existing.is_dynamic = True
+                    existing.is_dynamic = True  # type: ignore[assignment]
 
                     await db.commit()
                     await db.refresh(existing)
@@ -289,7 +289,7 @@ class PromptManager:
                     prompt_dict["source"] = "database"
                     prompt_dict["is_dynamic"] = True
                     results.append(prompt_dict)
-                    seen_keys.add(prompt.key)
+                    seen_keys.add(prompt.key)  # type: ignore[arg-type]
 
         except Exception as e:
             logger.error(f"Error listing prompts from database: {e}")

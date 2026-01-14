@@ -1,0 +1,180 @@
+# Pharmacy Domain - Fallback Templates
+# Purpose: Fallback and out-of-scope responses
+
+prompts:
+  - key: "pharmacy.fallback.default"
+    name: "Default Fallback"
+    description: "Generic fallback response"
+    version: "1.0.0"
+    template: |
+      No entendi tu mensaje.
+
+      Puedo ayudarte con:
+      1. Consultar tu deuda
+      2. Generar link de pago
+      3. Ver informacion de la farmacia
+
+      Que deseas hacer?
+    metadata:
+      temperature: 0.5
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - fallback
+        - default
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.fallback.out_of_scope"
+    name: "Out of Scope"
+    description: "Message for out-of-scope queries"
+    version: "1.0.0"
+    template: |
+      Esa consulta esta fuera de mis capacidades.
+
+      {out_of_scope_message}
+
+      *Puedo ayudarte con:*
+      1. Consultar tu deuda
+      2. Generar link de pago
+      3. Ver informacion de la farmacia
+      4. Volver al menu
+    metadata:
+      temperature: 0.5
+      max_tokens: 250
+      tags:
+        - pharmacy
+        - fallback
+        - out_of_scope
+      variables:
+        required: []
+        optional:
+          - out_of_scope_message
+
+  - key: "pharmacy.fallback.capabilities"
+    name: "Bot Capabilities"
+    description: "List of bot capabilities"
+    version: "1.0.0"
+    template: |
+      *CENTRO DE AYUDA*
+
+      Soy el asistente virtual de *{pharmacy_name}*.
+
+      *Puedo ayudarte con:*
+
+      - *Consultar deuda*: Escribi "deuda" o "cuanto debo"
+      - *Pagar*: Escribi "pagar" o "quiero pagar"
+      - *Historial*: Escribi "historial" o "mis pagos"
+      - *Info farmacia*: Escribi "horario" o "direccion"
+      - *Cambiar persona*: Escribi "cambiar persona"
+      - *Menu*: Escribi "menu" en cualquier momento
+
+      Tienes algun problema especifico?
+
+      1. Problema con el pago
+      2. No reconozco mi deuda
+      3. Hablar con un humano
+      4. Volver al menu
+    metadata:
+      temperature: 0.5
+      max_tokens: 400
+      tags:
+        - pharmacy
+        - fallback
+        - help
+      variables:
+        required:
+          - pharmacy_name
+        optional: []
+
+  - key: "pharmacy.fallback.cancellation"
+    name: "Cancellation Fallback"
+    description: "Message when user cancels"
+    version: "1.0.0"
+    template: |
+      Entendido, cancele la operacion.
+
+      Hay algo mas en que pueda ayudarte?
+
+      1. Volver al menu
+      0. Finalizar
+    metadata:
+      temperature: 0.5
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - fallback
+        - cancellation
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.fallback.farewell"
+    name: "Farewell Message"
+    description: "Goodbye message"
+    version: "1.0.0"
+    template: |
+      *Hasta luego{customer_name_text}!*
+
+      Gracias por usar el asistente de {pharmacy_name}.
+
+      Recorda que podes escribirnos en cualquier momento para:
+      - Consultar tu deuda
+      - Generar links de pago
+      - Obtener informacion
+
+      Que tengas un excelente dia!
+
+      Escribi *HOLA* para comenzar una nueva conversacion.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - pharmacy
+        - fallback
+        - farewell
+      variables:
+        required:
+          - pharmacy_name
+        optional:
+          - customer_name_text
+
+  - key: "pharmacy.fallback.thanks"
+    name: "Thanks Response"
+    description: "Response to thank you messages"
+    version: "1.0.0"
+    template: |
+      De nada! Fue un placer ayudarte.
+
+      Hay algo mas en que pueda asistirte?
+
+      1. Volver al menu
+      0. Finalizar
+    metadata:
+      temperature: 0.7
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - fallback
+        - thanks
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.fallback.unknown_intent"
+    name: "Unknown Intent"
+    description: "Fallback for unrecognized intents"
+    version: "1.0.0"
+    template: |
+      Lo siento, no pude procesar tu solicitud. Intenta de nuevo.
+    metadata:
+      temperature: 0
+      max_tokens: 50
+      tags:
+        - pharmacy
+        - fallback
+        - unknown
+      variables:
+        required: []
+        optional: []

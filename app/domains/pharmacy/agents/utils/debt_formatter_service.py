@@ -3,12 +3,16 @@ Debt Formatter Service
 
 Utility for formatting debt information for user presentation.
 Handles different display formats based on authentication level and context.
+
+NOTE: All string templates are loaded from YAML configuration files.
+      See app/prompts/templates/pharmacy/debt_format.yaml
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.domains.pharmacy.agents.utils.debt_format_templates import get_debt_format_templates
 from app.domains.pharmacy.domain.entities.pharmacy_debt import DebtItem, PharmacyDebt
 from app.domains.pharmacy.domain.services.auth_level_service import AuthLevel
 
@@ -18,6 +22,9 @@ if TYPE_CHECKING:
 
 # Maximum number of items to display in debt response
 MAX_ITEMS_DISPLAY = 10
+
+# Get templates singleton
+_templates = get_debt_format_templates()
 
 
 class DebtFormatterService:
@@ -46,18 +53,16 @@ class DebtFormatterService:
             Formatted items string
         """
         if not items:
-            return "- Sin detalle disponible"
+            return _templates.no_details
 
         # Limit items shown to avoid huge messages
         display_items = items[:MAX_ITEMS_DISPLAY]
-        formatted = "\n".join(
-            [f"- {item.description}: ${float(item.amount):,.2f}" for item in display_items]
-        )
+        formatted = "\n".join([f"- {item.description}: ${float(item.amount):,.2f}" for item in display_items])
 
         # Add summary if there are more items
         if len(items) > MAX_ITEMS_DISPLAY:
             remaining = len(items) - MAX_ITEMS_DISPLAY
-            formatted += f"\n\n... y {remaining} productos más en tu cuenta."
+            formatted += f"\n\n{_templates.more_products.format(remaining=remaining)}"
 
         return formatted
 
@@ -78,7 +83,7 @@ class DebtFormatterService:
             Formatted items string
         """
         if not items:
-            return "- Sin detalle disponible"
+            return _templates.no_details
 
         if auth_level == AuthLevel.STRONG:
             # Full details for phone-verified customers
@@ -87,7 +92,7 @@ class DebtFormatterService:
         # Ofuscated view for MEDIUM/WEAK auth
         total = sum(float(item.amount) for item in items)
         item_count = len(items)
-        return f"- Productos en cuenta ({item_count} items): *${total:,.2f}*"
+        return _templates.products_summary.format(item_count=item_count, total=f"{total:,.2f}")
 
     @classmethod
     def format_items_with_invoices(cls, items: list[DebtItem]) -> str:
@@ -104,12 +109,12 @@ class DebtFormatterService:
             Formatted string with invoice details
         """
         if not items:
-            return "- Sin detalle disponible"
+            return _templates.no_details
 
         # Group items by invoice
         invoices: dict[str, list[DebtItem]] = {}
         for item in items:
-            invoice_key = item.invoice_number or "Sin comprobante"
+            invoice_key = item.invoice_number or _templates.no_invoice
             if invoice_key not in invoices:
                 invoices[invoice_key] = []
             invoices[invoice_key].append(item)
@@ -126,7 +131,7 @@ class DebtFormatterService:
 
         if len(invoices) > 5:
             remaining = len(invoices) - 5
-            lines.append(f"... y {remaining} comprobantes más")
+            lines.append(_templates.more_invoices.format(remaining=remaining))
 
         return "\n".join(lines)
 
@@ -142,12 +147,12 @@ class DebtFormatterService:
             Formatted string with full product details per invoice
         """
         if not items:
-            return "Sin detalle disponible"
+            return _templates.no_details.lstrip("- ")  # Remove leading dash for this context
 
         # Group items by invoice
         invoices: dict[str, list[DebtItem]] = {}
         for item in items:
-            invoice_key = item.invoice_number or "Sin comprobante"
+            invoice_key = item.invoice_number or _templates.no_invoice
             if invoice_key not in invoices:
                 invoices[invoice_key] = []
             invoices[invoice_key].append(item)
@@ -165,7 +170,8 @@ class DebtFormatterService:
             for item in invoice_items[:10]:  # Max 10 items per invoice
                 lines.append(f"  • {item.description}: ${float(item.amount):,.2f}")
             if len(invoice_items) > 10:
-                lines.append(f"  ... y {len(invoice_items) - 10} items más")
+                remaining = len(invoice_items) - 10
+                lines.append(f"  {_templates.more_items.format(remaining=remaining)}")
 
         return "\n".join(lines)
 
@@ -193,15 +199,19 @@ class DebtFormatterService:
             min_pct = 30
 
         lines: list[str] = []
-        lines.append(f"*1.* Pago Total: *${options['full']:,.2f}*")
+        lines.append(_templates.get_payment_option("full").format(amount=f"{options['full']:,.2f}"))
 
         if "half" in options:
-            lines.append(f"*2.* Pago Parcial ({half_pct}%): *${options['half']:,.2f}*")
+            lines.append(
+                _templates.get_payment_option("half").format(percent=half_pct, amount=f"{options['half']:,.2f}")
+            )
 
         if "minimum" in options:
-            lines.append(f"*3.* Pago Mínimo ({min_pct}%): *${options['minimum']:,.2f}*")
+            lines.append(
+                _templates.get_payment_option("minimum").format(percent=min_pct, amount=f"{options['minimum']:,.2f}")
+            )
 
-        lines.append("*4.* Otro monto (personalizado)")
+        lines.append(_templates.get_payment_option("custom"))
 
         return "\n".join(lines)
 
@@ -230,25 +240,149 @@ class DebtFormatterService:
         lines: list[str] = []
 
         # Option 1: Pay total
-        lines.append(f"1️⃣ *Pagar Total* (${options['full']:,.2f})")
+        lines.append(_templates.get_action_menu_item("pay_full").format(amount=f"{options['full']:,.2f}"))
 
         # Option 2: Pay partial (show half or minimum if available)
         if "half" in options:
             half_pct = pharmacy_config.payment_option_half_percent if pharmacy_config else 50
-            lines.append(f"2️⃣ *Pagar Parcial* ({half_pct}% = ${options['half']:,.2f})")
+            lines.append(
+                _templates.get_action_menu_item("pay_partial").format(
+                    percent=half_pct, amount=f"{options['half']:,.2f}"
+                )
+            )
         elif "minimum" in options:
             min_pct = pharmacy_config.payment_option_minimum_percent if pharmacy_config else 30
-            lines.append(f"2️⃣ *Pagar Parcial* ({min_pct}% = ${options['minimum']:,.2f})")
+            lines.append(
+                _templates.get_action_menu_item("pay_partial").format(
+                    percent=min_pct, amount=f"{options['minimum']:,.2f}"
+                )
+            )
         else:
-            lines.append("2️⃣ *Pagar Otro Monto*")
+            lines.append(_templates.get_action_menu_item("pay_other"))
 
         # Option 3: View invoice details
-        lines.append("3️⃣ *Ver Detalle de Facturas*")
+        lines.append(_templates.get_action_menu_item("view_invoices"))
 
         # Option 4: Return to menu
-        lines.append("4️⃣ *Volver al Menú*")
+        lines.append(_templates.get_action_menu_item("back_to_menu"))
 
         return "\n".join(lines)
+
+    @classmethod
+    def format_pay_debt_menu(
+        cls,
+        options: dict[str, float],
+    ) -> str:
+        """
+        Format PAY_DEBT_MENU action menu (Flujo 2: Pagar deuda directo).
+
+        Shows only payment options:
+        1. Pagar Deuda Completa ($X)
+        2. Pagar Parcialmente
+        3. Volver al Menu Principal
+
+        Args:
+            options: Payment options dictionary with 'full' key
+
+        Returns:
+            Formatted menu string
+        """
+        lines: list[str] = []
+
+        # Option 1: Pay full
+        lines.append(_templates.get_pay_debt_menu_item("pay_full").format(amount=f"{options['full']:,.2f}"))
+
+        # Option 2: Pay partial
+        lines.append(_templates.get_pay_debt_menu_item("pay_partial"))
+
+        # Option 3: Back to menu
+        lines.append(_templates.get_pay_debt_menu_item("back_to_menu"))
+
+        return "\n".join(lines)
+
+    @classmethod
+    def format_pay_debt_menu_response(
+        cls,
+        debt: PharmacyDebt,
+        payment_options: dict[str, float],
+        pharmacy_config: PharmacyConfig | None,
+    ) -> str:
+        """
+        Format PAY_DEBT_MENU response (Flujo 2: Pagar deuda directo).
+
+        Shows debt summary without invoice details, focused on payment.
+
+        Args:
+            debt: PharmacyDebt entity
+            payment_options: Pre-calculated payment options
+            pharmacy_config: Pharmacy configuration
+
+        Returns:
+            Formatted response with payment menu
+        """
+        total_debt = float(debt.total_debt)
+        pharmacy_name = pharmacy_config.pharmacy_name if pharmacy_config else "Farmacia"
+
+        # Format options menu
+        options_text = cls.format_pay_debt_menu(payment_options)
+
+        return _templates.pay_debt_menu_response.format(
+            pharmacy_name=pharmacy_name,
+            customer_name=debt.customer_name,
+            total_debt=f"{total_debt:,.2f}",
+            options_text=options_text,
+        )
+
+    @classmethod
+    def format_invoice_detail_menu(cls) -> str:
+        """
+        Format INVOICE_DETAIL action menu.
+
+        1. Volver a Deuda
+        2. Pagar Deuda
+        3. Menu Principal
+
+        Returns:
+            Formatted menu string
+        """
+        lines: list[str] = []
+        lines.append(_templates.get_invoice_detail_menu_item("back_to_debt"))
+        lines.append(_templates.get_invoice_detail_menu_item("pay_debt"))
+        lines.append(_templates.get_invoice_detail_menu_item("back_to_menu"))
+        return "\n".join(lines)
+
+    @classmethod
+    def format_invoice_detail_response(
+        cls,
+        invoice_number: str,
+        invoice_date: str,
+        invoice_amount: float,
+        pharmacy_config: PharmacyConfig | None,
+    ) -> str:
+        """
+        Format INVOICE_DETAIL response (Ver detalle de factura).
+
+        Shows invoice detail WITHOUT medications (privacy rule from document).
+
+        Args:
+            invoice_number: Invoice number
+            invoice_date: Invoice date string
+            invoice_amount: Invoice total amount
+            pharmacy_config: Pharmacy configuration
+
+        Returns:
+            Formatted response with invoice detail and action menu
+        """
+        pharmacy_name = pharmacy_config.pharmacy_name if pharmacy_config else "Farmacia"
+        options_text = cls.format_invoice_detail_menu()
+
+        return _templates.invoice_detail_response.format(
+            pharmacy_name=pharmacy_name,
+            invoice_number=invoice_number,
+            invoice_date=invoice_date or "No disponible",
+            invoice_amount=f"{invoice_amount:,.2f}",
+            options_text=options_text,
+        )
 
     @classmethod
     def format_smart_debt_response(
@@ -287,23 +421,14 @@ class DebtFormatterService:
         # Format action menu
         options_text = cls.format_debt_action_menu(payment_options, pharmacy_config)
 
-        response = f"""💊 *{pharmacy_name}*
-
-Hola *{debt.customer_name}*, tu cuenta:
-
-━━━━━━━━━━━━━━━━━━━━
-💰 *Deuda Total: ${total_debt:,.2f}*
-━━━━━━━━━━━━━━━━━━━━
-
-📄 *Comprobantes:*
-{items_text}
-
-━━━━━━━━━━━━━━━━━━━━
-📋 *¿Qué deseas hacer?*
-
-{options_text}
-
-_Responde con el número de la opción (1-4)_"""
+        # Use template from config
+        response = _templates.smart_debt_response.format(
+            pharmacy_name=pharmacy_name,
+            customer_name=debt.customer_name,
+            total_debt=f"{total_debt:,.2f}",
+            items_text=items_text,
+            options_text=options_text,
+        )
 
         return response
 
@@ -331,31 +456,20 @@ _Responde con el número de la opción (1-4)_"""
         if payment_amount and payment_amount < total_debt:
             # Partial payment
             remaining = total_debt - payment_amount
-            return f"""💰 **Pago Parcial**
-
-Hola {debt.customer_name}, tu deuda total es **${total_debt:,.2f}**.
-
-Quieres pagar: **${payment_amount:,.2f}**
-Saldo restante: **${remaining:,.2f}**
-
-**Algunos productos en tu cuenta:**
-{items_text}
-
-Para confirmar este pago parcial, responde *SI*.
-Para cancelar, responde *NO*."""
+            return _templates.payment_confirm_partial.format(
+                customer_name=debt.customer_name,
+                total_debt=f"{total_debt:,.2f}",
+                payment_amount=f"{payment_amount:,.2f}",
+                remaining=f"{remaining:,.2f}",
+                items_text=items_text,
+            )
         else:
             # Full payment
-            return f"""💰 **Confirmar Pago**
-
-Hola {debt.customer_name}, tu deuda pendiente es **${total_debt:,.2f}**.
-
-**Algunos productos en tu cuenta:**
-{items_text}
-
-Para confirmar y generar el recibo de pago, responde *SI*.
-Para cancelar, responde *NO*.
-
-💡 *Tip: También puedes pagar un monto parcial escribiendo "pagar X" (ej: "pagar 5000").*"""
+            return _templates.payment_confirm_full.format(
+                customer_name=debt.customer_name,
+                total_debt=f"{total_debt:,.2f}",
+                items_text=items_text,
+            )
 
 
 # Singleton instance

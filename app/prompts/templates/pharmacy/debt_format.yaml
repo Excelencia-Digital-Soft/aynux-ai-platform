@@ -1,0 +1,125 @@
+# Pharmacy Domain - Debt Formatting Templates
+# Purpose: Templates for DebtFormatterService string literals
+# NOTE: These are structural formatting templates, not dynamic responses.
+#       For dynamic responses, use core.response_configs database table.
+
+# Utility strings for item formatting
+utility:
+  no_details: "- Sin detalle disponible"
+  no_invoice: "Sin comprobante"
+  more_products: "... y {remaining} productos mas en tu cuenta."
+  more_invoices: "... y {remaining} comprobantes mas"
+  more_items: "... y {remaining} items mas"
+  products_summary: "- Productos en cuenta ({item_count} items): *${total}*"
+
+# Payment option labels
+payment_options:
+  full: "*1.* Pago Total: *${amount}*"
+  half: "*2.* Pago Parcial ({percent}%): *${amount}*"
+  minimum: "*3.* Pago Minimo ({percent}%): *${amount}*"
+  custom: "*4.* Otro monto (personalizado)"
+
+# Action menu labels
+action_menu:
+  pay_full: "1. *Pagar Total* (${amount})"
+  pay_partial: "2. *Pagar Parcial* ({percent}% = ${amount})"
+  pay_other: "2. *Pagar Otro Monto*"
+  view_invoices: "3. *Ver Detalle de Facturas*"
+  back_to_menu: "4. *Volver al Menu*"
+
+# PAY_DEBT_MENU action menu (only 2 payment options + back)
+pay_debt_menu:
+  pay_full: "1. *Pagar Deuda Completa* (${amount})"
+  pay_partial: "2. *Pagar Parcialmente*"
+  back_to_menu: "3. *Volver al Menu Principal*"
+
+# INVOICE_DETAIL action menu
+invoice_detail_menu:
+  back_to_debt: "1. *Volver a Deuda*"
+  pay_debt: "2. *Pagar Deuda*"
+  back_to_menu: "3. *Menu Principal*"
+
+# Smart debt response template
+smart_debt_response: |
+  *{pharmacy_name}*
+
+  Hola *{customer_name}*, tu cuenta:
+
+  ━━━━━━━━━━━━━━━━━━━━
+  *Deuda Total: ${total_debt}*
+  ━━━━━━━━━━━━━━━━━━━━
+
+  *Comprobantes:*
+  {items_text}
+
+  ━━━━━━━━━━━━━━━━━━━━
+  *Que deseas hacer?*
+
+  {options_text}
+
+  _Responde con el numero de la opcion (1-4)_
+
+# PAY_DEBT_MENU response template (Flujo 2: Pagar deuda directo)
+# Shows debt summary without invoice details, focused on payment
+pay_debt_menu_response: |
+  *{pharmacy_name}*
+
+  Hola *{customer_name}*, tu deuda actual:
+
+  ━━━━━━━━━━━━━━━━━━━━
+  *Total a Pagar: ${total_debt}*
+  ━━━━━━━━━━━━━━━━━━━━
+
+  *Opciones de Pago:*
+
+  {options_text}
+
+  _Responde con el numero de la opcion (1-3)_
+
+# INVOICE_DETAIL response template (Ver detalle de factura)
+# Shows invoice detail WITHOUT medications (privacy rule)
+invoice_detail_response: |
+  *{pharmacy_name}*
+
+  *Detalle de Comprobante*
+
+  ━━━━━━━━━━━━━━━━━━━━
+  *Numero:* {invoice_number}
+  *Fecha:* {invoice_date}
+  *Monto:* ${invoice_amount}
+  ━━━━━━━━━━━━━━━━━━━━
+
+  *Que deseas hacer?*
+
+  {options_text}
+
+  _Responde con el numero de la opcion (1-3)_
+
+# Payment confirmation templates
+payment_confirm:
+  partial: |
+    **Pago Parcial**
+
+    Hola {customer_name}, tu deuda total es **${total_debt}**.
+
+    Quieres pagar: **${payment_amount}**
+    Saldo restante: **${remaining}**
+
+    **Algunos productos en tu cuenta:**
+    {items_text}
+
+    Para confirmar este pago parcial, responde *SI*.
+    Para cancelar, responde *NO*.
+
+  full: |
+    **Confirmar Pago**
+
+    Hola {customer_name}, tu deuda pendiente es **${total_debt}**.
+
+    **Algunos productos en tu cuenta:**
+    {items_text}
+
+    Para confirmar y generar el recibo de pago, responde *SI*.
+    Para cancelar, responde *NO*.
+
+    *Tip: Tambien puedes pagar un monto parcial escribiendo "pagar X" (ej: "pagar 5000").*

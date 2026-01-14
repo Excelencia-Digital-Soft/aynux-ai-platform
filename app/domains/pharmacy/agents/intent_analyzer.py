@@ -234,9 +234,7 @@ class PharmacyIntentAnalyzer:
             and spacy_result.confidence < CONFIDENCE_THRESHOLD
             and spacy_result.intent not in {"confirm", "reject", "greeting"}
         ):
-            logger.debug(
-                f"spaCy confidence {spacy_result.confidence:.2f} < {CONFIDENCE_THRESHOLD}, using LLM"
-            )
+            logger.debug(f"spaCy confidence {spacy_result.confidence:.2f} < {CONFIDENCE_THRESHOLD}, using LLM")
             llm_result = await self._analyze_with_llm(message, context, spacy_result)
             if llm_result.confidence > spacy_result.confidence:
                 llm_result.analysis["spacy_result"] = spacy_result.to_dict()
@@ -244,9 +242,7 @@ class PharmacyIntentAnalyzer:
 
         return spacy_result
 
-    async def _analyze_with_spacy(
-        self, message: str, context: dict[str, Any]
-    ) -> PharmacyIntentResult:
+    async def _analyze_with_spacy(self, message: str, context: dict[str, Any]) -> PharmacyIntentResult:
         """Analyze message using spaCy NLU with database patterns."""
         if self.nlp is None:
             return await self._keyword_fallback(message, context)
@@ -314,11 +310,7 @@ class PharmacyIntentAnalyzer:
             )
 
         # Score all intents from database patterns
-        lemmas = {
-            token.lemma_.lower()
-            for token in doc
-            if not token.is_stop and not token.is_punct
-        }
+        lemmas = {token.lemma_.lower() for token in doc if not token.is_stop and not token.is_punct}
         scores = {
             intent: self._calculate_intent_score(text_lower, lemmas, patterns, doc)
             for intent, patterns in intent_patterns.items()
@@ -480,9 +472,7 @@ class PharmacyIntentAnalyzer:
         )
         return any(phrase in text_lower for phrase in capability_phrases)
 
-    async def _keyword_fallback(
-        self, message: str, context: dict[str, Any]
-    ) -> PharmacyIntentResult:
+    async def _keyword_fallback(self, message: str, context: dict[str, Any]) -> PharmacyIntentResult:
         """Keyword fallback when spaCy unavailable, using database patterns."""
         text_lower = message.lower().strip()
 
@@ -516,13 +506,9 @@ class PharmacyIntentAnalyzer:
         """Fallback to LLM for semantic understanding."""
         try:
             prompt = await self._build_llm_prompt(message, context)
-            llm = get_llm_for_task(
-                complexity=ModelComplexity.SIMPLE, temperature=self.LLM_TEMPERATURE
-            )
+            llm = get_llm_for_task(complexity=ModelComplexity.SIMPLE, temperature=self.LLM_TEMPERATURE)
             response = await llm.ainvoke(prompt)
-            response_text = (
-                response.content if isinstance(response.content, str) else str(response.content)
-            )
+            response_text = response.content if isinstance(response.content, str) else str(response.content)
             return self._parse_llm_response(response_text, spacy_result)
         except Exception as e:
             logger.error(f"LLM analysis failed: {e}", exc_info=True)
@@ -557,9 +543,7 @@ Responde con JSON: intent, confidence, is_out_of_scope"""
             conversation_history=conversation_history,
         )
 
-    def _parse_llm_response(
-        self, response_text: str, spacy_result: PharmacyIntentResult
-    ) -> PharmacyIntentResult:
+    def _parse_llm_response(self, response_text: str, spacy_result: PharmacyIntentResult) -> PharmacyIntentResult:
         """Parse LLM response into PharmacyIntentResult."""
         try:
             default = {
@@ -570,9 +554,7 @@ Responde con JSON: intent, confidence, is_out_of_scope"""
                 "entities": spacy_result.entities,
             }
 
-            extracted = extract_json_from_text(
-                response_text, default=default, required_keys=["intent"]
-            )
+            extracted = extract_json_from_text(response_text, default=default, required_keys=["intent"])
             if not extracted or not isinstance(extracted, dict):
                 return spacy_result
 

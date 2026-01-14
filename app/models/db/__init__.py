@@ -21,6 +21,8 @@ from .domain_intents import DomainIntent
 from .response_configs import ResponseConfig, PharmacyResponseConfig  # PharmacyResponseConfig is deprecated alias
 # Intent Configs (replaces hardcoded intent_validator.py mappings)
 from .intent_configs import FlowAgentConfig, IntentAgentMapping, KeywordAgentMapping
+# Routing Configs (DB-driven routing for pharmacy flow)
+from .routing_config import RoutingConfig, RoutingConfigType
 from .promotions import Promotion
 from .prompts import Prompt, PromptVersion
 from .rag_query_log import RagQueryLog
@@ -138,4 +140,7 @@ __all__ = [
     "IntentAgentMapping",
     "FlowAgentConfig",
     "KeywordAgentMapping",
+    # Routing Configs (DB-driven routing for pharmacy flow)
+    "RoutingConfig",
+    "RoutingConfigType",
 ]

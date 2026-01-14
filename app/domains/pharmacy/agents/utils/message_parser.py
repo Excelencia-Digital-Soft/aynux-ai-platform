@@ -9,6 +9,7 @@ Uses AmountNormalizer for monetary amount parsing.
 from __future__ import annotations
 
 import re
+import unicodedata
 from decimal import Decimal
 from typing import Any
 
@@ -32,16 +33,94 @@ class MessageParser:
     """
 
     # Affirmative responses in Spanish
-    AFFIRMATIVE: frozenset[str] = frozenset({
-        "si", "sí", "yes", "ok", "dale", "confirmo", "confirmar",
-        "acepto", "aceptar", "seguro", "claro", "listo", "bueno",
-    })
+    AFFIRMATIVE: frozenset[str] = frozenset(
+        {
+            "si",
+            "sí",
+            "yes",
+            "ok",
+            "dale",
+            "confirmo",
+            "confirmar",
+            "acepto",
+            "aceptar",
+            "seguro",
+            "claro",
+            "listo",
+            "bueno",
+            "s",
+            "y",  # Common abbreviations
+        }
+    )
 
     # Negative responses in Spanish
-    NEGATIVE: frozenset[str] = frozenset({
-        "no", "nop", "nope", "cancelar", "cancelo", "no quiero",
-        "negar", "rechazar", "rechazo",
-    })
+    NEGATIVE: frozenset[str] = frozenset(
+        {
+            "no",
+            "nop",
+            "nope",
+            "cancelar",
+            "cancelo",
+            "no quiero",
+            "negar",
+            "rechazar",
+            "rechazo",
+            "n",  # Common abbreviation
+        }
+    )
+
+    # Invisible Unicode characters that WhatsApp may inject
+    _INVISIBLE_CHARS: frozenset[str] = frozenset(
+        {
+            "\u200b",  # Zero-width space
+            "\u200c",  # Zero-width non-joiner
+            "\u200d",  # Zero-width joiner
+            "\u2060",  # Word joiner
+            "\ufeff",  # BOM / Zero-width no-break space
+        }
+    )
+
+    # Space-like characters to normalize to regular space
+    _SPACE_CHARS: frozenset[str] = frozenset(
+        {
+            "\u00a0",  # Non-breaking space
+            "\u2002",  # En space
+            "\u2003",  # Em space
+            "\u2009",  # Thin space
+            "\u202f",  # Narrow no-break space
+        }
+    )
+
+    @classmethod
+    def _sanitize_message(cls, text: str) -> str:
+        """
+        Sanitize message removing invisible Unicode characters.
+
+        WhatsApp messages often contain invisible formatting characters
+        that break string matching. This method normalizes the text.
+
+        Args:
+            text: Raw user message
+
+        Returns:
+            Sanitized text with invisible characters removed
+        """
+        if not text:
+            return ""
+
+        # Unicode normalization (NFKC = compatibility decomposition + canonical)
+        text = unicodedata.normalize("NFKC", text)
+
+        # Remove invisible characters
+        for char in cls._INVISIBLE_CHARS:
+            text = text.replace(char, "")
+
+        # Normalize space-like characters to regular space
+        for char in cls._SPACE_CHARS:
+            text = text.replace(char, " ")
+
+        # Collapse multiple spaces and strip
+        return " ".join(text.split())
 
     # Menu option patterns
     MENU_OPTIONS: dict[str, set[str]] = {
@@ -65,13 +144,15 @@ class MessageParser:
         """
         Check if text is an affirmative response.
 
+        Sanitizes input to handle WhatsApp invisible characters.
+
         Args:
             text: User message text
 
         Returns:
             True if affirmative
         """
-        text_lower = text.strip().lower()
+        text_lower = cls._sanitize_message(text).lower()
 
         # Direct match
         if text_lower in cls.AFFIRMATIVE:
@@ -85,13 +166,15 @@ class MessageParser:
         """
         Check if text is a negative response.
 
+        Sanitizes input to handle WhatsApp invisible characters.
+
         Args:
             text: User message text
 
         Returns:
             True if negative
         """
-        text_lower = text.strip().lower()
+        text_lower = cls._sanitize_message(text).lower()
 
         # Direct match
         if text_lower in cls.NEGATIVE:
@@ -105,13 +188,15 @@ class MessageParser:
         """
         Detect which menu option user selected.
 
+        Sanitizes input to handle WhatsApp invisible characters.
+
         Args:
             text: User message text
 
         Returns:
             Option number ("1", "2", "3", "4") or None
         """
-        text_lower = text.strip().lower()
+        text_lower = cls._sanitize_message(text).lower()
 
         for option, patterns in cls.MENU_OPTIONS.items():
             if text_lower in patterns:
@@ -122,6 +207,8 @@ class MessageParser:
     def extract_amount(self, message: str) -> float | None:
         """
         Extract payment amount from user message.
+
+        Sanitizes input to handle WhatsApp invisible characters.
 
         Handles formats like:
         - "5000"
@@ -137,6 +224,9 @@ class MessageParser:
         Returns:
             Extracted amount or None
         """
+        # Sanitize message to remove WhatsApp invisible characters
+        message = self._sanitize_message(message)
+
         # First try with AmountNormalizer (handles complex formats)
         result = self._normalizer.normalize(message)
         if result.success and result.amount is not None:

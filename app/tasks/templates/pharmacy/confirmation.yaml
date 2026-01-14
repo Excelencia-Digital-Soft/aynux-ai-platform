@@ -1,64 +1,172 @@
+# Pharmacy Domain - Confirmation Tasks
+# Purpose: Task descriptions for confirmation flow
+
 tasks:
-  - key: pharmacy.confirmation.request
-    name: "Solicitar Confirmacion"
-    description: |
-      Solicita una respuesta clara SI o NO.
+  - key: "pharmacy.confirmation.request"
+    name: "Confirmation Request Task"
+    description: "Request confirmation for action"
+    version: "1.0.0"
+    template: |
+      Solicita confirmacion para la accion.
+      Detalles: {confirmation_details}
+      Opciones: SI para confirmar, NO para cancelar.
     metadata:
-      flow: confirmation
-      tags: [confirmation, yes_no]
+      tags:
+        - pharmacy
+        - confirmation
+        - task
+      variables:
+        required:
+          - confirmation_details
+        optional: []
 
-  - key: pharmacy.confirmation.cancelled
-    name: "Operacion Cancelada"
-    description: |
-      Confirma que la operacion fue cancelada.
+  - key: "pharmacy.confirmation.cancelled"
+    name: "Action Cancelled Task"
+    description: "Handle cancelled action"
+    version: "1.0.0"
+    template: |
+      Confirma cancelacion de la operacion.
+      Info pendiente: {pending_info}
+      Ofrece volver al menu o finalizar.
     metadata:
-      flow: confirmation
-      tags: [cancellation]
+      tags:
+        - pharmacy
+        - confirmation
+        - task
+      variables:
+        required: []
+        optional:
+          - pending_info
 
-  - key: pharmacy.confirmation.consulting_debt
-    name: "Consultando Deuda"
-    description: |
-      Informa que esta consultando la deuda.
+  - key: "pharmacy.confirmation.consulting_debt"
+    name: "Consulting Debt Task"
+    description: "Show loading state for debt query"
+    version: "1.0.0"
+    template: |
+      Muestra mensaje de carga mientras consulta estado de cuenta.
     metadata:
-      flow: confirmation
-      tags: [loading, debt]
+      tags:
+        - pharmacy
+        - confirmation
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.confirmation.error
-    name: "Error en Confirmacion"
-    description: |
-      Informa del error y sugiere consultar deuda manualmente.
+  - key: "pharmacy.confirmation.error"
+    name: "Confirmation Error Task"
+    description: "Handle confirmation error"
+    version: "1.0.0"
+    template: |
+      Informa error al procesar confirmacion.
+      Solicita responder SI o NO.
     metadata:
-      flow: confirmation
-      tags: [error]
+      tags:
+        - pharmacy
+        - confirmation
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.confirmation.not_identified
-    name: "No Identificado para Confirmar"
-    description: |
-      Informa que no se identifico al cliente.
+  - key: "pharmacy.confirmation.not_identified"
+    name: "Not Identified for Confirmation Task"
+    description: "Handle unidentified user for confirmation"
+    version: "1.0.0"
+    template: |
+      Informa que se requiere identificacion para confirmar.
+      Solicita DNI.
     metadata:
-      flow: confirmation
-      tags: [error, identification]
+      tags:
+        - pharmacy
+        - confirmation
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.confirmation.selected
-    name: "Cliente Seleccionado"
-    description: |
-      Confirma al cliente seleccionado y procede a consultar su deuda.
+  - key: "pharmacy.confirmation.selected"
+    name: "Selection Confirmed Task"
+    description: "Confirm selection"
+    version: "1.0.0"
+    template: |
+      Confirma seleccion: {selected_option}
+      Indica que se esta procesando.
     metadata:
-      flow: confirmation
-      tags: [selection, success]
+      tags:
+        - pharmacy
+        - confirmation
+        - task
+      variables:
+        required:
+          - selected_option
+        optional: []
 
-  - key: pharmacy.confirmation.payment_success
-    name: "Pago Exitoso"
-    description: |
-      Confirma que el pago fue procesado exitosamente.
+  - key: "pharmacy.confirmation.payment_success"
+    name: "Payment Success Task"
+    description: "Confirm payment received"
+    version: "1.0.0"
+    template: |
+      Confirma pago recibido para {customer_name}.
+      Monto: ${payment_amount}
+      Fecha: {payment_date}
+      Referencia: {payment_reference}
+      Saldo restante: {remaining_balance_text}
     metadata:
-      flow: confirmation
-      tags: [payment, success]
+      is_critical: true
+      tags:
+        - pharmacy
+        - confirmation
+        - payment
+        - critical
+        - task
+      variables:
+        required:
+          - customer_name
+          - payment_amount
+          - payment_date
+          - payment_reference
+        optional:
+          - remaining_balance_text
 
-  - key: pharmacy.confirmation.payment_link
-    name: "Enlace de Pago"
-    description: |
-      Proporciona el enlace de pago al cliente.
+  - key: "pharmacy.confirmation.payment_link"
+    name: "Payment Link Generated Task"
+    description: "Confirm payment link generated"
+    version: "1.0.0"
+    template: |
+      Genera mensaje de link de pago para {customer_name}.
+      Monto: ${payment_amount}
+      Link: {payment_link}
+      Validez: {expiration_date}
+      Incluye instrucciones de pago.
     metadata:
-      flow: confirmation
-      tags: [payment, link]
+      is_critical: true
+      tags:
+        - pharmacy
+        - confirmation
+        - payment_link
+        - critical
+        - task
+      variables:
+        required:
+          - customer_name
+          - payment_amount
+          - payment_link
+          - expiration_date
+        optional: []
+
+  - key: "pharmacy.confirmation.fallback"
+    name: "Confirmation Fallback Task"
+    description: "Fallback for confirmation"
+    version: "1.0.0"
+    template: |
+      Solicita responder SI para confirmar o NO para cancelar.
+    metadata:
+      tags:
+        - pharmacy
+        - confirmation
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []

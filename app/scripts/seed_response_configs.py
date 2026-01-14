@@ -699,6 +699,114 @@ def _get_pharmacy_configs() -> list[dict]:
             "display_name": "Recordatorio Documento",
         },
         # ======================================================================
+        # PAYMENT PROCESSOR NODE - Specific intents for payment flow
+        # ======================================================================
+        {
+            "intent_key": "payment_redirect_to_debt",
+            "is_critical": False,
+            "task_description": "Indica que debe consultar la deuda primero antes de pagar.",
+            "fallback_template_key": "pharmacy.payment.fallback",
+            "display_name": "Redirigir a Consulta Deuda",
+        },
+        {
+            "intent_key": "payment_amount_invalid",
+            "is_critical": False,
+            "task_description": "Informa que no se pudo entender el monto ingresado.",
+            "fallback_template_key": "pharmacy.payment.amount_invalid",
+            "display_name": "Monto No Entendido",
+        },
+        {
+            "intent_key": "payment_amount_out_of_range",
+            "is_critical": False,
+            "task_description": "Informa que el monto está fuera del rango válido.",
+            "fallback_template_key": "pharmacy.payment.amount_out_of_range",
+            "display_name": "Monto Fuera de Rango",
+        },
+        {
+            "intent_key": "payment_partial_confirm",
+            "is_critical": True,
+            "task_description": "Solicita confirmación para pago parcial.",
+            "fallback_template_key": "pharmacy.critical.payment_partial_confirm",
+            "display_name": "Confirmar Pago Parcial",
+        },
+        {
+            "intent_key": "payment_total_request",
+            "is_critical": True,
+            "task_description": "Solicita confirmación para pago total.",
+            "fallback_template_key": "pharmacy.payment.total_request",
+            "display_name": "Confirmar Pago Total",
+        },
+        {
+            "intent_key": "payment_link_partial",
+            "is_critical": True,
+            "task_description": "Muestra el link de pago parcial generado.",
+            "fallback_template_key": "pharmacy.critical.payment_link_partial",
+            "display_name": "Link Pago Parcial",
+        },
+        {
+            "intent_key": "payment_cancelled",
+            "is_critical": False,
+            "task_description": "Confirma que el pago fue cancelado.",
+            "fallback_template_key": "pharmacy.confirmation.cancelled",
+            "display_name": "Pago Cancelado",
+        },
+        {
+            "intent_key": "payment_yes_no_unclear",
+            "is_critical": False,
+            "task_description": "Solicita respuesta clara SI o NO para confirmar pago.",
+            "fallback_template_key": "pharmacy.confirmation.yes_no_unclear",
+            "display_name": "Respuesta Pago No Clara",
+        },
+        {
+            "intent_key": "payment_no_pharmacy",
+            "is_critical": True,
+            "task_description": "Informa que no se pudo identificar la farmacia.",
+            "fallback_template_key": "pharmacy.error.pharmacy_not_found",
+            "display_name": "Error Sin Farmacia",
+        },
+        {
+            "intent_key": "payment_config_not_found",
+            "is_critical": True,
+            "task_description": "Informa que la configuración de pago no está disponible.",
+            "fallback_template_key": "pharmacy.error.pharmacy_not_found",
+            "display_name": "Error Config No Encontrada",
+        },
+        {
+            "intent_key": "payment_mp_disabled",
+            "is_critical": True,
+            "task_description": "Informa que el sistema de pagos en línea no está disponible.",
+            "fallback_template_key": "pharmacy.error.mp_disabled",
+            "display_name": "MP Deshabilitado",
+        },
+        {
+            "intent_key": "payment_mp_not_configured",
+            "is_critical": True,
+            "task_description": "Informa que el sistema de pagos no está configurado.",
+            "fallback_template_key": "pharmacy.error.mp_not_configured",
+            "display_name": "MP No Configurado",
+        },
+        {
+            "intent_key": "payment_not_authenticated",
+            "is_critical": True,
+            "task_description": "Informa que no se pudo identificar la cuenta del cliente.",
+            "fallback_template_key": "pharmacy.error.not_authenticated",
+            "display_name": "No Autenticado para Pago",
+        },
+        {
+            "intent_key": "payment_invalid_amount",
+            "is_critical": True,
+            "task_description": "Informa que el monto de pago no es válido.",
+            "fallback_template_key": "pharmacy.error.invalid_payment_amount",
+            "display_name": "Monto Pago Inválido",
+        },
+        {
+            "intent_key": "payment_link_failed",
+            "is_critical": True,
+            "task_description": "Informa que hubo un problema generando el link de pago.",
+            "fallback_template_key": "pharmacy.payment.link_failed",
+            "display_name": "Error Generación Link",
+        },
+        # ======================================================================
         # GENERIC
         # ======================================================================
         {

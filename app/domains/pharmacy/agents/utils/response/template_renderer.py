@@ -84,9 +84,7 @@ class PharmacyTemplateRenderer:
             "is_first_interaction": str(not state.get("greeted", False)),
             "detected_intent": intent,
             # Person validation
-            "registered_persons_count": str(
-                len(state.get("registered_persons") or [])
-            ),
+            "registered_persons_count": str(len(state.get("registered_persons") or [])),
             "pending_dni": state.get("pending_dni", "No ingresado"),
             "expected_name": state.get("expected_name", "No disponible"),
             # Task

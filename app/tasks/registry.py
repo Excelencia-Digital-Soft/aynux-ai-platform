@@ -10,9 +10,14 @@ class TaskRegistry:
     """
     Registro centralizado de claves de tasks.
 
-    Naming convention: {domain}.{flow}.{action}
-    Ejemplo: "pharmacy.identification.request_dni"
+    Naming convention: {domain}.{topic}.{action}
+    Ejemplo: "pharmacy.identification.request_identifier"
     """
+
+    # ==========================================================================
+    # PHARMACY DOMAIN - Tasks organizados por tema/funcionalidad
+    # Naming convention: pharmacy.{topic}.{action}
+    # ==========================================================================
 
     # === PHARMACY - GREETING ===
     PHARMACY_GREETING_DEFAULT = "pharmacy.greeting.default"
@@ -22,13 +27,14 @@ class TaskRegistry:
     PHARMACY_IDENTIFICATION_REQUEST_IDENTIFIER = "pharmacy.identification.request_identifier"
     PHARMACY_IDENTIFICATION_DNI_INVALID = "pharmacy.identification.dni_invalid"
     PHARMACY_IDENTIFICATION_DNI_NOT_FOUND = "pharmacy.identification.dni_not_found"
-    PHARMACY_IDENTIFICATION_NAME_INVALID = "pharmacy.identification.name_invalid"
     PHARMACY_IDENTIFICATION_REQUEST_NAME = "pharmacy.identification.request_name"
+    PHARMACY_IDENTIFICATION_NAME_INVALID = "pharmacy.identification.name_invalid"
     PHARMACY_IDENTIFICATION_MULTIPLE_MATCHES = "pharmacy.identification.multiple_matches"
     PHARMACY_IDENTIFICATION_VERIFIED = "pharmacy.identification.verified"
     PHARMACY_IDENTIFICATION_REQUIRE_ID = "pharmacy.identification.require_id"
     PHARMACY_IDENTIFICATION_NOT_IDENTIFIED = "pharmacy.identification.not_identified"
     PHARMACY_IDENTIFICATION_OFFER_REGISTRATION = "pharmacy.identification.offer_registration"
+    PHARMACY_IDENTIFICATION_FALLBACK = "pharmacy.identification.fallback"
 
     # === PHARMACY - CONFIRMATION ===
     PHARMACY_CONFIRMATION_REQUEST = "pharmacy.confirmation.request"
@@ -39,11 +45,13 @@ class TaskRegistry:
     PHARMACY_CONFIRMATION_SELECTED = "pharmacy.confirmation.selected"
     PHARMACY_CONFIRMATION_PAYMENT_SUCCESS = "pharmacy.confirmation.payment_success"
     PHARMACY_CONFIRMATION_PAYMENT_LINK = "pharmacy.confirmation.payment_link"
+    PHARMACY_CONFIRMATION_FALLBACK = "pharmacy.confirmation.fallback"
 
     # === PHARMACY - DEBT ===
     PHARMACY_DEBT_SHOW_INFO = "pharmacy.debt.show_info"
     PHARMACY_DEBT_NO_DEBT = "pharmacy.debt.no_debt"
     PHARMACY_DEBT_ERROR = "pharmacy.debt.error"
+    PHARMACY_DEBT_FALLBACK = "pharmacy.debt.fallback"
 
     # === PHARMACY - ERROR ===
     PHARMACY_ERROR_TECHNICAL = "pharmacy.error.technical"
@@ -52,6 +60,7 @@ class TaskRegistry:
     PHARMACY_ERROR_RETRY = "pharmacy.error.retry"
     PHARMACY_ERROR_MULTIPLE_FAILURES = "pharmacy.error.multiple_failures"
     PHARMACY_ERROR_PHARMACY_NOT_FOUND = "pharmacy.error.pharmacy_not_found"
+    PHARMACY_ERROR_FALLBACK = "pharmacy.error.fallback"
 
     # === PHARMACY - FALLBACK ===
     PHARMACY_FALLBACK_DEFAULT = "pharmacy.fallback.default"
@@ -79,19 +88,23 @@ class TaskRegistry:
     PHARMACY_PERSON_START_REGISTRATION = "pharmacy.person_resolution.start_registration"
     PHARMACY_PERSON_REQUEST_IDENTIFIER = "pharmacy.person_resolution.request_identifier"
     PHARMACY_PERSON_WELCOME_REQUEST_DNI = "pharmacy.person_resolution.welcome_request_dni"
-
-    # === PHARMACY - DATA QUERY ===
-    PHARMACY_DATA_QUERY_ANALYZE = "pharmacy.data_query.analyze"
-    PHARMACY_DATA_QUERY_NO_DATA = "pharmacy.data_query.no_data"
-
-    # === PHARMACY - SUMMARY ===
-    PHARMACY_SUMMARY_GENERATE = "pharmacy.summary.generate"
-    PHARMACY_SUMMARY_NO_DATA = "pharmacy.summary.no_data"
+    PHARMACY_PERSON_FALLBACK = "pharmacy.person_resolution.fallback"
 
     # === PHARMACY - INFO ===
     PHARMACY_INFO_QUERY = "pharmacy.info.query"
     PHARMACY_INFO_NO_INFO = "pharmacy.info.no_info"
     PHARMACY_INFO_CAPABILITIES = "pharmacy.info.capabilities"
+    PHARMACY_INFO_FALLBACK = "pharmacy.info.fallback"
+
+    # === PHARMACY - DATA QUERY ===
+    PHARMACY_DATA_QUERY_ANALYZE = "pharmacy.data_query.analyze"
+    PHARMACY_DATA_QUERY_NO_DATA = "pharmacy.data_query.no_data"
+    PHARMACY_DATA_QUERY_FALLBACK = "pharmacy.data_query.fallback"
+
+    # === PHARMACY - SUMMARY ===
+    PHARMACY_SUMMARY_GENERATE = "pharmacy.summary.generate"
+    PHARMACY_SUMMARY_NO_DATA = "pharmacy.summary.no_data"
+    PHARMACY_SUMMARY_FALLBACK = "pharmacy.summary.fallback"
 
     @classmethod
     def get_all_keys(cls) -> list[str]:

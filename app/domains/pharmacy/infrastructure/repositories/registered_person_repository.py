@@ -297,9 +297,7 @@ class RegisteredPersonRepository:
         ]
 
         if not include_expired:
-            conditions.append(
-                cast("ColumnElement[bool]", RegisteredPerson.expires_at > datetime.now(UTC))
-            )
+            conditions.append(cast("ColumnElement[bool]", RegisteredPerson.expires_at > datetime.now(UTC)))
 
         stmt = select(func.count()).select_from(RegisteredPerson).where(and_(*conditions))
 

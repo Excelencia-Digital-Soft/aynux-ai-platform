@@ -18,36 +18,22 @@ class WelcomeFlowState(PharmacyStateModel):
     # Pharmacy context (multi-tenant)
     pharmacy_name: str | None = Field(default=None, description="Pharmacy name")
     pharmacy_id: str | None = Field(default=None, description="Pharmacy ID")
-    organization_id: str | None = Field(
-        default=None, description="Organization ID for multi-tenancy"
-    )
+    organization_id: str | None = Field(default=None, description="Organization ID for multi-tenancy")
 
     # Welcome flow state
-    identification_step: str | None = Field(
-        default=None, description="Current identification step"
-    )
-    identification_retries: int = Field(
-        default=0, description="Number of identification retries"
-    )
+    identification_step: str | None = Field(default=None, description="Current identification step")
+    identification_retries: int = Field(default=0, description="Number of identification retries")
 
     # Payment context (preserved from router)
-    payment_amount: float | None = Field(
-        default=None, description="Payment amount from user intent"
-    )
+    payment_amount: float | None = Field(default=None, description="Payment amount from user intent")
 
     # Registration flow
-    awaiting_registration_data: bool = Field(
-        default=False, description="Whether awaiting registration data"
-    )
-    registration_step: str | None = Field(
-        default=None, description="Current registration step"
-    )
+    awaiting_registration_data: bool = Field(default=False, description="Whether awaiting registration data")
+    registration_step: str | None = Field(default=None, description="Current registration step")
 
     # Routing
     next_node: str | None = Field(default=None, description="Next node to route to")
-    pharmacy_intent_type: str | None = Field(
-        default=None, description="Detected pharmacy intent type"
-    )
+    pharmacy_intent_type: str | None = Field(default=None, description="Detected pharmacy intent type")
 
     def has_payment_context(self) -> bool:
         """Check if payment context is present."""

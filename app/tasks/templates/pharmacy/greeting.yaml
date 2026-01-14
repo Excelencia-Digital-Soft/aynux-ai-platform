@@ -1,16 +1,41 @@
-tasks:
-  - key: pharmacy.greeting.default
-    name: "Saludo por defecto"
-    description: |
-      Saluda al cliente cordialmente y ofrece ayuda con lo que puedes hacer.
-    metadata:
-      flow: greeting
-      tags: [greeting, welcome]
+# Pharmacy Domain - Greeting Tasks
+# Purpose: Task descriptions for greeting flow
 
-  - key: pharmacy.greeting.returning
-    name: "Saludo cliente recurrente"
-    description: |
-      Saluda cordialmente al cliente y ofrece ayuda.
+tasks:
+  - key: "pharmacy.greeting.default"
+    name: "Default Greeting Task"
+    description: "Generate welcome message for new/unidentified user"
+    version: "1.0.0"
+    template: |
+      Genera un mensaje de bienvenida para un usuario nuevo o no identificado.
+      Usa el nombre de la farmacia: {pharmacy_name}
+      Solicita identificacion (DNI o numero de cliente).
     metadata:
-      flow: greeting
-      tags: [greeting, returning]
+      tags:
+        - pharmacy
+        - greeting
+        - task
+      variables:
+        required:
+          - pharmacy_name
+        optional: []
+
+  - key: "pharmacy.greeting.returning"
+    name: "Returning User Greeting Task"
+    description: "Generate welcome message for returning identified user"
+    version: "1.0.0"
+    template: |
+      Genera un mensaje de bienvenida para usuario identificado.
+      Cliente: {customer_name}
+      Deuda actual: ${total_debt}
+      Muestra opciones principales: pagar, ver detalles, info, menu.
+    metadata:
+      tags:
+        - pharmacy
+        - greeting
+        - task
+      variables:
+        required:
+          - customer_name
+          - total_debt
+        optional: []

@@ -3,18 +3,25 @@ Pharmacy Operations Agent
 
 Main agent for the Pharmacy domain that wraps the PharmacyGraph subgraph.
 Extends BaseAgent for consistent agent behavior.
+
+Uses the V2 graph implementation:
+- Simplified ~30 field state
+- 6 main nodes with DB-driven routing
+- WhatsApp buttons/lists support
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import AIMessage
 
 from app.core.agents import BaseAgent
-from app.domains.pharmacy.agents.graph import PharmacyGraph
 from app.integrations.databases import PostgreSQLIntegration
+
+if TYPE_CHECKING:
+    from app.domains.pharmacy.agents.graph_v2 import PharmacyGraphV2
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +30,11 @@ class PharmacyOperationsAgent(BaseAgent):
     """
     Pharmacy Operations Agent - Entry point for pharmacy domain.
 
-    Wraps the PharmacyGraph subgraph for handling transactional
+    Wraps the PharmacyGraphV2 subgraph for handling transactional
     pharmacy workflows:
     - Consulta Deuda (Check Debt)
     - Confirmar (Confirm)
-    - Generar Factura (Generate Invoice)
+    - Generar Link de Pago (Payment Link Generation)
 
     This agent is designed to be routed to via bypass routing
     for dedicated pharmacy WhatsApp numbers.
@@ -43,7 +50,7 @@ class PharmacyOperationsAgent(BaseAgent):
         super().__init__("pharmacy_operations_agent", config or {})
 
         # Initialize pharmacy subgraph (lazy init for async checkpointer)
-        self._graph: PharmacyGraph | None = None
+        self._graph: PharmacyGraphV2 | None = None
         self._postgres: PostgreSQLIntegration | None = None
         self._graph_initialized = False
         self._agent_config = config
@@ -55,25 +62,27 @@ class PharmacyOperationsAgent(BaseAgent):
         """Agent name."""
         return "pharmacy_operations_agent"
 
-    async def _ensure_graph_initialized(self) -> PharmacyGraph:
+    async def _ensure_graph_initialized(self) -> "PharmacyGraphV2":
         """
         Ensure the pharmacy graph is initialized with PostgreSQL checkpointer.
 
         This lazy initialization allows us to use async checkpointer setup.
 
         Returns:
-            Initialized PharmacyGraph instance
+            Initialized PharmacyGraphV2 instance
         """
         if self._graph is None or not self._graph_initialized:
             # Create PostgreSQL integration for checkpointer
             if self._postgres is None:
                 self._postgres = PostgreSQLIntegration()
 
-            # Create and initialize graph with checkpointer
-            self._graph = PharmacyGraph(self._agent_config)
+            # Create and initialize V2 graph
+            from app.domains.pharmacy.agents.graph_v2 import PharmacyGraphV2
+
+            self._graph = PharmacyGraphV2(self._agent_config)
             await self._graph.initialize(postgres=self._postgres)
             self._graph_initialized = True
-            logger.info("PharmacyGraph initialized with PostgreSQL checkpointer")
+            logger.info("PharmacyGraphV2 initialized with PostgreSQL checkpointer")
 
         return self._graph
 
@@ -175,9 +184,7 @@ class PharmacyOperationsAgent(BaseAgent):
                 agent_history = agent_history + [self.agent_name]
 
             # Merge result: messages go to root, pharmacy fields to domain_states
-            domain_state_update = update_domain_state(
-                state_dict, "pharmacy", pharmacy_result_fields
-            )
+            domain_state_update = update_domain_state(state_dict, "pharmacy", pharmacy_result_fields)
 
             return {
                 "messages": result.get("messages", []),
@@ -213,9 +220,7 @@ class PharmacyOperationsAgent(BaseAgent):
 
             last_message = messages[-1]
             message_content = (
-                last_message.content
-                if hasattr(last_message, "content")
-                else str(last_message.get("content", ""))
+                last_message.content if hasattr(last_message, "content") else str(last_message.get("content", ""))
             )
 
             # Process through internal handler
@@ -258,11 +263,7 @@ class PharmacyOperationsAgent(BaseAgent):
         """
         logger.error(f"Pharmacy agent error: {error}")
         return {
-            "messages": [
-                AIMessage(
-                    content="Disculpa, tuve un problema. Podrias intentar de nuevo?"
-                )
-            ],
+            "messages": [AIMessage(content="Disculpa, tuve un problema. Podrias intentar de nuevo?")],
             "current_agent": self.agent_name,
             "error_count": state.get("error_count", 0) + 1,
             "error": error,

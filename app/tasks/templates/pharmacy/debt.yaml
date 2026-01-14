@@ -1,24 +1,78 @@
+# Pharmacy Domain - Debt Tasks
+# Purpose: Task descriptions for debt query flow
+
 tasks:
-  - key: pharmacy.debt.show_info
-    name: "Mostrar Informacion de Deuda"
-    description: |
-      Muestra la informacion de deuda del cliente.
+  - key: "pharmacy.debt.show_info"
+    name: "Show Debt Info Task"
+    description: "Display customer debt information"
+    version: "1.0.0"
+    template: |
+      Muestra estado de cuenta para {customer_name}.
+      Fecha: {current_date}
+      Detalle facturas: {debt_items_formatted}
+      Total: ${total_debt}
+      Ofrece opciones: pagar total, pagar parcial, ver detalles, volver.
     metadata:
-      flow: debt
-      tags: [debt, info]
+      tags:
+        - pharmacy
+        - debt
+        - task
+      variables:
+        required:
+          - customer_name
+          - current_date
+          - debt_items_formatted
+          - total_debt
+        optional: []
 
-  - key: pharmacy.debt.no_debt
-    name: "Sin Deuda"
-    description: |
-      Informa que el cliente no tiene deuda pendiente.
+  - key: "pharmacy.debt.no_debt"
+    name: "No Debt Task"
+    description: "Handle no debt scenario"
+    version: "1.0.0"
+    template: |
+      Informa a {customer_name} que no tiene deudas pendientes.
+      Ofrece asistencia adicional.
     metadata:
-      flow: debt
-      tags: [debt, no_debt]
+      tags:
+        - pharmacy
+        - debt
+        - task
+      variables:
+        required:
+          - customer_name
+        optional: []
 
-  - key: pharmacy.debt.error
-    name: "Error al Consultar Deuda"
-    description: |
-      Informa del error y pide que intente de nuevo.
+  - key: "pharmacy.debt.error"
+    name: "Debt Error Task"
+    description: "Handle debt query error"
+    version: "1.0.0"
+    template: |
+      Informa que el sistema no esta disponible.
+      Proporciona telefono de contacto: {pharmacy_phone}
+      Ofrece reintentar o volver al menu.
     metadata:
-      flow: debt
-      tags: [error, debt]
+      tags:
+        - pharmacy
+        - debt
+        - task
+      variables:
+        required:
+          - pharmacy_phone
+        optional: []
+
+  - key: "pharmacy.debt.fallback"
+    name: "Debt Fallback Task"
+    description: "Fallback for debt queries"
+    version: "1.0.0"
+    template: |
+      Informa que no se pudo consultar deuda.
+      Sugiere intentar mas tarde.
+    metadata:
+      tags:
+        - pharmacy
+        - debt
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []

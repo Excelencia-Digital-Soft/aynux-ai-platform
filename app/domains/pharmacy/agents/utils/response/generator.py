@@ -28,14 +28,14 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from app.domains.pharmacy.agents.utils.db_helpers import get_current_task
 from app.integrations.llm import LLMError
+from app.tasks import TaskRegistry
 
 from .config_provider import PharmacyConfigProvider
 from .llm_provider import PharmacyLLMProvider
 from .template_loader import PharmacyTemplateLoader
 from .template_renderer import PharmacyTemplateRenderer
-from app.domains.pharmacy.agents.utils.db_helpers import get_current_task
-from app.tasks import TaskRegistry
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -120,34 +120,29 @@ class PharmacyResponseGenerator:
         """
         templates = await self._loader.load()
 
-        is_critical = await self._config.is_critical(
-            db, organization_id, intent
-        )
+        is_critical = await self._config.is_critical(db, organization_id, intent)
         if is_critical:
-            return await self._get_critical_response(
-                db, organization_id, intent, state, templates
-            )
+            return await self._get_critical_response(db, organization_id, intent, state, templates)
 
         try:
             return await self._generate_llm_response(
-                db, organization_id, intent, state,
-                user_message, current_task, templates,
+                db,
+                organization_id,
+                intent,
+                state,
+                user_message,
+                current_task,
+                templates,
             )
         except asyncio.TimeoutError:
             logger.warning("LLM timeout for intent '%s', using fallback", intent)
-            return await self._get_fallback_response(
-                db, organization_id, intent, state, templates, error="LLM timeout"
-            )
+            return await self._get_fallback_response(db, organization_id, intent, state, templates, error="LLM timeout")
         except LLMError as e:
             logger.error("LLM error for intent '%s': %s", intent, e)
-            return await self._get_fallback_response(
-                db, organization_id, intent, state, templates, error=str(e)
-            )
+            return await self._get_fallback_response(db, organization_id, intent, state, templates, error=str(e))
         except Exception as e:
             logger.exception("Unexpected error generating response: %s", e)
-            return await self._get_fallback_response(
-                db, organization_id, intent, state, templates, error=str(e)
-            )
+            return await self._get_fallback_response(db, organization_id, intent, state, templates, error=str(e))
 
     async def _generate_llm_response(
         self,
@@ -160,15 +155,11 @@ class PharmacyResponseGenerator:
         templates: Any,
     ) -> GeneratedResponse:
         """Generate response using LLM with system context."""
-        task_description = await self._config.get_task_description(
-            db, organization_id, intent
-        )
+        task_description = await self._config.get_task_description(db, organization_id, intent)
         effective_task = current_task if current_task else task_description
 
         variables = self._renderer.build_variables(intent, state, effective_task)
-        system_prompt = self._renderer.render(
-            templates.system_context, variables
-        )
+        system_prompt = self._renderer.render(templates.system_context, variables)
 
         messages = [
             ("system", system_prompt),
@@ -193,15 +184,17 @@ class PharmacyResponseGenerator:
         templates: Any,
     ) -> GeneratedResponse:
         """Get fixed template response for critical intents."""
-        fallback_key = await self._config.get_fallback_key(
-            db, organization_id, intent
-        )
+        fallback_key = await self._config.get_fallback_key(db, organization_id, intent)
         template = templates.critical_templates.get(fallback_key, "")
 
         if not template:
             logger.warning("No critical template for key: %s", fallback_key)
             return await self._get_fallback_response(
-                db, organization_id, intent, state, templates,
+                db,
+                organization_id,
+                intent,
+                state,
+                templates,
                 error="No critical template",
             )
 
@@ -223,9 +216,7 @@ class PharmacyResponseGenerator:
         error: str | None = None,
     ) -> GeneratedResponse:
         """Get fallback template response."""
-        fallback_key = await self._config.get_fallback_key(
-            db, organization_id, intent
-        )
+        fallback_key = await self._config.get_fallback_key(db, organization_id, intent)
         template = templates.fallback_templates.get(fallback_key, "")
 
         if not template:

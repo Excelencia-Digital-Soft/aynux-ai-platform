@@ -1,16 +1,53 @@
-tasks:
-  - key: pharmacy.summary.generate
-    name: "Generar Resumen"
-    description: |
-      Genera un resumen de los productos y deuda del cliente.
-    metadata:
-      flow: summary
-      tags: [summary, products]
+# Pharmacy Domain - Summary Tasks
+# Purpose: Task descriptions for summary generation
 
-  - key: pharmacy.summary.no_data
-    name: "Sin Datos para Resumen"
-    description: |
-      Informa que no hay datos de productos para resumir.
+tasks:
+  - key: "pharmacy.summary.generate"
+    name: "Generate Summary Task"
+    description: "Generate summary"
+    version: "1.0.0"
+    template: |
+      Genera resumen con contenido: {summary_content}
+      Ofrece ver mas detalles o volver al menu.
     metadata:
-      flow: summary
-      tags: [no_data]
+      tags:
+        - pharmacy
+        - summary
+        - task
+      variables:
+        required:
+          - summary_content
+        optional: []
+
+  - key: "pharmacy.summary.no_data"
+    name: "No Data for Summary Task"
+    description: "Handle insufficient data"
+    version: "1.0.0"
+    template: |
+      Informa que no hay datos suficientes para generar resumen.
+      Ofrece asistencia adicional.
+    metadata:
+      tags:
+        - pharmacy
+        - summary
+        - task
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.summary.fallback"
+    name: "Summary Fallback Task"
+    description: "Fallback for summary"
+    version: "1.0.0"
+    template: |
+      Informa que no se pudo generar resumen.
+      Sugiere reintentar.
+    metadata:
+      tags:
+        - pharmacy
+        - summary
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []

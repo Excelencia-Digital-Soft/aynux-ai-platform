@@ -1,0 +1,262 @@
+# Pharmacy Domain - Identification Templates
+# Purpose: Customer identification flow messages
+
+prompts:
+  - key: "pharmacy.identification.request_identifier"
+    name: "Request Identifier"
+    description: "Request DNI/CUIT from user"
+    version: "1.0.0"
+    template: |
+      Perfecto. Por favor, ingresa uno de los siguientes:
+
+      - Tu *numero de cliente* (ej: 12345)
+      - Tu *DNI* (ej: 12345678)
+      - Tu *CUIT/CUIL* (ej: 20-12345678-9)
+    metadata:
+      temperature: 0.5
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - identification
+        - request
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.identification.dni_invalid"
+    name: "DNI Invalid Format"
+    description: "Message when DNI format is invalid"
+    version: "1.0.0"
+    template: |
+      El formato del documento no es valido.
+
+      Por favor ingresa:
+      - *DNI*: 8 digitos (ej: 12345678)
+      - *CUIT/CUIL*: 11 digitos (ej: 20123456789)
+
+      Intento {retry_count}/3
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - identification
+        - validation
+      variables:
+        required: []
+        optional:
+          - retry_count
+
+  - key: "pharmacy.identification.dni_not_found"
+    name: "DNI Not Found"
+    description: "Message when DNI is not found in PLEX"
+    version: "1.0.0"
+    template: |
+      No encontre ningun cliente con ese dato.
+
+      Por favor verifica:
+      - Que el numero este bien escrito
+      - Que sea el numero correcto
+
+      1. Intentar de nuevo
+      2. Registrarme como nuevo cliente
+      3. Contactar a la farmacia
+    metadata:
+      temperature: 0.5
+      max_tokens: 200
+      tags:
+        - pharmacy
+        - identification
+        - not_found
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.identification.request_name"
+    name: "Request Name Verification"
+    description: "Request name to verify identity"
+    version: "1.0.0"
+    template: |
+      Encontre una cuenta asociada a ese documento.
+
+      Por seguridad, *ingresa tu nombre completo* tal como figura en la farmacia:
+    metadata:
+      temperature: 0.5
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - identification
+        - verification
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.identification.name_invalid"
+    name: "Name Mismatch"
+    description: "Message when name doesn't match records"
+    version: "1.0.0"
+    template: |
+      El nombre no coincide con nuestros registros.
+
+      Intento {retry_count}/3
+
+      Por favor, ingresa el nombre *exactamente* como figura en tu cuenta de la farmacia.
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - identification
+        - validation
+      variables:
+        required: []
+        optional:
+          - retry_count
+
+  - key: "pharmacy.identification.multiple_matches"
+    name: "Multiple Matches Found"
+    description: "Message when multiple customers match"
+    version: "1.0.0"
+    template: |
+      Encontre varias cuentas asociadas a ese documento:
+
+      {matches_list}
+
+      Escribi el *numero* de la cuenta que corresponde:
+    metadata:
+      temperature: 0.3
+      max_tokens: 300
+      tags:
+        - pharmacy
+        - identification
+        - selection
+      variables:
+        required:
+          - matches_list
+        optional: []
+
+  - key: "pharmacy.identification.verified"
+    name: "Identification Success"
+    description: "Message when identity is verified successfully"
+    version: "1.0.0"
+    template: |
+      *Listo, {customer_name}!*
+
+      Tu cuenta ha sido verificada.
+      No necesitaras identificarte de nuevo en este numero durante los proximos 6 meses.
+    metadata:
+      temperature: 0.7
+      max_tokens: 150
+      is_critical: true
+      tags:
+        - pharmacy
+        - identification
+        - success
+      variables:
+        required:
+          - customer_name
+        optional: []
+
+  - key: "pharmacy.identification.require_id"
+    name: "ID Required for Action"
+    description: "Message when action requires identification"
+    version: "1.0.0"
+    template: |
+      Para {action_name} necesito verificar tu identidad.
+
+      Por favor, ingresa tu *DNI* o *numero de cliente*:
+    metadata:
+      temperature: 0.5
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - identification
+        - required
+      variables:
+        required:
+          - action_name
+        optional: []
+
+  - key: "pharmacy.identification.not_identified"
+    name: "User Not Identified"
+    description: "Message when user is not identified"
+    version: "1.0.0"
+    template: |
+      Para continuar necesito identificarte primero.
+
+      Por favor, ingresa tu *DNI* o *numero de cliente*:
+    metadata:
+      temperature: 0.5
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - identification
+        - required
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.identification.offer_registration"
+    name: "Offer Registration"
+    description: "Offer to register as new customer"
+    version: "1.0.0"
+    template: |
+      No pudimos verificar tu identidad.
+
+      Por favor contacta a la farmacia:
+      {pharmacy_phone}
+      {pharmacy_address}
+
+      Horario: {pharmacy_hours}
+    metadata:
+      temperature: 0.5
+      max_tokens: 200
+      tags:
+        - pharmacy
+        - identification
+        - escalation
+      variables:
+        required:
+          - pharmacy_phone
+          - pharmacy_address
+          - pharmacy_hours
+        optional: []
+
+  - key: "pharmacy.identification.welcome_new"
+    name: "Welcome New Customer"
+    description: "Welcome message requesting identification"
+    version: "1.0.0"
+    template: |
+      Hola! Soy el asistente virtual de *{pharmacy_name}*.
+
+      Para brindarte un servicio personalizado, necesito identificarte.
+
+      Por favor ingresa tu *DNI* o *numero de cliente*:
+    metadata:
+      temperature: 0.5
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - identification
+        - welcome
+      variables:
+        required:
+          - pharmacy_name
+        optional: []
+
+  - key: "pharmacy.identification.fallback"
+    name: "Identification Fallback"
+    description: "Fallback for identification flow"
+    version: "1.0.0"
+    template: |
+      Por favor, ingresa tu DNI o numero de cliente para continuar.
+    metadata:
+      temperature: 0
+      max_tokens: 50
+      tags:
+        - pharmacy
+        - identification
+        - fallback
+      variables:
+        required: []
+        optional: []

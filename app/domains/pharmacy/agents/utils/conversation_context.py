@@ -44,7 +44,7 @@ class ConversationContextBuilder:
             return ""
 
         # Exclude current message, take last N*2 (user+assistant pairs)
-        history_messages = messages[:-1][-(max_turns * 2):]
+        history_messages = messages[:-1][-(max_turns * 2) :]
         if not history_messages:
             return ""
 
@@ -125,8 +125,6 @@ class ConversationContextBuilder:
         }
 
         if include_history:
-            context["conversation_history"] = self.format_recent_history(
-                state, max_turns=max_turns
-            )
+            context["conversation_history"] = self.format_recent_history(state, max_turns=max_turns)
 
         return context

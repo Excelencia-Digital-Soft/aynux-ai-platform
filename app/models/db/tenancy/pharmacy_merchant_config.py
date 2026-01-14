@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -201,6 +201,14 @@ class PharmacyMerchantConfig(Base, TimestampMixin):
         nullable=False,
         default=1000,
         comment="Minimum payment amount in currency units (e.g., 1000 for $1000)",
+    )
+
+    # Name matching configuration
+    name_match_threshold = Column(
+        Numeric(3, 2),
+        nullable=True,
+        default=0.70,
+        comment="Minimum score for fuzzy name matching (0.0-1.0, default 0.7)",
     )
 
     # URLs

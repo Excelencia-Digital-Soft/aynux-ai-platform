@@ -144,10 +144,7 @@ class HybridNameMatcher:
         # 3. Deterministic matching with rapidfuzz
         score = self._deterministic_score(norm_provided, norm_expected)
 
-        logger.debug(
-            f"Deterministic score: {score:.2f} "
-            f"(provided='{norm_provided}', expected='{norm_expected}')"
-        )
+        logger.debug(f"Deterministic score: {score:.2f} " f"(provided='{norm_provided}', expected='{norm_expected}')")
 
         # 4. Decision based on thresholds
         if score >= self.MATCH_THRESHOLD:

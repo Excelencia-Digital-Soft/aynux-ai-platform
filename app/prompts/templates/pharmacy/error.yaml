@@ -1,0 +1,251 @@
+# Pharmacy Domain - Error Templates
+# Purpose: Error handling messages
+
+prompts:
+  - key: "pharmacy.error.technical"
+    name: "Technical Error"
+    description: "Generic technical error message"
+    version: "1.0.0"
+    template: |
+      Tuvimos un problema tecnico.
+
+      Por favor intenta de nuevo en unos minutos.
+
+      Si el problema persiste, contactanos al {pharmacy_phone}.
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - error
+        - technical
+      variables:
+        required:
+          - pharmacy_phone
+        optional: []
+
+  - key: "pharmacy.error.validation"
+    name: "Validation Error"
+    description: "Message for validation errors"
+    version: "1.0.0"
+    template: |
+      El dato ingresado no es valido.
+
+      {validation_message}
+
+      Por favor intenta de nuevo.
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - error
+        - validation
+      variables:
+        required:
+          - validation_message
+        optional: []
+
+  - key: "pharmacy.error.not_found"
+    name: "Resource Not Found"
+    description: "Message when resource is not found"
+    version: "1.0.0"
+    template: |
+      No encontre {resource_type}.
+
+      Por favor verifica los datos ingresados.
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - error
+        - not_found
+      variables:
+        required:
+          - resource_type
+        optional: []
+
+  - key: "pharmacy.error.retry"
+    name: "Retry Suggestion"
+    description: "Message suggesting retry"
+    version: "1.0.0"
+    template: |
+      No pude procesar tu solicitud.
+
+      Intento {retry_count}/3
+
+      Por favor intenta de nuevo o escribe *MENU* para volver.
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - error
+        - retry
+      variables:
+        required: []
+        optional:
+          - retry_count
+
+  - key: "pharmacy.error.multiple_failures"
+    name: "Multiple Failures"
+    description: "Message after multiple failed attempts"
+    version: "1.0.0"
+    template: |
+      No pudimos completar tu solicitud.
+
+      Por favor contacta a la farmacia:
+      {pharmacy_phone}
+      {pharmacy_address}
+
+      Horario: {pharmacy_hours}
+    metadata:
+      temperature: 0.3
+      max_tokens: 200
+      tags:
+        - pharmacy
+        - error
+        - escalation
+      variables:
+        required:
+          - pharmacy_phone
+          - pharmacy_address
+          - pharmacy_hours
+        optional: []
+
+  - key: "pharmacy.error.pharmacy_not_found"
+    name: "Pharmacy Not Found"
+    description: "Message when pharmacy config is not found"
+    version: "1.0.0"
+    template: |
+      No encontramos la configuracion de la farmacia.
+
+      Por favor contacta al soporte tecnico.
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - error
+        - configuration
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.error.fallback"
+    name: "Error Fallback"
+    description: "Generic error fallback"
+    version: "1.0.0"
+    template: |
+      Disculpa, tuve un problema. Por favor intenta de nuevo.
+    metadata:
+      temperature: 0
+      max_tokens: 50
+      tags:
+        - pharmacy
+        - error
+        - fallback
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.error.mp_disabled"
+    name: "Mercado Pago Disabled"
+    description: "Message when MP payments are disabled for the pharmacy"
+    version: "1.0.0"
+    template: |
+      Disculpa, el sistema de pagos en linea no esta disponible.
+
+      Por favor contacta directamente a la farmacia.
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - error
+        - payment
+        - mp_disabled
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.error.mp_not_configured"
+    name: "Mercado Pago Not Configured"
+    description: "Message when MP credentials are not configured"
+    version: "1.0.0"
+    template: |
+      Disculpa, el sistema de pagos no esta configurado.
+
+      Por favor contacta a la farmacia.
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - error
+        - payment
+        - mp_config
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.error.payment_link_generation"
+    name: "Payment Link Generation Error"
+    description: "Message when payment link generation fails"
+    version: "1.0.0"
+    template: |
+      Disculpa, hubo un problema generando el link de pago.
+
+      Por favor intenta de nuevo en unos minutos o contacta a la farmacia.
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - error
+        - payment
+        - link_generation
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.error.not_authenticated"
+    name: "Not Authenticated for Payment"
+    description: "Message when customer is not authenticated for payment"
+    version: "1.0.0"
+    template: |
+      No pude identificar tu cuenta.
+
+      Por favor contacta a soporte.
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - error
+        - payment
+        - authentication
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.error.invalid_payment_amount"
+    name: "Invalid Payment Amount"
+    description: "Message when payment amount is invalid"
+    version: "1.0.0"
+    template: |
+      El monto de pago no es valido.
+
+      Por favor consulta tu deuda nuevamente.
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - error
+        - payment
+        - validation
+      variables:
+        required: []
+        optional: []

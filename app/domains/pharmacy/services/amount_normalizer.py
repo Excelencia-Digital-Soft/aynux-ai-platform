@@ -17,11 +17,64 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Invisible Unicode characters that WhatsApp may inject
+_INVISIBLE_CHARS: frozenset[str] = frozenset(
+    {
+        "\u200b",  # Zero-width space
+        "\u200c",  # Zero-width non-joiner
+        "\u200d",  # Zero-width joiner
+        "\u2060",  # Word joiner
+        "\ufeff",  # BOM / Zero-width no-break space
+    }
+)
+
+# Space-like characters to normalize to regular space
+_SPACE_CHARS: frozenset[str] = frozenset(
+    {
+        "\u00a0",  # Non-breaking space
+        "\u2002",  # En space
+        "\u2003",  # Em space
+        "\u2009",  # Thin space
+        "\u202f",  # Narrow no-break space
+    }
+)
+
+
+def _sanitize_input(text: str) -> str:
+    """
+    Sanitize input removing invisible Unicode characters.
+
+    WhatsApp messages often contain invisible formatting characters
+    that break amount parsing.
+
+    Args:
+        text: Raw user input
+
+    Returns:
+        Sanitized text
+    """
+    if not text:
+        return ""
+
+    # Unicode normalization
+    text = unicodedata.normalize("NFKC", text)
+
+    # Remove invisible characters
+    for char in _INVISIBLE_CHARS:
+        text = text.replace(char, "")
+
+    # Normalize space-like characters
+    for char in _SPACE_CHARS:
+        text = text.replace(char, " ")
+
+    return " ".join(text.split())
 
 
 # Spanish number words
@@ -121,6 +174,8 @@ class AmountNormalizer:
         """
         Normalize a monetary amount from user input.
 
+        Sanitizes input to handle WhatsApp invisible characters.
+
         Args:
             input_value: User's input string
 
@@ -128,7 +183,8 @@ class AmountNormalizer:
             NormalizationResult with parsed amount or error
         """
         original = input_value
-        input_value = input_value.strip()
+        # Sanitize to remove WhatsApp invisible characters
+        input_value = _sanitize_input(input_value)
 
         if not input_value:
             return NormalizationResult(

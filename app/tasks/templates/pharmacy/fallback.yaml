@@ -1,48 +1,108 @@
+# Pharmacy Domain - Fallback Tasks
+# Purpose: Task descriptions for fallback responses
+
 tasks:
-  - key: pharmacy.fallback.default
-    name: "Fallback por Defecto"
-    description: |
-      El usuario envio un mensaje que no entendiste. Indica que puedes hacer.
+  - key: "pharmacy.fallback.default"
+    name: "Default Fallback Task"
+    description: "Handle unrecognized input"
+    version: "1.0.0"
+    template: |
+      Informa que no se entendio el mensaje.
+      Lista capacidades: consultar deuda, generar link de pago, ver info.
+      Pregunta que desea hacer.
     metadata:
-      flow: fallback
-      tags: [fallback, help]
+      tags:
+        - pharmacy
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.fallback.out_of_scope
-    name: "Fuera de Alcance"
-    description: |
-      La consulta esta fuera de tu alcance. Explica que puedes hacer y sugiere contactar la farmacia.
+  - key: "pharmacy.fallback.out_of_scope"
+    name: "Out of Scope Task"
+    description: "Handle out-of-scope queries"
+    version: "1.0.0"
+    template: |
+      Informa que la consulta esta fuera de capacidades.
+      Mensaje especifico: {out_of_scope_message}
+      Lista capacidades disponibles.
     metadata:
-      flow: fallback
-      tags: [fallback, out_of_scope]
+      tags:
+        - pharmacy
+        - fallback
+        - task
+      variables:
+        required: []
+        optional:
+          - out_of_scope_message
 
-  - key: pharmacy.fallback.capabilities
-    name: "Capacidades del Bot"
-    description: |
-      Indica amablemente que puedes hacer y ofrece opciones.
+  - key: "pharmacy.fallback.capabilities"
+    name: "Bot Capabilities Task"
+    description: "List bot capabilities"
+    version: "1.0.0"
+    template: |
+      Muestra centro de ayuda de {pharmacy_name}.
+      Lista todas las capacidades con comandos.
+      Ofrece opciones para problemas comunes.
     metadata:
-      flow: fallback
-      tags: [fallback, capabilities]
+      tags:
+        - pharmacy
+        - fallback
+        - task
+      variables:
+        required:
+          - pharmacy_name
+        optional: []
 
-  - key: pharmacy.fallback.cancellation
-    name: "Cancelacion"
-    description: |
-      El usuario cancelo la operacion. Confirma la cancelacion y ofrece mas ayuda.
+  - key: "pharmacy.fallback.cancellation"
+    name: "Cancellation Fallback Task"
+    description: "Handle cancellation"
+    version: "1.0.0"
+    template: |
+      Confirma cancelacion de operacion.
+      Ofrece volver al menu o finalizar.
     metadata:
-      flow: fallback
-      tags: [fallback, cancellation]
+      tags:
+        - pharmacy
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.fallback.farewell
-    name: "Despedida"
-    description: |
-      El usuario se despide. Despidete cordialmente y ofrece volver a contactar.
+  - key: "pharmacy.fallback.farewell"
+    name: "Farewell Task"
+    description: "Generate farewell message"
+    version: "1.0.0"
+    template: |
+      Genera despedida para usuario.
+      Nombre cliente: {customer_name_text}
+      Farmacia: {pharmacy_name}
+      Recuerda capacidades y como iniciar nueva conversacion.
     metadata:
-      flow: fallback
-      tags: [fallback, farewell]
+      tags:
+        - pharmacy
+        - fallback
+        - task
+      variables:
+        required:
+          - pharmacy_name
+        optional:
+          - customer_name_text
 
-  - key: pharmacy.fallback.thanks
-    name: "Agradecimiento"
-    description: |
-      El usuario agradece. Responde cordialmente y ofrece seguir ayudando.
+  - key: "pharmacy.fallback.thanks"
+    name: "Thanks Response Task"
+    description: "Handle thank you message"
+    version: "1.0.0"
+    template: |
+      Responde agradecimiento del usuario.
+      Ofrece asistencia adicional o finalizar.
     metadata:
-      flow: fallback
-      tags: [fallback, thanks]
+      tags:
+        - pharmacy
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []

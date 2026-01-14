@@ -43,11 +43,7 @@ def is_payment_intent_from_patterns(
 
     # Get phrases from database
     db_phrases = invoice.get("phrases", [])
-    payment_phrases = {
-        p["phrase"].lower()
-        for p in db_phrases
-        if isinstance(p, dict) and "phrase" in p
-    }
+    payment_phrases = {p["phrase"].lower() for p in db_phrases if isinstance(p, dict) and "phrase" in p}
 
     if not payment_verbs and not payment_phrases:
         return False

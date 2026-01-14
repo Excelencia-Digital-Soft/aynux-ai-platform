@@ -49,17 +49,19 @@ class PlexDebtMapper:
         items.sort(key=lambda x: x.amount, reverse=True)
 
         # Build debt entity
-        return PharmacyDebt.from_dict({
-            "id": str(balance_data.get("id", customer_id)),
-            "customer_id": str(customer_id),
-            "customer_name": customer_name,
-            "total_debt": balance_data.get("saldo", 0),
-            "status": DebtStatus.PENDING.value,
-            "due_date": balance_data.get("fecha_vencimiento"),
-            "items": [item.to_dict() for item in items],
-            "created_at": balance_data.get("fecha"),
-            "notes": balance_data.get("observaciones"),
-        })
+        return PharmacyDebt.from_dict(
+            {
+                "id": str(balance_data.get("id", customer_id)),
+                "customer_id": str(customer_id),
+                "customer_name": customer_name,
+                "total_debt": balance_data.get("saldo", 0),
+                "status": DebtStatus.PENDING.value,
+                "due_date": balance_data.get("fecha_vencimiento"),
+                "items": [item.to_dict() for item in items],
+                "created_at": balance_data.get("fecha"),
+                "notes": balance_data.get("observaciones"),
+            }
+        )
 
     @classmethod
     def _extract_items(cls, detalle: list[dict[str, Any]]) -> list[DebtItem]:
@@ -81,9 +83,7 @@ class PlexDebtMapper:
                     amount=Decimal(str(item_data.get("importe", 0))),
                     quantity=item_data.get("cantidad", 1),
                     unit_price=(
-                        Decimal(str(item_data["precio_unitario"]))
-                        if item_data.get("precio_unitario")
-                        else None
+                        Decimal(str(item_data["precio_unitario"])) if item_data.get("precio_unitario") else None
                     ),
                     product_code=item_data.get("codigo"),
                     invoice_number=item_data.get("comprobante"),
@@ -118,11 +118,7 @@ class PlexDebtMapper:
                     description=data.get("description", "Item"),
                     amount=Decimal(str(data.get("amount", 0))),
                     quantity=data.get("quantity", 1),
-                    unit_price=(
-                        Decimal(str(data["unit_price"]))
-                        if data.get("unit_price")
-                        else None
-                    ),
+                    unit_price=(Decimal(str(data["unit_price"])) if data.get("unit_price") else None),
                     product_code=data.get("product_code"),
                     invoice_number=data.get("invoice_number"),
                     invoice_date=data.get("invoice_date"),

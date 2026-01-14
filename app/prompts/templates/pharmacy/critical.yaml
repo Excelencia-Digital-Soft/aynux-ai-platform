@@ -1,0 +1,248 @@
+# Pharmacy Domain - Critical Templates (NEVER use LLM modification)
+# Purpose: Fixed templates for payment confirmations and legal/security messages
+# These templates are rendered exactly as written without LLM modification
+
+prompts:
+  - key: "pharmacy.critical.payment_confirmation"
+    name: "Payment Confirmation"
+    description: "Fixed template for payment success notification"
+    version: "1.0.0"
+    template: |
+      *PAGO RECIBIDO!*
+
+      {customer_name}, tu pago ha sido acreditado correctamente.
+
+      *Detalle:*
+      - Monto: ${payment_amount}
+      - Fecha: {payment_date}
+      - Referencia: {payment_reference}
+
+      {remaining_balance_text}
+
+      Gracias por tu pago!
+    metadata:
+      temperature: 0
+      max_tokens: 300
+      is_critical: true
+      tags:
+        - pharmacy
+        - critical
+        - payment
+      variables:
+        required:
+          - customer_name
+          - payment_amount
+          - payment_date
+          - payment_reference
+        optional:
+          - remaining_balance_text
+
+  - key: "pharmacy.critical.payment_link"
+    name: "Payment Link Generated"
+    description: "Fixed template for payment link notification"
+    version: "1.0.0"
+    template: |
+      *LINK DE PAGO GENERADO*
+
+      {customer_name}, aqui esta tu link de pago:
+
+      *Monto:* ${payment_amount}
+
+      *Link:*
+      {payment_link}
+
+      *Valido hasta:* {expiration_date}
+
+      *Instrucciones:*
+      1. Hace clic en el link
+      2. Elegi tu medio de pago
+      3. Completa el pago
+
+      Recibiras una confirmacion cuando el pago se acredite.
+    metadata:
+      temperature: 0
+      max_tokens: 400
+      is_critical: true
+      tags:
+        - pharmacy
+        - critical
+        - payment_link
+      variables:
+        required:
+          - customer_name
+          - payment_amount
+          - payment_link
+          - expiration_date
+        optional: []
+
+  - key: "pharmacy.critical.payment_total_confirm"
+    name: "Total Payment Confirmation Request"
+    description: "Fixed template for total payment confirmation"
+    version: "1.0.0"
+    template: |
+      *CONFIRMACION DE PAGO*
+
+      Vas a generar un link de pago por:
+
+      *${payment_amount}*
+
+      Este link sera valido por *24 horas*.
+
+      Confirmas que deseas continuar?
+
+      *SI* - Generar link de pago
+      *NO* - Volver atras
+    metadata:
+      temperature: 0
+      max_tokens: 200
+      is_critical: true
+      tags:
+        - pharmacy
+        - critical
+        - payment_confirmation
+      variables:
+        required:
+          - payment_amount
+        optional: []
+
+  - key: "pharmacy.critical.identity_verified"
+    name: "Identity Verified"
+    description: "Fixed template for identity verification success"
+    version: "1.0.0"
+    template: |
+      *Listo, {customer_name}!*
+
+      Tu cuenta ha sido verificada.
+      No necesitaras identificarte de nuevo en este numero durante los proximos 6 meses.
+    metadata:
+      temperature: 0
+      max_tokens: 150
+      is_critical: true
+      tags:
+        - pharmacy
+        - critical
+        - identity
+      variables:
+        required:
+          - customer_name
+        optional: []
+
+  - key: "pharmacy.critical.payment_link_partial"
+    name: "Partial Payment Link Generated"
+    description: "Fixed template for partial payment link notification with WhatsApp formatting"
+    version: "1.0.0"
+    template: |
+      *{pharmacy_name}*
+
+      ━━━━━━━━━━━━━━━━━━━━
+      *LINK DE PAGO PARCIAL*
+      ━━━━━━━━━━━━━━━━━━━━
+
+      Hola *{customer_name}*, tu link de pago esta listo:
+
+      *Monto a pagar:* ${payment_amount}
+      Deuda total: ${total_debt}
+      Saldo pendiente: *${remaining_balance}*
+
+      ━━━━━━━━━━━━━━━━━━━━
+      *Link de pago:*
+      {payment_link}
+      ━━━━━━━━━━━━━━━━━━━━
+
+      Haz clic en el link para pagar con Mercado Pago.
+
+      Recibiras una confirmacion cuando el pago se procese.
+
+      _Este link es valido por 24 horas._
+
+      Necesitas ayuda? Escribe *AYUDA*
+    metadata:
+      temperature: 0
+      max_tokens: 500
+      is_critical: true
+      tags:
+        - pharmacy
+        - critical
+        - payment_link
+        - partial
+      variables:
+        required:
+          - pharmacy_name
+          - customer_name
+          - payment_amount
+          - total_debt
+          - remaining_balance
+          - payment_link
+        optional: []
+
+  - key: "pharmacy.critical.payment_link_full"
+    name: "Full Payment Link Generated"
+    description: "Fixed template for full payment link notification with WhatsApp formatting"
+    version: "1.0.0"
+    template: |
+      *{pharmacy_name}*
+
+      ━━━━━━━━━━━━━━━━━━━━
+      *LINK DE PAGO GENERADO*
+      ━━━━━━━━━━━━━━━━━━━━
+
+      Hola *{customer_name}*, tu link de pago esta listo:
+
+      *Monto a pagar:* ${payment_amount}
+
+      ━━━━━━━━━━━━━━━━━━━━
+      *Link de pago:*
+      {payment_link}
+      ━━━━━━━━━━━━━━━━━━━━
+
+      Haz clic en el link para pagar con Mercado Pago.
+
+      Recibiras una confirmacion cuando el pago se procese.
+
+      _Este link es valido por 24 horas._
+
+      Necesitas ayuda? Escribe *AYUDA*
+    metadata:
+      temperature: 0
+      max_tokens: 400
+      is_critical: true
+      tags:
+        - pharmacy
+        - critical
+        - payment_link
+        - full
+      variables:
+        required:
+          - pharmacy_name
+          - customer_name
+          - payment_amount
+          - payment_link
+        optional: []
+
+  - key: "pharmacy.critical.payment_partial_confirm"
+    name: "Partial Payment Confirmation Request"
+    description: "Fixed template for partial payment confirmation"
+    version: "1.0.0"
+    template: |
+      *Confirmar Pago Parcial*
+
+      Monto a pagar: ${payment_amount}
+      Deuda total: ${total_debt}
+      Saldo restante: ${remaining_balance}
+
+      Confirmas este pago? Responde *SI* o *NO*
+    metadata:
+      temperature: 0
+      max_tokens: 200
+      is_critical: true
+      tags:
+        - pharmacy
+        - critical
+        - payment_confirmation
+        - partial
+      variables:
+        required:
+          - payment_amount
+          - total_debt
+          - remaining_balance
+        optional: []

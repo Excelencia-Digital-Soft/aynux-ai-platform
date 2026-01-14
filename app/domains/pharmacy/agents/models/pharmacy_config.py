@@ -16,25 +16,12 @@ class PharmacyConfig(PharmacyStateModel):
     """
 
     pharmacy_id: str | None = Field(
-        default=None,
-        description="Pharmacy UUID for pharmacy-specific config (MP credentials, etc.)"
+        default=None, description="Pharmacy UUID for pharmacy-specific config (MP credentials, etc.)"
     )
-    pharmacy_name: str | None = Field(
-        default=None,
-        description="Pharmacy name for personalized responses"
-    )
-    pharmacy_phone: str | None = Field(
-        default=None,
-        description="Pharmacy phone for contact redirection"
-    )
-    organization_id: str | None = Field(
-        default=None,
-        description="Organization UUID for multi-tenant config lookup"
-    )
-    emergency_phone: str | None = Field(
-        default=None,
-        description="Emergency contact number"
-    )
+    pharmacy_name: str | None = Field(default=None, description="Pharmacy name for personalized responses")
+    pharmacy_phone: str | None = Field(default=None, description="Pharmacy phone for contact redirection")
+    organization_id: str | None = Field(default=None, description="Organization UUID for multi-tenant config lookup")
+    emergency_phone: str | None = Field(default=None, description="Emergency contact number")
 
 
 __all__ = ["PharmacyConfig"]

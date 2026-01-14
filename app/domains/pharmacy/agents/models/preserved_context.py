@@ -51,105 +51,57 @@ class PreservedContext(PharmacyStateModel):
 
     # Payment context - CRITICAL for preserving amount from initial message
     payment_amount: float | None = Field(
-        default=None,
-        description="Amount customer wants to pay (from initial message like 'pagar 3000')"
+        default=None, description="Amount customer wants to pay (from initial message like 'pagar 3000')"
     )
-    is_partial_payment: bool = Field(
-        default=False,
-        description="True if payment_amount < total_debt"
-    )
-    remaining_balance: float | None = Field(
-        default=None,
-        description="Balance after payment"
-    )
+    is_partial_payment: bool = Field(default=False, description="True if payment_amount < total_debt")
+    remaining_balance: float | None = Field(default=None, description="Balance after payment")
     selected_payment_option: str | None = Field(
-        default=None,
-        description="Selected option: 'full', 'half', 'minimum', 'custom'"
+        default=None, description="Selected option: 'full', 'half', 'minimum', 'custom'"
     )
 
     # Intent context
     pharmacy_intent_type: str | None = Field(
-        default=None,
-        description="Intent type: debt_query, confirm, invoice, payment_link, etc."
+        default=None, description="Intent type: debt_query, confirm, invoice, payment_link, etc."
     )
     extracted_entities: dict[str, Any] | None = Field(
-        default=None,
-        description="Entities extracted from message (amount, date, etc.)"
+        default=None, description="Entities extracted from message (amount, date, etc.)"
     )
 
     # Auto-flow flags
-    auto_proceed_to_invoice: bool = Field(
-        default=False,
-        description="Auto-fetch debt then proceed to invoice"
-    )
-    auto_return_to_query: bool = Field(
-        default=False,
-        description="Return to data_query after debt fetch"
-    )
-    pending_data_query: str | None = Field(
-        default=None,
-        description="Pending question to answer after debt fetch"
-    )
+    auto_proceed_to_invoice: bool = Field(default=False, description="Auto-fetch debt then proceed to invoice")
+    auto_return_to_query: bool = Field(default=False, description="Return to data_query after debt fetch")
+    pending_data_query: str | None = Field(default=None, description="Pending question to answer after debt fetch")
 
     # Pharmacy config - for multi-tenant context
-    pharmacy_id: str | None = Field(
-        default=None,
-        description="Pharmacy UUID"
-    )
-    pharmacy_name: str | None = Field(
-        default=None,
-        description="Pharmacy name for personalized responses"
-    )
-    pharmacy_phone: str | None = Field(
-        default=None,
-        description="Pharmacy phone for contact redirection"
-    )
-    organization_id: str | None = Field(
-        default=None,
-        description="Organization UUID for multi-tenant config"
-    )
+    pharmacy_id: str | None = Field(default=None, description="Pharmacy UUID")
+    pharmacy_name: str | None = Field(default=None, description="Pharmacy name for personalized responses")
+    pharmacy_phone: str | None = Field(default=None, description="Pharmacy phone for contact redirection")
+    organization_id: str | None = Field(default=None, description="Organization UUID for multi-tenant config")
 
     # Identification flow state (CRITICAL for multi-turn identification)
     identification_step: str | None = Field(
-        default=None,
-        description="Current step in identification flow: awaiting_welcome, awaiting_identifier, name"
+        default=None, description="Current step in identification flow: awaiting_welcome, awaiting_identifier, name"
     )
     plex_customer_to_confirm: dict[str, Any] | None = Field(
-        default=None,
-        description="Customer from PLEX awaiting name verification"
+        default=None, description="Customer from PLEX awaiting name verification"
     )
-    name_mismatch_count: int = Field(
-        default=0,
-        description="Number of name verification failures"
-    )
-    awaiting_own_or_other: bool = Field(
-        default=False,
-        description="Waiting for user to confirm own account or other"
-    )
-    validation_step: str | None = Field(
-        default=None,
-        description="Legacy validation step identifier"
-    )
+    name_mismatch_count: int = Field(default=0, description="Number of name verification failures")
+    awaiting_own_or_other: bool = Field(default=False, description="Waiting for user to confirm own account or other")
+    validation_step: str | None = Field(default=None, description="Legacy validation step identifier")
 
     # Registration flow state
     awaiting_registration_data: bool = Field(
-        default=False,
-        description="Waiting for registration data (name, document, etc.)"
+        default=False, description="Waiting for registration data (name, document, etc.)"
     )
     registration_step: str | None = Field(
-        default=None,
-        description="Current step in registration flow: nombre, documento, confirmar"
+        default=None, description="Current step in registration flow: nombre, documento, confirmar"
     )
 
     # Account selection state
     registered_accounts_for_selection: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="List of registered accounts available for selection"
+        default=None, description="List of registered accounts available for selection"
     )
-    account_count: int | None = Field(
-        default=None,
-        description="Number of registered accounts"
-    )
+    account_count: int | None = Field(default=None, description="Number of registered accounts")
 
     def has_payment_context(self) -> bool:
         """Check if this context has payment information."""
@@ -283,10 +235,7 @@ class StatePreserver:
         ctx = PreservedContext.from_state(state_dict)
         ctx_dict = ctx.model_dump()
 
-        missing = [
-            field for field in required_fields
-            if ctx_dict.get(field) is None
-        ]
+        missing = [field for field in required_fields if ctx_dict.get(field) is None]
 
         return len(missing) == 0, missing
 

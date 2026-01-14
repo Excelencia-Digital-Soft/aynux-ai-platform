@@ -1,0 +1,238 @@
+# Pharmacy Domain - Confirmation Templates
+# Purpose: Action confirmation messages
+
+prompts:
+  - key: "pharmacy.confirmation.request"
+    name: "Confirmation Request"
+    description: "Generic confirmation request"
+    version: "1.0.0"
+    template: |
+      Por favor confirma tu solicitud:
+
+      {confirmation_details}
+
+      *SI* - Confirmar
+      *NO* - Cancelar
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - confirmation
+        - request
+      variables:
+        required:
+          - confirmation_details
+        optional: []
+
+  - key: "pharmacy.confirmation.cancelled"
+    name: "Action Cancelled"
+    description: "Message when user cancels an action"
+    version: "1.0.0"
+    template: |
+      Entendido, no hay problema.
+
+      {pending_info}
+
+      Hay algo mas en que pueda ayudarte?
+
+      1. Volver al menu
+      0. Finalizar
+    metadata:
+      temperature: 0.5
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - confirmation
+        - cancelled
+      variables:
+        required: []
+        optional:
+          - pending_info
+
+  - key: "pharmacy.confirmation.consulting_debt"
+    name: "Consulting Debt"
+    description: "Message while consulting debt"
+    version: "1.0.0"
+    template: |
+      Consultando tu estado de cuenta...
+    metadata:
+      temperature: 0
+      max_tokens: 50
+      tags:
+        - pharmacy
+        - confirmation
+        - loading
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.confirmation.error"
+    name: "Confirmation Error"
+    description: "Message when confirmation fails"
+    version: "1.0.0"
+    template: |
+      No pude procesar tu confirmacion.
+
+      Por favor responde *SI* o *NO*:
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - confirmation
+        - error
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.confirmation.not_identified"
+    name: "Not Identified for Confirmation"
+    description: "User not identified for confirmation"
+    version: "1.0.0"
+    template: |
+      Para confirmar esta accion necesito verificar tu identidad primero.
+
+      Por favor ingresa tu DNI:
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - confirmation
+        - identification_required
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.confirmation.selected"
+    name: "Selection Confirmed"
+    description: "Message when selection is confirmed"
+    version: "1.0.0"
+    template: |
+      Seleccionado: *{selected_option}*
+
+      Procesando...
+    metadata:
+      temperature: 0.3
+      max_tokens: 50
+      tags:
+        - pharmacy
+        - confirmation
+        - selected
+      variables:
+        required:
+          - selected_option
+        optional: []
+
+  - key: "pharmacy.confirmation.payment_success"
+    name: "Payment Success"
+    description: "Payment received confirmation (CRITICAL - fixed template)"
+    version: "1.0.0"
+    template: |
+      *PAGO RECIBIDO!*
+
+      {customer_name}, tu pago ha sido acreditado correctamente.
+
+      *Detalle:*
+      - Monto: ${payment_amount}
+      - Fecha: {payment_date}
+      - Referencia: {payment_reference}
+
+      {remaining_balance_text}
+
+      Gracias por tu pago!
+    metadata:
+      temperature: 0
+      max_tokens: 300
+      is_critical: true
+      tags:
+        - pharmacy
+        - confirmation
+        - payment
+        - critical
+      variables:
+        required:
+          - customer_name
+          - payment_amount
+          - payment_date
+          - payment_reference
+        optional:
+          - remaining_balance_text
+
+  - key: "pharmacy.confirmation.payment_link"
+    name: "Payment Link Generated"
+    description: "Payment link confirmation (CRITICAL - fixed template)"
+    version: "1.0.0"
+    template: |
+      *LINK DE PAGO GENERADO*
+
+      {customer_name}, aqui esta tu link de pago:
+
+      *Monto:* ${payment_amount}
+
+      *Link:*
+      {payment_link}
+
+      *Valido hasta:* {expiration_date}
+
+      *Instrucciones:*
+      1. Hace clic en el link
+      2. Elegi tu medio de pago
+      3. Completa el pago
+
+      Recibiras una confirmacion cuando el pago se acredite.
+    metadata:
+      temperature: 0
+      max_tokens: 400
+      is_critical: true
+      tags:
+        - pharmacy
+        - confirmation
+        - payment_link
+        - critical
+      variables:
+        required:
+          - customer_name
+          - payment_amount
+          - payment_link
+          - expiration_date
+        optional: []
+
+  - key: "pharmacy.confirmation.yes_no_unclear"
+    name: "Yes/No Unclear"
+    description: "Message when yes/no response is unclear"
+    version: "1.0.0"
+    template: |
+      No entendi tu respuesta.
+
+      Por favor responde:
+      *SI* - Para confirmar
+      *NO* - Para cancelar
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - confirmation
+        - clarification
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.confirmation.fallback"
+    name: "Confirmation Fallback"
+    description: "Fallback for confirmation flow"
+    version: "1.0.0"
+    template: |
+      Por favor responde *SI* para confirmar o *NO* para cancelar.
+    metadata:
+      temperature: 0
+      max_tokens: 50
+      tags:
+        - pharmacy
+        - confirmation
+        - fallback
+      variables:
+        required: []
+        optional: []
