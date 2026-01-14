@@ -49,6 +49,7 @@ Architecture:
 from __future__ import annotations
 
 import logging
+import warnings
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -56,10 +57,25 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
+from app.domains.pharmacy.agents.nodes.account_switcher_node import account_switcher_node
+from app.domains.pharmacy.agents.nodes.auth_plex_node import auth_plex_node
+from app.domains.pharmacy.agents.nodes.debt_manager_node import debt_manager_node
+from app.domains.pharmacy.agents.nodes.info_node import info_node
+from app.domains.pharmacy.agents.nodes.payment_processor_node import payment_processor_node
 from app.domains.pharmacy.agents.state_v2 import PharmacyStateV2, get_state_defaults
 
 if TYPE_CHECKING:
     from app.integrations.databases import PostgreSQLIntegration
+
+# Suppress LangGraph warning about RunnableConfig type annotation.
+# This is a known limitation when using `from __future__ import annotations`
+# which converts type annotations to strings. LangGraph doesn't handle this well.
+# The code works correctly despite the warning.
+warnings.filterwarnings(
+    "ignore",
+    message=r"The 'config' parameter should be typed as 'RunnableConfig'.*",
+    category=UserWarning,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,173 +95,6 @@ class NodeType:
     ACCOUNT_SWITCHER = "account_switcher"
     RESPONSE_FORMATTER = "response_formatter"
     INFO_NODE = "info_node"
-
-
-# =============================================================================
-# Placeholder Node Implementations
-# =============================================================================
-# These will be replaced with actual implementations from nodes/
-
-
-async def auth_plex_node(state: PharmacyStateV2) -> dict[str, Any]:
-    """
-    Authentication node - handles PLEX customer identification.
-
-    Responsibilities:
-    - DNI validation
-    - PLEX customer lookup
-    - Name verification
-    - RegisteredPerson creation/update
-
-    TODO: Implement actual logic from person_resolution_node
-    """
-    logger.info("auth_plex_node called")
-
-    # Placeholder: Just mark as authenticated for now
-    # In real implementation, this would:
-    # 1. Check for DNI input if awaiting_input == "dni"
-    # 2. Validate DNI format
-    # 3. Lookup customer in PLEX
-    # 4. Request name verification if needed
-    # 5. Create/update RegisteredPerson
-
-    return {
-        "is_authenticated": True,
-        "awaiting_input": None,
-        "next_node": "debt_manager",
-    }
-
-
-async def debt_manager_node(state: PharmacyStateV2) -> dict[str, Any]:
-    """
-    Debt management node - handles debt queries.
-
-    Responsibilities:
-    - Fetch debt from PLEX
-    - Format debt display
-    - Handle "no debt" case
-
-    TODO: Implement actual logic from debt_check_node
-    """
-    logger.info("debt_manager_node called")
-
-    # Placeholder: Return sample debt
-    return {
-        "total_debt": 15000.00,
-        "has_debt": True,
-        "debt_fetched_at": datetime.now().isoformat(),
-        "debt_items": [
-            {"invoice": "FC-001", "amount": 10000.00, "date": "2026-01-10"},
-            {"invoice": "FC-002", "amount": 5000.00, "date": "2026-01-12"},
-        ],
-        "next_node": "response_formatter",
-    }
-
-
-async def payment_processor_node(state: PharmacyStateV2) -> dict[str, Any]:
-    """
-    Payment processing node - handles Mercado Pago payments.
-
-    Responsibilities:
-    - Validate payment amount
-    - Create MP preference
-    - Generate payment link
-    - Handle payment confirmation
-
-    TODO: Implement actual logic from payment_link_node
-    """
-    logger.info("payment_processor_node called")
-
-    intent = state.get("intent")
-
-    # If waiting for confirmation
-    if state.get("awaiting_payment_confirmation"):
-        # Check if user confirmed
-        if intent == "confirm_yes":
-            # Generate payment link
-            return {
-                "mp_payment_link": "https://www.mercadopago.com.ar/checkout/v1/...",
-                "awaiting_payment_confirmation": False,
-                "next_node": "response_formatter",
-            }
-        elif intent == "confirm_no":
-            return {
-                "awaiting_payment_confirmation": False,
-                "intent": "show_menu",
-                "next_node": "response_formatter",
-            }
-
-    # Set up for confirmation
-    amount = state.get("payment_amount") or state.get("total_debt") or 0
-    is_partial = intent == "pay_partial"
-
-    return {
-        "payment_amount": amount,
-        "is_partial_payment": is_partial,
-        "awaiting_payment_confirmation": True,
-        "next_node": "response_formatter",
-    }
-
-
-async def account_switcher_node(state: PharmacyStateV2) -> dict[str, Any]:
-    """
-    Account switching node - handles multiple registered accounts.
-
-    Responsibilities:
-    - Show account selection list
-    - Handle account selection
-    - Handle "own vs other" question
-
-    TODO: Implement actual logic from person_selection_node
-    """
-    logger.info("account_switcher_node called")
-
-    intent = state.get("intent")
-
-    # Handle own/other selection
-    if intent == "own_debt":
-        return {
-            "is_self": True,
-            "awaiting_input": None,
-            "next_node": "debt_manager",
-        }
-    elif intent == "other_debt":
-        return {
-            "is_self": False,
-            "awaiting_account_selection": True,
-            "next_node": "response_formatter",
-        }
-
-    # Handle account selection
-    if state.get("awaiting_account_selection"):
-        # In real implementation, parse the selection
-        return {
-            "awaiting_account_selection": False,
-            "next_node": "debt_manager",
-        }
-
-    # Ask own or other
-    return {
-        "awaiting_input": "own_or_other",
-        "next_node": "response_formatter",
-    }
-
-
-async def info_node(state: PharmacyStateV2) -> dict[str, Any]:
-    """
-    Information node - handles pharmacy info queries.
-
-    Responsibilities:
-    - Return pharmacy info
-    - Handle capability questions
-
-    TODO: Implement actual logic from pharmacy_info_node
-    """
-    logger.info("info_node called")
-
-    return {
-        "next_node": "response_formatter",
-    }
 
 
 # =============================================================================

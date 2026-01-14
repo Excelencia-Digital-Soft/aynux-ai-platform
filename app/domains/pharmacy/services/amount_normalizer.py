@@ -25,22 +25,26 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Invisible Unicode characters that WhatsApp may inject
-_INVISIBLE_CHARS: frozenset[str] = frozenset({
-    "\u200b",  # Zero-width space
-    "\u200c",  # Zero-width non-joiner
-    "\u200d",  # Zero-width joiner
-    "\u2060",  # Word joiner
-    "\ufeff",  # BOM / Zero-width no-break space
-})
+_INVISIBLE_CHARS: frozenset[str] = frozenset(
+    {
+        "\u200b",  # Zero-width space
+        "\u200c",  # Zero-width non-joiner
+        "\u200d",  # Zero-width joiner
+        "\u2060",  # Word joiner
+        "\ufeff",  # BOM / Zero-width no-break space
+    }
+)
 
 # Space-like characters to normalize to regular space
-_SPACE_CHARS: frozenset[str] = frozenset({
-    "\u00a0",  # Non-breaking space
-    "\u2002",  # En space
-    "\u2003",  # Em space
-    "\u2009",  # Thin space
-    "\u202f",  # Narrow no-break space
-})
+_SPACE_CHARS: frozenset[str] = frozenset(
+    {
+        "\u00a0",  # Non-breaking space
+        "\u2002",  # En space
+        "\u2003",  # Em space
+        "\u2009",  # Thin space
+        "\u202f",  # Narrow no-break space
+    }
+)
 
 
 def _sanitize_input(text: str) -> str:

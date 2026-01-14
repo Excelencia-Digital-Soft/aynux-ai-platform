@@ -94,6 +94,47 @@ def extract_bot_response(result: dict[str, Any]) -> str:
     return "[Sin respuesta generada]"
 
 
+def extract_interactive_data(result: dict[str, Any]) -> dict[str, Any]:
+    """
+    Extract interactive message data (buttons/list) from graph result.
+
+    Args:
+        result: Graph execution result dictionary
+
+    Returns:
+        Dictionary with response_type, response_buttons, and response_list_items
+    """
+    response_type = result.get("response_type", "text")
+    response_buttons = result.get("response_buttons")
+    response_list_items = result.get("response_list_items")
+
+    # Convert to proper format if present
+    formatted_buttons = None
+    formatted_list_items = None
+
+    if response_buttons:
+        formatted_buttons = [
+            {"id": btn.get("id", f"btn_{i}"), "titulo": btn.get("titulo", "")}
+            for i, btn in enumerate(response_buttons)
+        ]
+
+    if response_list_items:
+        formatted_list_items = [
+            {
+                "id": item.get("id", f"item_{i}"),
+                "titulo": item.get("titulo", ""),
+                "descripcion": item.get("descripcion"),
+            }
+            for i, item in enumerate(response_list_items)
+        ]
+
+    return {
+        "response_type": response_type,
+        "response_buttons": formatted_buttons,
+        "response_list_items": formatted_list_items,
+    }
+
+
 # ============================================================
 # STATE BUILDERS
 # ============================================================

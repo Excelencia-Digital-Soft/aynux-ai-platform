@@ -33,36 +33,63 @@ class MessageParser:
     """
 
     # Affirmative responses in Spanish
-    AFFIRMATIVE: frozenset[str] = frozenset({
-        "si", "sí", "yes", "ok", "dale", "confirmo", "confirmar",
-        "acepto", "aceptar", "seguro", "claro", "listo", "bueno",
-        "s", "y",  # Common abbreviations
-    })
+    AFFIRMATIVE: frozenset[str] = frozenset(
+        {
+            "si",
+            "sí",
+            "yes",
+            "ok",
+            "dale",
+            "confirmo",
+            "confirmar",
+            "acepto",
+            "aceptar",
+            "seguro",
+            "claro",
+            "listo",
+            "bueno",
+            "s",
+            "y",  # Common abbreviations
+        }
+    )
 
     # Negative responses in Spanish
-    NEGATIVE: frozenset[str] = frozenset({
-        "no", "nop", "nope", "cancelar", "cancelo", "no quiero",
-        "negar", "rechazar", "rechazo",
-        "n",  # Common abbreviation
-    })
+    NEGATIVE: frozenset[str] = frozenset(
+        {
+            "no",
+            "nop",
+            "nope",
+            "cancelar",
+            "cancelo",
+            "no quiero",
+            "negar",
+            "rechazar",
+            "rechazo",
+            "n",  # Common abbreviation
+        }
+    )
 
     # Invisible Unicode characters that WhatsApp may inject
-    _INVISIBLE_CHARS: frozenset[str] = frozenset({
-        "\u200b",  # Zero-width space
-        "\u200c",  # Zero-width non-joiner
-        "\u200d",  # Zero-width joiner
-        "\u2060",  # Word joiner
-        "\ufeff",  # BOM / Zero-width no-break space
-    })
+    _INVISIBLE_CHARS: frozenset[str] = frozenset(
+        {
+            "\u200b",  # Zero-width space
+            "\u200c",  # Zero-width non-joiner
+            "\u200d",  # Zero-width joiner
+            "\u2060",  # Word joiner
+            "\ufeff",  # BOM / Zero-width no-break space
+        }
+    )
 
     # Space-like characters to normalize to regular space
-    _SPACE_CHARS: frozenset[str] = frozenset({
-        "\u00a0",  # Non-breaking space
-        "\u2002",  # En space
-        "\u2003",  # Em space
-        "\u2009",  # Thin space
-        "\u202f",  # Narrow no-break space
-    })
+    _SPACE_CHARS: frozenset[str] = frozenset(
+        {
+            "\u00a0",  # Non-breaking space
+            "\u2002",  # En space
+            "\u2003",  # Em space
+            "\u2009",  # Thin space
+            "\u202f",  # Narrow no-break space
+        }
+    )
 
     @classmethod
     def _sanitize_message(cls, text: str) -> str:

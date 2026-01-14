@@ -1,24 +1,83 @@
+# Pharmacy Domain - Info Tasks
+# Purpose: Task descriptions for pharmacy information
+
 tasks:
-  - key: pharmacy.info.query
-    name: "Consulta de Informacion"
-    description: |
-      Responde la pregunta sobre informacion de la farmacia.
+  - key: "pharmacy.info.query"
+    name: "Pharmacy Info Task"
+    description: "Display pharmacy information"
+    version: "1.0.0"
+    template: |
+      Muestra informacion de farmacia {pharmacy_name}.
+      Direccion: {pharmacy_address}
+      Telefono: {pharmacy_phone}
+      Email: {pharmacy_email}
+      Horarios: {pharmacy_hours}
+      Web: {pharmacy_website}
+      Ofrece ver en Google Maps o volver al menu.
     metadata:
-      flow: info
-      tags: [info, query]
+      tags:
+        - pharmacy
+        - info
+        - task
+      variables:
+        required:
+          - pharmacy_name
+          - pharmacy_address
+          - pharmacy_phone
+        optional:
+          - pharmacy_email
+          - pharmacy_hours
+          - pharmacy_website
 
-  - key: pharmacy.info.no_info
-    name: "Sin Informacion"
-    description: |
-      Informa que no hay informacion disponible de la farmacia.
+  - key: "pharmacy.info.no_info"
+    name: "No Info Task"
+    description: "Handle missing info"
+    version: "1.0.0"
+    template: |
+      Informa que no hay informacion disponible.
+      Ofrece asistencia alternativa.
     metadata:
-      flow: info
-      tags: [no_info]
+      tags:
+        - pharmacy
+        - info
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.info.capabilities
-    name: "Capacidades"
-    description: |
-      Explica las capacidades del bot.
+  - key: "pharmacy.info.capabilities"
+    name: "Info Capabilities Task"
+    description: "List info capabilities"
+    version: "1.0.0"
+    template: |
+      Lista informacion disponible:
+      - Horarios de atencion
+      - Direccion y ubicacion
+      - Telefonos de contacto
+      - Correo electronico
+      Pregunta que informacion necesita.
     metadata:
-      flow: info
-      tags: [capabilities]
+      tags:
+        - pharmacy
+        - info
+        - task
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.info.fallback"
+    name: "Info Fallback Task"
+    description: "Fallback for info queries"
+    version: "1.0.0"
+    template: |
+      Para informacion de la farmacia, proporciona telefono: {pharmacy_phone}
+    metadata:
+      tags:
+        - pharmacy
+        - info
+        - fallback
+        - task
+      variables:
+        required:
+          - pharmacy_phone
+        optional: []

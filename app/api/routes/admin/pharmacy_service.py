@@ -19,7 +19,7 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 
 from app.api.routes.admin.pharmacy_models import PharmacySessionState
-from app.domains.pharmacy.agents.graph import PharmacyGraph
+from app.domains.pharmacy.agents.graph_v2 import PharmacyGraphV2
 from app.integrations.databases import PostgreSQLIntegration
 from app.repositories.async_redis_repository import AsyncRedisRepository
 
@@ -39,13 +39,13 @@ SESSION_PREFIX = "pharmacy_test"
 
 
 class PharmacyGraphManager:
-    """Singleton manager for PharmacyGraph instance with async initialization."""
+    """Singleton manager for PharmacyGraphV2 instance with async initialization."""
 
     _instance: PharmacyGraphManager | None = None
     _init_lock: asyncio.Lock | None = None
 
     def __init__(self) -> None:
-        self._graph: PharmacyGraph | None = None
+        self._graph: PharmacyGraphV2 | None = None
         self._postgres: PostgreSQLIntegration | None = None
         self._initialized = False
 
@@ -56,8 +56,8 @@ class PharmacyGraphManager:
             cls._instance = cls()
         return cls._instance
 
-    async def get_graph(self) -> PharmacyGraph:
-        """Get or initialize the PharmacyGraph singleton with async checkpointer."""
+    async def get_graph(self) -> PharmacyGraphV2:
+        """Get or initialize the PharmacyGraphV2 singleton with async checkpointer."""
         if not self._initialized:
             # Use async lock for thread-safe async initialization
             if PharmacyGraphManager._init_lock is None:
@@ -67,13 +67,13 @@ class PharmacyGraphManager:
                 if not self._initialized:
                     # Create PostgreSQL integration for checkpointer
                     self._postgres = PostgreSQLIntegration()
-                    self._graph = PharmacyGraph()
+                    self._graph = PharmacyGraphV2()
                     await self._graph.initialize(postgres=self._postgres)
                     self._initialized = True
-                    logger.info("PharmacyGraph singleton initialized with PostgreSQL checkpointer")
+                    logger.info("PharmacyGraphV2 singleton initialized with PostgreSQL checkpointer")
 
         if self._graph is None:
-            raise RuntimeError("PharmacyGraph failed to initialize")
+            raise RuntimeError("PharmacyGraphV2 failed to initialize")
         return self._graph
 
     async def reset(self) -> None:
@@ -114,13 +114,13 @@ async def invoke_pharmacy_graph(
     """
     graph = await _graph_manager.get_graph()
     if graph.app is None:
-        raise RuntimeError("PharmacyGraph app not initialized")
+        raise RuntimeError("PharmacyGraphV2 app not initialized")
 
     # DEBUG: Print graph ASCII representation
     try:
         ascii_graph = graph.app.get_graph().draw_ascii()
-        logger.debug(f"[DEBUG] PharmacyGraph ASCII:\n{ascii_graph}")
-        print(f"\n[DEBUG] PharmacyGraph ASCII:\n{ascii_graph}\n")
+        logger.debug(f"[DEBUG] PharmacyGraphV2 ASCII:\n{ascii_graph}")
+        print(f"\n[DEBUG] PharmacyGraphV2 ASCII:\n{ascii_graph}\n")
     except Exception as e:
         logger.warning(f"[DEBUG] Could not draw graph ASCII: {e}")
 

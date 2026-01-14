@@ -202,3 +202,29 @@ async def delete_pharmacy_config(
     """
     service = get_service(db)
     await service.delete(config)
+
+
+@router.post("/templates/cache/invalidate", status_code=status.HTTP_200_OK)
+async def invalidate_template_cache(
+    user: Annotated[UserDB, Depends(get_current_user_db)],
+):
+    """
+    Invalidate WhatsApp template cache.
+
+    Forces templates to be reloaded from YAML on next access.
+    Use after modifying whatsapp_formatter.yaml.
+
+    - Requires system admin access
+    """
+    if not is_system_admin(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only system admins can invalidate template cache",
+        )
+
+    from app.domains.pharmacy.agents.nodes.response_formatter import (
+        invalidate_response_formatter_cache,
+    )
+
+    invalidate_response_formatter_cache()
+    return {"message": "Template cache invalidated successfully"}

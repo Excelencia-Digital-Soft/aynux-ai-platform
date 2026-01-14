@@ -1,0 +1,64 @@
+# Pharmacy Domain - Data Query Templates
+# Purpose: Data analysis and query responses
+
+prompts:
+  - key: "pharmacy.data_query.analyze"
+    name: "Analyze Data Query"
+    description: "Response template for data analysis"
+    version: "1.0.0"
+    template: |
+      *ANALISIS DE DATOS*
+
+      {analysis_result}
+
+      Necesitas mas informacion?
+
+      1. Ver mas detalles
+      2. Volver al menu
+    metadata:
+      temperature: 0.5
+      max_tokens: 300
+      tags:
+        - pharmacy
+        - data_query
+        - analysis
+      variables:
+        required:
+          - analysis_result
+        optional: []
+
+  - key: "pharmacy.data_query.no_data"
+    name: "No Data Available"
+    description: "Message when no data is available"
+    version: "1.0.0"
+    template: |
+      No encontre datos para tu consulta.
+
+      Hay algo mas en que pueda ayudarte?
+    metadata:
+      temperature: 0.5
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - data_query
+        - no_data
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.data_query.fallback"
+    name: "Data Query Fallback"
+    description: "Fallback for data queries"
+    version: "1.0.0"
+    template: |
+      No pude procesar tu consulta de datos. Por favor intenta de nuevo.
+    metadata:
+      temperature: 0
+      max_tokens: 50
+      tags:
+        - pharmacy
+        - data_query
+        - fallback
+      variables:
+        required: []
+        optional: []

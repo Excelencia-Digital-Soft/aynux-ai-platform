@@ -89,6 +89,34 @@ class PharmacySessionState(BaseModel):
 
 
 # ============================================================
+# INTERACTIVE MESSAGE MODELS
+# ============================================================
+
+
+class InteractiveButton(BaseModel):
+    """WhatsApp interactive reply button."""
+
+    id: str = Field(..., description="Button ID returned when clicked")
+    titulo: str = Field(..., description="Button display text (max 20 chars)")
+
+
+class InteractiveListItem(BaseModel):
+    """WhatsApp interactive list item."""
+
+    id: str = Field(..., description="Item ID returned when selected")
+    titulo: str = Field(..., description="Item title (max 24 chars)")
+    descripcion: str | None = Field(None, description="Item description (max 72 chars)")
+
+
+class InteractiveResponseInput(BaseModel):
+    """User response from interactive element (button click or list selection)."""
+
+    type: str = Field(..., description="Response type: 'button_reply' or 'list_reply'")
+    id: str = Field(..., description="Selected button/item ID")
+    title: str = Field(..., description="Selected button/item title")
+
+
+# ============================================================
 # API REQUEST/RESPONSE SCHEMAS
 # ============================================================
 
@@ -105,12 +133,22 @@ class PharmacyResponse(BaseModel):
 
 
 class PharmacyTestRequest(BaseModel):
-    """Schema for pharmacy test message request."""
+    """Schema for pharmacy test message request.
 
-    pharmacy_id: str = Field(..., description="Pharmacy organization ID")
-    message: str = Field(..., description="Test message to send")
+    Mirrors the original webhook behavior:
+    - whatsapp_phone_number_id (DID) determines pharmacy/organization via bypass routing
+    - phone_number is the simulated customer phone
+    - pharmacy_id is optional (only for legacy/override scenarios)
+    """
+
+    whatsapp_phone_number_id: str = Field(..., description="Business phone (DID) - used for bypass routing to identify pharmacy/organization")
+    phone_number: str = Field(..., description="Simulated customer phone number")
+    message: str | None = Field(None, description="Test message to send (optional if interactive_response provided)")
+    interactive_response: InteractiveResponseInput | None = Field(
+        None, description="Interactive response (button click or list selection)"
+    )
     session_id: str | None = Field(None, description="Existing session ID")
-    phone_number: str | None = Field(None, description="Simulated customer phone")
+    pharmacy_id: str | None = Field(None, description="Optional pharmacy ID override (normally determined via bypass routing)")
 
 
 class PharmacyTestResponse(BaseModel):
@@ -118,6 +156,11 @@ class PharmacyTestResponse(BaseModel):
 
     session_id: str = Field(..., description="Session ID")
     response: str = Field(..., description="Agent response")
+    # Interactive message data
+    response_type: str = Field(default="text", description="Response type: 'text', 'buttons', or 'list'")
+    response_buttons: list[InteractiveButton] | None = Field(None, description="Reply buttons (max 3)")
+    response_list_items: list[InteractiveListItem] | None = Field(None, description="List items (max 10)")
+    # Execution metadata
     execution_steps: list[Any] | None = Field(None, description="Execution trace")
     graph_state: dict[str, Any] | None = Field(None, description="Current graph state")
     metadata: dict[str, Any] | None = Field(None, description="Additional metadata")

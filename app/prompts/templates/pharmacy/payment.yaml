@@ -1,0 +1,215 @@
+# Pharmacy Domain - Payment Flow Templates
+# Purpose: Payment processing messages
+
+prompts:
+  - key: "pharmacy.payment.total_request"
+    name: "Total Payment Request"
+    description: "Confirmation request for total payment"
+    version: "1.0.0"
+    template: |
+      *CONFIRMACION DE PAGO*
+
+      Vas a generar un link de pago por:
+
+      *${total_debt}*
+
+      Este link sera valido por *24 horas*.
+
+      Confirmas que deseas continuar?
+
+      *SI* - Generar link de pago
+      *NO* - Volver atras
+    metadata:
+      temperature: 0.3
+      max_tokens: 200
+      is_critical: true
+      tags:
+        - pharmacy
+        - payment
+        - total
+        - critical
+      variables:
+        required:
+          - total_debt
+        optional: []
+
+  - key: "pharmacy.payment.partial_request"
+    name: "Partial Payment Request"
+    description: "Request amount for partial payment"
+    version: "1.0.0"
+    template: |
+      *PAGO PARCIAL*
+
+      Tu deuda total es: *${total_debt}*
+
+      Podes pagar cualquier monto desde *$1.000* hasta *${total_debt}*.
+
+      Cuanto deseas pagar?
+
+      Escribi solo el numero (ej: 5000)
+
+      O escribi *CANCELAR* para volver.
+    metadata:
+      temperature: 0.3
+      max_tokens: 200
+      tags:
+        - pharmacy
+        - payment
+        - partial
+      variables:
+        required:
+          - total_debt
+        optional: []
+
+  - key: "pharmacy.payment.amount_invalid"
+    name: "Invalid Amount Format"
+    description: "Message when payment amount format is invalid"
+    version: "1.0.0"
+    template: |
+      No pude entender el monto.
+
+      Por favor escribi solo el numero, por ejemplo: *5000*
+
+      Intento {retry_count}/3
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - payment
+        - validation
+      variables:
+        required: []
+        optional:
+          - retry_count
+
+  - key: "pharmacy.payment.amount_out_of_range"
+    name: "Amount Out of Range"
+    description: "Message when amount is outside valid range"
+    version: "1.0.0"
+    template: |
+      {range_message}
+
+      Por favor ingresa un monto entre *$1.000* y *${total_debt}*:
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - payment
+        - validation
+      variables:
+        required:
+          - range_message
+          - total_debt
+        optional: []
+
+  - key: "pharmacy.payment.link_failed"
+    name: "Payment Link Failed"
+    description: "Message when payment link generation fails"
+    version: "1.0.0"
+    template: |
+      No pudimos generar el link de pago.
+
+      1. Reintentar
+      2. Contactar a la farmacia
+    metadata:
+      temperature: 0.3
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - payment
+        - error
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.payment.followup_pending"
+    name: "Payment Followup"
+    description: "Followup message when payment is pending"
+    version: "1.0.0"
+    template: |
+      Hola {customer_name},
+
+      Note que aun no completaste el pago de *${payment_amount}*.
+
+      Tuviste algun problema?
+
+      1. Reenviar link de pago
+      2. Necesito ayuda
+      3. Pagare mas tarde
+    metadata:
+      temperature: 0.5
+      max_tokens: 200
+      tags:
+        - pharmacy
+        - payment
+        - followup
+      variables:
+        required:
+          - customer_name
+          - payment_amount
+        optional: []
+
+  - key: "pharmacy.payment.link_expired"
+    name: "Payment Link Expired"
+    description: "Message when payment link has expired"
+    version: "1.0.0"
+    template: |
+      {customer_name}, tu link de pago ha expirado.
+
+      Si aun deseas pagar tu deuda de *${total_debt}*, escribi *PAGAR* para generar un nuevo link.
+    metadata:
+      temperature: 0.3
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - payment
+        - expired
+      variables:
+        required:
+          - customer_name
+          - total_debt
+        optional: []
+
+  - key: "pharmacy.payment.problem_options"
+    name: "Payment Problem Options"
+    description: "Options for payment problems"
+    version: "1.0.0"
+    template: |
+      *PROBLEMAS CON PAGOS*
+
+      Cual es tu problema?
+
+      1. El link de pago no funciona
+      2. Pague pero no se actualizo mi deuda
+      3. Me cobraron de mas
+      4. Otro problema
+      5. Volver
+    metadata:
+      temperature: 0.3
+      max_tokens: 200
+      tags:
+        - pharmacy
+        - payment
+        - problems
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.payment.fallback"
+    name: "Payment Fallback"
+    description: "Fallback for payment flow"
+    version: "1.0.0"
+    template: |
+      Para generar un link de pago, primero consulta tu deuda con opcion *1* del menu.
+    metadata:
+      temperature: 0
+      max_tokens: 50
+      tags:
+        - pharmacy
+        - payment
+        - fallback
+      variables:
+        required: []
+        optional: []

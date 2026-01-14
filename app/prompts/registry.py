@@ -248,12 +248,134 @@ class PromptRegistry:
     EXCELENCIA_SMART_INPUT_CONFIRMATION_INTERPRET = "excelencia.smart_input.confirmation_interpret"
     EXCELENCIA_SMART_INPUT_INCIDENT_DETECT = "excelencia.smart_input.incident_detect"
 
-    # === PHARMACY - CUSTOMER IDENTIFICATION ===
+    # ==========================================================================
+    # PHARMACY DOMAIN - Templates organizados por tema/funcionalidad
+    # Naming convention: pharmacy.{topic}.{action}
+    # ==========================================================================
+
+    # === PHARMACY - CORE ===
+    PHARMACY_CORE_SYSTEM_CONTEXT = "pharmacy.core.system_context"
+
+    # === PHARMACY - CRITICAL (Templates fijos, nunca usar LLM) ===
+    PHARMACY_CRITICAL_PAYMENT_CONFIRMATION = "pharmacy.critical.payment_confirmation"
+    PHARMACY_CRITICAL_PAYMENT_LINK = "pharmacy.critical.payment_link"
+    PHARMACY_CRITICAL_PAYMENT_TOTAL_CONFIRM = "pharmacy.critical.payment_total_confirm"
+    PHARMACY_CRITICAL_IDENTITY_VERIFIED = "pharmacy.critical.identity_verified"
+
+    # === PHARMACY - GREETING ===
+    PHARMACY_GREETING_DEFAULT = "pharmacy.greeting.default"
+    PHARMACY_GREETING_RETURNING = "pharmacy.greeting.returning"
+    PHARMACY_GREETING_NO_DEBT = "pharmacy.greeting.no_debt"
+    PHARMACY_GREETING_FALLBACK = "pharmacy.greeting.fallback"
+
+    # === PHARMACY - IDENTIFICATION ===
+    PHARMACY_IDENTIFICATION_REQUEST_IDENTIFIER = "pharmacy.identification.request_identifier"
+    PHARMACY_IDENTIFICATION_DNI_INVALID = "pharmacy.identification.dni_invalid"
+    PHARMACY_IDENTIFICATION_DNI_NOT_FOUND = "pharmacy.identification.dni_not_found"
+    PHARMACY_IDENTIFICATION_REQUEST_NAME = "pharmacy.identification.request_name"
+    PHARMACY_IDENTIFICATION_NAME_INVALID = "pharmacy.identification.name_invalid"
+    PHARMACY_IDENTIFICATION_MULTIPLE_MATCHES = "pharmacy.identification.multiple_matches"
+    PHARMACY_IDENTIFICATION_VERIFIED = "pharmacy.identification.verified"
+    PHARMACY_IDENTIFICATION_REQUIRE_ID = "pharmacy.identification.require_id"
+    PHARMACY_IDENTIFICATION_NOT_IDENTIFIED = "pharmacy.identification.not_identified"
+    PHARMACY_IDENTIFICATION_OFFER_REGISTRATION = "pharmacy.identification.offer_registration"
+    PHARMACY_IDENTIFICATION_WELCOME_NEW = "pharmacy.identification.welcome_new"
+    PHARMACY_IDENTIFICATION_FALLBACK = "pharmacy.identification.fallback"
+    # Legacy keys (mantener compatibilidad)
     PHARMACY_IDENTIFICATION_WELCOME = "pharmacy.identification.welcome_new_customer"
     PHARMACY_IDENTIFICATION_REQUEST_DNI = "pharmacy.identification.request_dni_short"
     PHARMACY_IDENTIFICATION_REQUEST_DNI_DISAMBIGUATION = "pharmacy.identification.request_dni_from_disambiguation"
 
-    # === PHARMACY - CUSTOMER REGISTRATION ===
+    # === PHARMACY - CONFIRMATION ===
+    PHARMACY_CONFIRMATION_REQUEST = "pharmacy.confirmation.request"
+    PHARMACY_CONFIRMATION_CANCELLED = "pharmacy.confirmation.cancelled"
+    PHARMACY_CONFIRMATION_CONSULTING_DEBT = "pharmacy.confirmation.consulting_debt"
+    PHARMACY_CONFIRMATION_ERROR = "pharmacy.confirmation.error"
+    PHARMACY_CONFIRMATION_NOT_IDENTIFIED = "pharmacy.confirmation.not_identified"
+    PHARMACY_CONFIRMATION_SELECTED = "pharmacy.confirmation.selected"
+    PHARMACY_CONFIRMATION_PAYMENT_SUCCESS = "pharmacy.confirmation.payment_success"
+    PHARMACY_CONFIRMATION_PAYMENT_LINK = "pharmacy.confirmation.payment_link"
+    PHARMACY_CONFIRMATION_YES_NO_UNCLEAR = "pharmacy.confirmation.yes_no_unclear"
+    PHARMACY_CONFIRMATION_FALLBACK = "pharmacy.confirmation.fallback"
+
+    # === PHARMACY - DEBT ===
+    PHARMACY_DEBT_SHOW_INFO = "pharmacy.debt.show_info"
+    PHARMACY_DEBT_NO_DEBT = "pharmacy.debt.no_debt"
+    PHARMACY_DEBT_ERROR = "pharmacy.debt.error"
+    PHARMACY_DEBT_FALLBACK = "pharmacy.debt.fallback"
+
+    # === PHARMACY - ERROR ===
+    PHARMACY_ERROR_TECHNICAL = "pharmacy.error.technical"
+    PHARMACY_ERROR_VALIDATION = "pharmacy.error.validation"
+    PHARMACY_ERROR_NOT_FOUND = "pharmacy.error.not_found"
+    PHARMACY_ERROR_RETRY = "pharmacy.error.retry"
+    PHARMACY_ERROR_MULTIPLE_FAILURES = "pharmacy.error.multiple_failures"
+    PHARMACY_ERROR_PHARMACY_NOT_FOUND = "pharmacy.error.pharmacy_not_found"
+    PHARMACY_ERROR_FALLBACK = "pharmacy.error.fallback"
+
+    # === PHARMACY - FALLBACK ===
+    PHARMACY_FALLBACK_DEFAULT = "pharmacy.fallback.default"
+    PHARMACY_FALLBACK_OUT_OF_SCOPE = "pharmacy.fallback.out_of_scope"
+    PHARMACY_FALLBACK_CAPABILITIES = "pharmacy.fallback.capabilities"
+    PHARMACY_FALLBACK_CANCELLATION = "pharmacy.fallback.cancellation"
+    PHARMACY_FALLBACK_FAREWELL = "pharmacy.fallback.farewell"
+    PHARMACY_FALLBACK_THANKS = "pharmacy.fallback.thanks"
+    PHARMACY_FALLBACK_UNKNOWN_INTENT = "pharmacy.fallback.unknown_intent"
+
+    # === PHARMACY - PERSON RESOLUTION ===
+    PHARMACY_PERSON_RESOLUTION_OWN_OR_OTHER = "pharmacy.person_resolution.own_or_other"
+    PHARMACY_PERSON_RESOLUTION_OWN_OR_OTHER_UNCLEAR = "pharmacy.person_resolution.own_or_other_unclear"
+    PHARMACY_PERSON_RESOLUTION_ACCOUNT_SELECTION = "pharmacy.person_resolution.account_selection"
+    PHARMACY_PERSON_RESOLUTION_OFFER_EXISTING_ACCOUNTS = "pharmacy.person_resolution.offer_existing_accounts"
+    PHARMACY_PERSON_RESOLUTION_ACCOUNT_SELECTED = "pharmacy.person_resolution.account_selected"
+    PHARMACY_PERSON_RESOLUTION_ACCOUNT_UNCLEAR = "pharmacy.person_resolution.account_unclear"
+    PHARMACY_PERSON_RESOLUTION_ACCOUNT_INVALID = "pharmacy.person_resolution.account_invalid"
+    PHARMACY_PERSON_RESOLUTION_NAME_VERIFICATION = "pharmacy.person_resolution.name_verification"
+    PHARMACY_PERSON_RESOLUTION_NAME_MISMATCH = "pharmacy.person_resolution.name_mismatch"
+    PHARMACY_PERSON_RESOLUTION_ESCALATION = "pharmacy.person_resolution.escalation"
+    PHARMACY_PERSON_RESOLUTION_ESCALATION_VERIFICATION = "pharmacy.person_resolution.escalation_verification"
+    PHARMACY_PERSON_RESOLUTION_IDENTIFIER_INVALID = "pharmacy.person_resolution.identifier_invalid"
+    PHARMACY_PERSON_RESOLUTION_IDENTIFIER_NOT_FOUND = "pharmacy.person_resolution.identifier_not_found"
+    PHARMACY_PERSON_RESOLUTION_REQUEST_OTHER_DNI = "pharmacy.person_resolution.request_other_dni"
+    PHARMACY_PERSON_RESOLUTION_START_REGISTRATION = "pharmacy.person_resolution.start_registration"
+    PHARMACY_PERSON_RESOLUTION_REQUEST_IDENTIFIER = "pharmacy.person_resolution.request_identifier"
+    PHARMACY_PERSON_RESOLUTION_WELCOME_REQUEST_DNI = "pharmacy.person_resolution.welcome_request_dni"
+    PHARMACY_PERSON_RESOLUTION_FALLBACK = "pharmacy.person_resolution.fallback"
+
+    # === PHARMACY - INFO ===
+    PHARMACY_INFO_QUERY = "pharmacy.info.query"
+    PHARMACY_INFO_NO_INFO = "pharmacy.info.no_info"
+    PHARMACY_INFO_CAPABILITIES = "pharmacy.info.capabilities"
+    PHARMACY_INFO_FALLBACK = "pharmacy.info.fallback"
+    # Legacy keys (mantener compatibilidad)
+    PHARMACY_INFO_QUERY_GENERATE = "pharmacy.info_query.generate"
+    PHARMACY_INFO_QUERY_NO_INFO = "pharmacy.info_query.no_info"
+    PHARMACY_INFO_QUERY_CAPABILITY = "pharmacy.info_query.capability_response"
+
+    # === PHARMACY - PAYMENT ===
+    PHARMACY_PAYMENT_TOTAL_REQUEST = "pharmacy.payment.total_request"
+    PHARMACY_PAYMENT_PARTIAL_REQUEST = "pharmacy.payment.partial_request"
+    PHARMACY_PAYMENT_AMOUNT_INVALID = "pharmacy.payment.amount_invalid"
+    PHARMACY_PAYMENT_AMOUNT_OUT_OF_RANGE = "pharmacy.payment.amount_out_of_range"
+    PHARMACY_PAYMENT_LINK_FAILED = "pharmacy.payment.link_failed"
+    PHARMACY_PAYMENT_FOLLOWUP_PENDING = "pharmacy.payment.followup_pending"
+    PHARMACY_PAYMENT_LINK_EXPIRED = "pharmacy.payment.link_expired"
+    PHARMACY_PAYMENT_PROBLEM_OPTIONS = "pharmacy.payment.problem_options"
+    PHARMACY_PAYMENT_FALLBACK = "pharmacy.payment.fallback"
+
+    # === PHARMACY - DATA QUERY ===
+    PHARMACY_DATA_QUERY_ANALYZE = "pharmacy.data_query.analyze"
+    PHARMACY_DATA_QUERY_NO_DATA = "pharmacy.data_query.no_data"
+    PHARMACY_DATA_QUERY_FALLBACK = "pharmacy.data_query.fallback"
+    # Legacy key (mantener compatibilidad)
+    PHARMACY_DATA_QUERY_ERROR = "pharmacy.data_query.error"
+
+    # === PHARMACY - SUMMARY ===
+    PHARMACY_SUMMARY_GENERATE = "pharmacy.summary.generate"
+    PHARMACY_SUMMARY_NO_DATA = "pharmacy.summary.no_data"
+    PHARMACY_SUMMARY_FALLBACK = "pharmacy.summary.fallback"
+
+    # === PHARMACY - REGISTRATION (Legacy) ===
     PHARMACY_REGISTRATION_YES_NO_VALIDATION = "pharmacy.registration.yes_no_validation"
     PHARMACY_REGISTRATION_START = "pharmacy.registration.start"
     PHARMACY_REGISTRATION_NAME_ERROR = "pharmacy.registration.name_error"
@@ -268,23 +390,7 @@ class PromptRegistry:
     PHARMACY_REGISTRATION_CANCELLED = "pharmacy.registration.cancelled"
     PHARMACY_REGISTRATION_EXCEPTION = "pharmacy.registration.exception"
 
-    # === PHARMACY - INFO QUERY ===
-    PHARMACY_INFO_QUERY_GENERATE = "pharmacy.info_query.generate"
-    PHARMACY_INFO_QUERY_NO_INFO = "pharmacy.info_query.no_info"
-    PHARMACY_INFO_QUERY_CAPABILITY = "pharmacy.info_query.capability_response"
-
-    # === PHARMACY - DATA QUERY ===
-    PHARMACY_DATA_QUERY_ANALYZE = "pharmacy.data_query.analyze"
-    PHARMACY_DATA_QUERY_NO_DATA = "pharmacy.data_query.no_data"
-    PHARMACY_DATA_QUERY_ERROR = "pharmacy.data_query.error"
-
-    # === PHARMACY - SUMMARY ===
-    PHARMACY_SUMMARY_GENERATE = "pharmacy.summary.generate"
-    PHARMACY_SUMMARY_NO_DATA = "pharmacy.summary.no_data"
-
-    # === PHARMACY - RESPONSE TEMPLATES ===
-    # Note: Greeting and Fallback templates are now handled by PharmacyResponseGenerator
-    # using system_context.yaml, critical_templates.yaml, and fallback_templates.yaml
+    # === PHARMACY - RESPONSE (Legacy) ===
     PHARMACY_RESPONSE_DEBT_INFO = "pharmacy.response.debt_info"
     PHARMACY_RESPONSE_PAYMENT_LINK = "pharmacy.response.payment_link"
     PHARMACY_RESPONSE_CONFIRMATION = "pharmacy.response.confirmation"

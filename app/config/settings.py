@@ -147,13 +147,6 @@ class Settings(BaseSettings):
     MULTI_TENANT_MODE: bool = Field(False, description="Enable multi-tenant mode for organization isolation")
     TENANT_HEADER: str = Field("X-Tenant-ID", description="Header name for tenant ID in requests")
 
-    # Pharmacy Domain V2 Migration Feature Flag
-    # When enabled, uses simplified PharmacyGraphV2 with:
-    # - ~30 state fields (vs ~90 in V1)
-    # - Database-driven routing (vs hardcoded keywords)
-    # - WhatsApp buttons/lists support
-    # - 6 main nodes (vs 15+ in V1)
-    USE_PHARMACY_V2: bool = Field(False, description="Enable Pharmacy V2 flow (simplified state, DB routing)")
 
     # Sentry Configuration
     SENTRY_DSN: str | None = Field(

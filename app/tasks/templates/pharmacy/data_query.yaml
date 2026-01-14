@@ -1,16 +1,54 @@
-tasks:
-  - key: pharmacy.data_query.analyze
-    name: "Analizar Datos"
-    description: |
-      Analiza los datos de deuda y responde la pregunta del cliente.
-    metadata:
-      flow: data_query
-      tags: [analysis, debt]
+# Pharmacy Domain - Data Query Tasks
+# Purpose: Task descriptions for data analysis
 
-  - key: pharmacy.data_query.no_data
-    name: "Sin Datos"
-    description: |
-      Informa que no hay datos de cuenta para la consulta.
+tasks:
+  - key: "pharmacy.data_query.analyze"
+    name: "Analyze Data Task"
+    description: "Analyze data query"
+    version: "1.0.0"
+    template: |
+      Genera analisis de datos.
+      Resultado: {analysis_result}
+      Ofrece ver mas detalles o volver al menu.
     metadata:
-      flow: data_query
-      tags: [no_data]
+      tags:
+        - pharmacy
+        - data_query
+        - task
+      variables:
+        required:
+          - analysis_result
+        optional: []
+
+  - key: "pharmacy.data_query.no_data"
+    name: "No Data Task"
+    description: "Handle no data"
+    version: "1.0.0"
+    template: |
+      Informa que no se encontraron datos para la consulta.
+      Ofrece asistencia adicional.
+    metadata:
+      tags:
+        - pharmacy
+        - data_query
+        - task
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.data_query.fallback"
+    name: "Data Query Fallback Task"
+    description: "Fallback for data queries"
+    version: "1.0.0"
+    template: |
+      Informa que no se pudo procesar consulta de datos.
+      Sugiere reintentar.
+    metadata:
+      tags:
+        - pharmacy
+        - data_query
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []

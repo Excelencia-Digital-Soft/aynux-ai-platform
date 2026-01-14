@@ -21,34 +21,36 @@ class CapabilityQuestionDetector:
     """
 
     # Hardcoded fallback phrases (used when DB patterns not available)
-    CAPABILITY_PHRASES: frozenset[str] = frozenset({
-        # Direct capability questions
-        "que puedes hacer",
-        "qué puedes hacer",
-        "que puedes",
-        "qué puedes",
-        "puedes hacer",
-        "que haces",
-        "qué haces",
-        "que sabes",
-        "qué sabes",
-        # Purpose questions
-        "para que sirves",
-        "para qué sirves",
-        # Service questions
-        "que servicios",
-        "qué servicios",
-        "que ofreces",
-        "qué ofreces",
-        # Help questions
-        "en que me ayudas",
-        "en qué me ayudas",
-        "como puedes ayudar",
-        "cómo puedes ayudar",
-        # Function questions
-        "como funciona",
-        "cómo funciona",
-    })
+    CAPABILITY_PHRASES: frozenset[str] = frozenset(
+        {
+            # Direct capability questions
+            "que puedes hacer",
+            "qué puedes hacer",
+            "que puedes",
+            "qué puedes",
+            "puedes hacer",
+            "que haces",
+            "qué haces",
+            "que sabes",
+            "qué sabes",
+            # Purpose questions
+            "para que sirves",
+            "para qué sirves",
+            # Service questions
+            "que servicios",
+            "qué servicios",
+            "que ofreces",
+            "qué ofreces",
+            # Help questions
+            "en que me ayudas",
+            "en qué me ayudas",
+            "como puedes ayudar",
+            "cómo puedes ayudar",
+            # Function questions
+            "como funciona",
+            "cómo funciona",
+        }
+    )
 
     def __init__(self, patterns: dict[str, Any] | None = None):
         """
@@ -65,11 +67,7 @@ class CapabilityQuestionDetector:
             capability = patterns.get("intents", {}).get("capability_question", {})
             phrases = capability.get("phrases", [])
             if phrases:
-                self._db_phrases = {
-                    p["phrase"].lower()
-                    for p in phrases
-                    if isinstance(p, dict) and "phrase" in p
-                }
+                self._db_phrases = {p["phrase"].lower() for p in phrases if isinstance(p, dict) and "phrase" in p}
 
     def is_capability_question(self, text: str) -> bool:
         """

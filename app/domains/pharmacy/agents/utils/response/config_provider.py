@@ -64,9 +64,7 @@ class PharmacyConfigProvider:
         Raises:
             ResponseConfigNotFoundError: If config not found in database
         """
-        config = await response_config_cache.get_config(
-            db, organization_id, intent
-        )
+        config = await response_config_cache.get_config(db, organization_id, intent)
 
         if config is None:
             raise ResponseConfigNotFoundError(

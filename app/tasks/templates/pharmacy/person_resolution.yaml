@@ -1,139 +1,308 @@
+# Pharmacy Domain - Person Resolution Tasks
+# Purpose: Task descriptions for person/account selection
+
 tasks:
-  - key: pharmacy.person_resolution.own_or_other
-    name: "Propia o de Otra Persona"
-    description: |
-      Pregunta si el cliente desea consultar su propia deuda o la de otra persona.
+  - key: "pharmacy.person_resolution.own_or_other"
+    name: "Own or Other Task"
+    description: "Ask if for self or someone else"
+    version: "1.0.0"
+    template: |
+      Pregunta si la consulta es para el usuario o para otra persona.
+      Opciones: 1. Para mi, 2. Para otra persona.
     metadata:
-      flow: person_resolution
-      tags: [selection, own_other]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.person_resolution.own_or_other_unclear
-    name: "Respuesta Ambigua Propia/Otra"
-    description: |
-      El usuario dio una respuesta ambigua. Pide clarificacion.
+  - key: "pharmacy.person_resolution.own_or_other_unclear"
+    name: "Own or Other Unclear Task"
+    description: "Clarify self or other"
+    version: "1.0.0"
+    template: |
+      Clarifica si la consulta es para el usuario o para otra persona.
+      Solicita responder 1 o 2.
     metadata:
-      flow: person_resolution
-      tags: [clarification]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.person_resolution.account_selection
-    name: "Seleccion de Cuenta"
-    description: |
-      Muestra la lista de personas registradas y pide que seleccione una.
+  - key: "pharmacy.person_resolution.account_selection"
+    name: "Account Selection Task"
+    description: "Show accounts for selection"
+    version: "1.0.0"
+    template: |
+      Muestra lista de personas registradas: {persons_list}
+      Ofrece agregar otra persona.
+      Solicita seleccionar por numero o nombre.
     metadata:
-      flow: person_resolution
-      tags: [selection, account]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required:
+          - persons_list
+        optional: []
 
-  - key: pharmacy.person_resolution.offer_existing_accounts
-    name: "Ofrecer Cuentas Existentes"
-    description: |
-      El usuario tiene cuentas validadas anteriormente.
-      Muestra las opciones con nombres (NO DNI) y opcion para cuenta nueva.
+  - key: "pharmacy.person_resolution.offer_existing_accounts"
+    name: "Offer Existing Accounts Task"
+    description: "Offer existing accounts"
+    version: "1.0.0"
+    template: |
+      Informa que hay {persons_count} personas registradas.
+      Muestra lista: {persons_list}
+      Ofrece agregar nueva persona.
     metadata:
-      flow: person_resolution
-      tags: [selection, existing_accounts]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required:
+          - persons_count
+          - persons_list
+        optional: []
 
-  - key: pharmacy.person_resolution.account_selected
-    name: "Cuenta Seleccionada"
-    description: |
-      Confirma el cliente seleccionado y procede a consultar su deuda.
+  - key: "pharmacy.person_resolution.account_selected"
+    name: "Account Selected Task"
+    description: "Confirm account selection"
+    version: "1.0.0"
+    template: |
+      Confirma seleccion de persona: {selected_person_name}
     metadata:
-      flow: person_resolution
-      tags: [selection, confirmed]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required:
+          - selected_person_name
+        optional: []
 
-  - key: pharmacy.person_resolution.account_unclear
-    name: "Seleccion No Clara"
-    description: |
-      Pide clarificacion sobre la seleccion.
+  - key: "pharmacy.person_resolution.account_unclear"
+    name: "Account Unclear Task"
+    description: "Clarify account selection"
+    version: "1.0.0"
+    template: |
+      Clarifica seleccion de cuenta.
+      Muestra lista: {persons_list}
+      Solicita numero de persona.
     metadata:
-      flow: person_resolution
-      tags: [clarification, selection]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required:
+          - persons_list
+        optional: []
 
-  - key: pharmacy.person_resolution.account_invalid
-    name: "Seleccion Invalida"
-    description: |
-      La seleccion no es valida. Muestra opciones disponibles y pide que seleccione nuevamente.
+  - key: "pharmacy.person_resolution.account_invalid"
+    name: "Account Invalid Task"
+    description: "Handle invalid selection"
+    version: "1.0.0"
+    template: |
+      Informa que la opcion no es valida.
+      Muestra lista: {persons_list}
+      Solicita elegir de la lista.
     metadata:
-      flow: person_resolution
-      tags: [error, selection]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required:
+          - persons_list
+        optional: []
 
-  - key: pharmacy.person_resolution.name_verification
-    name: "Verificacion de Nombre"
-    description: |
-      Pide que ingrese su nombre completo para verificar identidad.
+  - key: "pharmacy.person_resolution.name_verification"
+    name: "Name Verification Task"
+    description: "Request name verification"
+    version: "1.0.0"
+    template: |
+      Por seguridad, solicita nombre completo de {account_name}.
     metadata:
-      flow: person_resolution
-      tags: [verification, name]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required:
+          - account_name
+        optional: []
 
-  - key: pharmacy.person_resolution.name_mismatch
-    name: "Nombre No Coincide"
-    description: |
-      El nombre no coincide. Pide que reintente con el nombre exacto.
+  - key: "pharmacy.person_resolution.name_mismatch"
+    name: "Name Mismatch Task"
+    description: "Handle name mismatch"
+    version: "1.0.0"
+    template: |
+      Informa que el nombre no coincide.
+      Intento: {retry_count}/3
+      Solicita nombre correcto o cancelar.
     metadata:
-      flow: person_resolution
-      tags: [error, name]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required: []
+        optional:
+          - retry_count
 
-  - key: pharmacy.person_resolution.escalation
-    name: "Escalacion"
-    description: |
-      No se pudo identificar despues de varios intentos. Sugiere contactar farmacia.
+  - key: "pharmacy.person_resolution.escalation"
+    name: "Escalation Task"
+    description: "Escalate to human"
+    version: "1.0.0"
+    template: |
+      Proporciona informacion de contacto humano.
+      Telefono: {pharmacy_phone} - Horario: {pharmacy_hours}
+      Email: {pharmacy_email}
+      Direccion: {pharmacy_address}
     metadata:
-      flow: person_resolution
-      tags: [escalation]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required:
+          - pharmacy_phone
+          - pharmacy_hours
+          - pharmacy_email
+          - pharmacy_address
+        optional: []
 
-  - key: pharmacy.person_resolution.escalation_verification
-    name: "Escalacion por Verificacion"
-    description: |
-      No se pudo verificar identidad. Sugiere contactar farmacia.
+  - key: "pharmacy.person_resolution.escalation_verification"
+    name: "Escalation Verification Task"
+    description: "Escalate after verification failures"
+    version: "1.0.0"
+    template: |
+      Informa que no se pudo verificar identidad.
+      Proporciona telefono: {pharmacy_phone}
     metadata:
-      flow: person_resolution
-      tags: [escalation, verification]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required:
+          - pharmacy_phone
+        optional: []
 
-  - key: pharmacy.person_resolution.identifier_invalid
-    name: "Identificador Invalido"
-    description: |
-      El formato del identificador no es valido. Pide que reintente.
+  - key: "pharmacy.person_resolution.identifier_invalid"
+    name: "Identifier Invalid Task"
+    description: "Handle invalid identifier"
+    version: "1.0.0"
+    template: |
+      Informa formato de identificador invalido.
+      Solicita DNI (8 digitos) o CUIT (11 digitos).
     metadata:
-      flow: person_resolution
-      tags: [error, validation]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.person_resolution.identifier_not_found
-    name: "Identificador No Encontrado"
-    description: |
-      No se encontro cliente con ese dato. Ofrece reintentar, registrarse o contactar.
+  - key: "pharmacy.person_resolution.identifier_not_found"
+    name: "Identifier Not Found Task"
+    description: "Handle identifier not found"
+    version: "1.0.0"
+    template: |
+      Informa que no se encontro cuenta con ese documento.
+      Opciones: intentar otro, registrar nueva, volver al menu.
     metadata:
-      flow: person_resolution
-      tags: [not_found]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.person_resolution.request_other_dni
-    name: "Solicitar DNI de Otra Persona"
-    description: |
-      Solicita el DNI de la otra persona para validar su identidad.
+  - key: "pharmacy.person_resolution.request_other_dni"
+    name: "Request Other DNI Task"
+    description: "Request DNI for other person"
+    version: "1.0.0"
+    template: |
+      Para consultar cuenta de otra persona, solicita DNI o CUIT.
     metadata:
-      flow: person_resolution
-      tags: [other, dni]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.person_resolution.start_registration
-    name: "Iniciar Registro"
-    description: |
-      Inicia el proceso para registrar una nueva persona.
+  - key: "pharmacy.person_resolution.start_registration"
+    name: "Start Registration Task"
+    description: "Start new person registration"
+    version: "1.0.0"
+    template: |
+      Inicia registro de nueva persona.
+      Solicita DNI de la persona a registrar.
     metadata:
-      flow: person_resolution
-      tags: [registration]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.person_resolution.request_identifier
-    name: "Solicitar Identificador"
-    description: |
-      Solicita que ingrese su DNI y nombre completo en un solo mensaje.
-      Ejemplo: '12345678 Juan Perez'.
+  - key: "pharmacy.person_resolution.request_identifier"
+    name: "Request Identifier Task"
+    description: "Generic identifier request"
+    version: "1.0.0"
+    template: |
+      Solicita DNI o numero de cliente.
     metadata:
-      flow: person_resolution
-      tags: [identification]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.person_resolution.welcome_request_dni
-    name: "Bienvenida y Solicitar DNI"
-    description: |
-      Da la bienvenida al cliente y solicita su DNI para verificar identidad.
-      Explica que es necesario por seguridad.
+  - key: "pharmacy.person_resolution.welcome_request_dni"
+    name: "Welcome Request DNI Task"
+    description: "Welcome and request DNI"
+    version: "1.0.0"
+    template: |
+      Saludo de bienvenida de {pharmacy_name}.
+      Solicita DNI o numero de cliente para identificacion.
     metadata:
-      flow: person_resolution
-      tags: [welcome, dni, security]
+      tags:
+        - pharmacy
+        - person_resolution
+        - task
+      variables:
+        required:
+          - pharmacy_name
+        optional: []
+
+  - key: "pharmacy.person_resolution.fallback"
+    name: "Person Resolution Fallback Task"
+    description: "Fallback for person resolution"
+    version: "1.0.0"
+    template: |
+      Solicita elegir opcion de la lista o escribir MENU para volver.
+    metadata:
+      tags:
+        - pharmacy
+        - person_resolution
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []

@@ -112,10 +112,7 @@ class PaymentOptionsService:
         if amount > total_debt:
             return PaymentValidationResult(
                 is_valid=False,
-                error_message=(
-                    f"El monto ingresado (${amount:,.2f}) es mayor a tu deuda "
-                    f"(${total_debt:,.2f})."
-                ),
+                error_message=(f"El monto ingresado (${amount:,.2f}) es mayor a tu deuda " f"(${total_debt:,.2f})."),
                 error_type="above_total",
             )
 

@@ -1,0 +1,103 @@
+# Pharmacy Domain - Info Templates
+# Purpose: Pharmacy information responses
+
+prompts:
+  - key: "pharmacy.info.query"
+    name: "Pharmacy Information"
+    description: "Display pharmacy information"
+    version: "1.0.0"
+    template: |
+      *FARMACIA {pharmacy_name}*
+
+      *Direccion:*
+      {pharmacy_address}
+
+      *Telefonos:*
+      - Atencion: {pharmacy_phone}
+
+      *Email:* {pharmacy_email}
+
+      *Horarios:*
+      {pharmacy_hours}
+
+      *Web:* {pharmacy_website}
+
+      1. Ver en Google Maps
+      2. Volver al menu
+    metadata:
+      temperature: 0.3
+      max_tokens: 400
+      tags:
+        - pharmacy
+        - info
+        - display
+      variables:
+        required:
+          - pharmacy_name
+          - pharmacy_address
+          - pharmacy_phone
+        optional:
+          - pharmacy_email
+          - pharmacy_hours
+          - pharmacy_website
+
+  - key: "pharmacy.info.no_info"
+    name: "No Information Available"
+    description: "Message when pharmacy info is not available"
+    version: "1.0.0"
+    template: |
+      No tengo informacion disponible sobre la farmacia en este momento.
+
+      Hay algo mas en que pueda ayudarte?
+    metadata:
+      temperature: 0.5
+      max_tokens: 100
+      tags:
+        - pharmacy
+        - info
+        - no_info
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.info.capabilities"
+    name: "Info Capabilities"
+    description: "What info the bot can provide"
+    version: "1.0.0"
+    template: |
+      Puedo darte informacion sobre:
+
+      1. Horarios de atencion
+      2. Direccion y ubicacion
+      3. Telefonos de contacto
+      4. Correo electronico
+
+      Que informacion necesitas?
+    metadata:
+      temperature: 0.5
+      max_tokens: 150
+      tags:
+        - pharmacy
+        - info
+        - capabilities
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.info.fallback"
+    name: "Info Fallback"
+    description: "Fallback for info queries"
+    version: "1.0.0"
+    template: |
+      Para informacion de la farmacia, contacta al {pharmacy_phone}.
+    metadata:
+      temperature: 0
+      max_tokens: 50
+      tags:
+        - pharmacy
+        - info
+        - fallback
+      variables:
+        required:
+          - pharmacy_phone
+        optional: []

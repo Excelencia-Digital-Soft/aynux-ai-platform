@@ -60,9 +60,7 @@ class PharmacyTemplateLoader:
                           Defaults to app/prompts/templates.
         """
         if templates_dir is None:
-            self._templates_dir = (
-                Path(__file__).parents[5] / "prompts" / "templates"
-            )
+            self._templates_dir = Path(__file__).parents[5] / "prompts" / "templates"
         else:
             self._templates_dir = Path(templates_dir)
 
@@ -131,9 +129,7 @@ class PharmacyTemplateLoader:
         )
         return all_templates
 
-    async def _load_template_file(
-        self, path: Path, template_type: str
-    ) -> dict[str, str]:
+    async def _load_template_file(self, path: Path, template_type: str) -> dict[str, str]:
         """
         Load a template YAML file.
 

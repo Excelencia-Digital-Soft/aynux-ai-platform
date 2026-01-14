@@ -1,40 +1,42 @@
 """
-Pharmacy Domain Agents
+Pharmacy Domain Agents - V2 Only
 
 Contains the PharmacyOperationsAgent and its LangGraph implementation
 for handling pharmacy debt workflows.
 
-Version Support:
-- V1 (default): PharmacyGraph with ~90 state fields, 15+ nodes
-- V2 (USE_PHARMACY_V2=true): PharmacyGraphV2 with ~30 state fields, 6 nodes
-
-The agent automatically selects the appropriate graph based on the
-USE_PHARMACY_V2 feature flag in settings.
+Graph Architecture:
+- PharmacyGraphV2 with ~30 state fields
+- 7 main nodes (router, auth_plex, debt_manager, payment_processor,
+  account_switcher, info, response_formatter)
+- Database-driven routing
+- WhatsApp buttons/lists support
 """
 
-from app.domains.pharmacy.agents.pharmacy_operations_agent import (
-    PharmacyOperationsAgent,
-)
-
-# V2 Exports (available when USE_PHARMACY_V2=true)
 from app.domains.pharmacy.agents.graph_v2 import (
     PharmacyGraphV2,
     create_pharmacy_graph_v2,
 )
+from app.domains.pharmacy.agents.pharmacy_operations_agent import (
+    PharmacyOperationsAgent,
+)
 from app.domains.pharmacy.agents.state_v2 import (
     PharmacyStateV2,
     get_state_defaults,
-    migrate_v1_to_v2,
 )
 
+# Aliases for compatibility
+PharmacyGraph = PharmacyGraphV2
+PharmacyState = PharmacyStateV2
+
 __all__ = [
-    # Agent entry point (supports both V1 and V2)
+    # Agent entry point
     "PharmacyOperationsAgent",
-    # V2 Graph
+    # Graph
+    "PharmacyGraph",
     "PharmacyGraphV2",
     "create_pharmacy_graph_v2",
-    # V2 State
+    # State
+    "PharmacyState",
     "PharmacyStateV2",
     "get_state_defaults",
-    "migrate_v1_to_v2",
 ]

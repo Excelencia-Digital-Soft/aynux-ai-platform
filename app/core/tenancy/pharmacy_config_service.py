@@ -92,6 +92,9 @@ class PharmacyConfig:
     payment_option_minimum_percent: int = 30
     payment_minimum_amount: int = 1000
 
+    # Name matching configuration
+    name_match_threshold: float = 0.7
+
 
 class PharmacyConfigService:
     """
@@ -363,4 +366,6 @@ class PharmacyConfigService:
             payment_option_half_percent=db_config.payment_option_half_percent,
             payment_option_minimum_percent=db_config.payment_option_minimum_percent,
             payment_minimum_amount=db_config.payment_minimum_amount,
+            # Name matching configuration
+            name_match_threshold=float(db_config.name_match_threshold or 0.7),
         )

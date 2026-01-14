@@ -22,6 +22,8 @@ import logging
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from langchain_core.runnables import RunnableConfig
+
 from app.core.cache.routing_config_cache import RoutingConfigDTO, routing_config_cache
 from app.domains.pharmacy.agents.utils.message_extractor import MessageExtractor
 
@@ -55,6 +57,9 @@ DEFAULT_INTENT_NODE_MAP: dict[str, str | None] = {
     "own_debt": None,  # Handled by current node
     "other_debt": None,  # Handled by current node
     "add_new_person": "auth_plex",
+    # V2 Flow intents (pharmacy_flujo_mejorado_v2.md)
+    "pay_debt_menu": "debt_manager",  # PAY_DEBT_MENU: shows debt summary + payment options
+    "view_invoice_detail": "debt_manager",  # INVOICE_DETAIL: shows invoice detail
 }
 
 # Intents that require authentication
@@ -358,6 +363,10 @@ class RouterSupervisor:
             "account_selection": "account_switcher",
             "own_or_other": "account_switcher",
             "menu_selection": "main_menu_node",
+            # V2 Flow awaiting types
+            "debt_action": "debt_manager",  # SHOW_DEBT 4-option menu
+            "pay_debt_action": "debt_manager",  # PAY_DEBT_MENU 3-option menu
+            "invoice_detail_action": "debt_manager",  # INVOICE_DETAIL 3-option menu
         }
 
         node = awaiting_node_map.get(awaiting, "router")
@@ -388,7 +397,7 @@ async def create_router_supervisor(db: "AsyncSession") -> RouterSupervisor:
 # Node function for LangGraph integration
 async def router_supervisor_node(
     state: "PharmacyStateV2",
-    config: dict[str, Any] | None = None,
+    config: RunnableConfig | None = None,
 ) -> dict[str, Any]:
     """
     LangGraph node function for router supervisor.

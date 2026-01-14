@@ -7,8 +7,6 @@ Shared utility functions for pharmacy agents.
 from __future__ import annotations
 
 from app.domains.pharmacy.agents.utils.conversation_context import ConversationContextBuilder
-from app.domains.pharmacy.agents.utils.greeting_detector import GreetingDetector
-from app.domains.pharmacy.agents.utils.greeting_manager import GreetingManager
 from app.domains.pharmacy.agents.utils.message_extractor import MessageExtractor
 from app.domains.pharmacy.agents.utils.message_formatter import MessageFormatter
 from app.domains.pharmacy.agents.utils.name_matcher import LLMNameMatcher, NameMatchResult
@@ -22,8 +20,6 @@ from app.domains.pharmacy.agents.utils.response_generator import (
 __all__ = [
     "ConversationContextBuilder",
     "GeneratedResponse",
-    "GreetingDetector",
-    "GreetingManager",
     "LLMNameMatcher",
     "MessageExtractor",
     "MessageFormatter",

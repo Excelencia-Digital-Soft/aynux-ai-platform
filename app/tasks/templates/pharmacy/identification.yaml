@@ -1,80 +1,193 @@
+# Pharmacy Domain - Identification Tasks
+# Purpose: Task descriptions for customer identification flow
+
 tasks:
-  - key: pharmacy.identification.request_identifier
-    name: "Solicitar DNI y Nombre"
-    description: |
-      Da la bienvenida y solicita el DNI para identificar al cliente.
+  - key: "pharmacy.identification.request_identifier"
+    name: "Request Identifier Task"
+    description: "Request DNI/CUIT from user"
+    version: "1.0.0"
+    template: |
+      Solicita al usuario su identificador.
+      Acepta: numero de cliente, DNI (8 digitos), CUIT/CUIL (11 digitos).
+      Proporciona ejemplos de formato valido.
     metadata:
-      flow: identification
-      tags: [dni, identity]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.identification.dni_invalid
-    name: "DNI Invalido"
-    description: |
-      Indica que el formato del DNI es invalido y pide que ingrese solo numeros.
+  - key: "pharmacy.identification.dni_invalid"
+    name: "DNI Invalid Task"
+    description: "Handle invalid DNI format"
+    version: "1.0.0"
+    template: |
+      Informa que el formato del documento no es valido.
+      Indica formatos aceptados: DNI 8 digitos, CUIT 11 digitos.
+      Numero de intento: {retry_count}/3
     metadata:
-      flow: identification
-      tags: [error, validation]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required: []
+        optional:
+          - retry_count
 
-  - key: pharmacy.identification.dni_not_found
-    name: "DNI No Encontrado"
-    description: |
-      Informa que el DNI {dni} no fue encontrado. Se empatico y sugiere verificar el numero.
+  - key: "pharmacy.identification.dni_not_found"
+    name: "DNI Not Found Task"
+    description: "Handle DNI not found in system"
+    version: "1.0.0"
+    template: |
+      Informa que no se encontro cliente con ese dato.
+      Ofrece opciones: reintentar, registrarse, contactar farmacia.
     metadata:
-      flow: identification
-      tags: [error, not_found]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.identification.name_invalid
-    name: "Nombre Invalido"
-    description: |
-      Informa que el documento no es valido y solicita el formato correcto.
+  - key: "pharmacy.identification.request_name"
+    name: "Request Name Task"
+    description: "Request name for identity verification"
+    version: "1.0.0"
+    template: |
+      Solicita nombre completo para verificar identidad.
+      El nombre debe coincidir con el registrado en farmacia.
     metadata:
-      flow: identification
-      tags: [error, validation]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.identification.request_name
-    name: "Solicitar Nombre"
-    description: |
-      Solicita el nombre completo para verificar identidad.
+  - key: "pharmacy.identification.name_invalid"
+    name: "Name Invalid Task"
+    description: "Handle name mismatch"
+    version: "1.0.0"
+    template: |
+      Informa que el nombre no coincide con registros.
+      Intento: {retry_count}/3
+      Solicita nombre exactamente como figura en cuenta.
     metadata:
-      flow: identification
-      tags: [name, identity]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required: []
+        optional:
+          - retry_count
 
-  - key: pharmacy.identification.multiple_matches
-    name: "Multiples Coincidencias"
-    description: |
-      Solicita el numero de documento para identificar al cliente.
+  - key: "pharmacy.identification.multiple_matches"
+    name: "Multiple Matches Task"
+    description: "Handle multiple matching customers"
+    version: "1.0.0"
+    template: |
+      Muestra lista de cuentas encontradas: {matches_list}
+      Solicita seleccionar el numero de cuenta correcto.
     metadata:
-      flow: identification
-      tags: [disambiguation]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required:
+          - matches_list
+        optional: []
 
-  - key: pharmacy.identification.verified
-    name: "Identificacion Verificada"
-    description: |
-      Confirma identificacion exitosa y muestra menu principal.
+  - key: "pharmacy.identification.verified"
+    name: "Identification Verified Task"
+    description: "Confirm successful identification"
+    version: "1.0.0"
+    template: |
+      Confirma verificacion exitosa para: {customer_name}
+      Indica que no necesitara identificarse por 6 meses.
     metadata:
-      flow: identification
-      tags: [success]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required:
+          - customer_name
+        optional: []
 
-  - key: pharmacy.identification.require_id
-    name: "Requiere Identificacion"
-    description: |
-      Recuerda que necesita identificarse antes de realizar la accion.
+  - key: "pharmacy.identification.require_id"
+    name: "Require ID Task"
+    description: "Request identification for action"
+    version: "1.0.0"
+    template: |
+      Informa que para {action_name} se requiere verificar identidad.
+      Solicita DNI o numero de cliente.
     metadata:
-      flow: identification
-      tags: [reminder]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required:
+          - action_name
+        optional: []
 
-  - key: pharmacy.identification.not_identified
-    name: "Cliente No Identificado"
-    description: |
-      Informa que no se identifico al cliente y pide DNI.
+  - key: "pharmacy.identification.not_identified"
+    name: "Not Identified Task"
+    description: "Handle unidentified user"
+    version: "1.0.0"
+    template: |
+      Informa que se necesita identificacion para continuar.
+      Solicita DNI o numero de cliente.
     metadata:
-      flow: identification
-      tags: [error]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required: []
+        optional: []
 
-  - key: pharmacy.identification.offer_registration
-    name: "Ofrecer Registro"
-    description: |
-      Ofrece registrarse como nuevo cliente.
+  - key: "pharmacy.identification.offer_registration"
+    name: "Offer Registration Task"
+    description: "Offer registration or contact info"
+    version: "1.0.0"
+    template: |
+      Informa que no se pudo verificar identidad.
+      Proporciona datos de contacto de farmacia:
+      Telefono: {pharmacy_phone}
+      Direccion: {pharmacy_address}
+      Horario: {pharmacy_hours}
     metadata:
-      flow: identification
-      tags: [registration]
+      tags:
+        - pharmacy
+        - identification
+        - task
+      variables:
+        required:
+          - pharmacy_phone
+          - pharmacy_address
+          - pharmacy_hours
+        optional: []
+
+  - key: "pharmacy.identification.fallback"
+    name: "Identification Fallback Task"
+    description: "Fallback for identification flow"
+    version: "1.0.0"
+    template: |
+      Solicita DNI o numero de cliente para continuar.
+    metadata:
+      tags:
+        - pharmacy
+        - identification
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []

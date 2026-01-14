@@ -114,11 +114,7 @@ class CheckDebtUseCase:
                     description=item_data.get("description", "Item"),
                     amount=Decimal(str(item_data.get("amount", 0))),
                     quantity=item_data.get("quantity", 1),
-                    unit_price=(
-                        Decimal(str(item_data["unit_price"]))
-                        if item_data.get("unit_price")
-                        else None
-                    ),
+                    unit_price=(Decimal(str(item_data["unit_price"])) if item_data.get("unit_price") else None),
                     product_code=item_data.get("product_code"),
                 )
             )

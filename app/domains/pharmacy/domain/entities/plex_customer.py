@@ -122,9 +122,7 @@ class PlexCustomer:
         customer_id = data.get("idcliente") or data.get("id", 0)
 
         # Handle both "nrodoc" and "nro_doc" field names
-        documento = (
-            data.get("nrodoc") or data.get("nro_doc") or data.get("documento")
-        )
+        documento = data.get("nrodoc") or data.get("nro_doc") or data.get("documento")
 
         return cls(
             id=int(customer_id),

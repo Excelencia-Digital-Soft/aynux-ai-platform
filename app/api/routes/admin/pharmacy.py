@@ -12,23 +12,22 @@ Provides endpoints for the Vue.js pharmacy testing interface.
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from typing import Any
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from langchain_core.messages import HumanMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes.admin.pharmacy_helpers import (
-    build_graph_state,
     build_session_graph_state,
-    deserialize_messages,
-    extract_bot_response,
+    extract_interactive_data,
     get_pharmacy_graph_data,
     update_session_from_result,
 )
 from app.api.routes.admin.pharmacy_models import (
+    InteractiveButton,
+    InteractiveListItem,
     PharmacyResponse,
     PharmacySessionState,
     PharmacyTestRequest,
@@ -36,14 +35,34 @@ from app.api.routes.admin.pharmacy_models import (
 )
 from app.api.routes.admin.pharmacy_service import (
     get_session_repository,
-    invoke_pharmacy_graph,
 )
+from app.config.settings import get_settings
 from app.core.tenancy.pharmacy_config_service import PharmacyConfigService
 from app.database.async_db import get_async_db
+from app.domains.shared.application.use_cases.process_webhook_use_case import (
+    ProcessWebhookUseCase,
+)
+from app.models.message import (
+    ButtonReply,
+    Contact,
+    InteractiveContent,
+    ListReply,
+    TextMessage,
+    WhatsAppMessage,
+)
+from app.services.langgraph_chatbot_service import LangGraphChatbotService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/pharmacy", tags=["Pharmacy Admin"])
+
+
+async def _get_langgraph_service() -> LangGraphChatbotService:
+    """Get or create LangGraph service instance."""
+    service = LangGraphChatbotService()
+    await service.initialize()
+    return service
+
 
 
 @router.get("/list", response_model=list[PharmacyResponse])
@@ -82,110 +101,182 @@ async def list_pharmacies(
 async def send_test_message(
     request: PharmacyTestRequest,
     db: AsyncSession = Depends(get_async_db),  # noqa: B008
+    settings=Depends(get_settings),  # noqa: B008
 ) -> PharmacyTestResponse:
     """
     Send a test message to the pharmacy agent.
 
-    This endpoint simulates a WhatsApp conversation for testing purposes.
-    Supports multi-turn conversations via session_id.
+    This endpoint mirrors the EXACT behavior of the original webhook:
+    1. Uses whatsapp_phone_number_id (DID) for bypass routing
+    2. Bypass routing determines organization_id, pharmacy_id, domain, target_agent
+    3. ProcessWebhookUseCase handles all business logic identically to production
+
+    Args:
+        request: PharmacyTestRequest with:
+            - whatsapp_phone_number_id: Business phone (DID) - REQUIRED
+            - phone_number: Customer phone - REQUIRED
+            - message or interactive_response: Content to send
+            - session_id: Optional existing session
+            - pharmacy_id: Optional override (normally determined via bypass)
     """
     try:
-        # 1. Load pharmacy config by pharmacy ID (not organization_id)
-        service = PharmacyConfigService(db)
-        try:
-            pharmacy_id = UUID(request.pharmacy_id)
-            config = await service.get_config_by_id(pharmacy_id)
-            org_id = config.organization_id
-        except ValueError as e:
+        # 1. Construct WhatsApp Message (same as webhook_processor.py)
+        customer_phone = request.phone_number
+        timestamp = str(int(time.time()))
+        message_id = str(uuid.uuid4())
+
+        wa_message: WhatsAppMessage
+        if request.interactive_response:
+            ir = request.interactive_response
+            interactive = InteractiveContent(
+                type=ir.type,
+                button_reply=(
+                    ButtonReply(id=ir.id, title=ir.title)
+                    if ir.type == "button_reply"
+                    else None
+                ),
+                list_reply=(
+                    ListReply(id=ir.id, title=ir.title)
+                    if ir.type == "list_reply"
+                    else None
+                ),
+            )
+            wa_message = WhatsAppMessage(
+                from_=customer_phone,
+                id=message_id,
+                timestamp=timestamp,
+                type="interactive",
+                interactive=interactive,
+            )
+        elif request.message:
+            wa_message = WhatsAppMessage(
+                from_=customer_phone,
+                id=message_id,
+                timestamp=timestamp,
+                type="text",
+                text=TextMessage(body=request.message),
+            )
+        else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid pharmacy_id format: {e}",
-            ) from e
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Pharmacy not found: {e}",
-            ) from e
-
-        # 2. Get or create session
-        session_repo = get_session_repository()
-        session_id = request.session_id or str(uuid.uuid4())
-        existing_session = await session_repo.get(session_id)
-
-        if existing_session:
-            session = existing_session
-            previous_messages = deserialize_messages(session.messages)
-
-            # SAFETY: Validate session state consistency
-            # If identification_step is set, customer SHOULD NOT be identified yet
-            if session.identification_step is not None and session.customer_identified:
-                logger.warning(
-                    f"[SESSION] Inconsistent state in session {session_id}: "
-                    f"identification_step={session.identification_step} but "
-                    f"customer_identified={session.customer_identified}. "
-                    f"Resetting identification state."
-                )
-                session.customer_identified = False
-                session.plex_customer_id = None
-                session.plex_customer = None
-        else:
-            session = PharmacySessionState(
-                session_id=session_id,
-                organization_id=str(org_id),
-                pharmacy_id=str(config.pharmacy_id),
-                customer_id=request.phone_number or "5491122334455",
-                # Pharmacy configuration (CRITICAL for multi-turn)
-                pharmacy_name=config.pharmacy_name,
-                pharmacy_phone=config.pharmacy_phone,
+                detail="Either 'message' or 'interactive_response' must be provided",
             )
-            previous_messages = []
 
-        # 3. Build graph state and invoke
-        new_message = HumanMessage(content=request.message)
-        graph_state = build_graph_state(
-            session=session,
-            organization_id=str(org_id),
-            pharmacy_id=str(config.pharmacy_id),
-            previous_messages=previous_messages,
-            new_message=new_message,
+        contact = Contact(wa_id=customer_phone, profile={"name": "Test User"})
+
+        # 2. Execute Use Case - IDENTICAL to original webhook
+        # The DID triggers bypass routing which determines organization/pharmacy
+        langgraph_service = await _get_langgraph_service()
+        use_case = ProcessWebhookUseCase(db, settings, langgraph_service)
+
+        logger.info(
+            f"[TEST_WEBHOOK] Processing test message: did={request.whatsapp_phone_number_id}, "
+            f"phone={customer_phone}"
         )
 
-        result = await invoke_pharmacy_graph(graph_state, conversation_id=session_id)
+        result = await use_case.execute(
+            message=wa_message,
+            contact=contact,
+            whatsapp_phone_number_id=request.whatsapp_phone_number_id,
+        )
 
-        # 4. Extract response and update session
-        response_text = extract_bot_response(result)
-        update_session_from_result(session, result)
+        if result.status == "error":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error processing webhook: {result.error_message}",
+            )
 
-        # 5. Save session
+        # 3. Extract Response Data
+        bot_response = result.result
+        response_text = bot_response.message if bot_response else ""
+        metadata = bot_response.metadata if bot_response else {}
+
+        # The graph result contains the full execution state
+        graph_result = metadata.get("graph_result", {})
+
+        # Determine the actual session ID used (handles isolation logic)
+        real_session_id = metadata.get(
+            "conversation_id", request.session_id or f"whatsapp_{customer_phone}"
+        )
+
+        # Extract pharmacy info from graph result (set by bypass routing)
+        pharmacy_id_from_result = metadata.get("pharmacy_id") or request.pharmacy_id
+        organization_id_from_result = metadata.get("organization_id")
+        pharmacy_name_from_result = graph_result.get("pharmacy_name", "Unknown Pharmacy")
+
+        # 4. Create session state for response and legacy compatibility
+        session = PharmacySessionState(
+            session_id=real_session_id,
+            organization_id=str(organization_id_from_result) if organization_id_from_result else "",
+            pharmacy_id=str(pharmacy_id_from_result) if pharmacy_id_from_result else "",
+            customer_id=customer_phone,
+            pharmacy_name=pharmacy_name_from_result,
+            pharmacy_phone=request.whatsapp_phone_number_id,
+        )
+
+        # Populate session from graph result
+        update_session_from_result(session, graph_result)
+
+        # 5. Save session for legacy compatibility
+        session_repo = get_session_repository()
         await session_repo.save(session)
 
-        # 6. Build response
+        # Extract interactive data using helper
+        interactive_data = extract_interactive_data(graph_result)
+
+        # Convert interactive data to Pydantic models
+        response_buttons = None
+        response_list_items = None
+
+        if interactive_data.get("response_buttons"):
+            response_buttons = [
+                InteractiveButton(id=btn["id"], titulo=btn["titulo"])
+                for btn in interactive_data["response_buttons"]
+            ]
+
+        if interactive_data.get("response_list_items"):
+            response_list_items = [
+                InteractiveListItem(
+                    id=item["id"],
+                    titulo=item["titulo"],
+                    descripcion=item.get("descripcion"),
+                )
+                for item in interactive_data["response_list_items"]
+            ]
+
         return PharmacyTestResponse(
-            session_id=session_id,
+            session_id=real_session_id,
             response=response_text,
+            response_type=interactive_data.get("response_type", "text"),
+            response_buttons=response_buttons,
+            response_list_items=response_list_items,
             execution_steps=[
                 {
-                    "workflow_step": result.get("workflow_step"),
-                    "next_agent": result.get("next_agent"),
-                    "customer_identified": result.get("customer_identified", False),
+                    "workflow_step": graph_result.get("workflow_step"),
+                    "next_agent": graph_result.get("next_agent"),
+                    "customer_identified": graph_result.get("customer_identified", False),
                 }
             ],
             graph_state={
-                "customer_identified": result.get("customer_identified", False),
-                "has_debt": result.get("has_debt", False),
-                "total_debt": result.get("total_debt"),
-                "debt_status": result.get("debt_status"),
-                "workflow_step": result.get("workflow_step"),
-                "awaiting_confirmation": result.get("awaiting_confirmation", False),
-                "is_complete": result.get("is_complete", False),
-                "awaiting_payment": result.get("awaiting_payment", False),
-                "mp_init_point": result.get("mp_init_point"),
+                "customer_identified": graph_result.get("customer_identified", False),
+                "has_debt": graph_result.get("has_debt", False),
+                "total_debt": graph_result.get("total_debt"),
+                "debt_status": graph_result.get("debt_status"),
+                "workflow_step": graph_result.get("workflow_step"),
+                "awaiting_confirmation": graph_result.get("awaiting_confirmation", False),
+                "is_complete": graph_result.get("is_complete", False),
+                "awaiting_payment": graph_result.get("awaiting_payment", False),
+                "mp_init_point": graph_result.get("mp_init_point"),
             },
             metadata={
-                "pharmacy_id": request.pharmacy_id,
-                "pharmacy_name": config.pharmacy_name,
+                "whatsapp_phone_number_id": request.whatsapp_phone_number_id,
+                "pharmacy_id": pharmacy_id_from_result,
+                "organization_id": str(organization_id_from_result) if organization_id_from_result else None,
+                "pharmacy_name": pharmacy_name_from_result,
                 "message_count": len(session.messages),
-                "is_new_session": request.session_id is None,
+                "processing_mode": result.mode,
+                "domain": result.domain,
+                "bypass_matched": result.domain != ProcessWebhookUseCase.DEFAULT_DOMAIN,
             },
         )
 
@@ -197,6 +288,7 @@ async def send_test_message(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing test message: {e}",
         ) from e
+
 
 
 @router.get("/session/{session_id}")

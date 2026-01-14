@@ -1,48 +1,129 @@
+# Pharmacy Domain - Error Tasks
+# Purpose: Task descriptions for error handling
+
 tasks:
-  - key: pharmacy.error.technical
-    name: "Error Tecnico"
-    description: |
-      Hubo un error tecnico. Disculpate y sugiere intentar de nuevo.
+  - key: "pharmacy.error.technical"
+    name: "Technical Error Task"
+    description: "Handle technical error"
+    version: "1.0.0"
+    template: |
+      Informa problema tecnico.
+      Sugiere reintentar en unos minutos.
+      Proporciona telefono de contacto: {pharmacy_phone}
     metadata:
-      flow: error
-      tags: [error, technical]
+      tags:
+        - pharmacy
+        - error
+        - task
+      variables:
+        required:
+          - pharmacy_phone
+        optional: []
 
-  - key: pharmacy.error.validation
-    name: "Error de Validacion"
-    description: |
-      Informa del error de validacion y como corregirlo.
+  - key: "pharmacy.error.validation"
+    name: "Validation Error Task"
+    description: "Handle validation error"
+    version: "1.0.0"
+    template: |
+      Informa que el dato ingresado no es valido.
+      Mensaje especifico: {validation_message}
+      Solicita reintentar.
     metadata:
-      flow: error
-      tags: [error, validation]
+      tags:
+        - pharmacy
+        - error
+        - task
+      variables:
+        required:
+          - validation_message
+        optional: []
 
-  - key: pharmacy.error.not_found
-    name: "No Encontrado"
-    description: |
-      Informa que el recurso no fue encontrado.
+  - key: "pharmacy.error.not_found"
+    name: "Not Found Error Task"
+    description: "Handle resource not found"
+    version: "1.0.0"
+    template: |
+      Informa que no se encontro {resource_type}.
+      Sugiere verificar datos ingresados.
     metadata:
-      flow: error
-      tags: [error, not_found]
+      tags:
+        - pharmacy
+        - error
+        - task
+      variables:
+        required:
+          - resource_type
+        optional: []
 
-  - key: pharmacy.error.retry
-    name: "Reintentar"
-    description: |
-      Informa del error y pide que intente de nuevo.
+  - key: "pharmacy.error.retry"
+    name: "Retry Error Task"
+    description: "Suggest retry"
+    version: "1.0.0"
+    template: |
+      Informa que no se pudo procesar solicitud.
+      Intento: {retry_count}/3
+      Ofrece reintentar o volver al menu.
     metadata:
-      flow: error
-      tags: [error, retry]
+      tags:
+        - pharmacy
+        - error
+        - task
+      variables:
+        required: []
+        optional:
+          - retry_count
 
-  - key: pharmacy.error.multiple_failures
-    name: "Multiples Errores"
-    description: |
-      Informa que hubo varios errores y sugiere contactar la farmacia.
+  - key: "pharmacy.error.multiple_failures"
+    name: "Multiple Failures Task"
+    description: "Handle multiple failed attempts"
+    version: "1.0.0"
+    template: |
+      Informa que no se pudo completar solicitud.
+      Proporciona datos de contacto:
+      Telefono: {pharmacy_phone}
+      Direccion: {pharmacy_address}
+      Horario: {pharmacy_hours}
     metadata:
-      flow: error
-      tags: [error, escalation]
+      tags:
+        - pharmacy
+        - error
+        - task
+      variables:
+        required:
+          - pharmacy_phone
+          - pharmacy_address
+          - pharmacy_hours
+        optional: []
 
-  - key: pharmacy.error.pharmacy_not_found
-    name: "Farmacia No Encontrada"
-    description: |
-      Informa que no se pudo identificar la farmacia.
+  - key: "pharmacy.error.pharmacy_not_found"
+    name: "Pharmacy Not Found Task"
+    description: "Handle missing pharmacy config"
+    version: "1.0.0"
+    template: |
+      Informa que no se encontro configuracion de farmacia.
+      Sugiere contactar soporte tecnico.
     metadata:
-      flow: error
-      tags: [error, pharmacy]
+      tags:
+        - pharmacy
+        - error
+        - task
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.error.fallback"
+    name: "Error Fallback Task"
+    description: "Generic error fallback"
+    version: "1.0.0"
+    template: |
+      Informa problema generico.
+      Sugiere reintentar.
+    metadata:
+      tags:
+        - pharmacy
+        - error
+        - fallback
+        - task
+      variables:
+        required: []
+        optional: []

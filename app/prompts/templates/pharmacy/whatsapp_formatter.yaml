@@ -1,0 +1,389 @@
+# Pharmacy Domain - WhatsApp Response Formatter Templates
+# Purpose: Templates for WhatsApp interactive messages (buttons, lists, text)
+# All templates support {variable} substitution via PharmacyTemplateRenderer
+
+prompts:
+  # ============================================================================
+  # DEBT RESPONSE - SHOW_DEBT flow (Flujo 1: Consultar deuda)
+  # Per pharmacy_flujo_mejorado_v2.md lines 74-78
+  # ============================================================================
+  - key: "pharmacy.formatter.debt_response"
+    name: "Debt Response with Actions"
+    description: "Shows total debt with invoices and 3 action buttons"
+    version: "2.0.0"
+    response_type: "buttons"
+    title: "Consulta de Deuda"
+    body_template: |
+      *{pharmacy_name}*
+
+      Hola *{customer_name}*, tu cuenta:
+
+      ━━━━━━━━━━━━━━━━━━━━
+      *Deuda Total: {total_debt}*
+      ━━━━━━━━━━━━━━━━━━━━
+
+      {debt_details}
+    buttons:
+      - id: "btn_ver_detalle"
+        titulo: "Ver detalle factura"
+      - id: "btn_pagar_completo"
+        titulo_template: "Pagar {total_debt}"
+      - id: "btn_pago_parcial"
+        titulo: "Pago parcial"
+    awaiting_input: "debt_action"
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+          - customer_name
+          - total_debt
+        optional:
+          - debt_details
+
+  # ============================================================================
+  # PAY_DEBT_MENU - Flujo 2: Pagar deuda (directo desde menú)
+  # Per pharmacy_flujo_mejorado_v2.md lines 109-112
+  # ============================================================================
+  - key: "pharmacy.formatter.pay_debt_menu"
+    name: "Pay Debt Menu"
+    description: "Shows debt summary with 2 payment buttons"
+    version: "1.0.0"
+    response_type: "buttons"
+    title: "Pagar Deuda"
+    body_template: |
+      *{pharmacy_name}*
+
+      Hola *{customer_name}*, tu deuda actual:
+
+      ━━━━━━━━━━━━━━━━━━━━
+      *Total a Pagar: {total_debt}*
+      ━━━━━━━━━━━━━━━━━━━━
+
+      ¿Cómo deseas pagar?
+    buttons:
+      - id: "btn_pagar_completo"
+        titulo_template: "Pagar {total_debt}"
+      - id: "btn_pago_parcial"
+        titulo: "Pago parcial"
+    awaiting_input: "pay_debt_action"
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+          - customer_name
+          - total_debt
+        optional: []
+
+  # ============================================================================
+  # INVOICE_DETAIL - Ver detalle de factura
+  # Per pharmacy_flujo_mejorado_v2.md lines 79-88
+  # ============================================================================
+  - key: "pharmacy.formatter.invoice_detail"
+    name: "Invoice Detail"
+    description: "Shows single invoice detail (no medications - privacy)"
+    version: "1.0.0"
+    response_type: "buttons"
+    title: "Detalle de Factura"
+    body_template: |
+      *{pharmacy_name}*
+
+      *Detalle de Comprobante*
+
+      ━━━━━━━━━━━━━━━━━━━━
+      *Número:* {invoice_number}
+      *Fecha:* {invoice_date}
+      *Monto:* {invoice_amount}
+      ━━━━━━━━━━━━━━━━━━━━
+
+      ¿Qué deseas hacer?
+    buttons:
+      - id: "btn_volver_deuda"
+        titulo: "Volver a deuda"
+      - id: "btn_pagar_deuda"
+        titulo: "Pagar deuda"
+      - id: "btn_volver_menu"
+        titulo: "Menú principal"
+    awaiting_input: "invoice_detail_action"
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+          - invoice_number
+          - invoice_date
+          - invoice_amount
+        optional: []
+
+  # ============================================================================
+  # PAYMENT CONFIRMATION - Confirm payment (full or partial)
+  # ============================================================================
+  - key: "pharmacy.formatter.payment_confirmation_full"
+    name: "Full Payment Confirmation"
+    description: "Confirmation dialog for full payment"
+    version: "1.0.0"
+    response_type: "buttons"
+    title: "Confirmación de Pago"
+    body_template: |
+      *Confirmar Pago*
+
+      Monto: {payment_amount}
+
+      ¿Confirmás el pago?
+    buttons:
+      - id: "btn_confirm_yes"
+        titulo: "Sí, pagar"
+      - id: "btn_confirm_no"
+        titulo: "Cancelar"
+    metadata:
+      variables:
+        required:
+          - payment_amount
+        optional: []
+
+  - key: "pharmacy.formatter.payment_confirmation_partial"
+    name: "Partial Payment Confirmation"
+    description: "Confirmation dialog for partial payment"
+    version: "1.0.0"
+    response_type: "buttons"
+    title: "Confirmación de Pago"
+    body_template: |
+      *Confirmar Pago Parcial*
+
+      Monto a pagar: {payment_amount}
+      Saldo restante: {remaining_balance}
+
+      ¿Confirmás el pago?
+    buttons:
+      - id: "btn_confirm_yes"
+        titulo: "Sí, pagar"
+      - id: "btn_confirm_no"
+        titulo: "Cancelar"
+    metadata:
+      variables:
+        required:
+          - payment_amount
+          - remaining_balance
+        optional: []
+
+  # ============================================================================
+  # PAYMENT LINK - Display generated payment link
+  # ============================================================================
+  - key: "pharmacy.formatter.payment_link"
+    name: "Payment Link Message"
+    description: "Displays MercadoPago payment link"
+    version: "1.0.0"
+    response_type: "text"
+    body_template: |
+      *Link de Pago*
+
+      Monto: {payment_amount}
+
+      Hacé clic aquí para pagar:
+      {mp_payment_link}
+
+      El link tiene validez de 24 horas.
+    metadata:
+      variables:
+        required:
+          - payment_amount
+          - mp_payment_link
+        optional: []
+
+  # ============================================================================
+  # ACCOUNT SELECTION - List of registered accounts
+  # ============================================================================
+  - key: "pharmacy.formatter.account_selection"
+    name: "Account Selection List"
+    description: "Interactive list for selecting accounts"
+    version: "1.0.0"
+    response_type: "list"
+    title: "Cuentas Disponibles"
+    list_button_text: "Ver cuentas"
+    body_template: |
+      *Seleccioná una cuenta*
+
+      Tocá el botón para ver las opciones disponibles.
+    list_item_add_person:
+      id: "btn_add_new_person"
+      titulo: "Agregar persona"
+      descripcion: "Registrar nueva persona"
+    metadata:
+      variables:
+        required: []
+        optional:
+          - registered_accounts
+
+  # ============================================================================
+  # OWN OR OTHER - Select own debt or another person's
+  # ============================================================================
+  - key: "pharmacy.formatter.own_or_other"
+    name: "Own or Other Debt Selection"
+    description: "Choose between own debt or another person's"
+    version: "1.0.0"
+    response_type: "buttons"
+    title: "Consulta de Deuda"
+    body_template: |
+      ¿Deseás consultar tu propia deuda o la de otra persona?
+    buttons:
+      - id: "btn_own_debt"
+        titulo: "Mi deuda"
+      - id: "btn_other_debt"
+        titulo: "Otra persona"
+    metadata:
+      variables:
+        required: []
+        optional: []
+
+  # ============================================================================
+  # MAIN MENU - Main menu options (with WhatsApp buttons)
+  # ============================================================================
+  - key: "pharmacy.formatter.main_menu"
+    name: "Main Menu"
+    description: "Main menu with WhatsApp interactive buttons"
+    version: "2.0.0"
+    response_type: "buttons"
+    title: "Menú Principal"
+    body_template: |
+      Hola{customer_name_greeting} 👋
+      Soy el asistente de *{pharmacy_name}*.
+
+      IMPORTANTE: Este canal es exclusivo para consultas de cuenta y pagos. (Para pedidos de farmacia, por favor usa el mostrador o canal habitual).
+
+      Podés escribirme en lenguaje natural o elegir una opción 👇
+    buttons:
+      - id: "btn_consultar_deuda"
+        titulo: "Consultar deuda"
+      - id: "btn_pagar_deuda"
+        titulo: "Pagar deuda"
+      - id: "btn_otra_cuenta"
+        titulo: "Ver otra cuenta"
+    awaiting_input: "menu_selection"
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+        optional:
+          - customer_name_greeting
+
+  # ============================================================================
+  # NO DEBT - Customer has no debt
+  # ============================================================================
+  - key: "pharmacy.formatter.no_debt"
+    name: "No Debt Message"
+    description: "Displayed when customer has no pending debt"
+    version: "1.0.0"
+    response_type: "text"
+    body_template: |
+      *Sin Deuda Pendiente*
+
+      No hay deuda registrada para {customer_name}.
+
+      Si creés que esto es un error, comunícate con la farmacia.
+    metadata:
+      variables:
+        required: []
+        optional:
+          - customer_name
+
+  # ============================================================================
+  # ERROR MESSAGES - Error handling templates
+  # ============================================================================
+  - key: "pharmacy.formatter.error_plex_unavailable"
+    name: "System Unavailable Error"
+    description: "Plex system unavailable error message"
+    version: "1.0.0"
+    response_type: "text"
+    body_template: |
+      *Sistema No Disponible*
+
+      El sistema de consultas no está disponible en este momento.
+      Por favor intentá más tarde o comunícate con la farmacia.
+    metadata:
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.formatter.error_payment_error"
+    name: "Payment Error"
+    description: "Payment processing error message"
+    version: "1.0.0"
+    response_type: "text"
+    body_template: |
+      *Error de Pago*
+
+      Hubo un problema al procesar tu pago.
+      Por favor intentá nuevamente o comunícate con la farmacia.
+    metadata:
+      variables:
+        required: []
+        optional: []
+
+  - key: "pharmacy.formatter.error_generic"
+    name: "Generic Error"
+    description: "Generic error fallback message"
+    version: "1.0.0"
+    response_type: "text"
+    body_template: |
+      *Error*
+
+      Ocurrió un error inesperado.
+      Por favor intentá nuevamente.
+    metadata:
+      variables:
+        required: []
+        optional: []
+
+  # ============================================================================
+  # FAREWELL - Goodbye message
+  # ============================================================================
+  - key: "pharmacy.formatter.farewell"
+    name: "Farewell Message"
+    description: "Goodbye message when conversation ends"
+    version: "1.0.0"
+    response_type: "text"
+    is_complete: true
+    body_template: |
+      *{pharmacy_name}*
+
+      ¡Gracias por comunicarte{customer_name_greeting}!
+
+      Que tengas un excelente día.
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+        optional:
+          - customer_name_greeting
+
+  # ============================================================================
+  # REQUEST DNI - Ask for DNI number
+  # ============================================================================
+  - key: "pharmacy.formatter.request_dni"
+    name: "Request DNI"
+    description: "Request DNI for identity verification"
+    version: "1.0.0"
+    response_type: "text"
+    awaiting_input: "dni"
+    body_template: |
+      Para continuar, necesito verificar tu identidad.
+
+      Por favor ingresá tu número de DNI (solo números).
+    metadata:
+      variables:
+        required: []
+        optional: []
+
+  # ============================================================================
+  # REQUEST NAME - Ask for customer name
+  # ============================================================================
+  - key: "pharmacy.formatter.request_name"
+    name: "Request Name"
+    description: "Request name for identity verification"
+    version: "1.0.0"
+    response_type: "text"
+    awaiting_input: "name"
+    body_template: |
+      Por favor ingresá tu nombre completo para verificar tu identidad.
+    metadata:
+      variables:
+        required: []
+        optional: []

@@ -186,6 +186,4 @@ class IdentifyCustomerUseCase:
         Returns:
             IdentifyCustomerResponse with result
         """
-        return await self.execute(
-            IdentifyCustomerRequest(document=document)
-        )
+        return await self.execute(IdentifyCustomerRequest(document=document))
