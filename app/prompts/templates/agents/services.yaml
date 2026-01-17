@@ -1,0 +1,29 @@
+# Agent Services Configuration
+# Purpose: Service definitions and configuration for agent capabilities
+prompts:
+  - key: "agents.services.config"
+    name: "Agent Services Configuration"
+    description: "Configuration for available agent services and capabilities"
+    version: "1.0.0"
+    template: |
+      # Available Services Configuration
+      # This template provides service metadata for agent routing
+
+      services:
+        - greeting: Saludos y bienvenida
+        - support: Soporte general y consultas
+        - fallback: Manejo de consultas no reconocidas
+        - farewell: Despedidas
+        - excelencia: Consultas sobre software Excelencia
+        - ecommerce: Consultas de productos y pedidos
+        - pharmacy: Operaciones de farmacia
+    metadata:
+      temperature: 0
+      max_tokens: 500
+      tags:
+        - agents
+        - services
+        - config
+      variables:
+        required: []
+        optional: []

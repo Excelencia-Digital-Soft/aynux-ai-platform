@@ -24,6 +24,7 @@ from app.api.routes.admin import (
     agent_knowledge,
     agents as agents_catalog,
     ai_models,
+    awaiting_type_config,
     bypass_rules,
     chat_admin,
     chattigo_credentials,
@@ -36,6 +37,7 @@ from app.api.routes.admin import (
     domain_intents,
     pharmacy_config,
     pharmacy_conversations,
+    reminder_schedules,
     response_configs,
     routing_config,
     tenant_agents,
@@ -43,12 +45,15 @@ from app.api.routes.admin import (
     tenant_credentials,
     tenant_documents,
     tenant_prompts,
+    workflows,
 )
 from app.api.routes.admin import (
     analytics as analytics_admin,
 )
 from app.api.routes.admin import (
+    medical as medical_admin,
     pharmacy as pharmacy_admin,
+    pharmacy_stream,
 )
 from app.api.routes.admin import prompts as admin_prompts
 
@@ -182,6 +187,18 @@ api_router.include_router(
     tags=["Pharmacy Admin"],
 )
 
+# Admin routes - Pharmacy Streaming (SSE streaming for Vue.js testing interface)
+api_router.include_router(
+    pharmacy_stream.router,
+    tags=["Pharmacy Admin Streaming"],
+)
+
+# Admin routes - Medical Testing (public - for Vue.js testing interface)
+api_router.include_router(
+    medical_admin.router,
+    tags=["Medical Admin"],
+)
+
 # Admin routes - Chat Admin (for Chat Visualizer testing interface)
 api_router.include_router(
     chat_admin.router,
@@ -236,4 +253,32 @@ api_router.include_router(
     routing_config.router,
     prefix="/admin",
     tags=["Routing Configs"],
+)
+
+# Admin routes - Awaiting Type Configs (DB-driven awaiting input routing)
+api_router.include_router(
+    awaiting_type_config.router,
+    prefix="/admin",
+    tags=["Awaiting Type Configs"],
+)
+
+# Admin routes - Workflow Builder (configurable workflows per institution)
+api_router.include_router(
+    workflows.router,
+    prefix="/admin/workflows",
+    tags=["Workflows"],
+)
+
+# Admin routes - Reminder Schedules (configurable reminders per institution)
+api_router.include_router(
+    reminder_schedules.router,
+    prefix="/admin/reminder-schedules",
+    tags=["Reminder Schedules"],
+)
+
+# Admin routes - Message Templates (message templates for workflows/reminders)
+api_router.include_router(
+    reminder_schedules.templates_router,
+    prefix="/admin/message-templates",
+    tags=["Message Templates"],
 )

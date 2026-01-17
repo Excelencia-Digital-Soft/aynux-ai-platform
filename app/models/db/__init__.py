@@ -23,6 +23,8 @@ from .response_configs import ResponseConfig, PharmacyResponseConfig  # Pharmacy
 from .intent_configs import FlowAgentConfig, IntentAgentMapping, KeywordAgentMapping
 # Routing Configs (DB-driven routing for pharmacy flow)
 from .routing_config import RoutingConfig, RoutingConfigType
+# Awaiting Type Configs (DB-driven awaiting input routing)
+from .awaiting_type_config import AwaitingTypeConfig, AwaitingTypes
 from .promotions import Promotion
 from .prompts import Prompt, PromptVersion
 from .rag_query_log import RagQueryLog
@@ -54,6 +56,17 @@ from .tenancy import (
     TenantPrompt,
 )
 from .user import UserDB
+
+# Workflow models (configurable workflow builder)
+from .workflow import (
+    MessageTemplate,
+    NodeDefinition,
+    NodeInstance,
+    ReminderSchedule,
+    RoutingRule,
+    WorkflowDefinition,
+    WorkflowTransition,
+)
 
 __all__ = [
     # Base
@@ -143,4 +156,15 @@ __all__ = [
     # Routing Configs (DB-driven routing for pharmacy flow)
     "RoutingConfig",
     "RoutingConfigType",
+    # Awaiting Type Configs (DB-driven awaiting input routing)
+    "AwaitingTypeConfig",
+    "AwaitingTypes",
+    # Workflow (configurable workflow builder)
+    "MessageTemplate",
+    "NodeDefinition",
+    "NodeInstance",
+    "ReminderSchedule",
+    "RoutingRule",
+    "WorkflowDefinition",
+    "WorkflowTransition",
 ]

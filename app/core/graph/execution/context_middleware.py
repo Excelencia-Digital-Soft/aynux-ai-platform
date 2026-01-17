@@ -94,6 +94,9 @@ class ConversationContextMiddleware:
         Returns:
             Initial state dictionary for graph execution
         """
+        # Filter out None values from kwargs to prevent overriding reducer defaults
+        filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
         return {
             "messages": [HumanMessage(content=message)],
             "conversation_id": conv_id,
@@ -116,7 +119,7 @@ class ConversationContextMiddleware:
             "bypass_target_agent": kwargs.get("bypass_target_agent"),
             # LANGUAGE: Extract detected language from conversation_data for agents
             "detected_language": kwargs.get("conversation_data", {}).get("language", "es"),
-            **kwargs,
+            **filtered_kwargs,
         }
 
     def extract_specialized_agent(self, agent_history: list[str]) -> str | None:

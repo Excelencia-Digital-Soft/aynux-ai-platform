@@ -18,16 +18,19 @@ from . import (
     agent_knowledge,
     agents,
     ai_models,
+    awaiting_type_config,
     bypass_rules,
     chattigo_credentials,
     domain_intents,
     domains,
     institution_configs,
     intent_configs,
+    medical,
     modules,
     org_users,
     organizations,
     prompts,
+    reminder_schedules,
     response_configs,
     routing_config,
     tenant_agents,
@@ -35,6 +38,7 @@ from . import (
     tenant_credentials,
     tenant_documents,
     tenant_prompts,
+    workflows,
 )
 
 __all__ = [
@@ -56,7 +60,12 @@ __all__ = [
     "domains",
     "institution_configs",
     "domain_intents",
+    "medical",
     "response_configs",
     "routing_config",
+    "awaiting_type_config",
     "intent_configs",
+    # Workflow builder
+    "workflows",
+    "reminder_schedules",
 ]

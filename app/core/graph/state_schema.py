@@ -37,6 +37,17 @@ def take_latest_non_none(left: Optional[str], right: Optional[str]) -> Optional[
     return right if right is not None else left
 
 
+def take_latest_non_none_list(
+    left: Optional[List[Dict[str, str]]], right: Optional[List[Dict[str, str]]]
+) -> Optional[List[Dict[str, str]]]:
+    """Reducer for list fields: keep the latest non-None value.
+
+    Used for WhatsApp response fields (buttons, list_items) to preserve
+    values across node executions when subsequent nodes don't set them.
+    """
+    return right if right is not None else left
+
+
 def add_cache_keys(left: List[str], right: List[str]) -> List[str]:
     """Reducer personalizado para claves de cache sin duplicados"""
     return list(set(left + right))
@@ -144,6 +155,14 @@ class LangGraphState(TypedDict):
 
     # MULTI-TENANT: Organization identifier (must persist for tenant isolation)
     organization_id: Optional[str]
+
+    # WHATSAPP INTERACTIVE RESPONSE: Fields for buttons/lists in responses
+    # Used by pharmacy domain and other domains that need interactive WhatsApp messages
+    # NOTE: These use reducers to preserve values when subsequent nodes (like supervisor)
+    # don't explicitly set them - prevents loss during state merges
+    response_type: Annotated[Optional[str], take_latest_non_none]  # "text", "buttons", or "list"
+    response_buttons: Annotated[Optional[List[Dict[str, str]]], take_latest_non_none_list]  # Button configs
+    response_list_items: Annotated[Optional[List[Dict[str, str]]], take_latest_non_none_list]  # List items
 
 
 GraphState = LangGraphState

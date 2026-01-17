@@ -14,9 +14,11 @@ import logging
 import re
 import unicodedata
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from langchain_core.runnables import RunnableConfig
 
+from app.core.cache.routing_config_cache import routing_config_cache
 from app.domains.pharmacy.agents.utils.message_extractor import MessageExtractor
 
 if TYPE_CHECKING:
@@ -163,6 +165,40 @@ class AuthPlexService:
             logger.error(f"Error searching PLEX by phone: {e}")
             return None
 
+    async def search_by_customer_id(self, customer_id: int) -> dict[str, Any] | None:
+        """
+        Search PLEX for customer by account number (customer_id).
+
+        Args:
+            customer_id: Account number / customer ID to search
+
+        Returns:
+            PLEX customer dict or None if not found
+        """
+        try:
+            plex_client = self._get_plex_client()
+            async with plex_client:
+                customers = await plex_client.search_customer(customer_id=customer_id)
+
+            valid_customers = [
+                c for c in customers if hasattr(c, "is_valid_for_identification") and c.is_valid_for_identification
+            ]
+
+            if len(valid_customers) == 1:
+                return self._customer_to_dict(valid_customers[0])
+            elif len(valid_customers) > 1:
+                return self._customer_to_dict(
+                    valid_customers[0],
+                    multiple_matches=True,
+                    all_matches=valid_customers,
+                )
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error searching PLEX by customer_id: {e}")
+            return None
+
     def calculate_name_similarity(self, name1: str, name2: str) -> float:
         """
         Calculate similarity between two names using smart matching.
@@ -241,6 +277,78 @@ class AuthPlexService:
         return result
 
 
+async def _build_auth_success_response(
+    plex_customer: dict[str, Any],
+    state: "PharmacyStateV2",
+    org_id: UUID | None = None,
+    extra_fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Build the auth success response, resuming previous_intent if applicable.
+
+    After successful authentication, checks if there's a previous_intent that
+    should be resumed instead of showing the main menu. The intent-to-node
+    mapping is loaded from database via routing_config_cache.
+
+    Args:
+        plex_customer: The authenticated PLEX customer data
+        state: Current conversation state (to check previous_intent)
+        org_id: Organization ID for multi-tenant routing config lookup
+        extra_fields: Additional fields to include in response
+
+    Returns:
+        State updates with authentication result and appropriate routing
+    """
+    previous_intent = state.get("previous_intent")
+
+    # Base auth success fields
+    response: dict[str, Any] = {
+        "is_authenticated": True,
+        "plex_user_id": plex_customer.get("id"),
+        "plex_customer": plex_customer,
+        "customer_name": plex_customer.get("nombre", "Cliente"),
+        "error_count": 0,
+    }
+
+    # Add any extra fields
+    if extra_fields:
+        response.update(extra_fields)
+
+    # Check if we should resume a previous intent
+    if previous_intent:
+        # Load intent-to-node mappings from database
+        configs = await routing_config_cache.get_configs(None, org_id, "pharmacy")
+        intent_mappings = configs.get("intent_node_mapping", [])
+
+        # Find the mapping for this intent
+        target_node = None
+        for config in intent_mappings:
+            if config.trigger_value == previous_intent:
+                target_node = config.target_node
+                break
+
+        if target_node:
+            logger.info(f"[AUTH_PLEX] Resuming previous_intent: {previous_intent}")
+            logger.info(f"[AUTH_PLEX] Routing to {target_node} after auth")
+            response.update({
+                "intent": previous_intent,
+                "previous_intent": None,  # Clear to prevent loops
+                "next_node": target_node,
+                "awaiting_input": None,
+            })
+            return response
+
+    # No resumable intent - show main menu as before
+    logger.debug("[AUTH_PLEX] No resumable intent, showing main menu")
+    response.update({
+        "intent": "auth_success",
+        "next_node": "main_menu_node",
+        "awaiting_input": "menu_selection",
+    })
+
+    return response
+
+
 async def auth_plex_node(
     state: "PharmacyStateV2",
     config: RunnableConfig | None = None,  # noqa: ARG001
@@ -249,10 +357,12 @@ async def auth_plex_node(
     Authentication node - handles PLEX customer identification.
 
     Flow:
-    1. If awaiting_input == "dni": validate DNI and lookup in PLEX
-    2. If awaiting_input == "name": verify name matches PLEX record
-    3. If not authenticated and has phone: auto-lookup by phone
-    4. Otherwise: request DNI input
+    1. If awaiting_input == "account_number": validate account and lookup in PLEX
+    2. If awaiting_input == "account_not_found": handle button selection (retry/dni)
+    3. If awaiting_input == "dni": validate DNI and lookup in PLEX
+    4. If awaiting_input == "name": verify name matches PLEX record
+    5. If not authenticated and has phone: auto-lookup by phone
+    6. Otherwise: request account number input (primary auth method)
 
     Args:
         state: Current conversation state
@@ -267,7 +377,15 @@ async def auth_plex_node(
     message = MessageExtractor.extract_last_human_message(state) or ""
     awaiting = state.get("awaiting_input")
 
-    # Handle DNI input
+    # Handle account number input (primary auth method)
+    if awaiting == "account_number":
+        return await _handle_account_number_input(service, message, state)
+
+    # Handle button selection after account not found
+    if awaiting == "account_not_found":
+        return await _handle_account_not_found_selection(message)
+
+    # Handle DNI input (fallback auth method)
     if awaiting == "dni":
         return await _handle_dni_input(service, message, state)
 
@@ -289,18 +407,112 @@ async def auth_plex_node(
         plex_customer = await service.search_by_phone(phone)
         if plex_customer:
             logger.info(f"Auto-identified customer by phone: {plex_customer.get('id')}")
-            return {
-                "is_authenticated": True,
-                "plex_user_id": plex_customer.get("id"),
-                "plex_customer": plex_customer,
-                "customer_name": plex_customer.get("nombre", "Cliente"),
-                "awaiting_input": None,
-                "next_node": "debt_manager",
-            }
+            # Build auth success response, resuming previous_intent if applicable
+            org_id_str = state.get("organization_id")
+            org_id = UUID(org_id_str) if org_id_str else None
+            return await _build_auth_success_response(plex_customer, state, org_id)
 
-    # Request DNI
+    # Request account number (primary auth method)
     return {
-        "awaiting_input": "dni",
+        "awaiting_input": "account_number",
+        "next_node": "response_formatter",
+    }
+
+
+async def _handle_account_number_input(
+    service: AuthPlexService,
+    message: str,
+    state: "PharmacyStateV2",
+) -> dict[str, Any]:
+    """
+    Handle account number validation and PLEX lookup.
+
+    Args:
+        service: AuthPlexService instance
+        message: User message (account number)
+        state: Current conversation state
+
+    Returns:
+        State updates with authentication result or error
+    """
+    # Extract account number (only digits)
+    account_number = re.sub(r"\D", "", message.strip())
+
+    if not account_number:
+        error_count = state.get("error_count", 0) + 1
+        logger.info(f"Invalid account number format (attempt {error_count})")
+        return {
+            "error_count": error_count,
+            "awaiting_input": "account_number",
+            "next_node": "response_formatter",
+        }
+
+    # Search in PLEX by customer ID
+    try:
+        account_id = int(account_number)
+        plex_customer = await service.search_by_customer_id(account_id)
+
+        if plex_customer:
+            # Account found - authenticated
+            logger.info(f"Account validated: {plex_customer.get('id')}")
+            # Build auth success response, resuming previous_intent if applicable
+            org_id_str = state.get("organization_id")
+            org_id = UUID(org_id_str) if org_id_str else None
+            return await _build_auth_success_response(plex_customer, state, org_id)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid account number format: {account_number}")
+
+    # Account not found - show options (retry or DNI validation)
+    logger.info(f"Account not found: {account_number}")
+    return {
+        "pending_account_number": account_number,
+        "awaiting_input": "account_not_found",
+        "next_node": "response_formatter",
+    }
+
+
+async def _handle_account_not_found_selection(
+    message: str,
+) -> dict[str, Any]:
+    """
+    Handle button selection when account was not found.
+
+    Options:
+    - btn_retry_account: Try account number again
+    - btn_validate_dni: Switch to DNI validation flow
+
+    Args:
+        message: User message or button ID
+
+    Returns:
+        State updates to continue appropriate flow
+    """
+    message_lower = message.lower().strip()
+
+    # Button: Retry account number
+    if message == "btn_retry_account" or "intentar" in message_lower or "volver" in message_lower:
+        logger.info("User chose to retry account number")
+        return {
+            "awaiting_input": "account_number",
+            "pending_account_number": None,
+            "error_count": 0,
+            "next_node": "response_formatter",
+        }
+
+    # Button: Validate by DNI (fallback method)
+    if message == "btn_validate_dni" or "dni" in message_lower:
+        logger.info("User chose DNI validation fallback")
+        return {
+            "awaiting_input": "dni",
+            "pending_account_number": None,
+            "error_count": 0,
+            "next_node": "response_formatter",
+        }
+
+    # Unrecognized input - keep showing options
+    logger.info(f"Unrecognized selection: {message}, keeping account_not_found state")
+    return {
+        "awaiting_input": "account_not_found",
         "next_node": "response_formatter",
     }
 
@@ -333,10 +545,12 @@ async def _handle_dni_input(
     plex_customer = await service.search_by_dni(dni)
 
     if not plex_customer:
-        logger.info(f"No PLEX customer found for DNI: {dni}")
+        # DNI not found in PLEX - validation failed, user must contact pharmacy
+        logger.info(f"No PLEX customer found for DNI: {dni} - validation failed")
         return {
             "pending_dni": dni,
-            "awaiting_input": "name",  # Request name for registration
+            "validation_failed": True,
+            "awaiting_input": None,
             "next_node": "response_formatter",
         }
 
@@ -353,22 +567,20 @@ async def _handle_dni_input(
 async def _handle_name_verification(
     service: AuthPlexService,
     message: str,
-    state: PharmacyStateV2,
+    state: "PharmacyStateV2",
 ) -> dict[str, Any]:
     """Handle name verification against PLEX record."""
     plex_customer = state.get("plex_customer")
 
     if not plex_customer:
-        # No PLEX customer - this is a new registration
-        # For V2, we simplify and just authenticate based on provided info
+        # No PLEX customer found for DNI - validation failed
+        # User must contact pharmacy to register
         pending_dni = state.get("pending_dni")
-        logger.info(f"New customer registration with DNI: {pending_dni}")
+        logger.info(f"DNI {pending_dni} not found in PLEX - validation failed")
         return {
-            "is_authenticated": True,
-            "customer_name": message.strip().title(),
-            "pending_dni": None,
+            "validation_failed": True,
             "awaiting_input": None,
-            "next_node": "debt_manager",
+            "next_node": "response_formatter",
         }
 
     # Verify name matches PLEX record
@@ -381,15 +593,15 @@ async def _handle_name_verification(
     if similarity >= NAME_MATCH_THRESHOLD:
         # Name matches - authenticate
         logger.info(f"Name verified for customer: {plex_customer.get('id')}")
-        return {
-            "is_authenticated": True,
-            "plex_user_id": plex_customer.get("id"),
-            "plex_customer": plex_customer,
-            "customer_name": expected_name,
-            "pending_dni": None,
-            "awaiting_input": None,
-            "next_node": "debt_manager",
-        }
+        # Build auth success response, resuming previous_intent if applicable
+        org_id_str = state.get("organization_id")
+        org_id = UUID(org_id_str) if org_id_str else None
+        return await _build_auth_success_response(
+            plex_customer,
+            state,
+            org_id,
+            extra_fields={"pending_dni": None, "customer_name": expected_name},
+        )
 
     # Name mismatch
     error_count = state.get("error_count", 0) + 1
@@ -397,7 +609,7 @@ async def _handle_name_verification(
         logger.warning(f"Name verification failed after {MAX_RETRIES} retries")
         return {
             "error_count": error_count,
-            "requires_human": True,
+            "validation_failed": True,
             "awaiting_input": None,
             "next_node": "response_formatter",
         }

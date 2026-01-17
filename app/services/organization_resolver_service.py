@@ -34,12 +34,12 @@ class OrganizationResolverService:
 
     Responsibilities:
     - Resolve org_id from query params, headers, or defaults
-    - Lookup default organization (excelencia/system)
+    - Lookup default organization (system)
     - Retrieve verify tokens from credentials
     """
 
     # Default organization slugs in priority order
-    DEFAULT_ORG_SLUGS: list[str] = ["excelencia", "system"]
+    DEFAULT_ORG_SLUGS: list[str] = ["system"]
 
     def __init__(self, db: AsyncSession):
         """
@@ -62,7 +62,7 @@ class OrganizationResolverService:
         Priority:
         1. Query parameter: org_id
         2. Header: X-Organization-ID
-        3. Default organization (excelencia or system)
+        3. Default organization (system)
 
         Args:
             query_params: Query parameters from request
@@ -97,7 +97,7 @@ class OrganizationResolverService:
         """
         Get the default organization for global mode.
 
-        Tries 'excelencia' first, then 'system'.
+        Tries 'system' as the default fallback.
 
         Returns:
             Organization or None if not found

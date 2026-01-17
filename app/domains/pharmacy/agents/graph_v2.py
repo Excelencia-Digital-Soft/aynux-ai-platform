@@ -62,7 +62,7 @@ from app.domains.pharmacy.agents.nodes.auth_plex_node import auth_plex_node
 from app.domains.pharmacy.agents.nodes.debt_manager_node import debt_manager_node
 from app.domains.pharmacy.agents.nodes.info_node import info_node
 from app.domains.pharmacy.agents.nodes.payment_processor_node import payment_processor_node
-from app.domains.pharmacy.agents.state_v2 import PharmacyStateV2, get_state_defaults
+from app.domains.pharmacy.agents.state_v2 import PharmacyStateV2
 
 if TYPE_CHECKING:
     from app.integrations.databases import PostgreSQLIntegration
@@ -177,7 +177,8 @@ def build_pharmacy_graph_v2() -> StateGraph:
                 return NodeType.DEBT_MANAGER
             elif next_node == "payment_processor":
                 return NodeType.PAYMENT_PROCESSOR
-            return NodeType.DEBT_MANAGER
+            # For main_menu_node, response_formatter, etc. → show formatted response
+            return NodeType.RESPONSE_FORMATTER
         return NodeType.RESPONSE_FORMATTER
 
     workflow.add_conditional_edges(
@@ -299,15 +300,48 @@ class PharmacyGraphV2:
             # Filter None values to preserve checkpoint state
             filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
-            # Start with defaults, then apply kwargs
+            # IMPORTANT: Carefully balance between:
+            # 1. New conversations need defaults (is_authenticated=False, etc.)
+            # 2. Existing conversations must preserve awaiting_input, intent, etc.
+            #
+            # Fields that should RESET per turn (always include):
+            # - messages, timestamp, is_complete, next_node, response_type/buttons
+            #
+            # Fields that should PRESERVE from checkpoint (DO NOT include):
+            # - awaiting_input, intent, is_authenticated, plex_customer, etc.
+            #
+            # LangGraph behavior: checkpoint state is loaded first, then input merges.
+            # Fields NOT in input will use checkpoint values (or TypedDict defaults for new convos).
+            #
+            # CRITICAL: Reset fields MUST come AFTER filtered_kwargs to ensure they always reset,
+            # even if the caller passes stale values like is_complete=True from a previous turn.
             initial_state: dict[str, Any] = {
-                **get_state_defaults(),
+                # Apply caller-provided state first (e.g., user_phone, pharmacy_id, org_id, etc.)
+                **filtered_kwargs,
+                # New message for this turn (override any stale messages)
                 "messages": [HumanMessage(content=message)],
                 "conversation_id": conversation_id,
                 "timestamp": datetime.now().isoformat(),
+                # RESET flow control fields - these MUST come after kwargs to ensure reset
                 "is_complete": False,
-                **filtered_kwargs,
+                "next_node": None,
+                # RESET response fields (will be set by response_formatter_node)
+                "response_type": None,
+                "response_buttons": None,
+                "response_list_items": None,
+                # RESET transient state (prevent checkpoint pollution between turns)
+                # These fields should NOT persist from previous turns:
+                "validation_failed": False,  # Prevents stale auth failure blocking new intents
+                "error_count": 0,  # Prevents stale error escalation
+                "requires_human": False,  # Prevents unwanted human escalation
             }
+
+            logger.info(
+                f"[PHARMACY_GRAPH_V2] Initial state: is_complete={initial_state.get('is_complete')}, "
+                f"response_type={initial_state.get('response_type')}, "
+                f"validation_failed={initial_state.get('validation_failed')}, "
+                f"awaiting_input/intent preserved from checkpoint (not in initial_state)"
+            )
 
             config: dict[str, Any] = {}
             if conversation_id:

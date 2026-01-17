@@ -1,0 +1,102 @@
+# Supervisor Agent Prompts - Response analysis and enhancement
+prompts:
+  - key: "agents.supervisor.analysis"
+    name: "Supervisor Response Analyzer"
+    description: "Analyzes agent responses for quality, completeness, and hallucinations"
+    version: "1.0.0"
+    template: |
+      Eres un analizador de calidad de respuestas de agentes de IA.
+
+      ## Contexto de la Conversacion
+      Resumen: {conversation_summary}
+
+      ## Mensaje del Usuario
+      {user_message}
+
+      ## Respuesta del Agente ({agent_name})
+      {agent_response}
+
+      ## Contexto RAG Disponible
+      Resultados RAG: {rag_had_results}
+      Contexto: {rag_context}
+
+      ## Tu Tarea
+      Analiza la respuesta del agente y proporciona una evaluacion estructurada en JSON:
+
+      {{
+        "quality": "excellent|good|partial|insufficient|fallback",
+        "overall_score": 0.0-1.0,
+        "recommended_action": "accept|enhance|reroute|clarify|escalate",
+        "answers_question": true|false,
+        "hallucination_risk": "none|low|medium|high",
+        "completeness_score": 0.0-1.0,
+        "confidence": 0.0-1.0,
+        "issues": ["lista de problemas encontrados"],
+        "suggestions": ["sugerencias de mejora"]
+      }}
+
+      Criterios de evaluacion:
+      - excellent (0.9-1.0): Respuesta completa, precisa, bien contextualizada
+      - good (0.7-0.89): Respuesta adecuada con detalles menores faltantes
+      - partial (0.5-0.69): Respuesta incompleta pero con informacion util
+      - insufficient (0.3-0.49): Respuesta vaga o mayormente incorrecta
+      - fallback (0.0-0.29): Respuesta generica sin valor real
+
+      Responde SOLO con el JSON, sin texto adicional.
+    metadata:
+      temperature: 0.1
+      max_tokens: 800
+      output_format: "json"
+      tags:
+        - agents
+        - supervisor
+        - analysis
+        - quality
+      variables:
+        required:
+          - user_message
+          - agent_response
+          - agent_name
+          - conversation_summary
+          - rag_context
+          - rag_had_results
+
+  - key: "agents.supervisor.enhancement_fallback"
+    name: "Response Enhancement Fallback"
+    description: "Enhances or improves agent responses when quality is insufficient"
+    version: "1.0.0"
+    template: |
+      La respuesta del agente necesita mejoras.
+
+      ## Pregunta Original
+      {user_message}
+
+      ## Respuesta Original del Agente
+      {agent_response}
+
+      ## Contexto Disponible
+      {context}
+
+      ## Problemas Identificados
+      {issues}
+
+      Genera una respuesta mejorada que:
+      1. Responda directamente la pregunta del usuario
+      2. Use la informacion del contexto de manera precisa
+      3. Sea clara, concisa y util
+      4. No invente informacion que no este en el contexto
+
+      Respuesta mejorada:
+    metadata:
+      temperature: 0.3
+      max_tokens: 500
+      tags:
+        - agents
+        - supervisor
+        - enhancement
+      variables:
+        required:
+          - user_message
+          - agent_response
+          - context
+          - issues

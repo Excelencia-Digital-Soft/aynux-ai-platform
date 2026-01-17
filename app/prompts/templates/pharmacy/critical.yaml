@@ -246,3 +246,44 @@ prompts:
           - total_debt
           - remaining_balance
         optional: []
+
+  - key: "pharmacy.error.mp_disabled"
+    name: "Mercado Pago Disabled"
+    description: "Fixed template when Mercado Pago is not enabled for pharmacy"
+    version: "1.0.0"
+    template: |
+      *{pharmacy_name}*
+
+      ━━━━━━━━━━━━━━━━━━━━
+      *PAGO ONLINE NO DISPONIBLE*
+      ━━━━━━━━━━━━━━━━━━━━
+
+      Hola *{customer_name}*, el pago online no esta habilitado actualmente.
+
+      Para pagar tu deuda de *${total_debt}*, podes acercarte a la farmacia:
+
+      *Direccion:* {pharmacy_address}
+      *Telefono:* {pharmacy_phone}
+      *Horario:* {pharmacy_hours}
+
+      Disculpa las molestias.
+
+      Escribe *MENU* para volver al menu principal.
+    metadata:
+      temperature: 0
+      max_tokens: 400
+      is_critical: true
+      tags:
+        - pharmacy
+        - critical
+        - error
+        - payment
+      variables:
+        required:
+          - pharmacy_name
+          - customer_name
+          - total_debt
+          - pharmacy_address
+          - pharmacy_phone
+          - pharmacy_hours
+        optional: []

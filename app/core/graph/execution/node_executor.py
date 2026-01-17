@@ -108,6 +108,10 @@ class NodeExecutor:
                 "human_handoff_requested": result.get("human_handoff_requested", False),
                 "supervisor_retry_count": state.get("supervisor_retry_count", 0) + 1,
                 "agent_history": ["supervisor"],  # Reducer will concatenate
+                # PASSTHROUGH: WhatsApp interactive response fields from domain agents
+                "response_type": result.get("response_type"),
+                "response_buttons": result.get("response_buttons"),
+                "response_list_items": result.get("response_list_items"),
             }
 
             # Handle enhanced response if provided
@@ -190,7 +194,17 @@ class NodeExecutor:
                 logger.debug(f"Converted 'response' field to messages for {agent_name}")
 
             # Copy other fields including RAG metrics for graph visualization
-            for key in ["retrieved_data", "is_complete", "error_count", "rag_metrics"]:
+            # and WhatsApp interactive response fields for pharmacy domain
+            for key in [
+                "retrieved_data",
+                "is_complete",
+                "error_count",
+                "rag_metrics",
+                # WhatsApp interactive response fields (pharmacy domain)
+                "response_type",
+                "response_buttons",
+                "response_list_items",
+            ]:
                 if key in result:
                     updates[key] = result[key]
 

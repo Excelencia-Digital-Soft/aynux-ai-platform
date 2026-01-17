@@ -175,6 +175,13 @@ class PharmacyOperationsAgent(BaseAgent):
                 **subgraph_kwargs,
             )
 
+            # DEBUG: Log subgraph result for WhatsApp fields
+            logger.info(
+                f"[PHARMACY_AGENT] Subgraph result: "
+                f"response_type={result.get('response_type')}, "
+                f"buttons_count={len(result.get('response_buttons') or [])}"
+            )
+
             # Extract pharmacy-specific fields from result
             pharmacy_result_fields = extract_domain_fields_from_result(result, "pharmacy")
 
@@ -186,10 +193,27 @@ class PharmacyOperationsAgent(BaseAgent):
             # Merge result: messages go to root, pharmacy fields to domain_states
             domain_state_update = update_domain_state(state_dict, "pharmacy", pharmacy_result_fields)
 
+            # CRITICAL: Also include WhatsApp response fields at root level
+            # for extract_interactive_data() in pharmacy_helpers.py to find them
+            response_type = result.get("response_type")
+            response_buttons = result.get("response_buttons")
+            response_list_items = result.get("response_list_items")
+
+            # DEBUG: Log what we're returning to main graph
+            logger.info(
+                f"[PHARMACY_AGENT] Returning to main graph: "
+                f"response_type={response_type}, "
+                f"buttons_count={len(response_buttons or [])}"
+            )
+
             return {
                 "messages": result.get("messages", []),
                 "current_agent": self.agent_name,
                 "agent_history": agent_history,
+                # WhatsApp interactive response fields (must be at root level)
+                "response_type": response_type,
+                "response_buttons": response_buttons,
+                "response_list_items": response_list_items,
                 **domain_state_update,
             }
 

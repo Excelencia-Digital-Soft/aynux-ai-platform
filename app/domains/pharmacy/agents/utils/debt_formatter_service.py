@@ -260,10 +260,7 @@ class DebtFormatterService:
         else:
             lines.append(_templates.get_action_menu_item("pay_other"))
 
-        # Option 3: View invoice details
-        lines.append(_templates.get_action_menu_item("view_invoices"))
-
-        # Option 4: Return to menu
+        # Option 3: Return to menu (View invoice details removed - debt shows invoices)
         lines.append(_templates.get_action_menu_item("back_to_menu"))
 
         return "\n".join(lines)

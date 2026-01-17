@@ -72,11 +72,11 @@ prompts:
       User Context: {user_context}
 
       Return JSON with routing decision:
-      {
+      {{
         "domain": "target_domain",
         "confidence": 0.0-1.0,
         "fallback": "fallback_domain"
-      }
+      }}
     metadata:
       temperature: 0.2
       max_tokens: 80

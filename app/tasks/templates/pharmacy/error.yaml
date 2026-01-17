@@ -111,6 +111,30 @@ tasks:
         required: []
         optional: []
 
+  - key: "pharmacy.error.mp_disabled"
+    name: "Mercado Pago Disabled Task"
+    description: "Handle Mercado Pago disabled for pharmacy"
+    version: "1.0.0"
+    template: |
+      Informa que el pago online no esta disponible actualmente.
+      Sugiere acercarse a la farmacia para realizar el pago presencialmente.
+      Proporciona datos de contacto:
+      Telefono: {pharmacy_phone}
+      Direccion: {pharmacy_address}
+      Horario: {pharmacy_hours}
+    metadata:
+      tags:
+        - pharmacy
+        - error
+        - payment
+        - task
+      variables:
+        required:
+          - pharmacy_phone
+          - pharmacy_address
+          - pharmacy_hours
+        optional: []
+
   - key: "pharmacy.error.fallback"
     name: "Error Fallback Task"
     description: "Generic error fallback"

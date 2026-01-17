@@ -1,0 +1,294 @@
+# Fallback Agent Prompts - Multi-language support for unrecognized queries
+prompts:
+  # === DYNAMIC PROMPTS (for LLM generation) ===
+  - key: "agents.fallback.dynamic.es"
+    name: "Fallback Dynamic Response (Spanish)"
+    description: "Dynamic LLM prompt for generating helpful responses in Spanish"
+    version: "1.0.0"
+    template: |
+      Eres un asistente virtual amable y servicial.
+
+      El usuario escribio: "{message}"
+
+      No reconoci exactamente lo que necesita, pero puedo ayudar con: {services_str}
+
+      Genera una respuesta amable que:
+      1. Reconozca su mensaje de forma empatica
+      2. Ofrezca ayuda con los servicios disponibles
+      3. Sea breve y clara (maximo 3 oraciones)
+      4. Invite al usuario a reformular o elegir una opcion
+
+      No inventes servicios que no estan en la lista.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - agents
+        - fallback
+        - dynamic
+        - spanish
+      variables:
+        required:
+          - message
+          - services_str
+
+  - key: "agents.fallback.dynamic.en"
+    name: "Fallback Dynamic Response (English)"
+    description: "Dynamic LLM prompt for generating helpful responses in English"
+    version: "1.0.0"
+    template: |
+      You are a friendly and helpful virtual assistant.
+
+      The user wrote: "{message}"
+
+      I didn't recognize exactly what they need, but I can help with: {services_str}
+
+      Generate a friendly response that:
+      1. Acknowledges their message empathetically
+      2. Offers help with the available services
+      3. Is brief and clear (maximum 3 sentences)
+      4. Invites the user to rephrase or choose an option
+
+      Don't invent services that aren't in the list.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - agents
+        - fallback
+        - dynamic
+        - english
+      variables:
+        required:
+          - message
+          - services_str
+
+  - key: "agents.fallback.dynamic.pt"
+    name: "Fallback Dynamic Response (Portuguese)"
+    description: "Dynamic LLM prompt for generating helpful responses in Portuguese"
+    version: "1.0.0"
+    template: |
+      Voce e um assistente virtual amigavel e prestativo.
+
+      O usuario escreveu: "{message}"
+
+      Nao reconheci exatamente o que ele precisa, mas posso ajudar com: {services_str}
+
+      Gere uma resposta amigavel que:
+      1. Reconheca a mensagem de forma empatica
+      2. Ofereca ajuda com os servicos disponiveis
+      3. Seja breve e clara (maximo 3 frases)
+      4. Convide o usuario a reformular ou escolher uma opcao
+
+      Nao invente servicos que nao estao na lista.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - agents
+        - fallback
+        - dynamic
+        - portuguese
+      variables:
+        required:
+          - message
+          - services_str
+
+  # === DEFAULT RESPONSES (static templates) ===
+  - key: "agents.fallback.default.es"
+    name: "Fallback Default Response (Spanish)"
+    description: "Default static response when LLM fails in Spanish"
+    version: "1.0.0"
+    template: |
+      No entendi tu consulta, pero estoy aqui para ayudarte.
+
+      Puedo asistirte con:
+      {service_list}
+
+      Con que te gustaria empezar?
+    metadata:
+      temperature: 0
+      max_tokens: 150
+      tags:
+        - agents
+        - fallback
+        - default
+        - spanish
+      variables:
+        required:
+          - service_list
+
+  - key: "agents.fallback.default.en"
+    name: "Fallback Default Response (English)"
+    description: "Default static response when LLM fails in English"
+    version: "1.0.0"
+    template: |
+      I didn't understand your request, but I'm here to help.
+
+      I can assist you with:
+      {service_list}
+
+      What would you like to start with?
+    metadata:
+      temperature: 0
+      max_tokens: 150
+      tags:
+        - agents
+        - fallback
+        - default
+        - english
+      variables:
+        required:
+          - service_list
+
+  - key: "agents.fallback.default.pt"
+    name: "Fallback Default Response (Portuguese)"
+    description: "Default static response when LLM fails in Portuguese"
+    version: "1.0.0"
+    template: |
+      Nao entendi sua consulta, mas estou aqui para ajudar.
+
+      Posso ajuda-lo com:
+      {service_list}
+
+      Com o que gostaria de comecar?
+    metadata:
+      temperature: 0
+      max_tokens: 150
+      tags:
+        - agents
+        - fallback
+        - default
+        - portuguese
+      variables:
+        required:
+          - service_list
+
+  # === ERROR RESPONSES ===
+  - key: "agents.fallback.error.es"
+    name: "Fallback Error Response (Spanish)"
+    description: "Error response when processing fails in Spanish"
+    version: "1.0.0"
+    template: |
+      Disculpa, tuve un problema procesando tu mensaje.
+
+      Puedo ayudarte con:
+      {service_list}
+
+      Con que te gustaria empezar?
+    metadata:
+      temperature: 0
+      max_tokens: 150
+      tags:
+        - agents
+        - fallback
+        - error
+        - spanish
+      variables:
+        required:
+          - service_list
+
+  - key: "agents.fallback.error.en"
+    name: "Fallback Error Response (English)"
+    description: "Error response when processing fails in English"
+    version: "1.0.0"
+    template: |
+      Sorry, I had a problem processing your message.
+
+      I can help you with:
+      {service_list}
+
+      What would you like to start with?
+    metadata:
+      temperature: 0
+      max_tokens: 150
+      tags:
+        - agents
+        - fallback
+        - error
+        - english
+      variables:
+        required:
+          - service_list
+
+  - key: "agents.fallback.error.pt"
+    name: "Fallback Error Response (Portuguese)"
+    description: "Error response when processing fails in Portuguese"
+    version: "1.0.0"
+    template: |
+      Desculpe, tive um problema ao processar sua mensagem.
+
+      Posso ajuda-lo com:
+      {service_list}
+
+      Com o que gostaria de comecar?
+    metadata:
+      temperature: 0
+      max_tokens: 150
+      tags:
+        - agents
+        - fallback
+        - error
+        - portuguese
+      variables:
+        required:
+          - service_list
+
+  # === LEGACY PROMPTS (for backward compatibility) ===
+  - key: "agents.fallback.helpful_response"
+    name: "Fallback Helpful Response"
+    description: "Legacy helpful response prompt"
+    version: "1.0.0"
+    template: |
+      El usuario escribio: "{message}"
+
+      Servicios disponibles: {services_str}
+
+      Responde de forma amable indicando que servicios pueden ayudarle.
+    metadata:
+      temperature: 0.7
+      max_tokens: 200
+      tags:
+        - agents
+        - fallback
+        - legacy
+      variables:
+        required:
+          - message
+          - services_str
+
+  - key: "agents.fallback.default_response"
+    name: "Fallback Default Response"
+    description: "Legacy default response"
+    version: "1.0.0"
+    template: |
+      No entendi tu consulta, pero puedo ayudarte con:
+      {service_list}
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - agents
+        - fallback
+        - legacy
+      variables:
+        required:
+          - service_list
+
+  - key: "agents.fallback.error_response"
+    name: "Fallback Error Response"
+    description: "Legacy error response"
+    version: "1.0.0"
+    template: |
+      Disculpa, tuve un problema. Puedo ayudarte con:
+      {service_list}
+    metadata:
+      temperature: 0
+      max_tokens: 100
+      tags:
+        - agents
+        - fallback
+        - legacy
+      variables:
+        required:
+          - service_list

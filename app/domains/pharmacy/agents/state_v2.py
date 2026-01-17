@@ -34,7 +34,7 @@ class PharmacyStateV2(TypedDict):
 
     Organized into logical groups:
     1. Core Messages (~1 field)
-    2. Identification (~7 fields)
+    2. Identification (~9 fields)
     3. Account (~4 fields)
     4. Debt (~5 fields)
     5. Payment (~6 fields)
@@ -42,7 +42,7 @@ class PharmacyStateV2(TypedDict):
     7. WhatsApp Response (~3 fields)
     8. Multi-tenant (~3 fields)
 
-    Total: ~37 fields (down from ~90 in V1)
+    Total: ~39 fields (down from ~90 in V1)
     """
 
     # =========================================================================
@@ -56,7 +56,7 @@ class PharmacyStateV2(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
 
     # =========================================================================
-    # Identification (7 fields)
+    # Identification (9 fields)
     # =========================================================================
     user_phone: str | None  # WhatsApp phone number (e.g., 5493446405060)
     plex_user_id: int | None  # PLEX internal customer ID
@@ -65,6 +65,8 @@ class PharmacyStateV2(TypedDict):
     customer_name: str | None  # Display name for personalization
     auth_level: str | None  # "STRONG", "MEDIUM", "WEAK" for obfuscation rules
     pending_dni: str | None  # DNI being validated (during auth flow)
+    pending_account_number: str | None  # Account number being validated
+    validation_failed: bool  # True when auth validation fails completely
 
     # =========================================================================
     # Account Selection (4 fields)
@@ -162,6 +164,8 @@ def get_state_defaults() -> dict[str, Any]:
         "customer_name": None,
         "auth_level": None,
         "pending_dni": None,
+        "pending_account_number": None,
+        "validation_failed": False,
         # Account Selection
         "current_account_id": None,
         "registered_accounts": None,

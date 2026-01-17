@@ -31,8 +31,12 @@ from app.domains.pharmacy.agents.nodes.info_node import (
     info_node,
 )
 from app.domains.pharmacy.agents.nodes.payment_processor_node import (
-    PaymentProcessorService,
     payment_processor_node,
+)
+
+# Payment utilities (extracted from payment_processor_node for SRP)
+from app.domains.pharmacy.agents.utils.payment import (
+    PaymentLinkService,
 )
 from app.domains.pharmacy.agents.nodes.response_formatter import (
     ResponseFormatter,
@@ -60,7 +64,7 @@ __all__ = [
     "DebtManagerService",
     # Payment
     "payment_processor_node",
-    "PaymentProcessorService",
+    "PaymentLinkService",
     # Account
     "account_switcher_node",
     "AccountSwitcherService",

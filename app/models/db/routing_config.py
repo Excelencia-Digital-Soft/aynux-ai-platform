@@ -255,6 +255,7 @@ class RoutingConfigType:
     BUTTON_MAPPING = "button_mapping"
     MENU_OPTION = "menu_option"
     LIST_SELECTION = "list_selection"
+    INTENT_NODE_MAPPING = "intent_node_mapping"  # Maps intent -> default node
 
     ALL_TYPES = frozenset(
         {
@@ -262,6 +263,7 @@ class RoutingConfigType:
             BUTTON_MAPPING,
             MENU_OPTION,
             LIST_SELECTION,
+            INTENT_NODE_MAPPING,
         }
     )
 
@@ -271,4 +273,5 @@ class RoutingConfigType:
         BUTTON_MAPPING: 50,
         LIST_SELECTION: 45,
         MENU_OPTION: 40,
+        INTENT_NODE_MAPPING: 30,
     }

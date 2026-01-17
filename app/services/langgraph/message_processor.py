@@ -34,9 +34,20 @@ class MessageProcessor:
         )
 
     def extract_message_text(self, message: WhatsAppMessage) -> str:
-        """Extrae el texto del mensaje de WhatsApp"""
+        """Extrae el texto del mensaje de WhatsApp (texto o respuesta interactiva)"""
+        # Handle text messages
         if hasattr(message, "text") and message.text:
             return message.text.body.strip()
+
+        # Handle interactive messages (button/list replies from WhatsApp)
+        if hasattr(message, "interactive") and message.interactive:
+            if message.interactive.button_reply:
+                # Use button title (readable) or ID as fallback
+                return message.interactive.button_reply.title or message.interactive.button_reply.id
+            elif message.interactive.list_reply:
+                # Use list item title (readable) or ID as fallback
+                return message.interactive.list_reply.title or message.interactive.list_reply.id
+
         return ""
 
     def detect_language(self, text: str) -> str:
@@ -121,6 +132,12 @@ class MessageProcessor:
                     response_text = msg.content
                     break
 
+            # Log interactive response fields for debugging
+            self.logger.info(
+                f"[MESSAGE_PROCESSOR] Graph result has response_type={result.get('response_type')}, "
+                f"buttons_count={len(result.get('response_buttons') or [])}"
+            )
+
             return {
                 "response": response_text,
                 "agent_used": agent_used,
@@ -128,6 +145,10 @@ class MessageProcessor:
                 "is_complete": result.get("is_complete", False),
                 "processing_time_ms": 0,  # TODO: Implement timing
                 "graph_result": result,
+                # WhatsApp interactive response fields (pharmacy domain)
+                "response_type": result.get("response_type"),
+                "response_buttons": result.get("response_buttons"),
+                "response_list_items": result.get("response_list_items"),
             }
 
         except Exception as e:

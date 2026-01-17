@@ -104,7 +104,8 @@ def extract_interactive_data(result: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dictionary with response_type, response_buttons, and response_list_items
     """
-    response_type = result.get("response_type", "text")
+    # Use "or" to handle both missing key AND None value
+    response_type = result.get("response_type") or "text"
     response_buttons = result.get("response_buttons")
     response_list_items = result.get("response_list_items")
 

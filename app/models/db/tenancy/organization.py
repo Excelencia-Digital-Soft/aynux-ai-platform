@@ -258,6 +258,13 @@ class Organization(Base, TimestampMixin):
         cascade="all, delete-orphan",
     )
 
+    # Awaiting type configurations (DB-driven awaiting input routing)
+    awaiting_type_configs = relationship(
+        "AwaitingTypeConfig",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
     # Table configuration
     __table_args__ = (
         Index("idx_organizations_slug", slug),

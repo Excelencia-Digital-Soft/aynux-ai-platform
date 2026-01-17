@@ -29,13 +29,13 @@ prompts:
       - Conversation flow
 
       Return JSON format:
-      {
+      {{
         "target_service": "excelencia|excelencia_invoice|excelencia_promotions|data_insights|support",
         "confidence": 0.95,
         "reasoning": "explanation",
         "requires_context_transfer": bool,
         "fallback_service": "support"
-      }
+      }}
     metadata:
       temperature: 0.5
       max_tokens: 400
@@ -61,12 +61,12 @@ prompts:
       {available_agents}
 
       Return JSON:
-      {
+      {{
         "target_agent": "agent_name",
         "confidence": 0.95,
-        "entities": {},
+        "entities": {{}},
         "requires_handoff": bool
-      }
+      }}
     metadata:
       temperature: 0.6
       max_tokens: 300
@@ -108,11 +108,11 @@ prompts:
       8. FALLBACK - Consultas no reconocidas o confusas
 
       ## FORMATO JSON REQUERIDO:
-      {
+      {{
         "intent": "NOMBRE_DE_LA_INTENCION_DETECTADA",
         "message": "STRING_DESCRIPTIVO_DE_LA_ACCION_DETECTADA_PARA_LOGS",
         "confidence": "FLOAT_ENTRE_0.0_Y_1.0"
-      }
+      }}
 
       Basándote en el MENSAJE DE USUARIO y el HISTORIAL DE CONVERSACIÓN,
       analiza la intención y genera ÚNICAMENTE el objeto JSON correspondiente.

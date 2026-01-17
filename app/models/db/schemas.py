@@ -31,8 +31,11 @@ EXCELENCIA_SCHEMA = "excelencia"
 # Pharmacy domain schema (Farmacia operations)
 PHARMACY_SCHEMA = "pharmacy"
 
+# Workflow domain schema (Configurable workflows)
+WORKFLOW_SCHEMA = "workflow"
+
 # Default search path for SQLAlchemy connections
-DEFAULT_SEARCH_PATH = f"public,{CORE_SCHEMA},{ECOMMERCE_SCHEMA},{HEALTHCARE_SCHEMA},{CREDIT_SCHEMA},{SOPORTE_SCHEMA},{EXCELENCIA_SCHEMA},{PHARMACY_SCHEMA}"
+DEFAULT_SEARCH_PATH = f"public,{CORE_SCHEMA},{ECOMMERCE_SCHEMA},{HEALTHCARE_SCHEMA},{CREDIT_SCHEMA},{SOPORTE_SCHEMA},{EXCELENCIA_SCHEMA},{PHARMACY_SCHEMA},{WORKFLOW_SCHEMA}"
 
 # All managed schemas (for Alembic configuration)
 MANAGED_SCHEMAS = frozenset({
@@ -44,4 +47,5 @@ MANAGED_SCHEMAS = frozenset({
     SOPORTE_SCHEMA,
     EXCELENCIA_SCHEMA,
     PHARMACY_SCHEMA,
+    WORKFLOW_SCHEMA,
 })

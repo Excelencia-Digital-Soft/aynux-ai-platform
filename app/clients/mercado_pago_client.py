@@ -193,13 +193,13 @@ class MercadoPagoClient:
                 }
             ],
             "external_reference": external_reference,
-            "auto_return": "approved",
             "expires": True,
             "expiration_date_from": None,  # Will use default (now)
             "expiration_date_to": None,  # Will use default (24h)
         }
 
         # Add notification URL if configured
+        # NOTE: auto_return requires back_urls.success to be defined
         if self._notification_url:
             payload["notification_url"] = self._notification_url
             payload["back_urls"] = {
@@ -207,6 +207,8 @@ class MercadoPagoClient:
                 "failure": f"{self._notification_url}/failure",
                 "pending": f"{self._notification_url}/pending",
             }
+            # Only set auto_return when back_urls is defined
+            payload["auto_return"] = "approved"
 
         # Add payer info if provided
         if payer_email or payer_phone or payer_name:

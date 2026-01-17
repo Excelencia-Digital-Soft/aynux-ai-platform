@@ -247,21 +247,27 @@ async def account_switcher_node(
         return await _handle_selection(message, state, service, organization_id)
 
     # Check if we need to show own/other question first
+    # Always reload accounts if None or empty list (may be stale from checkpoint)
     accounts = state.get("registered_accounts")
-    if accounts is None:
+    logger.info(
+        f"[ACCOUNT_SWITCHER] Checking accounts: existing={len(accounts) if accounts else 0}, "
+        f"is_none={accounts is None}"
+    )
+    if not accounts:
         # Load accounts
         phone = state.get("user_phone") or ""
         pharmacy_id = state.get("pharmacy_id")
+        logger.info(f"[ACCOUNT_SWITCHER] Loading accounts for phone={phone}, pharmacy_id={pharmacy_id}")
         accounts = await service.load_registered_accounts(phone, pharmacy_id)
+        logger.info(f"[ACCOUNT_SWITCHER] Loaded {len(accounts)} accounts")
 
         if not accounts:
-            # No registered accounts - go to auth
-            template = await AccountTemplates.get(AccountTemplateKeys.NO_REGISTERED_ACCOUNTS)
+            # No registered accounts - ask for account number (primary auth method)
+            # DNI is fallback only if account number not found
             return {
-                "messages": [{"role": "assistant", "content": template}],
                 "current_node": "account_switcher",
                 "registered_accounts": [],
-                "awaiting_input": "dni",
+                "awaiting_input": "account_number",
                 "next_node": "auth_plex",
             }
 
@@ -275,10 +281,45 @@ async def account_switcher_node(
 
 async def _handle_own_or_other(
     message: str,
-    state: "PharmacyStateV2",  # noqa: ARG001
+    state: "PharmacyStateV2",
     organization_id: UUID | None,
 ) -> dict[str, Any]:
     """Handle own/other debt selection."""
+    # Check if button mapping already set the intent (handles btn_own_debt/btn_other_debt)
+    current_intent = state.get("intent")
+    if current_intent == "own_debt":
+        logger.info("[OWN_OR_OTHER] Button intent 'own_debt' detected, routing to debt_manager")
+        template = await AccountTemplates.get(AccountTemplateKeys.QUERYING_OWN_DEBT)
+        return {
+            "messages": [{"role": "assistant", "content": template}],
+            "current_node": "account_switcher",
+            "is_self": True,
+            "awaiting_input": None,
+            "next_node": "debt_manager",
+        }
+
+    if current_intent == "other_debt":
+        logger.info("[OWN_OR_OTHER] Button intent 'other_debt' detected, loading account list")
+        # Load and show account list for other person selection
+        service = AccountSwitcherService()
+        phone = state.get("user_phone") or ""
+        pharmacy_id = state.get("pharmacy_id")
+        accounts = await service.load_registered_accounts(phone, pharmacy_id)
+
+        if not accounts:
+            # No registered accounts - ask for account number (primary auth method)
+            return {
+                "current_node": "account_switcher",
+                "is_self": False,
+                "registered_accounts": [],
+                "awaiting_input": "account_number",
+                "next_node": "auth_plex",
+            }
+
+        result = await _show_account_list(accounts, state)
+        result["is_self"] = False
+        return result
+
     # Check for "own" indicators using DB keywords
     if organization_id and await KeywordMatcher.matches_intent(None, organization_id, message, "account_own_selection"):
         template = await AccountTemplates.get(AccountTemplateKeys.QUERYING_OWN_DEBT)
@@ -294,13 +335,26 @@ async def _handle_own_or_other(
     if organization_id and await KeywordMatcher.matches_intent(
         None, organization_id, message, "account_other_selection"
     ):
-        # Show account list for other person
-        return {
-            "current_node": "account_switcher",
-            "is_self": False,
-            "awaiting_input": "account_selection",
-            "awaiting_account_selection": True,
-        }
+        # Load and show account list for other person selection
+        service = AccountSwitcherService()
+        phone = state.get("user_phone") or ""
+        pharmacy_id = state.get("pharmacy_id")
+        accounts = await service.load_registered_accounts(phone, pharmacy_id)
+
+        if not accounts:
+            # No registered accounts - ask for account number (primary auth method)
+            return {
+                "current_node": "account_switcher",
+                "is_self": False,
+                "registered_accounts": [],
+                "awaiting_input": "account_number",
+                "next_node": "auth_plex",
+            }
+
+        # Show account list for selection
+        result = await _show_account_list(accounts, state)
+        result["is_self"] = False
+        return result
 
     # Unclear response
     template = await AccountTemplates.get(AccountTemplateKeys.OWN_OR_OTHER_PROMPT)
@@ -322,11 +376,10 @@ async def _handle_selection(
 
     # Check for add new intent using DB keywords
     if organization_id and await KeywordMatcher.matches_intent(None, organization_id, message, "account_add_new"):
-        template = await AccountTemplates.get(AccountTemplateKeys.ADD_PERSON_DNI_REQUEST)
+        # Primary auth method is account number, DNI is fallback
         return {
-            "messages": [{"role": "assistant", "content": template}],
             "current_node": "account_switcher",
-            "awaiting_input": "dni",
+            "awaiting_input": "account_number",
             "awaiting_account_selection": False,
             "next_node": "auth_plex",
         }
@@ -336,11 +389,10 @@ async def _handle_selection(
 
     # Check for "add new" selection (last option)
     if message.strip() == str(options_count):
-        template = await AccountTemplates.get(AccountTemplateKeys.ADD_PERSON_DNI_REQUEST)
+        # Primary auth method is account number, DNI is fallback
         return {
-            "messages": [{"role": "assistant", "content": template}],
             "current_node": "account_switcher",
-            "awaiting_input": "dni",
+            "awaiting_input": "account_number",
             "awaiting_account_selection": False,
             "next_node": "auth_plex",
         }
@@ -414,6 +466,7 @@ async def _show_account_list(
     error_message: str | None = None,
 ) -> dict[str, Any]:
     """Show account selection list."""
+    logger.info(f"[ACCOUNT_SWITCHER] _show_account_list called with {len(accounts)} accounts")
     lines = []
 
     if error_message:
@@ -445,6 +498,7 @@ async def _show_account_list(
         "registered_accounts": accounts,
         "awaiting_input": "account_selection",
         "awaiting_account_selection": True,
+        "intent": "switch_account",
     }
 
 

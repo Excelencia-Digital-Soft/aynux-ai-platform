@@ -42,13 +42,13 @@ class PharmacyTemplateLoader:
     Single Responsibility: Loading and caching YAML template files.
     """
 
-    # New folder structure (2026-01-12)
-    SYSTEM_CONTEXT_FILE = "pharmacy/core/system_context.yaml"
-    CRITICAL_TEMPLATES_FILE = "pharmacy/critical/critical_templates.yaml"
+    # Flat structure (pharmacy/*.yaml) - updated 2026-01-14
+    SYSTEM_CONTEXT_FILE = "pharmacy/core.yaml"
+    CRITICAL_TEMPLATES_FILE = "pharmacy/critical.yaml"
 
     # Fallback templates consolidated into single file
     FALLBACK_TEMPLATES_FILES = [
-        "pharmacy/fallback/fallback.yaml",
+        "pharmacy/fallback.yaml",
     ]
 
     def __init__(self, templates_dir: Path | str | None = None) -> None:
@@ -103,7 +103,14 @@ class PharmacyTemplateLoader:
             if not isinstance(data, dict):
                 logger.warning("System context YAML is not a dict: %s", type(data))
                 return ""
-            return data.get("system_prompt", "")
+            # Try direct system_prompt first, then prompts[0].template
+            if "system_prompt" in data:
+                return data["system_prompt"]
+            # Handle prompts list structure (pharmacy/core.yaml format)
+            prompts = data.get("prompts", [])
+            if prompts and isinstance(prompts, list):
+                return prompts[0].get("template", "")
+            return ""
         except Exception as e:
             logger.error("Failed to load system context: %s", e)
             return ""

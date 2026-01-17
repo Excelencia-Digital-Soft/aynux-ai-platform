@@ -1,0 +1,71 @@
+# History Agent Prompts - Conversation summarization and entity extraction
+prompts:
+  - key: "agents.history.summarize"
+    name: "Conversation Summary Generator"
+    description: "Generates rolling summaries of conversation history"
+    version: "1.0.0"
+    template: |
+      Eres un asistente que resume conversaciones de forma concisa.
+
+      ## Resumen anterior:
+      {previous_summary}
+
+      ## Nuevo intercambio:
+      Usuario: {user_message}
+      Asistente: {bot_response}
+
+      Genera un resumen actualizado (máximo 200 palabras) que:
+      1. Capture los temas principales discutidos
+      2. Retenga información clave del usuario (nombre, preferencias, problemas)
+      3. Note acciones pendientes o compromisos
+      4. Mantenga el tono y estado emocional de la conversación
+
+      Resumen actualizado:
+    metadata:
+      temperature: 0.3
+      max_tokens: 300
+      tags:
+        - agents
+        - history
+        - summarization
+      variables:
+        required:
+          - previous_summary
+          - user_message
+          - bot_response
+
+  - key: "agents.history.extract_entities"
+    name: "Entity Extractor"
+    description: "Extracts named entities from conversation messages"
+    version: "1.0.0"
+    template: |
+      Extrae las entidades nombradas del siguiente texto.
+
+      Texto: {text}
+
+      Identifica y clasifica:
+      - PERSONA: Nombres de personas
+      - ORGANIZACION: Empresas, instituciones
+      - UBICACION: Lugares, direcciones
+      - FECHA: Fechas, periodos de tiempo
+      - CANTIDAD: Números, montos, cantidades
+      - PRODUCTO: Productos, servicios mencionados
+
+      Responde en formato JSON:
+      {{
+        "entities": [
+          {{"text": "...", "type": "...", "confidence": 0.0-1.0}}
+        ]
+      }}
+    metadata:
+      temperature: 0.1
+      max_tokens: 500
+      output_format: "json"
+      tags:
+        - agents
+        - history
+        - ner
+        - entities
+      variables:
+        required:
+          - text

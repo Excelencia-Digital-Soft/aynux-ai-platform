@@ -17,11 +17,14 @@ from .institution_settings import (
     ConnectionSettings,
     ConnectionType,
     InstitutionSettings,
+    InteractionMode,
+    InteractionSettings,
     NoAuth,
     OAuth2Auth,
     SchedulerSettings,
     SoapWssAuth,
     WhatsAppSettings,
+    WorkflowSettings,
 )
 
 __all__ = [
@@ -39,6 +42,10 @@ __all__ = [
     "SchedulerSettings",
     "BrandingSettings",
     "WhatsAppSettings",
+    # Workflow settings
+    "InteractionMode",
+    "InteractionSettings",
+    "WorkflowSettings",
     # Root schema
     "InstitutionSettings",
 ]

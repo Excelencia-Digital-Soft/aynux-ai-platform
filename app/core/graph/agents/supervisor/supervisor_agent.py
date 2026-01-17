@@ -158,6 +158,12 @@ class SupervisorAgent(BaseAgent):
             Dictionary with quality evaluation and flow decision
         """
         try:
+            # DEBUG: Log WhatsApp fields received from previous node
+            logger.info(
+                f"[SUPERVISOR] Received state with response_type={state_dict.get('response_type')}, "
+                f"buttons_count={len(state_dict.get('response_buttons') or [])}"
+            )
+
             conversation_history = state_dict.get("messages", [])
             current_agent = state_dict.get("current_agent")
 
@@ -239,11 +245,27 @@ class SupervisorAgent(BaseAgent):
                 next_agent_value = "orchestrator"
                 logger.info("Supervisor: Setting next_agent to orchestrator for re-routing")
 
+            # Determine is_complete:
+            # 1. If domain agent explicitly set is_complete=False (awaiting input), respect it
+            # 2. Otherwise, use flow_decision.should_end
+            # This allows domain agents (like pharmacy) to indicate they need more input
+            domain_awaiting_input = state_dict.get("awaiting_input") is not None
+            domain_explicitly_incomplete = state_dict.get("is_complete") is False
+            if domain_awaiting_input or domain_explicitly_incomplete:
+                is_complete = False
+                logger.info(
+                    f"Supervisor: Respecting domain state - is_complete=False "
+                    f"(awaiting_input={state_dict.get('awaiting_input')}, "
+                    f"is_complete={state_dict.get('is_complete')})"
+                )
+            else:
+                is_complete = flow_decision.get("should_end", False)
+
             return {
                 "supervisor_evaluation": combined_evaluation,
                 "llm_analysis": self._serialize_llm_analysis(llm_analysis),
                 "conversation_flow": flow_decision,
-                "is_complete": flow_decision.get("should_end", False),
+                "is_complete": is_complete,
                 "needs_re_routing": flow_decision.get("needs_re_routing", False),
                 "human_handoff_requested": flow_decision.get("needs_human_handoff", False),
                 "enhanced_response": enhanced_response,
@@ -259,6 +281,11 @@ class SupervisorAgent(BaseAgent):
                     "flow_decision": flow_decision["decision_type"],
                     "response_enhanced": enhanced_response is not None,
                 },
+                # PASSTHROUGH: Preserve WhatsApp interactive response fields from domain agents
+                # These must be explicitly passed through to prevent loss during state merge
+                "response_type": state_dict.get("response_type"),
+                "response_buttons": state_dict.get("response_buttons"),
+                "response_list_items": state_dict.get("response_list_items"),
             }
 
         except Exception as e:
@@ -322,6 +349,10 @@ class SupervisorAgent(BaseAgent):
                 "error": error_message,
                 "evaluation_timestamp": self._get_current_timestamp(),
             },
+            # PASSTHROUGH: Preserve WhatsApp interactive response fields
+            "response_type": state_dict.get("response_type"),
+            "response_buttons": state_dict.get("response_buttons"),
+            "response_list_items": state_dict.get("response_list_items"),
         }
 
     def _get_current_timestamp(self) -> str:

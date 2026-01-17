@@ -42,6 +42,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# System organization UUID for fallback configs
+SYSTEM_ORG_ID = UUID("00000000-0000-0000-0000-000000000000")
+
 
 @dataclass(frozen=True)
 class ResponseConfigDTO:
@@ -178,6 +181,10 @@ class ResponseConfigCache:
         """
         Get single response config by intent key.
 
+        Implements fallback to SYSTEM_ORG_ID if config not found
+        in the specific organization. This allows shared configs
+        to be defined once in SYSTEM_ORG and inherited by all orgs.
+
         Args:
             db: AsyncSession for database access
             organization_id: Tenant UUID
@@ -185,10 +192,25 @@ class ResponseConfigCache:
             domain_key: Domain scope (default: pharmacy)
 
         Returns:
-            ResponseConfigDTO or None if not found
+            ResponseConfigDTO or None if not found in org or SYSTEM_ORG
         """
+        # First try the specific organization
         configs = await self.get_all_configs(db, organization_id, domain_key)
-        return configs.get(intent_key)
+        config = configs.get(intent_key)
+
+        if config is not None:
+            return config
+
+        # Fallback to SYSTEM_ORG if not found and we're not already checking SYSTEM_ORG
+        if organization_id != SYSTEM_ORG_ID:
+            logger.debug(
+                f"Config '{intent_key}' not found for org {organization_id}, "
+                f"falling back to SYSTEM_ORG"
+            )
+            system_configs = await self.get_all_configs(db, SYSTEM_ORG_ID, domain_key)
+            return system_configs.get(intent_key)
+
+        return None
 
     async def _load_from_database_with_session(
         self,

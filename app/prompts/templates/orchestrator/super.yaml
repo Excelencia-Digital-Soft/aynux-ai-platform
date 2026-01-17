@@ -46,11 +46,11 @@ prompts:
       User history: {history}
 
       Return JSON:
-      {
+      {{
         "domain": "selected_domain",
         "confidence": 0.0-1.0,
         "reasoning": "brief explanation"
-      }
+      }}
     metadata:
       temperature: 0.2
       max_tokens: 100

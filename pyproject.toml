@@ -56,6 +56,8 @@ dependencies = [
     "fpdf2>=2.8.0", # PDF receipt generation
     "rapidfuzz>=3.6.0", # Fast fuzzy string matching for name comparison
     "grandalf>=0.8", # ASCII graph visualization for LangGraph
+    "apscheduler>=3.10.0", # Async job scheduling for reminders
+    "pytz>=2024.1", # Timezone support for APScheduler
 ]
 
 [dependency-groups]

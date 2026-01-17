@@ -232,10 +232,18 @@ class PhrasesRemoveRequest(BaseModel):
 
 
 class ConfirmationPatternsRequest(BaseModel):
-    """Schema for adding/removing confirmation patterns."""
+    """Schema for adding confirmation patterns."""
 
     patterns: list[ConfirmationPatternCreate] = Field(
         ..., min_length=1, description="List of confirmation patterns"
+    )
+
+
+class ConfirmationPatternsRemoveRequest(BaseModel):
+    """Schema for removing confirmation patterns."""
+
+    patterns: list[str] = Field(
+        ..., min_length=1, description="List of pattern strings to remove"
     )
 
 

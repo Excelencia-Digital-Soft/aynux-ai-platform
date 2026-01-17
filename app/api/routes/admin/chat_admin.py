@@ -138,6 +138,9 @@ async def test_chat_agent(
             response=result.get("response", ""),
             agent_used=agent_used,
             execution_steps=execution_steps,
+            response_type=None,
+            response_buttons=None,
+            response_list_items=None,
             debug_info=(
                 {
                     "response_time_ms": response_time_ms,
@@ -228,6 +231,27 @@ async def test_webhook_simulation(
             if request.pharmacy_id:
                 pharmacy_id = UUID(request.pharmacy_id)
 
+        # Load institution config for medical_appointments_agent
+        institution_config_dict: dict | None = None
+        if bypass_target_agent == "medical_appointments_agent" and request.did:
+            from app.core.tenancy.institution_config_service import InstitutionConfigService
+
+            try:
+                config_service = InstitutionConfigService(db_session)
+                inst_config = await config_service.get_config_by_whatsapp_phone(request.did)
+                institution_config_dict = {
+                    "institution": inst_config.institution_key,
+                    "institution_id": inst_config.institution_key,
+                    "institution_name": inst_config.institution_name,
+                    "base_url": inst_config.base_url,
+                    "connection_type": inst_config.connection_type,
+                    "timeout_seconds": inst_config.timeout_seconds,
+                    "timezone": inst_config.timezone,
+                }
+                logger.info(f"Loaded institution config for medical_appointments: {inst_config.institution_key}")
+            except ValueError as e:
+                logger.warning(f"No institution config found for DID {request.did}: {e}")
+
         # Build chattigo_context if did provided
         if request.did:
             chattigo_context = {
@@ -236,6 +260,9 @@ async def test_webhook_simulation(
                 "channelId": None,
                 "idCampaign": None,
             }
+            # Include institution config for medical_appointments_agent
+            if institution_config_dict:
+                chattigo_context["institution_config"] = institution_config_dict
 
         logger.info(
             f"Webhook simulation: phone={request.phone_number}, "
@@ -290,11 +317,19 @@ async def test_webhook_simulation(
                 response_time_ms=response_time_ms,
             )
 
+        # Extract interactive response fields if present
+        response_type = result.metadata.get("response_type") if result.metadata else None
+        response_buttons = result.metadata.get("response_buttons") if result.metadata else None
+        response_list_items = result.metadata.get("response_list_items") if result.metadata else None
+
         return ChatTestResponse(
             session_id=session_id,
             response=result.message,
             agent_used=agent_used,
             execution_steps=execution_steps,
+            response_type=response_type,
+            response_buttons=response_buttons,
+            response_list_items=response_list_items,
             debug_info=(
                 {
                     "response_time_ms": response_time_ms,

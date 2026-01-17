@@ -20,11 +20,11 @@ prompts:
       Analiza el mensaje y determina a que dominio de negocio corresponde.
       Responde SOLO con JSON en este formato:
 
-      {
+      {{
         "domain": "ecommerce|hospital|credit",
         "confidence": float_0_to_1,
         "reasoning": "breve explicacion de la clasificacion"
-      }
+      }}
 
       IMPORTANTE:
       - confidence debe ser 0.0-1.0 (1.0 = muy seguro)

@@ -238,6 +238,59 @@ class WhatsAppSettings(BaseModel):
 
 
 # =============================================================================
+# Workflow Settings
+# =============================================================================
+
+
+class InteractionMode(str, Enum):
+    """Mode for user interaction in workflows."""
+
+    BUTTONS_ONLY = "buttons_only"  # Only interactive buttons/lists
+    NLU_ONLY = "nlu_only"  # Natural language understanding only
+    HYBRID = "hybrid"  # NLU with fallback to buttons
+
+
+class InteractionSettings(BaseModel):
+    """User interaction configuration for workflows.
+
+    Attributes:
+        mode: Interaction mode (buttons_only, nlu_only, hybrid).
+        nlu_enabled: Whether NLU is enabled (for backward compatibility).
+        nlu_confidence_threshold: Minimum confidence for NLU detection.
+        fallback_to_buttons: Show buttons when NLU can't determine intent.
+        max_retries: Maximum retry attempts before fallback/escalation.
+    """
+
+    mode: InteractionMode = InteractionMode.BUTTONS_ONLY
+    nlu_enabled: bool = False
+    nlu_confidence_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    fallback_to_buttons: bool = True
+    max_retries: int = Field(default=3, ge=1, le=10)
+
+    model_config = {"extra": "allow"}
+
+
+class WorkflowSettings(BaseModel):
+    """Workflow configuration for the institution.
+
+    Attributes:
+        enabled: Whether configurable workflows are enabled.
+        default_workflow_key: Key of the default workflow to use.
+        interaction: User interaction settings.
+        human_handoff_specialties: List of specialties that trigger human handoff.
+        allow_custom_workflows: Whether institution can create custom workflows.
+    """
+
+    enabled: bool = False
+    default_workflow_key: str = "default"
+    interaction: InteractionSettings = Field(default_factory=InteractionSettings)
+    human_handoff_specialties: list[str] = Field(default_factory=list)
+    allow_custom_workflows: bool = True
+
+    model_config = {"extra": "allow"}
+
+
+# =============================================================================
 # Root Settings Schema
 # =============================================================================
 
@@ -278,6 +331,7 @@ class InstitutionSettings(BaseModel):
     scheduler: SchedulerSettings = Field(default_factory=SchedulerSettings)
     branding: BrandingSettings = Field(default_factory=BrandingSettings)
     whatsapp: WhatsAppSettings = Field(default_factory=WhatsAppSettings)
+    workflow: WorkflowSettings = Field(default_factory=WorkflowSettings)
     custom: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"extra": "allow"}

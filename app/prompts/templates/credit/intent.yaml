@@ -42,11 +42,11 @@ prompts:
       Context: {context}
 
       Return JSON:
-      {
+      {{
         "intent": "intent_type",
         "urgency": "high|medium|low",
         "requires_auth": true|false
-      }
+      }}
     metadata:
       temperature: 0.3
       max_tokens: 80

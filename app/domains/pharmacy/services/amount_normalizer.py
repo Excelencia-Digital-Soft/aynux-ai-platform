@@ -236,30 +236,39 @@ class AmountNormalizer:
         return None
 
     def _parse_with_thousand_separator(self, value: str) -> Decimal | None:
-        """Parse numbers with thousand separators like '5.000' or '5,000'."""
-        # Remove currency symbol and whitespace
-        cleaned = re.sub(r"[$\s]", "", value)
+        """Parse numbers with thousand separators like '5.000' or '5,000'.
 
-        # Argentina format: 5.000 or 5.000,00
-        # Try Argentina format (. as thousand separator, , as decimal)
-        if re.match(r"^\d{1,3}(\.\d{3})+([,]\d{1,2})?$", cleaned):
+        Uses re.search to find amounts embedded in sentences:
+        - "Pagar $17,005,699.20" → 17005699.20
+        - "quiero 5.000 pesos" → 5000
+        """
+        # Remove currency symbol only (keep text for pattern matching)
+        cleaned = re.sub(r"[$]", "", value)
+
+        # Argentina format: 5.000 or 5.000,00 (. as thousand separator, , as decimal)
+        # Uses re.search to find pattern anywhere in string
+        arg_match = re.search(r"\b(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?)\b", cleaned)
+        if arg_match:
+            num_str = arg_match.group(1)
             # Remove thousand separators (.)
-            cleaned = cleaned.replace(".", "")
+            num_str = num_str.replace(".", "")
             # Replace decimal separator (,) with (.)
-            cleaned = cleaned.replace(",", ".")
+            num_str = num_str.replace(",", ".")
             try:
-                amount = Decimal(cleaned)
+                amount = Decimal(num_str)
                 if amount > 0:
                     return amount
             except InvalidOperation:
                 pass
 
-        # US/International format: 5,000 or 5,000.00
-        if re.match(r"^\d{1,3}(,\d{3})+([.]\d{1,2})?$", cleaned):
+        # US/International format: 5,000 or 5,000.00 (, as thousand separator, . as decimal)
+        us_match = re.search(r"\b(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?)\b", cleaned)
+        if us_match:
+            num_str = us_match.group(1)
             # Remove thousand separators (,)
-            cleaned = cleaned.replace(",", "")
+            num_str = num_str.replace(",", "")
             try:
-                amount = Decimal(cleaned)
+                amount = Decimal(num_str)
                 if amount > 0:
                     return amount
             except InvalidOperation:
@@ -268,12 +277,16 @@ class AmountNormalizer:
         return None
 
     def _parse_shorthand(self, value: str) -> Decimal | None:
-        """Parse shorthand like '5k' or '15K'."""
-        # Remove currency symbol and whitespace
-        cleaned = re.sub(r"[$\s]", "", value).lower()
+        """Parse shorthand like '5k' or '15K'.
 
-        # Match patterns like 5k, 5.5k, 15k
-        match = re.match(r"^(\d+(?:[.,]\d+)?)\s*k$", cleaned)
+        Uses re.search to find patterns anywhere in string:
+        - "quiero pagar 5k" → 5000
+        - "20k pesos" → 20000
+        """
+        cleaned = value.lower()
+
+        # Match patterns like 5k, 5.5k, 15k anywhere in string
+        match = re.search(r"\b(\d+(?:[.,]\d+)?)\s*k\b", cleaned)
         if match:
             num = match.group(1).replace(",", ".")
             try:
@@ -286,7 +299,13 @@ class AmountNormalizer:
         return None
 
     def _parse_spanish_text(self, value: str) -> Decimal | None:
-        """Parse Spanish text like 'cinco mil' or 'quince mil'."""
+        """Parse Spanish text like 'cinco mil', 'quince mil', or '15 mil'.
+
+        Handles both exact matches and embedded amounts in sentences:
+        - "15 mil" → 15000
+        - "quiero pagar 15 mil" → 15000
+        - "quince mil pesos" → 15000
+        """
         cleaned = value.lower().strip()
 
         # Remove common words
@@ -294,16 +313,29 @@ class AmountNormalizer:
         cleaned = re.sub(r"\bargentinos?\b", "", cleaned)
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
-        # Simple pattern: "X mil"
-        match = re.match(r"^(\w+)\s+mil$", cleaned)
-        if match:
-            word = match.group(1)
+        # Pattern 1: "<digit> mil" (e.g., "15 mil", "quiero pagar 15 mil" → 15000)
+        # Uses search to find pattern anywhere in the string
+        digit_mil_match = re.search(r"(\d+(?:[.,]\d+)?)\s+mil\b", cleaned)
+        if digit_mil_match:
+            num_str = digit_mil_match.group(1).replace(",", ".")
+            try:
+                amount = Decimal(num_str) * 1000
+                if amount > 0:
+                    return amount
+            except InvalidOperation:
+                pass
+
+        # Pattern 2: "<word> mil" (e.g., "quince mil" → 15000)
+        # Uses search to find pattern anywhere in the string
+        word_mil_match = re.search(r"\b(\w+)\s+mil\b", cleaned)
+        if word_mil_match:
+            word = word_mil_match.group(1)
             if word in SPANISH_NUMBERS:
                 amount = Decimal(SPANISH_NUMBERS[word] * 1000)
                 if amount > 0:
                     return amount
 
-        # Direct word match
+        # Direct word match (exact)
         if cleaned in SPANISH_NUMBERS:
             amount = Decimal(SPANISH_NUMBERS[cleaned])
             if amount > 0:

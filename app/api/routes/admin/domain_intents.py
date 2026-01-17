@@ -29,6 +29,7 @@ from app.api.schemas.domain_intents import (
     CacheInvalidateRequest,
     CacheInvalidateResponse,
     CacheStatsResponse,
+    ConfirmationPatternsRemoveRequest,
     ConfirmationPatternsRequest,
     DomainListResponse,
     IntentCreate,
@@ -484,6 +485,36 @@ async def add_confirmation_patterns(
 
     return PatternOperationResponse(
         success=True, count=count, message=f"Added {count} confirmation patterns"
+    )
+
+
+@router.delete(
+    "/domains/{domain_key}/intents/{intent_id}/confirmation",
+    response_model=PatternOperationResponse,
+)
+async def remove_confirmation_patterns(
+    data: ConfirmationPatternsRemoveRequest,
+    domain_key: str = Path(..., description="Domain scope"),
+    intent_id: str = Path(..., description="Intent UUID"),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Remove confirmation patterns from an intent."""
+    intent_uuid = _parse_uuid(intent_id, "intent_id")
+
+    repo = DomainIntentRepository(db)
+
+    intent = await repo.get_intent_by_id(intent_uuid)
+    if not intent or intent.domain_key != domain_key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Intent not found: {intent_id}",
+        )
+
+    count = await repo.remove_confirmation_patterns(intent_uuid, data.patterns)
+    await domain_intent_cache.invalidate(intent.organization_id, domain_key)
+
+    return PatternOperationResponse(
+        success=True, count=count, message=f"Removed {count} confirmation patterns"
     )
 
 

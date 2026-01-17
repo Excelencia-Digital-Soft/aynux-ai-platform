@@ -165,6 +165,36 @@ prompts:
         optional: []
 
   # ============================================================================
+  # PAYMENT AMOUNT REQUEST - Ask for partial payment amount with 50% suggestion
+  # ============================================================================
+  - key: "pharmacy.formatter.payment_amount_request"
+    name: "Partial Payment Amount Request"
+    description: "Ask how much to pay with 50% quick option"
+    version: "1.0.0"
+    response_type: "buttons"
+    title: "Pago Parcial"
+    body_template: |
+      *Pago Parcial*
+
+      Tu deuda total: {total_debt}
+
+      ¿Cuánto deseás pagar hoy?
+
+      Podés escribir el monto o elegir una opción 👇
+    buttons:
+      - id: "btn_pagar_50"
+        titulo_template: "Pagar {half_debt}"
+      - id: "btn_pagar_completo"
+        titulo_template: "Pagar {total_debt}"
+    awaiting_input: "amount"
+    metadata:
+      variables:
+        required:
+          - total_debt
+          - half_debt
+        optional: []
+
+  # ============================================================================
   # PAYMENT LINK - Display generated payment link
   # ============================================================================
   - key: "pharmacy.formatter.payment_link"
@@ -249,6 +279,37 @@ prompts:
       IMPORTANTE: Este canal es exclusivo para consultas de cuenta y pagos. (Para pedidos de farmacia, por favor usa el mostrador o canal habitual).
 
       Podés escribirme en lenguaje natural o elegir una opción 👇
+    buttons:
+      - id: "btn_consultar_deuda"
+        titulo: "Consultar deuda"
+      - id: "btn_pagar_deuda"
+        titulo: "Pagar deuda"
+      - id: "btn_otra_cuenta"
+        titulo: "Ver otra cuenta"
+    awaiting_input: "menu_selection"
+    metadata:
+      variables:
+        required:
+          - pharmacy_name
+        optional:
+          - customer_name_greeting
+
+  # ============================================================================
+  # AUTH SUCCESS MENU - Menu after successful account validation
+  # ============================================================================
+  - key: "pharmacy.formatter.auth_success_menu"
+    name: "Auth Success Menu"
+    description: "Menu shown after successful account validation with verification message"
+    version: "1.0.0"
+    response_type: "buttons"
+    title: "Cuenta Verificada"
+    body_template: |
+      ¡Hola{customer_name_greeting}! ✅
+
+      Tu cuenta ha sido verificada correctamente.
+
+      Soy el asistente de *{pharmacy_name}*.
+      ¿En qué puedo ayudarte hoy?
     buttons:
       - id: "btn_consultar_deuda"
         titulo: "Consultar deuda"
@@ -355,11 +416,79 @@ prompts:
           - customer_name_greeting
 
   # ============================================================================
-  # REQUEST DNI - Ask for DNI number
+  # REQUEST ACCOUNT NUMBER - Ask for pharmacy account number (PRIMARY AUTH)
+  # ============================================================================
+  - key: "pharmacy.formatter.request_account_number"
+    name: "Request Account Number"
+    description: "Request account number for identity verification (primary method)"
+    version: "1.0.0"
+    response_type: "text"
+    awaiting_input: "account_number"
+    body_template: |
+      Para continuar, necesito verificar tu identidad.
+
+      Por favor ingresá tu *número de cuenta* de la farmacia.
+
+      💡 Lo podés encontrar en tus comprobantes o recibos anteriores.
+    metadata:
+      variables:
+        required: []
+        optional: []
+
+  # ============================================================================
+  # ACCOUNT NOT FOUND - Account number not found with retry/DNI options
+  # ============================================================================
+  - key: "pharmacy.formatter.account_not_found"
+    name: "Account Not Found"
+    description: "Account number not found, show retry and DNI validation options"
+    version: "1.0.0"
+    response_type: "buttons"
+    title: "Cuenta no encontrada"
+    awaiting_input: "account_not_found"
+    body_template: |
+      No encontramos una cuenta con el número ingresado.
+
+      Podés volver a intentar o validar tu identidad con DNI y nombre.
+    buttons:
+      - id: "btn_retry_account"
+        titulo: "Volver a intentar"
+      - id: "btn_validate_dni"
+        titulo: "Validar por DNI"
+    metadata:
+      variables:
+        required: []
+        optional:
+          - pending_account_number
+
+  # ============================================================================
+  # VALIDATION FAILED - DNI/name validation failed, contact pharmacy
+  # ============================================================================
+  - key: "pharmacy.formatter.validation_failed"
+    name: "Validation Failed"
+    description: "DNI/name validation failed, contact pharmacy"
+    version: "1.0.0"
+    response_type: "text"
+    is_complete: true
+    body_template: |
+      No pudimos verificar tu identidad con los datos proporcionados.
+
+      Por favor comunícate directamente con la farmacia o acercate personalmente para regularizar tu cuenta.
+
+      📞 {pharmacy_phone}
+      📍 {pharmacy_address}
+    metadata:
+      variables:
+        required: []
+        optional:
+          - pharmacy_phone
+          - pharmacy_address
+
+  # ============================================================================
+  # REQUEST DNI - Ask for DNI number (FALLBACK AUTH)
   # ============================================================================
   - key: "pharmacy.formatter.request_dni"
     name: "Request DNI"
-    description: "Request DNI for identity verification"
+    description: "Request DNI for identity verification (fallback method)"
     version: "1.0.0"
     response_type: "text"
     awaiting_input: "dni"

@@ -136,7 +136,14 @@ class WhatsAppFormatterTemplateLoader:
                     short_key = template.key.split(".")[-1]
                     templates[short_key] = template
 
-            logger.debug("Loaded %d WhatsApp formatter templates", len(templates))
+            logger.info("Loaded %d WhatsApp formatter templates", len(templates))
+            # Log main_menu template details for debugging
+            if "main_menu" in templates:
+                mm = templates["main_menu"]
+                logger.info(
+                    f"main_menu template: response_type={mm.response_type}, "
+                    f"buttons_count={len(mm.buttons)}"
+                )
 
         except FileNotFoundError:
             logger.error("WhatsApp formatter template file not found: %s", path)

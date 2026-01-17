@@ -197,6 +197,21 @@ class ExecutionStepModel(BaseModel):
     timestamp: str = Field(..., description="ISO timestamp")
 
 
+class InteractiveButton(BaseModel):
+    """WhatsApp-style interactive button."""
+
+    id: str = Field(..., description="Button identifier")
+    titulo: str = Field(..., description="Button title/label")
+
+
+class InteractiveListItem(BaseModel):
+    """WhatsApp-style interactive list item."""
+
+    id: str = Field(..., description="Item identifier")
+    titulo: str = Field(..., description="Item title")
+    descripcion: Optional[str] = Field(None, description="Item description")
+
+
 class ChatTestResponse(BaseModel):
     """Response model for chat agent test."""
 
@@ -204,6 +219,10 @@ class ChatTestResponse(BaseModel):
     response: str = Field(..., description="Agent response text")
     agent_used: str = Field(..., description="Agent that processed the message")
     execution_steps: Optional[list[ExecutionStepModel]] = Field(None, description="Execution trace")
+    # Interactive response fields
+    response_type: Optional[str] = Field(None, description="Response type: text, buttons, list")
+    response_buttons: Optional[list[InteractiveButton]] = Field(None, description="Interactive buttons")
+    response_list_items: Optional[list[InteractiveListItem]] = Field(None, description="Interactive list items")
     debug_info: Optional[Dict[str, Any]] = Field(None, description="Debug information")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
@@ -287,7 +306,7 @@ class WebhookSimulationRequest(BaseModel):
         default="Web Tester",
         description="Simulated user name for the Contact profile",
     )
-    business_domain: Literal["excelencia", "ecommerce", "healthcare", "credit", "pharmacy"] = Field(
+    business_domain: Literal["excelencia", "ecommerce", "healthcare", "credit", "pharmacy", "medical_appointments"] = Field(
         default="excelencia",
         description="Business domain for processing",
     )
