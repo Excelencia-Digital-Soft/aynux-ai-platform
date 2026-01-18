@@ -89,6 +89,7 @@ class DebtDataPreparer:
         plex_user_id: int,
         customer_name: str,
         organization_id: str | UUID | None,
+        pharmacy_id: str | UUID | None = None,
     ) -> PreparedDebtData | None:
         """
         Fetch and prepare debt data.
@@ -102,6 +103,7 @@ class DebtDataPreparer:
             plex_user_id: PLEX customer ID
             customer_name: Customer name for formatting
             organization_id: Organization UUID for config loading
+            pharmacy_id: Specific pharmacy UUID (preferred, from bypass rules)
 
         Returns:
             PreparedDebtData if customer has debt, None otherwise
@@ -113,8 +115,10 @@ class DebtDataPreparer:
             logger.debug(f"No debt found for PLEX user {plex_user_id}")
             return None
 
-        # Load pharmacy config
-        pharmacy_config = await self._service.load_pharmacy_config(organization_id)
+        # Load pharmacy config (prefer pharmacy_id if available)
+        pharmacy_config = await self._service.load_pharmacy_config(
+            organization_id, pharmacy_id=pharmacy_id
+        )
 
         # Calculate payment options
         total_debt = debt_data["total_debt"]
@@ -133,6 +137,7 @@ class DebtDataPreparer:
         customer_name: str,
         organization_id: str | UUID | None,
         cached_debt_items: list[Any] | None = None,
+        pharmacy_id: str | UUID | None = None,
     ) -> PreparedDebtData | None:
         """
         Prepare debt data, using cached items if available.
@@ -144,13 +149,16 @@ class DebtDataPreparer:
             customer_name: Customer name for formatting
             organization_id: Organization UUID for config loading
             cached_debt_items: Optional cached debt items from state
+            pharmacy_id: Specific pharmacy UUID (preferred, from bypass rules)
 
         Returns:
             PreparedDebtData if available, None otherwise
         """
         if cached_debt_items:
             # Use cached items, but still need config for formatting
-            pharmacy_config = await self._service.load_pharmacy_config(organization_id)
+            pharmacy_config = await self._service.load_pharmacy_config(
+                organization_id, pharmacy_id=pharmacy_id
+            )
 
             # Calculate total from cached items
             total_debt = sum(
@@ -170,4 +178,6 @@ class DebtDataPreparer:
             )
 
         # Fall back to fresh fetch
-        return await self.prepare(plex_user_id, customer_name, organization_id)
+        return await self.prepare(
+            plex_user_id, customer_name, organization_id, pharmacy_id=pharmacy_id
+        )

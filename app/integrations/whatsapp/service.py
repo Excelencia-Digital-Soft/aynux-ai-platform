@@ -157,6 +157,79 @@ class ChattigoMessagingService:
     enviar_mensaje_texto = send_message
     enviar_documento = send_document
 
+    async def send_interactive_buttons(
+        self,
+        numero: str,
+        body: str,
+        buttons: list[dict],
+        header: str | None = None,
+        footer: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Send interactive buttons message via Chattigo API.
+
+        Args:
+            numero: Recipient phone number
+            body: Message body text
+            buttons: List of button dicts with "id" and "title" keys (max 3)
+            header: Optional header text
+            footer: Optional footer text
+
+        Returns:
+            Response dict with success status
+        """
+        adapter = await self._get_adapter()
+        try:
+            result = await adapter.send_interactive_buttons(
+                msisdn=numero,
+                body=body,
+                buttons=buttons,
+                header=header,
+                footer=footer,
+            )
+            return {"success": True, "data": result}
+        except Exception as e:
+            logger.error(f"Chattigo send_interactive_buttons failed: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def send_interactive_list(
+        self,
+        numero: str,
+        body: str,
+        button_text: str,
+        sections: list[dict],
+        header: str | None = None,
+        footer: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Send interactive list message via Chattigo API.
+
+        Args:
+            numero: Recipient phone number
+            body: Message body text
+            button_text: Text for the list button (max 20 chars)
+            sections: List of section dicts with "title" and "rows" keys
+            header: Optional header text
+            footer: Optional footer text
+
+        Returns:
+            Response dict with success status
+        """
+        adapter = await self._get_adapter()
+        try:
+            result = await adapter.send_interactive_list(
+                msisdn=numero,
+                body=body,
+                button_text=button_text,
+                sections=sections,
+                header=header,
+                footer=footer,
+            )
+            return {"success": True, "data": result}
+        except Exception as e:
+            logger.error(f"Chattigo send_interactive_list failed: {e}")
+            return {"success": False, "error": str(e)}
+
     async def enviar_template(
         self,
         numero: str,
@@ -301,6 +374,34 @@ class WhatsAppService:
         """Send template with document."""
         return await self._chattigo_service.enviar_template_con_documento(
             numero, template_name, document_url, document_filename, body_params, language_code
+        )
+
+    # Interactive message methods
+    async def send_interactive_buttons(
+        self,
+        numero: str,
+        body: str,
+        buttons: list[dict],
+        header: str | None = None,
+        footer: str | None = None,
+    ) -> dict[str, Any]:
+        """Send interactive buttons message."""
+        return await self._chattigo_service.send_interactive_buttons(
+            numero, body, buttons, header, footer
+        )
+
+    async def send_interactive_list(
+        self,
+        numero: str,
+        body: str,
+        button_text: str,
+        sections: list[dict],
+        header: str | None = None,
+        footer: str | None = None,
+    ) -> dict[str, Any]:
+        """Send interactive list message."""
+        return await self._chattigo_service.send_interactive_list(
+            numero, body, button_text, sections, header, footer
         )
 
     # English aliases

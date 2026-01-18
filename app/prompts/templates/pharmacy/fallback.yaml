@@ -7,14 +7,14 @@ prompts:
     description: "Generic fallback response"
     version: "1.0.0"
     template: |
-      No entendi tu mensaje.
+      Perdón, no llegué a entender tu mensaje 😕  
 
-      Puedo ayudarte con:
-      1. Consultar tu deuda
-      2. Generar link de pago
-      3. Ver informacion de la farmacia
+      En este canal puedo ayudarte con:
+      • Consultar tu deuda
+      • Generar un link de pago
+      • Ver información de la farmacia
 
-      Que deseas hacer?
+      Escribí lo que necesitás o elegí una opción.
     metadata:
       temperature: 0.5
       max_tokens: 150
@@ -31,15 +31,14 @@ prompts:
     description: "Message for out-of-scope queries"
     version: "1.0.0"
     template: |
-      Esa consulta esta fuera de mis capacidades.
+      Esa consulta no se puede gestionar por este canal.
 
       {out_of_scope_message}
 
-      *Puedo ayudarte con:*
-      1. Consultar tu deuda
-      2. Generar link de pago
-      3. Ver informacion de la farmacia
-      4. Volver al menu
+      Acá puedo ayudarte con:
+      • Consultar tu deuda
+      • Generar un link de pago
+      • Ver información de la farmacia
     metadata:
       temperature: 0.5
       max_tokens: 250
@@ -57,25 +56,16 @@ prompts:
     description: "List of bot capabilities"
     version: "1.0.0"
     template: |
-      *CENTRO DE AYUDA*
+      *Centro de ayuda – {pharmacy_name}*
 
-      Soy el asistente virtual de *{pharmacy_name}*.
+      En este canal podés:
+      • Consultar tu deuda
+      • Pagar o generar un link de pago
+      • Ver tu historial de pagos
+      • Consultar horarios o dirección
+      • Cambiar de cuenta
 
-      *Puedo ayudarte con:*
-
-      - *Consultar deuda*: Escribi "deuda" o "cuanto debo"
-      - *Pagar*: Escribi "pagar" o "quiero pagar"
-      - *Historial*: Escribi "historial" o "mis pagos"
-      - *Info farmacia*: Escribi "horario" o "direccion"
-      - *Cambiar persona*: Escribi "cambiar persona"
-      - *Menu*: Escribi "menu" en cualquier momento
-
-      Tienes algun problema especifico?
-
-      1. Problema con el pago
-      2. No reconozco mi deuda
-      3. Hablar con un humano
-      4. Volver al menu
+      Escribí lo que necesitás o escribí *menú* para ver las opciones.
     metadata:
       temperature: 0.5
       max_tokens: 400
@@ -93,12 +83,9 @@ prompts:
     description: "Message when user cancels"
     version: "1.0.0"
     template: |
-      Entendido, cancele la operacion.
+      Perfecto, dejamos esto sin cambios 👍
 
-      Hay algo mas en que pueda ayudarte?
-
-      1. Volver al menu
-      0. Finalizar
+      ¿Querés hacer algo más?
     metadata:
       temperature: 0.5
       max_tokens: 100
@@ -148,9 +135,6 @@ prompts:
       De nada! Fue un placer ayudarte.
 
       Hay algo mas en que pueda asistirte?
-
-      1. Volver al menu
-      0. Finalizar
     metadata:
       temperature: 0.7
       max_tokens: 100
@@ -167,7 +151,8 @@ prompts:
     description: "Fallback for unrecognized intents"
     version: "1.0.0"
     template: |
-      Lo siento, no pude procesar tu solicitud. Intenta de nuevo.
+      Perdón, no llegué a entender eso 😕  
+      Probá escribirlo de otra forma o escribí *menú* para ver opciones.
     metadata:
       temperature: 0
       max_tokens: 50

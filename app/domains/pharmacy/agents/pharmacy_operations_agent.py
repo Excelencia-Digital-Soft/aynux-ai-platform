@@ -135,8 +135,9 @@ class PharmacyOperationsAgent(BaseAgent):
 
             # Add optional fields only if they have values
             if user_phone:
-                subgraph_kwargs["customer_id"] = user_phone
-                subgraph_kwargs["whatsapp_phone"] = user_phone
+                subgraph_kwargs["user_phone"] = user_phone  # V2 field name
+                subgraph_kwargs["customer_id"] = user_phone  # V1 compatibility
+                subgraph_kwargs["whatsapp_phone"] = user_phone  # V1 compatibility
 
             if state_dict.get("customer_name"):
                 subgraph_kwargs["customer_name"] = state_dict["customer_name"]

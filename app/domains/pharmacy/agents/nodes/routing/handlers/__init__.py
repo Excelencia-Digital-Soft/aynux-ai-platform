@@ -13,11 +13,13 @@ Handlers are selected based on the handler_key from MatchResult.
 
 Handler mapping:
 - "global_keyword": GlobalKeywordHandler
+- "global_keyword_amount": GlobalKeywordAmountHandler (payment with amount)
 - "button_selection": ButtonSelectionHandler
 - "known_list_item": KnownListItemHandler
 - "menu_option": MenuOptionHandler
 - "awaited_input": AwaitedInputHandler
 - "awaited_input_amount": AwaitedInputHandler (special amount handling)
+- "intent_override": IntentOverrideHandler (intent changes during awaited input)
 
 Usage:
     from app.domains.pharmacy.agents.nodes.routing.handlers import (
@@ -41,7 +43,11 @@ from app.domains.pharmacy.agents.nodes.routing.handlers.button_selection import 
     KnownListItemHandler,
 )
 from app.domains.pharmacy.agents.nodes.routing.handlers.global_keyword import (
+    GlobalKeywordAmountHandler,
     GlobalKeywordHandler,
+)
+from app.domains.pharmacy.agents.nodes.routing.handlers.intent_override import (
+    IntentOverrideHandler,
 )
 from app.domains.pharmacy.agents.nodes.routing.handlers.menu_option import (
     MenuOptionHandler,
@@ -54,7 +60,9 @@ __all__ = [
     # Handler implementations
     "AwaitedInputHandler",
     "ButtonSelectionHandler",
+    "GlobalKeywordAmountHandler",
     "GlobalKeywordHandler",
+    "IntentOverrideHandler",
     "KnownListItemHandler",
     "MenuOptionHandler",
 ]

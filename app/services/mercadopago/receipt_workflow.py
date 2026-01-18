@@ -18,6 +18,8 @@ from app.services.receipt.pdf_generator import PaymentReceiptGenerator
 from app.services.receipt.storage_service import ReceiptStorageService
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.core.tenancy import PharmacyConfig
 
 logger = logging.getLogger(__name__)
@@ -89,6 +91,8 @@ async def send_payment_notification(
     new_balance: str,
     pdf_url: str,
     customer_name: str | None,
+    db_session: "AsyncSession",
+    chattigo_did: str,
     template_name: str | None = None,
     template_language: str | None = None,
 ) -> dict[str, Any]:
@@ -104,6 +108,8 @@ async def send_payment_notification(
         new_balance: Customer's new balance
         pdf_url: URL to the PDF receipt
         customer_name: Optional customer name
+        db_session: Database session for WhatsApp credential lookup
+        chattigo_did: Chattigo DID for sending messages
         template_name: WhatsApp template name (optional, uses settings default)
         template_language: Template language (optional, uses settings default)
 
@@ -115,6 +121,8 @@ async def send_payment_notification(
         notification_service = PaymentNotificationService(
             template_name=template_name or settings.WA_PAYMENT_RECEIPT_TEMPLATE,
             template_language=template_language or settings.WA_PAYMENT_RECEIPT_LANGUAGE,
+            db_session=db_session,
+            chattigo_did=chattigo_did,
         )
 
         result = await notification_service.send_payment_receipt(
@@ -143,6 +151,8 @@ async def send_text_only_notification(
     amount: float,
     receipt_number: str,
     new_balance: str,
+    db_session: "AsyncSession",
+    chattigo_did: str,
 ) -> dict[str, Any]:
     """
     Send text-only payment notification (fallback when PDF fails).
@@ -152,6 +162,8 @@ async def send_text_only_notification(
         amount: Payment amount
         receipt_number: PLEX receipt number
         new_balance: Customer's new balance
+        db_session: Database session for WhatsApp credential lookup
+        chattigo_did: Chattigo DID for sending messages
 
     Returns:
         Dict with success status and method used
@@ -176,7 +188,12 @@ Tu pago ha sido procesado exitosamente.
 
 Gracias por tu pago. Si tienes alguna pregunta, escribe *AYUDA*."""
 
-        whatsapp = WhatsAppService()
+        # Create WhatsApp service with credentials
+        chattigo_context = {"did": chattigo_did}
+        whatsapp = WhatsAppService(
+            chattigo_context=chattigo_context,
+            db_session=db_session,
+        )
         result = await whatsapp.send_message(phone, message)
 
         success = result.get("success", False)

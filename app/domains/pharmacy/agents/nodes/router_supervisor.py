@@ -42,8 +42,10 @@ from app.domains.pharmacy.agents.nodes.routing import (
     AwaitedInputMatcher,
     ButtonMappingMatcher,
     ButtonSelectionHandler,
+    GlobalKeywordAmountHandler,
     GlobalKeywordHandler,
     GlobalKeywordMatcher,
+    IntentOverrideHandler,
     KnownListItemHandler,
     KnownListItemMatcher,
     MatchContext,
@@ -98,11 +100,13 @@ class RouterSupervisor:
         # Initialize handlers (keyed by handler_key from MatchResult)
         self._handlers: dict[str, Any] = {
             "global_keyword": GlobalKeywordHandler(self._auth_checker, self._config_loader),
+            "global_keyword_amount": GlobalKeywordAmountHandler(),
             "button_selection": ButtonSelectionHandler(self._auth_checker, self._config_loader),
             "known_list_item": KnownListItemHandler(),
             "menu_option": MenuOptionHandler(self._auth_checker, self._config_loader),
             "awaited_input": AwaitedInputHandler(self._config_loader),
             "awaited_input_amount": AwaitedInputHandler(self._config_loader),
+            "intent_override": IntentOverrideHandler(self._config_loader),
         }
 
     def _get_intent_resolver(self) -> IntentRouteResolver:

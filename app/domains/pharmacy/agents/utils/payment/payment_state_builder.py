@@ -98,11 +98,16 @@ class PaymentStateBuilder:
             "mp_payment_link": result.init_point,
             "mp_payment_status": "pending",
             "mp_external_reference": result.external_reference,
+            # Update intent to payment_link so IntentFormatRouter shows the payment link template
+            # This is CRITICAL - without this, the old intent (e.g., debt_query) would cause
+            # the router to show debt_response instead of payment_link
+            "intent": "payment_link",
             # Clear awaiting flags
             "awaiting_payment_confirmation": False,
             "awaiting_input": None,
-            # Complete conversation
-            "is_complete": True,
+            # DO NOT mark as complete - user may want to continue after seeing payment link
+            # (e.g., cancel, check another account, ask questions)
+            "is_complete": False,
             "next_node": "__end__",
             # Template variables
             "_template_vars": {

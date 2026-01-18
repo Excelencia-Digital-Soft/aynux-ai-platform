@@ -11,6 +11,10 @@ Global Keyword Matcher - Matches global keywords from database config.
 Global keywords can interrupt most flows (e.g., "menu", "cancelar", "ayuda").
 When awaiting input, only escape intents are allowed to interrupt.
 
+Special handling for payment keywords:
+- When "pagar" or "pagar deuda" is matched with an amount (e.g., "pagar 1111 pesos"),
+  the matcher routes to pay_partial instead of pay_debt_menu with the amount in metadata.
+
 Usage:
     matcher = GlobalKeywordMatcher()
     result = await matcher.matches(ctx)
@@ -29,6 +33,9 @@ if TYPE_CHECKING:
     from app.domains.pharmacy.agents.nodes.routing.matchers.base import MatchContext
 
 logger = logging.getLogger(__name__)
+
+# Intents that trigger amount detection for partial payment
+PAYMENT_INTENTS_WITH_AMOUNT = {"pay_debt_menu"}
 
 
 class GlobalKeywordMatcher:
@@ -71,6 +78,26 @@ class GlobalKeywordMatcher:
                         )
                         continue
 
+                # Check for amount in payment-related messages
+                # "Pagar 1111 pesos" should route to pay_partial with amount
+                if config.target_intent in PAYMENT_INTENTS_WITH_AMOUNT:
+                    amount = self._extract_amount(ctx.message)
+                    if amount is not None and amount > 0:
+                        logger.info(
+                            f"[MATCHER] Payment with amount detected: {amount} -> pay_partial"
+                        )
+                        return MatchResult(
+                            config=config,
+                            match_type="global_keyword_with_amount",
+                            handler_key="global_keyword_amount",
+                            metadata={
+                                "amount": amount,
+                                "original_intent": config.target_intent,
+                                "target_intent": "pay_partial",
+                                "target_node": "payment_processor",
+                            },
+                        )
+
                 logger.info(f"[MATCHER] Global keyword matched: {config.trigger_value}")
                 return MatchResult(
                     config=config,
@@ -79,6 +106,24 @@ class GlobalKeywordMatcher:
                 )
 
         return None
+
+    def _extract_amount(self, message: str) -> float | None:
+        """
+        Extract amount from message using AmountValidator.
+
+        Args:
+            message: User message
+
+        Returns:
+            Extracted amount or None
+        """
+        try:
+            from app.domains.pharmacy.agents.utils.payment import AmountValidator
+
+            return AmountValidator.extract_amount(message)
+        except Exception as e:
+            logger.warning(f"Error extracting amount: {e}")
+            return None
 
     def _matches_config(self, message: str, config) -> bool:
         """

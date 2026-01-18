@@ -12,6 +12,11 @@ Highest priority matcher that protects awaited input from global keywords.
 For example, prevents "otra persona" from triggering "otra cuenta" keyword
 when awaiting "own_or_other" selection.
 
+IMPORTANT: This matcher now checks for escape intents and intent overrides
+BEFORE validating the awaited response. This allows:
+1. Escape intents (cancelar, menu) to always work during awaited input
+2. Intent overrides (pago parcial during payment_confirmation) to switch flows
+
 Usage:
     matcher = AwaitedInputMatcher()
     result = await matcher.matches(ctx)
@@ -66,6 +71,11 @@ class AwaitedInputMatcher:
         """
         Check if message is a valid response for awaited input.
 
+        Priority order:
+        1. Escape intents (cancelar, menu) - ALWAYS defer to GlobalKeywordMatcher
+        2. Intent overrides (pago parcial during payment) - Switch to new intent
+        3. Valid awaited response - Route to handler node
+
         Args:
             ctx: Match context with message, state, and configs
 
@@ -78,7 +88,33 @@ class AwaitedInputMatcher:
         # Get organization_id from state
         org_id = self._get_organization_id(ctx.state)
 
-        # Check if valid awaited response
+        # 1. Check if message is an escape intent (e.g., "cancelar", "menu")
+        #    If so, let GlobalKeywordMatcher handle it
+        if self._is_escape_intent(ctx):
+            logger.info(
+                f"[MATCHER] Escape intent detected during '{ctx.awaiting}', "
+                f"deferring to GlobalKeywordMatcher"
+            )
+            return None
+
+        # 2. Check if message is an intent override (e.g., "pago parcial")
+        #    These intents should interrupt the current awaited state
+        override_intent = await self._check_intent_override(ctx, org_id)
+        if override_intent:
+            logger.info(
+                f"[MATCHER] Intent override '{override_intent}' during '{ctx.awaiting}'"
+            )
+            return MatchResult(
+                config=None,
+                match_type="intent_override",
+                handler_key="intent_override",
+                metadata={
+                    "target_intent": override_intent,
+                    "previous_awaiting": ctx.awaiting,
+                },
+            )
+
+        # 3. Original logic: validate awaited input response
         is_valid = await self._is_valid_awaited_response(
             ctx.awaiting,
             ctx.message_lower,
@@ -185,6 +221,91 @@ class AwaitedInputMatcher:
             return UUID(str(org_id))
         except (ValueError, TypeError):
             return None
+
+    def _is_escape_intent(self, ctx: "MatchContext") -> bool:
+        """
+        Check if message matches any escape intent keyword.
+
+        Escape intents (cancelar, menu, salir, etc.) should ALWAYS
+        bypass awaited input validation and be handled by GlobalKeywordMatcher.
+
+        This check uses the same matching logic as GlobalKeywordMatcher to ensure
+        consistency in what gets detected as an escape intent.
+
+        Args:
+            ctx: Match context with message and config_loader
+
+        Returns:
+            True if message matches an escape intent keyword
+        """
+        escape_intents = ctx.config_loader.escape_intents
+        if not escape_intents:
+            return False
+
+        # Check global keywords that are escape intents
+        for config in ctx.config_loader.get_configs_by_type("global_keyword"):
+            if config.target_intent not in escape_intents:
+                continue
+
+            trigger = config.trigger_value.lower()
+
+            # Check direct match (same logic as GlobalKeywordMatcher)
+            if ctx.message_lower == trigger or ctx.message_lower.startswith(trigger + " "):
+                return True
+
+            # Check aliases
+            if config.metadata and "aliases" in config.metadata:
+                for alias in config.metadata["aliases"]:
+                    alias_lower = alias.lower()
+                    if ctx.message_lower == alias_lower or ctx.message_lower.startswith(alias_lower + " "):
+                        return True
+
+        return False
+
+    async def _check_intent_override(
+        self,
+        ctx: "MatchContext",
+        org_id: UUID | None,
+    ) -> str | None:
+        """
+        Check if message represents an intent that should override awaiting state.
+
+        For example, during payment_confirmation:
+        - "pago parcial" should switch to pay_partial intent
+        - "ver factura" should switch to view_invoice intent
+
+        Intent overrides are defined in the awaiting_type config's metadata field
+        as "intent_overrides": ["pay_partial", "pay_full", "check_debt", ...]
+
+        Args:
+            ctx: Match context with message and awaiting type
+            org_id: Organization ID for database lookup
+
+        Returns:
+            Target intent key if override detected, None otherwise
+        """
+        if not org_id or not ctx.awaiting:
+            return None
+
+        # Get awaiting type config to check for intent_overrides
+        override_config = ctx.config_loader.get_awaiting_config(ctx.awaiting)
+        if not override_config:
+            return None
+
+        # Check intent_overrides in metadata
+        if not override_config.metadata:
+            return None
+
+        overrides = override_config.metadata.get("intent_overrides", [])
+        if not overrides:
+            return None
+
+        # Check if message matches any override intent using KeywordMatcher
+        matched = await KeywordMatcher.matches_any_of(
+            self._db, org_id, ctx.message, overrides, "pharmacy"
+        )
+
+        return matched
 
 
 __all__ = ["AwaitedInputMatcher"]

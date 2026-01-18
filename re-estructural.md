@@ -13,5 +13,5 @@
 ### FRONTEND
 
 - [x] src/stores/workflow.store.ts
-- [] src/pages/admin/WorkflowEditorPage.vue
-- [] ~/Documents/aynux/vuejs/src/pages/testing/PharmacyTestingPage.vuex
+- [x] src/pages/admin/WorkflowEditorPage.vue
+- [x] ~/Documents/aynux/vuejs/src/pages/testing/PharmacyTestingPage.vuex

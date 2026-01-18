@@ -9,8 +9,12 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from app.integrations.whatsapp.service import WhatsAppService
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +34,8 @@ class PaymentNotificationService:
         whatsapp_service: WhatsAppService | None = None,
         template_name: str = "payment_receipt",
         template_language: str = "es",
+        db_session: "AsyncSession | None" = None,
+        chattigo_did: str | None = None,
     ):
         """
         Initialize the payment notification service.
@@ -38,8 +44,22 @@ class PaymentNotificationService:
             whatsapp_service: WhatsApp service instance (creates new if None)
             template_name: Name of the WhatsApp template for payment receipts
             template_language: Language code for the template
+            db_session: Database session for WhatsApp credential lookup
+            chattigo_did: Chattigo DID for sending messages
         """
-        self._whatsapp = whatsapp_service or WhatsAppService()
+        if whatsapp_service:
+            self._whatsapp = whatsapp_service
+        elif db_session and chattigo_did:
+            # Create WhatsApp service with credentials
+            chattigo_context = {"did": chattigo_did}
+            self._whatsapp = WhatsAppService(
+                chattigo_context=chattigo_context,
+                db_session=db_session,
+            )
+        else:
+            raise ValueError(
+                "Either whatsapp_service or (db_session and chattigo_did) must be provided"
+            )
         self.template_name = template_name
         self.template_language = template_language
 

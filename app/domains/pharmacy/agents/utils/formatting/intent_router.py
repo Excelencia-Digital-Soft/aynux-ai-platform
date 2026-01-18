@@ -97,7 +97,11 @@ class IntentFormatRouter:
         # Priority 2.4: Payment link already generated - show it!
         # Must come BEFORE payment_confirmation check to avoid showing
         # confirmation dialog again after successful payment processing.
-        if state.get("mp_payment_link"):
+        # IMPORTANT: Only show payment link if the current intent is payment-related.
+        # This prevents an infinite loop where ANY message after payment link generation
+        # would show the payment link again, ignoring new intents like "cancelar".
+        payment_intents = {"pay_full", "pay_partial", "payment_link", "pay_debt_menu"}
+        if state.get("mp_payment_link") and intent in payment_intents:
             return FormatDecision(template_key="payment_link")
 
         # Priority 2.5: awaiting_input for payment flow (before intent routing)

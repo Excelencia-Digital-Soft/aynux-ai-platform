@@ -83,8 +83,11 @@ class PaymentLinkService:
                 return None
 
             # Create external reference for webhook correlation
+            # Format: customer_id:debt_id:pharmacy_id:uuid:phone (phone for WhatsApp notification)
             unique_id = uuid.uuid4().hex[:8]
-            external_reference = f"{plex_customer_id}:{debt_id}:{pharmacy_id}:{unique_id}"
+            # Normalize phone: remove non-digits, ensure it's safe for : separator
+            safe_phone = "".join(c for c in (customer_phone or "") if c.isdigit()) or "0"
+            external_reference = f"{plex_customer_id}:{debt_id}:{pharmacy_id}:{unique_id}:{safe_phone}"
 
             logger.info(
                 f"Creating MP payment link: customer={plex_customer_id}, "

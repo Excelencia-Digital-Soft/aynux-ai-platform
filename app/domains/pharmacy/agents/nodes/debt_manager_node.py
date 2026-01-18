@@ -123,20 +123,38 @@ class DebtManagerService:
     async def load_pharmacy_config(
         self,
         organization_id: str | UUID | None,
+        pharmacy_id: str | UUID | None = None,
     ) -> PharmacyConfig | None:
-        """Load pharmacy configuration from database."""
+        """
+        Load pharmacy configuration from database.
+
+        Args:
+            organization_id: Organization UUID for fallback lookup
+            pharmacy_id: Specific pharmacy UUID (preferred, from bypass rules)
+
+        Returns:
+            PharmacyConfig if found, None otherwise
+        """
         if self._pharmacy_config is not None:
             return self._pharmacy_config
 
-        if not organization_id:
+        if not organization_id and not pharmacy_id:
             return None
 
         try:
-            org_uuid = OrganizationResolver.resolve_safe(organization_id)
-
             async with get_async_db_context() as db:
                 config_service = PharmacyConfigService(db)
-                self._pharmacy_config = await config_service.get_config(org_uuid)
+
+                # Prefer pharmacy_id if available (from bypass rules)
+                if pharmacy_id:
+                    pharmacy_uuid = UUID(str(pharmacy_id))
+                    self._pharmacy_config = await config_service.get_config_by_id(pharmacy_uuid)
+                    logger.debug(f"Loaded pharmacy config by pharmacy_id: {pharmacy_id}")
+                else:
+                    # Fallback to org_id (may log warning if multiple pharmacies)
+                    org_uuid = OrganizationResolver.resolve_safe(organization_id)
+                    self._pharmacy_config = await config_service.get_config(org_uuid)
+
                 return self._pharmacy_config
 
         except Exception as e:
@@ -207,10 +225,13 @@ async def _handle_show_debt(
 ) -> dict[str, Any]:
     """SHOW_DEBT flow - full debt with invoice details."""
     org_id_raw = state.get("organization_id")
+    pharmacy_id = state.get("pharmacy_id")
 
-    # Prepare debt data
+    # Prepare debt data (prefer pharmacy_id from bypass rules if available)
     preparer = DebtDataPreparer(service)
-    prepared = await preparer.prepare(plex_user_id, customer_name, org_id_raw)
+    prepared = await preparer.prepare(
+        plex_user_id, customer_name, org_id_raw, pharmacy_id=pharmacy_id
+    )
 
     if not prepared:
         return await _handle_no_debt(db, organization_id, customer_name, dict(state))
@@ -247,9 +268,12 @@ async def _handle_pay_debt_menu(
 ) -> dict[str, Any]:
     """PAY_DEBT_MENU flow - debt summary with payment options."""
     org_id_raw = state.get("organization_id")
+    pharmacy_id = state.get("pharmacy_id")
 
     preparer = DebtDataPreparer(service)
-    prepared = await preparer.prepare(plex_user_id, customer_name, org_id_raw)
+    prepared = await preparer.prepare(
+        plex_user_id, customer_name, org_id_raw, pharmacy_id=pharmacy_id
+    )
 
     if not prepared:
         return await _handle_no_debt(db, organization_id, customer_name, dict(state))
@@ -285,11 +309,14 @@ async def _handle_invoice_detail(
 ) -> dict[str, Any]:
     """INVOICE_DETAIL flow - single invoice detail."""
     org_id_raw = state.get("organization_id")
+    pharmacy_id = state.get("pharmacy_id")
     debt_items = state.get("debt_items")
 
-    # Prepare debt data (use cached if available)
+    # Prepare debt data (use cached if available, prefer pharmacy_id from bypass rules)
     preparer = DebtDataPreparer(service)
-    prepared = await preparer.prepare_or_cached(plex_user_id, customer_name, org_id_raw, debt_items)
+    prepared = await preparer.prepare_or_cached(
+        plex_user_id, customer_name, org_id_raw, debt_items, pharmacy_id=pharmacy_id
+    )
 
     if not prepared:
         return await _handle_no_debt(db, organization_id, customer_name, dict(state))

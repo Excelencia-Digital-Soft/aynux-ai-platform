@@ -51,6 +51,10 @@ class AwaitingTypeConfigDTO:
     Immutable awaiting type configuration DTO for cache storage.
 
     Prevents accidental modification of cached values.
+
+    Attributes:
+        metadata: Extensible configuration dict with:
+            - intent_overrides: list[str] - intents that can override awaiting state
     """
 
     id: str
@@ -60,6 +64,7 @@ class AwaitingTypeConfigDTO:
     validation_pattern: str | None
     priority: int
     display_name: str | None
+    metadata: dict[str, Any] | None = None  # For intent_overrides, etc.
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -71,6 +76,7 @@ class AwaitingTypeConfigDTO:
             "validation_pattern": self.validation_pattern,
             "priority": self.priority,
             "display_name": self.display_name,
+            "metadata": self.metadata,
         }
 
     @classmethod
@@ -84,11 +90,14 @@ class AwaitingTypeConfigDTO:
             validation_pattern=data.get("validation_pattern"),
             priority=data.get("priority", 0),
             display_name=data.get("display_name"),
+            metadata=data.get("metadata"),
         )
 
     @classmethod
     def from_model(cls, model: Any) -> "AwaitingTypeConfigDTO":
         """Create from SQLAlchemy model."""
+        # Use config_metadata (not metadata - that's SQLAlchemy's MetaData class)
+        metadata_value = getattr(model, "config_metadata", None)
         return cls(
             id=str(model.id),
             awaiting_type=str(model.awaiting_type),
@@ -97,6 +106,7 @@ class AwaitingTypeConfigDTO:
             validation_pattern=str(model.validation_pattern) if model.validation_pattern else None,
             priority=int(model.priority) if model.priority else 0,
             display_name=str(model.display_name) if model.display_name else None,
+            metadata=metadata_value,
         )
 
 

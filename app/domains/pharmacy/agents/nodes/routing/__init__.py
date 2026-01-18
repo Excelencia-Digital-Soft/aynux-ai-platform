@@ -38,7 +38,9 @@ from app.domains.pharmacy.agents.nodes.routing.handlers import (
     AwaitedInputHandler,
     BaseRouteHandler,
     ButtonSelectionHandler,
+    GlobalKeywordAmountHandler,
     GlobalKeywordHandler,
+    IntentOverrideHandler,
     KnownListItemHandler,
     MenuOptionHandler,
     RouteHandler,
@@ -74,7 +76,9 @@ __all__ = [
     # Handler implementations
     "AwaitedInputHandler",
     "ButtonSelectionHandler",
+    "GlobalKeywordAmountHandler",
     "GlobalKeywordHandler",
+    "IntentOverrideHandler",
     "KnownListItemHandler",
     "MenuOptionHandler",
 ]

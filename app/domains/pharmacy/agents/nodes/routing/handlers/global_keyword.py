@@ -96,10 +96,69 @@ class GlobalKeywordHandler(BaseRouteHandler):
             updates.update({
                 "awaiting_payment_confirmation": False,
                 "awaiting_account_selection": False,
+                # Clear payment link to prevent infinite loop after cancel
+                "mp_payment_link": None,
+                "mp_payment_status": None,
+                "mp_external_reference": None,
+                "payment_amount": None,
+                "is_partial_payment": False,
             })
 
         logger.info(f"[HANDLER] Global keyword -> {config.target_intent} -> {target_node}")
         return updates
 
 
-__all__ = ["GlobalKeywordHandler"]
+class GlobalKeywordAmountHandler:
+    """
+    Handles global keyword matches that include an amount.
+
+    Single Responsibility: Process payment keywords with amounts (e.g., "pagar 1111 pesos").
+
+    Routes to pay_partial with the extracted amount instead of pay_debt_menu.
+    """
+
+    def handle(
+        self,
+        match: "MatchResult",
+        state: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Handle global keyword with amount routing.
+
+        Args:
+            match: Match result with amount in metadata
+            state: Current conversation state
+
+        Returns:
+            State update dictionary with pay_partial routing
+        """
+        if not match.metadata:
+            logger.warning("[HANDLER] Global keyword amount without metadata")
+            return {}
+
+        amount = match.metadata.get("amount")
+        target_intent = match.metadata.get("target_intent", "pay_partial")
+        target_node = match.metadata.get("target_node", "payment_processor")
+
+        if amount is None:
+            logger.warning("[HANDLER] Global keyword amount without amount value")
+            return {}
+
+        current_intent = state.get("intent")
+
+        updates: dict[str, Any] = {
+            "intent": target_intent,
+            "previous_intent": current_intent,
+            "awaiting_input": None,  # Clear any pending input
+            "next_node": target_node,
+            "payment_amount": amount,
+            "is_partial_payment": True,
+        }
+
+        logger.info(
+            f"[HANDLER] Global keyword with amount ${amount} -> {target_intent} -> {target_node}"
+        )
+        return updates
+
+
+__all__ = ["GlobalKeywordHandler", "GlobalKeywordAmountHandler"]

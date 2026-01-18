@@ -16,13 +16,15 @@ prompts:
     body_template: |
       *{pharmacy_name}*
 
-      Hola *{customer_name}*, tu cuenta:
+      Perfecto *{customer_name}*, este es el resumen de tu cuenta:
 
       ━━━━━━━━━━━━━━━━━━━━
       *Deuda Total: {total_debt}*
       ━━━━━━━━━━━━━━━━━━━━
 
       {debt_details}
+
+      Elegí cómo querés continuar 👇
     buttons:
       - id: "btn_ver_detalle"
         titulo: "Ver detalle factura"
@@ -53,7 +55,7 @@ prompts:
     body_template: |
       *{pharmacy_name}*
 
-      Hola *{customer_name}*, tu deuda actual:
+      Perfecto *{customer_name}*, este es el monto disponible para pagar:
 
       ━━━━━━━━━━━━━━━━━━━━
       *Total a Pagar: {total_debt}*
@@ -273,10 +275,10 @@ prompts:
     response_type: "buttons"
     title: "Menú Principal"
     body_template: |
-      Hola{customer_name_greeting} 👋
-      Soy el asistente de *{pharmacy_name}*.
+      Hola{customer_name_greeting} 😊
+      Este es el canal de *{pharmacy_name}* para ver temas de cuenta corriente y pagos.
 
-      IMPORTANTE: Este canal es exclusivo para consultas de cuenta y pagos. (Para pedidos de farmacia, por favor usa el mostrador o canal habitual).
+      📌 En este chat no se toman pedidos de farmacia.
 
       Podés escribirme en lenguaje natural o elegir una opción 👇
     buttons:
@@ -304,12 +306,11 @@ prompts:
     response_type: "buttons"
     title: "Cuenta Verificada"
     body_template: |
-      ¡Hola{customer_name_greeting}! ✅
+      ¡Listo{customer_name_greeting}! ✅
 
-      Tu cuenta ha sido verificada correctamente.
+      Tu cuenta quedó verificada correctamente.
 
-      Soy el asistente de *{pharmacy_name}*.
-      ¿En qué puedo ayudarte hoy?
+      Elegí una opción o escribí tu consulta 👇
     buttons:
       - id: "btn_consultar_deuda"
         titulo: "Consultar deuda"
@@ -334,11 +335,11 @@ prompts:
     version: "1.0.0"
     response_type: "text"
     body_template: |
-      *Sin Deuda Pendiente*
+      🎉 *No registrás deuda pendiente*
 
-      No hay deuda registrada para {customer_name}.
+      La cuenta de {customer_name} está al día.
 
-      Si creés que esto es un error, comunícate con la farmacia.
+      Si pensás que esto no es correcto, podés comunicarte con la farmacia.
     metadata:
       variables:
         required: []
@@ -425,11 +426,11 @@ prompts:
     response_type: "text"
     awaiting_input: "account_number"
     body_template: |
-      Para continuar, necesito verificar tu identidad.
+      Para seguir, necesitamos confirmar tu cuenta.
 
-      Por favor ingresá tu *número de cuenta* de la farmacia.
+      Ingresá tu *número de cuenta* de la farmacia.
 
-      💡 Lo podés encontrar en tus comprobantes o recibos anteriores.
+      💡 Lo encontrás en tus comprobantes o recibos anteriores.
     metadata:
       variables:
         required: []
@@ -446,10 +447,10 @@ prompts:
     title: "Cuenta no encontrada"
     awaiting_input: "account_not_found"
     body_template: |
-      No encontramos una cuenta con el número ingresado.
+      No encontramos una cuenta con ese número 😕  
+      Puede ser un error al escribirlo.
 
-      Podés volver a intentar o validar tu identidad con DNI y nombre.
-    buttons:
+      Podés volver a intentar o confirmar tu cuenta con DNI y nombre.    buttons:
       - id: "btn_retry_account"
         titulo: "Volver a intentar"
       - id: "btn_validate_dni"
@@ -470,9 +471,9 @@ prompts:
     response_type: "text"
     is_complete: true
     body_template: |
-      No pudimos verificar tu identidad con los datos proporcionados.
+      No pudimos confirmar tu cuenta con los datos ingresados 😕.
 
-      Por favor comunícate directamente con la farmacia o acercate personalmente para regularizar tu cuenta.
+      Para ayudarte mejor, comunicate con la farmacia o acercate personalmente.
 
       📞 {pharmacy_phone}
       📍 {pharmacy_address}
@@ -493,9 +494,9 @@ prompts:
     response_type: "text"
     awaiting_input: "dni"
     body_template: |
-      Para continuar, necesito verificar tu identidad.
+      Para continuar, confirmemos tu cuenta.
 
-      Por favor ingresá tu número de DNI (solo números).
+      Ingresá tu *DNI* (solo números).
     metadata:
       variables:
         required: []
@@ -511,7 +512,7 @@ prompts:
     response_type: "text"
     awaiting_input: "name"
     body_template: |
-      Por favor ingresá tu nombre completo para verificar tu identidad.
+      Ahora ingresá tu *nombre completo*, tal como figura en la cuenta.
     metadata:
       variables:
         required: []

@@ -80,11 +80,68 @@ class ConversationManager:
         except Exception as e:
             self.logger.error(f"Error caching conversation: {e}")
 
-    async def send_whatsapp_response(self, user_number: str, response: str):
-        """Envía respuesta por WhatsApp via Chattigo"""
+    async def send_whatsapp_response(
+        self,
+        user_number: str,
+        response: str,
+        response_type: str = "text",
+        buttons: list[dict] | None = None,
+        list_items: list[dict] | None = None,
+    ):
+        """
+        Envía respuesta por WhatsApp via Chattigo.
+
+        Args:
+            user_number: Recipient phone number
+            response: Message body text
+            response_type: Type of response ("text", "buttons", "list")
+            buttons: List of button dicts for interactive buttons
+            list_items: List of item dicts for interactive list
+        """
         try:
-            self.logger.info(f"Sending WhatsApp message to {user_number}: {response[:50]}...")
-            await self.whatsapp_service.enviar_mensaje_texto(user_number, response)
+            if response_type == "buttons" and buttons:
+                # Format buttons for WhatsApp API (max 3, title max 20 chars)
+                formatted_buttons = [
+                    {
+                        "id": btn.get("id", f"btn_{i}"),
+                        "title": str(btn.get("titulo", btn.get("title", "")))[:20],
+                    }
+                    for i, btn in enumerate(buttons[:3])
+                ]
+                self.logger.info(
+                    f"Sending {len(formatted_buttons)} interactive buttons to {user_number}"
+                )
+                await self.whatsapp_service.send_interactive_buttons(
+                    numero=user_number,
+                    body=response,
+                    buttons=formatted_buttons,
+                )
+            elif response_type == "list" and list_items:
+                # Format list for WhatsApp API (max 10 items, title max 24, desc max 72)
+                formatted_rows = [
+                    {
+                        "id": item.get("id", f"item_{i}"),
+                        "title": str(item.get("titulo", item.get("title", "")))[:24],
+                        "description": str(
+                            item.get("descripcion", item.get("description", ""))
+                        )[:72],
+                    }
+                    for i, item in enumerate(list_items[:10])
+                ]
+                self.logger.info(
+                    f"Sending interactive list with {len(formatted_rows)} items to {user_number}"
+                )
+                await self.whatsapp_service.send_interactive_list(
+                    numero=user_number,
+                    body=response,
+                    button_text="Ver opciones",
+                    sections=[{"title": "Opciones", "rows": formatted_rows}],
+                )
+            else:
+                self.logger.info(
+                    f"Sending WhatsApp text to {user_number}: {response[:50]}..."
+                )
+                await self.whatsapp_service.enviar_mensaje_texto(user_number, response)
         except Exception as e:
             self.logger.error(f"Error sending WhatsApp message: {e}")
             raise
@@ -130,10 +187,21 @@ class ConversationManager:
     ) -> None:
         """Maneja las operaciones post-procesamiento para WhatsApp"""
         try:
+            # Extract interactive message data from response
+            response_type = response_data.get("response_type") or "text"
+            buttons = response_data.get("response_buttons")
+            list_items = response_data.get("response_list_items")
+
             # Operaciones básicas en paralelo
             tasks = [
                 self.cache_conversation(session_id, user_message, response_data["response"]),
-                self.send_whatsapp_response(user_number, response_data["response"]),
+                self.send_whatsapp_response(
+                    user_number=user_number,
+                    response=response_data["response"],
+                    response_type=response_type,
+                    buttons=buttons,
+                    list_items=list_items,
+                ),
                 self.record_metrics(response_data),
             ]
 

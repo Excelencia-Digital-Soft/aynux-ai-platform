@@ -156,6 +156,15 @@ class AwaitingTypeConfig(Base, TimestampMixin):
         comment="Usage notes",
     )
 
+    # Extensible configuration (JSONB)
+    # Named config_metadata to avoid conflict with SQLAlchemy's metadata attribute
+    config_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        default=None,
+        comment="Additional config: intent_overrides, etc.",
+    )
+
     # Relationships
     organization = relationship(
         "Organization",
@@ -185,6 +194,7 @@ class AwaitingTypeConfig(Base, TimestampMixin):
             "is_enabled": self.is_enabled,
             "display_name": self.display_name,
             "description": self.description,
+            "metadata": self.config_metadata,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

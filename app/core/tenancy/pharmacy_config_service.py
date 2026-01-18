@@ -87,6 +87,9 @@ class PharmacyConfig:
     # Organization tracking
     organization_id: UUID
 
+    # Chattigo/WhatsApp configuration for notifications
+    chattigo_did: str | None = None
+
     # Payment options configuration (Smart Debt Negotiation)
     payment_option_half_percent: int = 50
     payment_option_minimum_percent: int = 30
@@ -133,7 +136,7 @@ class PharmacyConfigService:
         db_config = await self._load_from_db(org_id)
         if db_config:
             logger.debug(f"Loaded pharmacy config from DB for org {org_id}")
-            return self._db_to_config(db_config, org_id)
+            return await self._db_to_config(db_config, org_id)
 
         raise ValueError(
             f"No pharmacy config found for organization {org_id}. "
@@ -168,7 +171,7 @@ class PharmacyConfigService:
             raise ValueError(f"No pharmacy config found with ID {pharmacy_id}")
 
         logger.debug(f"Loaded pharmacy config by ID: {pharmacy_id}")
-        return self._db_to_config(db_config, db_config.organization_id)
+        return await self._db_to_config(db_config, db_config.organization_id)
 
     async def get_config_by_external_reference(
         self,
@@ -177,7 +180,9 @@ class PharmacyConfigService:
         """
         Get pharmacy config by parsing external_reference from MP webhook.
 
-        Format: customer_id:debt_id:pharmacy_id:uuid (4 parts required)
+        Format: customer_id:debt_id:pharmacy_id:uuid[:phone]
+        - 4 parts: legacy format (no phone)
+        - 5 parts: new format with phone for WhatsApp notification
 
         Args:
             external_reference: External reference from MP payment
@@ -190,8 +195,12 @@ class PharmacyConfigService:
         """
         parts = external_reference.split(":")
 
-        if len(parts) == 4:
-            customer_id, debt_id, pharmacy_id_str, unique_id = parts
+        # Support both 4-part (legacy) and 5-part (with phone) formats
+        if len(parts) >= 4:
+            customer_id, debt_id, pharmacy_id_str, unique_id = parts[:4]
+            # Phone is optional (5th part), "0" means no phone
+            payer_phone = parts[4] if len(parts) >= 5 and parts[4] != "0" else None
+
             try:
                 pharmacy_id = UUID(pharmacy_id_str)
             except ValueError as e:
@@ -205,11 +214,12 @@ class PharmacyConfigService:
                 "debt_id": debt_id,
                 "pharmacy_id": pharmacy_id,
                 "unique_id": unique_id,
+                "payer_phone": payer_phone,
             }
 
         raise ValueError(
             f"Invalid external_reference format: {external_reference}. "
-            f"Expected format: customer_id:debt_id:pharmacy_id:uuid"
+            f"Expected format: customer_id:debt_id:pharmacy_id:uuid[:phone]"
         )
 
     async def _load_from_db(self, org_id: UUID) -> PharmacyMerchantConfig | None:
@@ -275,7 +285,7 @@ class PharmacyConfigService:
         logger.debug(
             f"Using MP config from org {db_config.organization_id} for initial payment fetch"
         )
-        return self._db_to_config(db_config, db_config.organization_id)
+        return await self._db_to_config(db_config, db_config.organization_id)
 
     async def get_config_by_whatsapp_phone(
         self,
@@ -313,7 +323,7 @@ class PharmacyConfigService:
         logger.info(
             f"Resolved pharmacy by WhatsApp phone {whatsapp_phone} → org {db_config.organization_id}"
         )
-        return self._db_to_config(db_config, db_config.organization_id)
+        return await self._db_to_config(db_config, db_config.organization_id)
 
     async def list_all_pharmacies(self) -> list[dict]:
         """
@@ -340,12 +350,47 @@ class PharmacyConfigService:
             for cfg in configs
         ]
 
-    def _db_to_config(
+    async def _get_chattigo_did(self, org_id: UUID) -> str | None:
+        """
+        Get the Chattigo DID for an organization.
+
+        Looks up the first enabled chattigo_credentials entry for the organization.
+
+        Args:
+            org_id: Organization ID
+
+        Returns:
+            DID string if found, None otherwise
+        """
+        from app.models.db.tenancy.chattigo_credentials import ChattigoCredentials
+
+        stmt = (
+            select(ChattigoCredentials.did)
+            .where(
+                ChattigoCredentials.organization_id == org_id,
+                ChattigoCredentials.enabled == True,  # noqa: E712
+            )
+            .limit(1)
+        )
+        result = await self._db.execute(stmt)
+        did = result.scalar_one_or_none()
+
+        if did:
+            logger.debug(f"Found Chattigo DID {did} for org {org_id}")
+        else:
+            logger.warning(f"No Chattigo DID found for org {org_id}")
+
+        return did
+
+    async def _db_to_config(
         self,
         db_config: PharmacyMerchantConfig,
         org_id: UUID,
     ) -> PharmacyConfig:
         """Convert DB model to PharmacyConfig dataclass."""
+        # Get Chattigo DID for notifications
+        chattigo_did = await self._get_chattigo_did(org_id)
+
         return PharmacyConfig(
             pharmacy_id=db_config.id,
             pharmacy_name=db_config.pharmacy_name,
@@ -362,6 +407,8 @@ class PharmacyConfigService:
             mp_notification_url=db_config.mp_notification_url,
             receipt_public_url_base=db_config.receipt_public_url_base,
             organization_id=org_id,
+            # Chattigo/WhatsApp configuration for notifications
+            chattigo_did=chattigo_did,
             # Payment options configuration (Smart Debt Negotiation)
             payment_option_half_percent=db_config.payment_option_half_percent,
             payment_option_minimum_percent=db_config.payment_option_minimum_percent,

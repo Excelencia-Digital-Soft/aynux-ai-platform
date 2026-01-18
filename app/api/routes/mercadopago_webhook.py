@@ -56,6 +56,7 @@ def validate_mp_signature(
     signature_header: str | None,
     secret: str | None,
     data_id: str | None = None,
+    request_id: str | None = None,
 ) -> bool:
     """
     Validate Mercado Pago webhook signature.
@@ -105,11 +106,17 @@ def validate_mp_signature(
 
         # Build the signed template
         # MP signs: "id:{data_id};request-id:{request_id};ts:{ts};"
-        # Simplified: We use just the data_id and timestamp
+        # All parts are optional but must be in order if present
+        template_parts = []
         if data_id:
-            template = f"id:{data_id};ts:{ts};"
-        else:
-            template = f"ts:{ts};"
+            template_parts.append(f"id:{data_id};")
+        if request_id:
+            template_parts.append(f"request-id:{request_id};")
+        template_parts.append(f"ts:{ts};")
+        template = "".join(template_parts)
+
+        logger.debug(f"[MP-WEBHOOK] Signature template: {template}")
+        logger.debug(f"[MP-WEBHOOK] Secret (first 10): {secret[:10]}...")
 
         # Calculate expected HMAC-SHA256
         expected = hmac.new(
@@ -122,6 +129,9 @@ def validate_mp_signature(
         is_valid = hmac.compare_digest(expected, v1)
 
         if not is_valid:
+            logger.warning(
+                f"[MP-WEBHOOK] Signature mismatch. Template: {template}"
+            )
             logger.warning(
                 f"[MP-WEBHOOK] Signature mismatch. Expected: {expected[:16]}..., Got: {v1[:16]}..."
             )
@@ -298,12 +308,19 @@ async def mercadopago_webhook(
             }
 
         # Validate webhook signature (Security Improvement)
+        # IMPORTANT: data.id must come from query params, not JSON body
+        # IPN v1 format: ?data.id=123&type=payment
+        # Legacy format: ?id=123&topic=payment
+        query_data_id = request.query_params.get("data.id") or request.query_params.get("id")
         signature_header = request.headers.get("x-signature")
+        request_id_header = request.headers.get("x-request-id")
+
         if not validate_mp_signature(
             payload=raw_body,
             signature_header=signature_header,
             secret=pharmacy_config.mp_webhook_secret,
-            data_id=payment_id,
+            data_id=query_data_id,  # Use query param, not JSON body
+            request_id=request_id_header,
         ):
             logger.warning(f"[MP-WEBHOOK] Invalid signature for payment {payment_id}")
             return {
@@ -363,13 +380,23 @@ async def mercadopago_webhook(
         )
 
         # Extract payer info and send notification
-        payer_phone = MercadoPagoPaymentMapper.extract_payer_phone(payment)
+        # Priority: 1) external_reference phone, 2) MercadoPago payer phone
+        payer_phone = ref_data.get("payer_phone") or MercadoPagoPaymentMapper.extract_payer_phone(payment)
         customer_name = MercadoPagoPaymentMapper.extract_payer_name(payment)
+        logger.info(f"[MP-WEBHOOK] Payer info: phone={payer_phone}, name={customer_name}")
 
         pdf_url = None
         notification_result = None
 
-        if payer_phone:
+        # Check for required notification credentials
+        chattigo_did = pharmacy_config.chattigo_did
+        if not chattigo_did:
+            logger.warning(
+                f"[MP-WEBHOOK] No Chattigo DID configured for org {org_id}, "
+                f"skipping WhatsApp notification"
+            )
+
+        if payer_phone and chattigo_did:
             pdf_url = await generate_and_store_receipt(
                 pharmacy_config=pharmacy_config,
                 amount=amount,
@@ -388,6 +415,8 @@ async def mercadopago_webhook(
                     new_balance=new_balance,
                     pdf_url=pdf_url,
                     customer_name=customer_name,
+                    db_session=db,
+                    chattigo_did=chattigo_did,
                     template_name=settings.WA_PAYMENT_RECEIPT_TEMPLATE,
                     template_language=settings.WA_PAYMENT_RECEIPT_LANGUAGE,
                 )
@@ -399,8 +428,10 @@ async def mercadopago_webhook(
                     amount=amount,
                     receipt_number=plex_receipt,
                     new_balance=new_balance,
+                    db_session=db,
+                    chattigo_did=chattigo_did,
                 )
-        else:
+        elif not payer_phone:
             logger.warning(f"[MP-WEBHOOK] No phone for payment {payment_id}, skipping notification")
 
         # Mark payment as successfully processed (idempotency)

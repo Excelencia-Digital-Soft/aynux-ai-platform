@@ -42,7 +42,7 @@ invoice_detail_menu:
 smart_debt_response: |
   *{pharmacy_name}*
 
-  Hola *{customer_name}*, tu cuenta:
+  *{customer_name}*, tu cuenta:
 
   ━━━━━━━━━━━━━━━━━━━━
   *Deuda Total: ${total_debt}*
@@ -56,14 +56,13 @@ smart_debt_response: |
 
   {options_text}
 
-  _Responde con el numero de la opcion (1-3)_
 
 # PAY_DEBT_MENU response template (Flujo 2: Pagar deuda directo)
 # Shows debt summary without invoice details, focused on payment
 pay_debt_menu_response: |
   *{pharmacy_name}*
 
-  Hola *{customer_name}*, tu deuda actual:
+  *{customer_name}*, tu deuda actual:
 
   ━━━━━━━━━━━━━━━━━━━━
   *Total a Pagar: ${total_debt}*
@@ -73,7 +72,6 @@ pay_debt_menu_response: |
 
   {options_text}
 
-  _Responde con el numero de la opcion (1-3)_
 
 # INVOICE_DETAIL response template (Ver detalle de factura)
 # Shows invoice detail WITHOUT medications (privacy rule)
@@ -91,8 +89,6 @@ invoice_detail_response: |
   *Que deseas hacer?*
 
   {options_text}
-
-  _Responde con el numero de la opcion (1-3)_
 
 # Payment confirmation templates
 payment_confirm:
